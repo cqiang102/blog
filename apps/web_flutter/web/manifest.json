@@ -1,0 +1,11 @@
+{
+  "name": "个人博客",
+  "short_name": "Blog",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F7FAF8",
+  "theme_color": "#1F6F64",
+  "description": "Flutter Web personal blog",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}

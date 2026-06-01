@@ -1,0 +1,47 @@
+name: personal-blog
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: blog-postgres
+    environment:
+      POSTGRES_DB: blog
+      POSTGRES_USER: blog
+      POSTGRES_PASSWORD: blog
+    ports:
+      - "5432:5432"
+    volumes:
+      - blog-postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blog -d blog"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: blog-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - blog-redis-data:/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: blog-minio
+    environment:
+      MINIO_ROOT_USER: blog_minio
+      MINIO_ROOT_PASSWORD: blog_minio_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: ["server", "/data", "--console-address", ":9001"]
+    volumes:
+      - blog-minio-data:/data
+
+volumes:
+  blog-postgres-data:
+  blog-redis-data:
+  blog-minio-data:

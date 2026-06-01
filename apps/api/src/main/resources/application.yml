@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: personal-blog-api
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:blog}
+    username: ${POSTGRES_USER:blog}
+    password: ${POSTGRES_PASSWORD:blog}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  flyway:
+    enabled: true
+  security:
+    oauth2:
+      client:
+        registration: {}
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:sk-local-placeholder}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
+      embedding:
+        options:
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+    vectorstore:
+      type: none
+      pgvector:
+        initialize-schema: false
+        dimensions: 1536
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+blog:
+  ai:
+    daily-question-limit: ${AI_DAILY_QUESTION_LIMIT:10}
+  security:
+    jwt-secret: ${JWT_SECRET:change-me-to-a-long-random-secret}
+    access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:30}
+    refresh-token-days: ${JWT_REFRESH_TOKEN_DAYS:30}
+  storage:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:blog_minio}
+    secret-key: ${MINIO_SECRET_KEY:blog_minio_password}
+    bucket: ${MINIO_BUCKET:blog-media}
