@@ -44,6 +44,10 @@ final commentsProvider = FutureProvider.family<PageResult<CommentItem>, String>(
   },
 );
 
+final friendsProvider = FutureProvider<List<FriendLink>>((ref) {
+  return ref.watch(apiClientProvider).fetchFriends();
+});
+
 final userActivityProvider =
     FutureProvider.family<PageResult<UserActivity>, String>((ref, type) {
       final token = ref.watch(authControllerProvider).accessToken;
@@ -77,6 +81,14 @@ final adminTagsProvider = FutureProvider<List<TagItem>>((ref) {
     throw const ApiException('请先登录');
   }
   return ref.watch(apiClientProvider).fetchAdminTags(token);
+});
+
+final adminFriendsProvider = FutureProvider<List<FriendLink>>((ref) {
+  final token = ref.watch(authControllerProvider).accessToken;
+  if (token == null) {
+    throw const ApiException('请先登录');
+  }
+  return ref.watch(apiClientProvider).fetchAdminFriends(token);
 });
 
 final adminContentsProvider = FutureProvider<PageResult<AdminContentItem>>((

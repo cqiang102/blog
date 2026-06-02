@@ -4,6 +4,7 @@ import com.caoqiang.blog.ai.AiChatSessionRepository;
 import com.caoqiang.blog.common.ApiResponse;
 import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.MediaAssetRepository;
+import com.caoqiang.blog.friend.FriendRepository;
 import com.caoqiang.blog.interaction.CommentRepository;
 import com.caoqiang.blog.interaction.LikeRepository;
 import com.caoqiang.blog.interaction.ViewRecordRepository;
@@ -21,6 +22,7 @@ public class AdminController {
 
     private final ContentRepository contentRepository;
     private final MediaAssetRepository mediaAssetRepository;
+    private final FriendRepository friendRepository;
     private final UserRepository userRepository;
     private final CommentRepository commentRepository;
     private final LikeRepository likeRepository;
@@ -30,6 +32,7 @@ public class AdminController {
     public AdminController(
             ContentRepository contentRepository,
             MediaAssetRepository mediaAssetRepository,
+            FriendRepository friendRepository,
             UserRepository userRepository,
             CommentRepository commentRepository,
             LikeRepository likeRepository,
@@ -38,6 +41,7 @@ public class AdminController {
     ) {
         this.contentRepository = contentRepository;
         this.mediaAssetRepository = mediaAssetRepository;
+        this.friendRepository = friendRepository;
         this.userRepository = userRepository;
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
@@ -50,6 +54,7 @@ public class AdminController {
         return ApiResponse.ok(Map.of(
                 "contents", contentRepository.count(),
                 "media", mediaAssetRepository.count(),
+                "friends", friendRepository.count(),
                 "users", userRepository.count(),
                 "comments", commentRepository.count(),
                 "likes", likeRepository.count(),

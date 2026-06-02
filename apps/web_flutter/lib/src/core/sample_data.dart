@@ -65,6 +65,7 @@ final route = GoRoute(path: '/contents/:id');
 
 final sampleFriends = <FriendLink>[
   const FriendLink(
+    id: '10000000-0000-0000-0000-000000000001',
     name: 'River Notes',
     intro: '写技术和生活的朋友。',
     avatarUrl:
@@ -72,6 +73,7 @@ final sampleFriends = <FriendLink>[
     siteUrl: 'https://example.com',
   ),
   const FriendLink(
+    id: '10000000-0000-0000-0000-000000000002',
     name: '小栈',
     intro: '前端、摄影、咖啡。',
     avatarUrl:
@@ -79,6 +81,7 @@ final sampleFriends = <FriendLink>[
     siteUrl: 'https://example.org',
   ),
   const FriendLink(
+    id: '10000000-0000-0000-0000-000000000003',
     name: 'North Lab',
     intro: '后端和 AI 工程笔记。',
     avatarUrl:
@@ -89,6 +92,8 @@ final sampleFriends = <FriendLink>[
 
 final adminMetrics = <AdminMetric>[
   const AdminMetric('内容', '3'),
+  const AdminMetric('媒体', '5'),
+  const AdminMetric('朋友', '3'),
   const AdminMetric('用户', '1'),
   const AdminMetric('评论', '12'),
   const AdminMetric('点赞', '92'),

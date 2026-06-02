@@ -393,16 +393,74 @@ class AuthSession {
 
 class FriendLink {
   const FriendLink({
+    required this.id,
     required this.name,
     required this.intro,
     required this.avatarUrl,
     required this.siteUrl,
+    this.visible = true,
+    this.sortOrder = 0,
+  });
+
+  final String id;
+  final String name;
+  final String intro;
+  final String avatarUrl;
+  final String siteUrl;
+  final bool visible;
+  final int sortOrder;
+
+  factory FriendLink.fromJson(Map<String, dynamic> json) {
+    return FriendLink(
+      id: _string(json['id']),
+      name: _string(json['name']),
+      intro: _string(json['intro']),
+      avatarUrl: _string(json['avatarUrl']),
+      siteUrl: _string(json['siteUrl']),
+      visible: json['visible'] != false,
+      sortOrder: _int(json['sortOrder']),
+    );
+  }
+}
+
+class FriendDraft {
+  const FriendDraft({
+    required this.name,
+    required this.intro,
+    required this.avatarUrl,
+    required this.siteUrl,
+    required this.visible,
+    required this.sortOrder,
   });
 
   final String name;
   final String intro;
   final String avatarUrl;
   final String siteUrl;
+  final bool visible;
+  final int sortOrder;
+
+  factory FriendDraft.fromItem(FriendLink item) {
+    return FriendDraft(
+      name: item.name,
+      intro: item.intro,
+      avatarUrl: item.avatarUrl,
+      siteUrl: item.siteUrl,
+      visible: item.visible,
+      sortOrder: item.sortOrder,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'name': name.trim(),
+      'intro': intro.trim(),
+      'avatarUrl': avatarUrl.trim(),
+      'siteUrl': siteUrl.trim(),
+      'visible': visible,
+      'sortOrder': sortOrder,
+    };
+  }
 }
 
 class AdminMetric {
@@ -416,6 +474,7 @@ class AdminDashboard {
   const AdminDashboard({
     required this.contents,
     required this.media,
+    required this.friends,
     required this.users,
     required this.comments,
     required this.likes,
@@ -425,6 +484,7 @@ class AdminDashboard {
 
   final int contents;
   final int media;
+  final int friends;
   final int users;
   final int comments;
   final int likes;
@@ -435,6 +495,7 @@ class AdminDashboard {
     return [
       AdminMetric('内容', contents.toString()),
       AdminMetric('媒体', media.toString()),
+      AdminMetric('朋友', friends.toString()),
       AdminMetric('用户', users.toString()),
       AdminMetric('评论', comments.toString()),
       AdminMetric('点赞', likes.toString()),
@@ -447,6 +508,7 @@ class AdminDashboard {
     return AdminDashboard(
       contents: _int(json['contents']),
       media: _int(json['media']),
+      friends: _int(json['friends']),
       users: _int(json['users']),
       comments: _int(json['comments']),
       likes: _int(json['likes']),

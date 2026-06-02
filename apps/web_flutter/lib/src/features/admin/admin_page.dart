@@ -41,7 +41,7 @@ class AdminPage extends ConsumerWidget {
     }
 
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('管理员中心'),
@@ -57,6 +57,7 @@ class AdminPage extends ConsumerWidget {
               Tab(icon: Icon(Icons.space_dashboard_outlined), text: '概览'),
               Tab(icon: Icon(Icons.article_outlined), text: '内容'),
               Tab(icon: Icon(Icons.perm_media_outlined), text: '媒体'),
+              Tab(icon: Icon(Icons.people_outline), text: '朋友'),
               Tab(icon: Icon(Icons.sell_outlined), text: '标签'),
             ],
           ),
@@ -66,6 +67,7 @@ class AdminPage extends ConsumerWidget {
             _DashboardTab(),
             _ContentAdminTab(),
             _MediaAdminTab(),
+            _FriendAdminTab(),
             _TagAdminTab(),
           ],
         ),
@@ -77,6 +79,7 @@ class AdminPage extends ConsumerWidget {
     ref.invalidate(adminDashboardProvider);
     ref.invalidate(adminContentsProvider);
     ref.invalidate(adminMediaProvider);
+    ref.invalidate(adminFriendsProvider);
     ref.invalidate(adminTagsProvider);
   }
 }
@@ -797,6 +800,228 @@ class _MediaAdminRow extends StatelessWidget {
   }
 }
 
+class _FriendAdminTab extends ConsumerWidget {
+  const _FriendAdminTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final friends = ref.watch(adminFriendsProvider);
+
+    return friends.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error:
+          (error, stackTrace) => _ErrorPane(
+            message: error.toString(),
+            onRetry: () => ref.invalidate(adminFriendsProvider),
+          ),
+      data:
+          (items) => ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              _SectionToolbar(
+                title: '朋友管理',
+                actionLabel: '新增朋友',
+                actionIcon: Icons.add,
+                onAction: () => _openFriendEditor(context, ref),
+              ),
+              const SizedBox(height: 12),
+              if (items.isEmpty)
+                const _EmptyPane(message: '暂无朋友')
+              else
+                for (final friend in items) ...[
+                  _FriendAdminRow(
+                    friend: friend,
+                    onEdit:
+                        () => _openFriendEditor(context, ref, friend: friend),
+                    onDelete: () => _deleteFriend(context, ref, friend),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+            ],
+          ),
+    );
+  }
+
+  Future<void> _openFriendEditor(
+    BuildContext context,
+    WidgetRef ref, {
+    FriendLink? friend,
+  }) async {
+    final draft = await showDialog<FriendDraft>(
+      context: context,
+      builder: (context) => _FriendEditorDialog(friend: friend),
+    );
+    if (draft == null || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      final api = ref.read(apiClientProvider);
+      if (friend == null) {
+        await api.createAdminFriend(accessToken: token, draft: draft);
+      } else {
+        await api.updateAdminFriend(
+          accessToken: token,
+          id: friend.id,
+          draft: draft,
+        );
+      }
+      _refreshFriendState(ref);
+      if (!context.mounted) return;
+      _showSnack(context, friend == null ? '朋友已创建' : '朋友已保存');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  Future<void> _deleteFriend(
+    BuildContext context,
+    WidgetRef ref,
+    FriendLink friend,
+  ) async {
+    final confirmed = await _confirm(
+      context,
+      title: '删除朋友',
+      message: '确认删除「${friend.name}」？',
+      action: '删除',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .deleteAdminFriend(accessToken: token, id: friend.id);
+      _refreshFriendState(ref);
+      if (!context.mounted) return;
+      _showSnack(context, '朋友已删除');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  void _refreshFriendState(WidgetRef ref) {
+    ref.invalidate(adminFriendsProvider);
+    ref.invalidate(friendsProvider);
+    ref.invalidate(adminDashboardProvider);
+  }
+}
+
+class _FriendAdminRow extends StatelessWidget {
+  const _FriendAdminRow({
+    required this.friend,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final FriendLink friend;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _FriendAvatar(friend: friend),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        friend.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        friend.intro.isEmpty ? friend.siteUrl : friend.intro,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        friend.siteUrl,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Chip(
+                  avatar: Icon(
+                    friend.visible
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    size: 18,
+                  ),
+                  label: Text(friend.visible ? '公开' : '隐藏'),
+                ),
+                Chip(label: Text('排序 ${friend.sortOrder}')),
+                OutlinedButton.icon(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('编辑'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('删除'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FriendAvatar extends StatelessWidget {
+  const _FriendAvatar({required this.friend});
+
+  final FriendLink friend;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = friend.name.isEmpty ? '?' : friend.name.substring(0, 1);
+    if (friend.avatarUrl.isEmpty) {
+      return CircleAvatar(radius: 24, child: Text(fallback));
+    }
+    return CircleAvatar(
+      radius: 24,
+      backgroundImage: NetworkImage(friend.avatarUrl),
+      onBackgroundImageError: (_, _) {},
+      child: null,
+    );
+  }
+}
+
 class _TagAdminTab extends ConsumerWidget {
   const _TagAdminTab();
 
@@ -1494,6 +1719,169 @@ class _NumberField extends StatelessWidget {
           if (text.isEmpty) return null;
           return int.tryParse(text) == null ? '请输入数字' : null;
         },
+      ),
+    );
+  }
+}
+
+class _FriendEditorDialog extends StatefulWidget {
+  const _FriendEditorDialog({required this.friend});
+
+  final FriendLink? friend;
+
+  @override
+  State<_FriendEditorDialog> createState() => _FriendEditorDialogState();
+}
+
+class _FriendEditorDialogState extends State<_FriendEditorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _introController = TextEditingController();
+  final _avatarController = TextEditingController();
+  final _siteController = TextEditingController();
+  final _sortController = TextEditingController();
+  late bool _visible;
+
+  @override
+  void initState() {
+    super.initState();
+    final friend = widget.friend;
+    final draft =
+        friend == null
+            ? const FriendDraft(
+              name: '',
+              intro: '',
+              avatarUrl: '',
+              siteUrl: '',
+              visible: true,
+              sortOrder: 0,
+            )
+            : FriendDraft.fromItem(friend);
+    _nameController.text = draft.name;
+    _introController.text = draft.intro;
+    _avatarController.text = draft.avatarUrl;
+    _siteController.text = draft.siteUrl;
+    _sortController.text = draft.sortOrder.toString();
+    _visible = draft.visible;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _introController.dispose();
+    _avatarController.dispose();
+    _siteController.dispose();
+    _sortController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.friend == null ? '新增朋友' : '编辑朋友'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: '名称'),
+                  maxLength: 80,
+                  validator:
+                      (value) =>
+                          value == null || value.trim().isEmpty
+                              ? '请输入名称'
+                              : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _siteController,
+                  decoration: const InputDecoration(labelText: '站点 URL'),
+                  validator: _validateRequiredUrl,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _avatarController,
+                  decoration: const InputDecoration(labelText: '头像 URL'),
+                  validator: _validateOptionalUrl,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _introController,
+                  decoration: const InputDecoration(labelText: '简介'),
+                  maxLines: 3,
+                  maxLength: 1000,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _sortController,
+                  decoration: const InputDecoration(labelText: '排序值'),
+                  keyboardType: TextInputType.number,
+                  validator:
+                      (value) =>
+                          int.tryParse(value?.trim() ?? '') == null
+                              ? '请输入数字'
+                              : null,
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('公开展示'),
+                  value: _visible,
+                  onChanged: (value) => setState(() => _visible = value),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton.icon(
+          onPressed: _submit,
+          icon: const Icon(Icons.save),
+          label: const Text('保存'),
+        ),
+      ],
+    );
+  }
+
+  String? _validateRequiredUrl(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return '请输入站点 URL';
+    return _validateUrlText(text);
+  }
+
+  String? _validateOptionalUrl(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return null;
+    return _validateUrlText(text);
+  }
+
+  String? _validateUrlText(String text) {
+    final uri = Uri.tryParse(text);
+    if (uri == null || !uri.hasScheme) return '请输入完整 URL';
+    return null;
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.of(context).pop(
+      FriendDraft(
+        name: _nameController.text,
+        intro: _introController.text,
+        avatarUrl: _avatarController.text,
+        siteUrl: _siteController.text,
+        visible: _visible,
+        sortOrder: int.parse(_sortController.text.trim()),
       ),
     );
   }

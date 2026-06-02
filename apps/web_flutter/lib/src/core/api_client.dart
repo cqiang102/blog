@@ -73,6 +73,14 @@ class BlogApiClient {
     return BlogContent.fromDetailJson((data as Map).cast<String, dynamic>());
   }
 
+  Future<List<FriendLink>> fetchFriends() async {
+    final data = await _get('/friends/random');
+    return (data as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => FriendLink.fromJson(item.cast<String, dynamic>()))
+        .toList();
+  }
+
   Future<AuthSession> login({
     required String email,
     required String password,
@@ -254,6 +262,46 @@ class BlogApiClient {
     required String id,
   }) async {
     await _delete('/admin/tags/$id', accessToken: accessToken);
+  }
+
+  Future<List<FriendLink>> fetchAdminFriends(String accessToken) async {
+    final data = await _get('/admin/friends', accessToken: accessToken);
+    return (data as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => FriendLink.fromJson(item.cast<String, dynamic>()))
+        .toList();
+  }
+
+  Future<FriendLink> createAdminFriend({
+    required String accessToken,
+    required FriendDraft draft,
+  }) async {
+    final data = await _post(
+      '/admin/friends',
+      accessToken: accessToken,
+      body: draft.toJson(),
+    );
+    return FriendLink.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<FriendLink> updateAdminFriend({
+    required String accessToken,
+    required String id,
+    required FriendDraft draft,
+  }) async {
+    final data = await _put(
+      '/admin/friends/$id',
+      accessToken: accessToken,
+      body: draft.toJson(),
+    );
+    return FriendLink.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<void> deleteAdminFriend({
+    required String accessToken,
+    required String id,
+  }) async {
+    await _delete('/admin/friends/$id', accessToken: accessToken);
   }
 
   Future<PageResult<AdminContentItem>> fetchAdminContents({

@@ -7,6 +7,7 @@ import com.caoqiang.blog.auth.RefreshTokenRepository;
 import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.MediaAssetRepository;
 import com.caoqiang.blog.content.TagRepository;
+import com.caoqiang.blog.friend.FriendRepository;
 import com.caoqiang.blog.interaction.CommentRepository;
 import com.caoqiang.blog.interaction.LikeRepository;
 import com.caoqiang.blog.interaction.ViewRecordRepository;
@@ -34,6 +35,9 @@ class BlogApiApplicationContextTest {
 
     @MockitoBean
     private TagRepository tagRepository;
+
+    @MockitoBean
+    private FriendRepository friendRepository;
 
     @MockitoBean
     private CommentRepository commentRepository;
