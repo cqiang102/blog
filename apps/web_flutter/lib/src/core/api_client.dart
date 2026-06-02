@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -330,6 +331,27 @@ class BlogApiClient {
     return AdminMediaItem.fromJson((data as Map).cast<String, dynamic>());
   }
 
+  Future<AdminMediaItem> uploadAdminMedia({
+    required String accessToken,
+    required Uint8List bytes,
+    required String filename,
+    required MediaAssetType type,
+    String contentId = '',
+  }) async {
+    final data = await _sendMultipart(
+      '/admin/media-assets/upload',
+      accessToken: accessToken,
+      fields: {
+        if (contentId.isNotEmpty) 'contentId': contentId,
+        'type': type.apiValue,
+      },
+      fileField: 'file',
+      filename: filename,
+      bytes: bytes,
+    );
+    return AdminMediaItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
   Future<AdminMediaItem> updateAdminMedia({
     required String accessToken,
     required String id,
@@ -425,6 +447,44 @@ class BlogApiClient {
       _ => await _httpClient.get(uri, headers: headers),
     };
 
+    final decoded =
+        response.body.isEmpty ? <String, Object?>{} : jsonDecode(response.body);
+    if (decoded is! Map) {
+      throw ApiException('后端响应格式不正确', statusCode: response.statusCode);
+    }
+
+    final envelope = decoded.cast<String, dynamic>();
+    final success = envelope['success'] == true;
+    if (response.statusCode >= 400 || !success) {
+      throw ApiException(
+        envelope['message']?.toString() ?? '请求失败',
+        statusCode: response.statusCode,
+      );
+    }
+
+    return envelope['data'];
+  }
+
+  Future<Object?> _sendMultipart(
+    String path, {
+    required String accessToken,
+    required Map<String, String> fields,
+    required String fileField,
+    required String filename,
+    required Uint8List bytes,
+  }) async {
+    final request = http.MultipartRequest('POST', _uri(path, const {}));
+    request.headers.addAll({
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $accessToken',
+    });
+    request.fields.addAll(fields);
+    request.files.add(
+      http.MultipartFile.fromBytes(fileField, bytes, filename: filename),
+    );
+
+    final streamedResponse = await _httpClient.send(request);
+    final response = await http.Response.fromStream(streamedResponse);
     final decoded =
         response.body.isEmpty ? <String, Object?>{} : jsonDecode(response.body);
     if (decoded is! Map) {

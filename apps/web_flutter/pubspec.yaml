@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   cached_network_image: ^3.4.1
+  file_picker: ^11.0.2
   flutter:
     sdk: flutter
   flutter_markdown: ^0.7.4

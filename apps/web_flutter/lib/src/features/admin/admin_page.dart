@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -495,9 +496,13 @@ class _MediaAdminTab extends ConsumerWidget {
             children: [
               _SectionToolbar(
                 title: '媒体管理',
-                actionLabel: '新增媒体',
-                actionIcon: Icons.add,
-                onAction: () => _openMediaEditor(context, ref, contents),
+                actionLabel: '上传文件',
+                actionIcon: Icons.upload_file,
+                onAction: () => _pickAndUpload(context, ref, contents),
+                secondaryLabel: '外链媒体',
+                secondaryIcon: Icons.add_link,
+                onSecondaryAction:
+                    () => _openMediaEditor(context, ref, contents),
               ),
               if (contentError != null) ...[
                 const SizedBox(height: 12),
@@ -528,6 +533,58 @@ class _MediaAdminTab extends ConsumerWidget {
             ],
           ),
     );
+  }
+
+  Future<void> _pickAndUpload(
+    BuildContext context,
+    WidgetRef ref,
+    List<AdminContentItem> contents,
+  ) async {
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: false,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty || !context.mounted) return;
+
+      final file = result.files.single;
+      final bytes = file.bytes;
+      if (bytes == null) {
+        _showSnack(context, '没有读取到文件内容');
+        return;
+      }
+
+      final draft = await showDialog<_UploadMediaDraft>(
+        context: context,
+        builder:
+            (context) => _UploadMediaDialog(
+              filename: file.name,
+              inferredType: _inferMediaType(file.name),
+              contents: contents,
+            ),
+      );
+      if (draft == null || !context.mounted) return;
+
+      final token = ref.read(authControllerProvider).accessToken;
+      if (token == null) return;
+
+      await ref
+          .read(apiClientProvider)
+          .uploadAdminMedia(
+            accessToken: token,
+            bytes: bytes,
+            filename: file.name,
+            type: draft.type,
+            contentId: draft.contentId,
+          );
+      _refreshMediaState(ref);
+      if (!context.mounted) return;
+      _showSnack(context, '文件已上传');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
   }
 
   Future<void> _openMediaEditor(
@@ -875,12 +932,18 @@ class _SectionToolbar extends StatelessWidget {
     required this.actionLabel,
     required this.actionIcon,
     required this.onAction,
+    this.secondaryLabel,
+    this.secondaryIcon,
+    this.onSecondaryAction,
   });
 
   final String title;
   final String actionLabel;
   final IconData actionIcon;
   final VoidCallback onAction;
+  final String? secondaryLabel;
+  final IconData? secondaryIcon;
+  final VoidCallback? onSecondaryAction;
 
   @override
   Widget build(BuildContext context) {
@@ -894,10 +957,23 @@ class _SectionToolbar extends StatelessWidget {
             ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
-        FilledButton.icon(
-          onPressed: onAction,
-          icon: Icon(actionIcon),
-          label: Text(actionLabel),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.end,
+          children: [
+            if (secondaryLabel != null)
+              OutlinedButton.icon(
+                onPressed: onSecondaryAction,
+                icon: Icon(secondaryIcon ?? Icons.add),
+                label: Text(secondaryLabel!),
+              ),
+            FilledButton.icon(
+              onPressed: onAction,
+              icon: Icon(actionIcon),
+              label: Text(actionLabel),
+            ),
+          ],
         ),
       ],
     );
@@ -1108,6 +1184,110 @@ class _ContentEditorDialogState extends State<_ContentEditorDialog> {
         pinned: _pinned,
         tagSlugs: _tagSlugs.toList()..sort(),
       ),
+    );
+  }
+}
+
+class _UploadMediaDraft {
+  const _UploadMediaDraft({required this.contentId, required this.type});
+
+  final String contentId;
+  final MediaAssetType type;
+}
+
+class _UploadMediaDialog extends StatefulWidget {
+  const _UploadMediaDialog({
+    required this.filename,
+    required this.inferredType,
+    required this.contents,
+  });
+
+  final String filename;
+  final MediaAssetType inferredType;
+  final List<AdminContentItem> contents;
+
+  @override
+  State<_UploadMediaDialog> createState() => _UploadMediaDialogState();
+}
+
+class _UploadMediaDialogState extends State<_UploadMediaDialog> {
+  late String _contentId;
+  late MediaAssetType _type;
+
+  @override
+  void initState() {
+    super.initState();
+    _contentId = '';
+    _type = widget.inferredType;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('上传文件'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.insert_drive_file_outlined),
+              title: Text(
+                widget.filename,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: const Text('文件会上传到 MinIO 并自动写入媒体库'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _contentId,
+              decoration: const InputDecoration(labelText: '绑定内容'),
+              items: [
+                const DropdownMenuItem(value: '', child: Text('不绑定内容')),
+                for (final content in widget.contents)
+                  DropdownMenuItem(
+                    value: content.id,
+                    child: Text(
+                      content.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _contentId = value ?? ''),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<MediaAssetType>(
+              initialValue: _type,
+              decoration: const InputDecoration(labelText: '媒体类型'),
+              items: [
+                for (final type in MediaAssetType.values)
+                  DropdownMenuItem(value: type, child: Text(type.label)),
+              ],
+              onChanged:
+                  (value) =>
+                      setState(() => _type = value ?? MediaAssetType.file),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton.icon(
+          onPressed:
+              () => Navigator.of(
+                context,
+              ).pop(_UploadMediaDraft(contentId: _contentId, type: _type)),
+          icon: const Icon(Icons.upload_file),
+          label: const Text('上传'),
+        ),
+      ],
     );
   }
 }
@@ -1613,4 +1793,21 @@ int? _parseNullableInt(String value) {
   final text = value.trim();
   if (text.isEmpty) return null;
   return int.tryParse(text);
+}
+
+MediaAssetType _inferMediaType(String filename) {
+  final lower = filename.toLowerCase();
+  if (lower.endsWith('.mp4') ||
+      lower.endsWith('.webm') ||
+      lower.endsWith('.mov')) {
+    return MediaAssetType.video;
+  }
+  if (lower.endsWith('.jpg') ||
+      lower.endsWith('.jpeg') ||
+      lower.endsWith('.png') ||
+      lower.endsWith('.gif') ||
+      lower.endsWith('.webp')) {
+    return MediaAssetType.image;
+  }
+  return MediaAssetType.file;
 }

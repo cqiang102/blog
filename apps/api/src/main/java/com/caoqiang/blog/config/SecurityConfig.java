@@ -41,6 +41,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/contents/**", "/api/v1/friends/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/media-assets/*/file").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/contents/*/views").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()

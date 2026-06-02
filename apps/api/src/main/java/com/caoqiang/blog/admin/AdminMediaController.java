@@ -5,10 +5,12 @@ import com.caoqiang.blog.common.PageResponse;
 import com.caoqiang.blog.content.AdminContentResponse;
 import com.caoqiang.blog.content.AdminMediaRequest;
 import com.caoqiang.blog.content.AdminMediaResponse;
+import com.caoqiang.blog.content.MediaAssetType;
 import com.caoqiang.blog.content.MediaAdminService;
 import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -41,6 +44,15 @@ public class AdminMediaController {
     @PostMapping("/media-assets")
     public ApiResponse<AdminMediaResponse> create(@Valid @RequestBody AdminMediaRequest request) {
         return ApiResponse.ok(mediaAdminService.create(request));
+    }
+
+    @PostMapping(value = "/media-assets/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<AdminMediaResponse> upload(
+            @RequestParam(required = false) UUID contentId,
+            @RequestParam(required = false) MediaAssetType type,
+            @RequestParam("file") MultipartFile file
+    ) {
+        return ApiResponse.ok(mediaAdminService.upload(contentId, type, file));
     }
 
     @PutMapping("/media-assets/{id}")

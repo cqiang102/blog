@@ -109,6 +109,10 @@ public class MediaAsset {
         this.durationSeconds = durationSeconds;
     }
 
+    public void setPublicUrl(String publicUrl) {
+        this.publicUrl = publicUrl;
+    }
+
     public Content getContent() {
         return content;
     }

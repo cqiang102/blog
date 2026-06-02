@@ -120,6 +120,8 @@ public class BlogProperties {
         private String accessKey;
         private String secretKey;
         private String bucket;
+        private String publicBaseUrl = "http://localhost:8080";
+        private long maxUploadBytes = 52_428_800;
 
         public String getEndpoint() {
             return endpoint;
@@ -151,6 +153,22 @@ public class BlogProperties {
 
         public void setBucket(String bucket) {
             this.bucket = bucket;
+        }
+
+        public String getPublicBaseUrl() {
+            return publicBaseUrl;
+        }
+
+        public void setPublicBaseUrl(String publicBaseUrl) {
+            this.publicBaseUrl = publicBaseUrl;
+        }
+
+        public long getMaxUploadBytes() {
+            return maxUploadBytes;
+        }
+
+        public void setMaxUploadBytes(long maxUploadBytes) {
+            this.maxUploadBytes = maxUploadBytes;
         }
     }
 }
