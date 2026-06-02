@@ -3,6 +3,7 @@ package com.caoqiang.blog;
 import com.caoqiang.blog.ai.AiChatMessageRepository;
 import com.caoqiang.blog.ai.AiChatSessionRepository;
 import com.caoqiang.blog.ai.AiDailyQuotaRepository;
+import com.caoqiang.blog.ai.KnowledgeDocRepository;
 import com.caoqiang.blog.auth.RefreshTokenRepository;
 import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.MediaAssetRepository;
@@ -56,6 +57,9 @@ class BlogApiApplicationContextTest {
 
     @MockitoBean
     private AiDailyQuotaRepository aiDailyQuotaRepository;
+
+    @MockitoBean
+    private KnowledgeDocRepository knowledgeDocRepository;
 
     @Test
     void contextLoadsWithoutDatabaseForDiagnostics() {

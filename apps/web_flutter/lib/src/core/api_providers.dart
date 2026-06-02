@@ -160,6 +160,19 @@ final adminAiChatsProvider =
       },
     );
 
+final adminKnowledgeDocsProvider = FutureProvider.family<
+  PageResult<AdminKnowledgeDocItem>,
+  AdminKnowledgeDocQuery
+>((ref, query) {
+  final token = ref.watch(authControllerProvider).accessToken;
+  if (token == null) {
+    throw const ApiException('请先登录');
+  }
+  return ref
+      .watch(apiClientProvider)
+      .fetchAdminKnowledgeDocs(accessToken: token, query: query);
+});
+
 final adminContentsProvider = FutureProvider<PageResult<AdminContentItem>>((
   ref,
 ) {

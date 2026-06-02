@@ -1,6 +1,7 @@
 package com.caoqiang.blog.admin;
 
 import com.caoqiang.blog.ai.AiChatSessionRepository;
+import com.caoqiang.blog.ai.KnowledgeDocRepository;
 import com.caoqiang.blog.common.ApiResponse;
 import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.MediaAssetRepository;
@@ -28,6 +29,7 @@ public class AdminController {
     private final LikeRepository likeRepository;
     private final ViewRecordRepository viewRecordRepository;
     private final AiChatSessionRepository aiChatSessionRepository;
+    private final KnowledgeDocRepository knowledgeDocRepository;
 
     public AdminController(
             ContentRepository contentRepository,
@@ -37,7 +39,8 @@ public class AdminController {
             CommentRepository commentRepository,
             LikeRepository likeRepository,
             ViewRecordRepository viewRecordRepository,
-            AiChatSessionRepository aiChatSessionRepository
+            AiChatSessionRepository aiChatSessionRepository,
+            KnowledgeDocRepository knowledgeDocRepository
     ) {
         this.contentRepository = contentRepository;
         this.mediaAssetRepository = mediaAssetRepository;
@@ -47,6 +50,7 @@ public class AdminController {
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
         this.aiChatSessionRepository = aiChatSessionRepository;
+        this.knowledgeDocRepository = knowledgeDocRepository;
     }
 
     @GetMapping("/dashboard")
@@ -59,7 +63,8 @@ public class AdminController {
                 "comments", commentRepository.count(),
                 "likes", likeRepository.count(),
                 "views", viewRecordRepository.count(),
-                "aiChats", aiChatSessionRepository.count()
+                "aiChats", aiChatSessionRepository.count(),
+                "knowledgeDocs", knowledgeDocRepository.count()
         ));
     }
 

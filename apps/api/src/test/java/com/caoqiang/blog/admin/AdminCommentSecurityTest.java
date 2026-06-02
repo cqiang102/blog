@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.caoqiang.blog.ai.AiChatMessageRepository;
 import com.caoqiang.blog.ai.AiChatSessionRepository;
 import com.caoqiang.blog.ai.AiDailyQuotaRepository;
+import com.caoqiang.blog.ai.KnowledgeDocRepository;
 import com.caoqiang.blog.auth.RefreshTokenRepository;
 import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.MediaAssetRepository;
@@ -68,6 +69,9 @@ class AdminCommentSecurityTest {
     @MockitoBean
     private AiDailyQuotaRepository aiDailyQuotaRepository;
 
+    @MockitoBean
+    private KnowledgeDocRepository knowledgeDocRepository;
+
     @Test
     void userCannotAccessAdminComments() throws Exception {
         mockMvc.perform(get("/api/v1/admin/comments").with(user("reader").roles("USER")))
@@ -95,6 +99,12 @@ class AdminCommentSecurityTest {
     @Test
     void userCannotAccessAdminAiChats() throws Exception {
         mockMvc.perform(get("/api/v1/admin/ai/chats").with(user("reader").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void userCannotAccessAdminKnowledgeDocs() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/knowledge/docs").with(user("reader").roles("USER")))
                 .andExpect(status().isForbidden());
     }
 }

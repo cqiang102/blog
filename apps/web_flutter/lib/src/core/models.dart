@@ -170,6 +170,40 @@ enum AdminUserStatus {
   }
 }
 
+enum KnowledgeSourceType {
+  manual,
+  url,
+  file,
+  content;
+
+  String get apiValue {
+    return switch (this) {
+      KnowledgeSourceType.manual => 'MANUAL',
+      KnowledgeSourceType.url => 'URL',
+      KnowledgeSourceType.file => 'FILE',
+      KnowledgeSourceType.content => 'CONTENT',
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      KnowledgeSourceType.manual => '手动录入',
+      KnowledgeSourceType.url => '网页',
+      KnowledgeSourceType.file => '文件',
+      KnowledgeSourceType.content => '内容引用',
+    };
+  }
+
+  static KnowledgeSourceType fromApi(String? value) {
+    return switch (value?.toUpperCase()) {
+      'URL' => KnowledgeSourceType.url,
+      'FILE' => KnowledgeSourceType.file,
+      'CONTENT' => KnowledgeSourceType.content,
+      _ => KnowledgeSourceType.manual,
+    };
+  }
+}
+
 class BlogContent {
   const BlogContent({
     required this.id,
@@ -417,6 +451,32 @@ class AdminAiChatQuery {
 
   @override
   int get hashCode => Object.hash(query, userId, page, size);
+}
+
+class AdminKnowledgeDocQuery {
+  const AdminKnowledgeDocQuery({
+    this.query = '',
+    this.enabled,
+    this.page = 0,
+    this.size = 50,
+  });
+
+  final String query;
+  final bool? enabled;
+  final int page;
+  final int size;
+
+  @override
+  bool operator ==(Object other) {
+    return other is AdminKnowledgeDocQuery &&
+        other.query == query &&
+        other.enabled == enabled &&
+        other.page == page &&
+        other.size == size;
+  }
+
+  @override
+  int get hashCode => Object.hash(query, enabled, page, size);
 }
 
 class UserProfile {
@@ -880,6 +940,77 @@ class AdminAiChatDetail {
   }
 }
 
+class AdminKnowledgeDocItem {
+  const AdminKnowledgeDocItem({
+    required this.id,
+    required this.title,
+    required this.sourceType,
+    required this.sourceRef,
+    required this.body,
+    required this.enabled,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String title;
+  final KnowledgeSourceType sourceType;
+  final String sourceRef;
+  final String body;
+  final bool enabled;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  factory AdminKnowledgeDocItem.fromJson(Map<String, dynamic> json) {
+    return AdminKnowledgeDocItem(
+      id: _string(json['id']),
+      title: _string(json['title']),
+      sourceType: KnowledgeSourceType.fromApi(_string(json['sourceType'])),
+      sourceRef: _string(json['sourceRef']),
+      body: _string(json['body']),
+      enabled: json['enabled'] != false,
+      createdAt: _date(json['createdAt']),
+      updatedAt: _date(json['updatedAt']),
+    );
+  }
+}
+
+class AdminKnowledgeDocDraft {
+  const AdminKnowledgeDocDraft({
+    required this.title,
+    required this.sourceType,
+    required this.sourceRef,
+    required this.body,
+    required this.enabled,
+  });
+
+  final String title;
+  final KnowledgeSourceType sourceType;
+  final String sourceRef;
+  final String body;
+  final bool enabled;
+
+  factory AdminKnowledgeDocDraft.fromItem(AdminKnowledgeDocItem item) {
+    return AdminKnowledgeDocDraft(
+      title: item.title,
+      sourceType: item.sourceType,
+      sourceRef: item.sourceRef,
+      body: item.body,
+      enabled: item.enabled,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'title': title.trim(),
+      'sourceType': sourceType.apiValue,
+      'sourceRef': sourceRef.trim(),
+      'body': body.trim(),
+      'enabled': enabled,
+    };
+  }
+}
+
 class AuthSession {
   const AuthSession({
     required this.accessToken,
@@ -992,6 +1123,7 @@ class AdminDashboard {
     required this.likes,
     required this.views,
     required this.aiChats,
+    required this.knowledgeDocs,
   });
 
   final int contents;
@@ -1002,6 +1134,7 @@ class AdminDashboard {
   final int likes;
   final int views;
   final int aiChats;
+  final int knowledgeDocs;
 
   List<AdminMetric> get metrics {
     return [
@@ -1013,6 +1146,7 @@ class AdminDashboard {
       AdminMetric('点赞', likes.toString()),
       AdminMetric('浏览', views.toString()),
       AdminMetric('AI 会话', aiChats.toString()),
+      AdminMetric('知识库', knowledgeDocs.toString()),
     ];
   }
 
@@ -1026,6 +1160,7 @@ class AdminDashboard {
       likes: _int(json['likes']),
       views: _int(json['views']),
       aiChats: _int(json['aiChats']),
+      knowledgeDocs: _int(json['knowledgeDocs']),
     );
   }
 }

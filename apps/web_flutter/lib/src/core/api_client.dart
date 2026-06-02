@@ -463,6 +463,59 @@ class BlogApiClient {
     await _delete('/admin/ai/chats/$id', accessToken: accessToken);
   }
 
+  Future<PageResult<AdminKnowledgeDocItem>> fetchAdminKnowledgeDocs({
+    required String accessToken,
+    required AdminKnowledgeDocQuery query,
+  }) async {
+    final data = await _get(
+      '/admin/knowledge/docs',
+      accessToken: accessToken,
+      queryParameters: {
+        if (query.query.trim().isNotEmpty) 'query': query.query.trim(),
+        if (query.enabled != null) 'enabled': query.enabled.toString(),
+        'page': query.page.toString(),
+        'size': query.size.toString(),
+      },
+    );
+    return _page(data, AdminKnowledgeDocItem.fromJson);
+  }
+
+  Future<AdminKnowledgeDocItem> createAdminKnowledgeDoc({
+    required String accessToken,
+    required AdminKnowledgeDocDraft draft,
+  }) async {
+    final data = await _post(
+      '/admin/knowledge/docs',
+      accessToken: accessToken,
+      body: draft.toJson(),
+    );
+    return AdminKnowledgeDocItem.fromJson(
+      (data as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<AdminKnowledgeDocItem> updateAdminKnowledgeDoc({
+    required String accessToken,
+    required String id,
+    required AdminKnowledgeDocDraft draft,
+  }) async {
+    final data = await _put(
+      '/admin/knowledge/docs/$id',
+      accessToken: accessToken,
+      body: draft.toJson(),
+    );
+    return AdminKnowledgeDocItem.fromJson(
+      (data as Map).cast<String, dynamic>(),
+    );
+  }
+
+  Future<void> deleteAdminKnowledgeDoc({
+    required String accessToken,
+    required String id,
+  }) async {
+    await _delete('/admin/knowledge/docs/$id', accessToken: accessToken);
+  }
+
   Future<PageResult<AdminContentItem>> fetchAdminContents({
     required String accessToken,
     int page = 0,
