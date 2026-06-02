@@ -51,6 +51,14 @@ public class Like {
         return content;
     }
 
+    public UUID getId() {
+        return id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }

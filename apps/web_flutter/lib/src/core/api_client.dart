@@ -343,6 +343,56 @@ class BlogApiClient {
     await _delete('/admin/comments/$id', accessToken: accessToken);
   }
 
+  Future<PageResult<AdminLikeItem>> fetchAdminLikes({
+    required String accessToken,
+    required AdminRecordQuery query,
+  }) async {
+    final data = await _get(
+      '/admin/likes',
+      accessToken: accessToken,
+      queryParameters: {
+        if (query.contentId.trim().isNotEmpty)
+          'contentId': query.contentId.trim(),
+        if (query.userId.trim().isNotEmpty) 'userId': query.userId.trim(),
+        'page': query.page.toString(),
+        'size': query.size.toString(),
+      },
+    );
+    return _page(data, AdminLikeItem.fromJson);
+  }
+
+  Future<void> deleteAdminLike({
+    required String accessToken,
+    required String id,
+  }) async {
+    await _delete('/admin/likes/$id', accessToken: accessToken);
+  }
+
+  Future<PageResult<AdminViewRecordItem>> fetchAdminViews({
+    required String accessToken,
+    required AdminRecordQuery query,
+  }) async {
+    final data = await _get(
+      '/admin/views',
+      accessToken: accessToken,
+      queryParameters: {
+        if (query.contentId.trim().isNotEmpty)
+          'contentId': query.contentId.trim(),
+        if (query.userId.trim().isNotEmpty) 'userId': query.userId.trim(),
+        'page': query.page.toString(),
+        'size': query.size.toString(),
+      },
+    );
+    return _page(data, AdminViewRecordItem.fromJson);
+  }
+
+  Future<void> deleteAdminView({
+    required String accessToken,
+    required String id,
+  }) async {
+    await _delete('/admin/views/$id', accessToken: accessToken);
+  }
+
   Future<PageResult<AdminContentItem>> fetchAdminContents({
     required String accessToken,
     int page = 0,

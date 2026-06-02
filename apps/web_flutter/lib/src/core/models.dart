@@ -286,6 +286,32 @@ class AdminCommentQuery {
   int get hashCode => Object.hash(status, contentId, userId, page, size);
 }
 
+class AdminRecordQuery {
+  const AdminRecordQuery({
+    this.contentId = '',
+    this.userId = '',
+    this.page = 0,
+    this.size = 50,
+  });
+
+  final String contentId;
+  final String userId;
+  final int page;
+  final int size;
+
+  @override
+  bool operator ==(Object other) {
+    return other is AdminRecordQuery &&
+        other.contentId == contentId &&
+        other.userId == userId &&
+        other.page == page &&
+        other.size == size;
+  }
+
+  @override
+  int get hashCode => Object.hash(contentId, userId, page, size);
+}
+
 class UserProfile {
   const UserProfile({
     required this.id,
@@ -400,6 +426,81 @@ class AdminCommentItem {
       body: _string(json['body']),
       createdAt: _date(json['createdAt']),
       updatedAt: _date(json['updatedAt']),
+    );
+  }
+}
+
+class AdminLikeItem {
+  const AdminLikeItem({
+    required this.id,
+    required this.contentId,
+    required this.contentTitle,
+    required this.userId,
+    required this.userNickname,
+    required this.userEmail,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String contentId;
+  final String contentTitle;
+  final String userId;
+  final String userNickname;
+  final String userEmail;
+  final DateTime createdAt;
+
+  factory AdminLikeItem.fromJson(Map<String, dynamic> json) {
+    return AdminLikeItem(
+      id: _string(json['id']),
+      contentId: _string(json['contentId']),
+      contentTitle: _string(json['contentTitle']),
+      userId: _string(json['userId']),
+      userNickname: _string(json['userNickname']),
+      userEmail: _string(json['userEmail']),
+      createdAt: _date(json['createdAt']),
+    );
+  }
+}
+
+class AdminViewRecordItem {
+  const AdminViewRecordItem({
+    required this.id,
+    required this.contentId,
+    required this.contentTitle,
+    required this.userId,
+    required this.userNickname,
+    required this.userEmail,
+    required this.anonymousId,
+    required this.ipHash,
+    required this.userAgent,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String contentId;
+  final String contentTitle;
+  final String userId;
+  final String userNickname;
+  final String userEmail;
+  final String anonymousId;
+  final String ipHash;
+  final String userAgent;
+  final DateTime createdAt;
+
+  bool get anonymous => userId.isEmpty;
+
+  factory AdminViewRecordItem.fromJson(Map<String, dynamic> json) {
+    return AdminViewRecordItem(
+      id: _string(json['id']),
+      contentId: _string(json['contentId']),
+      contentTitle: _string(json['contentTitle']),
+      userId: _string(json['userId']),
+      userNickname: _string(json['userNickname']),
+      userEmail: _string(json['userEmail']),
+      anonymousId: _string(json['anonymousId']),
+      ipHash: _string(json['ipHash']),
+      userAgent: _string(json['userAgent']),
+      createdAt: _date(json['createdAt']),
     );
   }
 }

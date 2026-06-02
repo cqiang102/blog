@@ -73,4 +73,16 @@ class AdminCommentSecurityTest {
         mockMvc.perform(get("/api/v1/admin/comments").with(user("reader").roles("USER")))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void userCannotAccessAdminLikes() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/likes").with(user("reader").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void userCannotAccessAdminViews() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/views").with(user("reader").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
 }

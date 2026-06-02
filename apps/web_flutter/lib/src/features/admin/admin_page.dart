@@ -41,7 +41,7 @@ class AdminPage extends ConsumerWidget {
     }
 
     return DefaultTabController(
-      length: 6,
+      length: 8,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('管理员中心'),
@@ -53,6 +53,7 @@ class AdminPage extends ConsumerWidget {
             ),
           ],
           bottom: const TabBar(
+            isScrollable: true,
             tabs: [
               Tab(icon: Icon(Icons.space_dashboard_outlined), text: '概览'),
               Tab(icon: Icon(Icons.article_outlined), text: '内容'),
@@ -60,6 +61,8 @@ class AdminPage extends ConsumerWidget {
               Tab(icon: Icon(Icons.people_outline), text: '朋友'),
               Tab(icon: Icon(Icons.sell_outlined), text: '标签'),
               Tab(icon: Icon(Icons.mode_comment_outlined), text: '评论'),
+              Tab(icon: Icon(Icons.favorite_border), text: '点赞'),
+              Tab(icon: Icon(Icons.history_outlined), text: '浏览'),
             ],
           ),
         ),
@@ -71,6 +74,8 @@ class AdminPage extends ConsumerWidget {
             _FriendAdminTab(),
             _TagAdminTab(),
             _CommentAdminTab(),
+            _LikeAdminTab(),
+            _ViewAdminTab(),
           ],
         ),
       ),
@@ -84,6 +89,8 @@ class AdminPage extends ConsumerWidget {
     ref.invalidate(adminFriendsProvider);
     ref.invalidate(adminTagsProvider);
     ref.invalidate(adminCommentsProvider);
+    ref.invalidate(adminLikesProvider);
+    ref.invalidate(adminViewsProvider);
   }
 }
 
@@ -1463,6 +1470,432 @@ class _CommentAdminRow extends StatelessWidget {
                   icon: const Icon(Icons.restore_outlined),
                   label: const Text('恢复'),
                 ),
+                OutlinedButton.icon(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('删除'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LikeAdminTab extends ConsumerStatefulWidget {
+  const _LikeAdminTab();
+
+  @override
+  ConsumerState<_LikeAdminTab> createState() => _LikeAdminTabState();
+}
+
+class _LikeAdminTabState extends ConsumerState<_LikeAdminTab> {
+  final _contentIdController = TextEditingController();
+  final _userIdController = TextEditingController();
+  AdminRecordQuery _query = const AdminRecordQuery();
+
+  @override
+  void dispose() {
+    _contentIdController.dispose();
+    _userIdController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final likes = ref.watch(adminLikesProvider(_query));
+
+    return likes.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error:
+          (error, stackTrace) => _ErrorPane(
+            message: error.toString(),
+            onRetry: () => ref.invalidate(adminLikesProvider(_query)),
+          ),
+      data:
+          (page) => ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              _SectionToolbar(
+                title: '点赞记录',
+                actionLabel: '刷新',
+                actionIcon: Icons.refresh,
+                onAction: () => ref.invalidate(adminLikesProvider(_query)),
+              ),
+              const SizedBox(height: 12),
+              _RecordFilters(
+                contentIdController: _contentIdController,
+                userIdController: _userIdController,
+                onApply: _applyFilters,
+                onClear: _clearFilters,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '共 ${page.total} 条点赞记录',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              if (page.items.isEmpty)
+                const _EmptyPane(message: '暂无点赞记录')
+              else
+                for (final like in page.items) ...[
+                  _LikeAdminRow(
+                    like: like,
+                    onDelete: () => _deleteLike(context, like),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+            ],
+          ),
+    );
+  }
+
+  void _applyFilters() {
+    setState(() {
+      _query = AdminRecordQuery(
+        contentId: _contentIdController.text.trim(),
+        userId: _userIdController.text.trim(),
+      );
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _contentIdController.clear();
+      _userIdController.clear();
+      _query = const AdminRecordQuery();
+    });
+  }
+
+  Future<void> _deleteLike(BuildContext context, AdminLikeItem like) async {
+    final confirmed = await _confirm(
+      context,
+      title: '删除点赞记录',
+      message: '确认删除这条点赞记录？',
+      action: '删除',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .deleteAdminLike(accessToken: token, id: like.id);
+      _refreshLikeState(like.contentId);
+      if (!context.mounted) return;
+      _showSnack(context, '点赞记录已删除');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  void _refreshLikeState(String contentId) {
+    ref.invalidate(adminLikesProvider(_query));
+    ref.invalidate(adminDashboardProvider);
+    ref.invalidate(adminContentsProvider);
+    ref.invalidate(contentDetailProvider(contentId));
+    ref.invalidate(recommendationsProvider);
+  }
+}
+
+class _ViewAdminTab extends ConsumerStatefulWidget {
+  const _ViewAdminTab();
+
+  @override
+  ConsumerState<_ViewAdminTab> createState() => _ViewAdminTabState();
+}
+
+class _ViewAdminTabState extends ConsumerState<_ViewAdminTab> {
+  final _contentIdController = TextEditingController();
+  final _userIdController = TextEditingController();
+  AdminRecordQuery _query = const AdminRecordQuery();
+
+  @override
+  void dispose() {
+    _contentIdController.dispose();
+    _userIdController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final views = ref.watch(adminViewsProvider(_query));
+
+    return views.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error:
+          (error, stackTrace) => _ErrorPane(
+            message: error.toString(),
+            onRetry: () => ref.invalidate(adminViewsProvider(_query)),
+          ),
+      data:
+          (page) => ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              _SectionToolbar(
+                title: '浏览记录',
+                actionLabel: '刷新',
+                actionIcon: Icons.refresh,
+                onAction: () => ref.invalidate(adminViewsProvider(_query)),
+              ),
+              const SizedBox(height: 12),
+              _RecordFilters(
+                contentIdController: _contentIdController,
+                userIdController: _userIdController,
+                onApply: _applyFilters,
+                onClear: _clearFilters,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '共 ${page.total} 条浏览记录',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              if (page.items.isEmpty)
+                const _EmptyPane(message: '暂无浏览记录')
+              else
+                for (final view in page.items) ...[
+                  _ViewAdminRow(
+                    view: view,
+                    onDelete: () => _deleteView(context, view),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+            ],
+          ),
+    );
+  }
+
+  void _applyFilters() {
+    setState(() {
+      _query = AdminRecordQuery(
+        contentId: _contentIdController.text.trim(),
+        userId: _userIdController.text.trim(),
+      );
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _contentIdController.clear();
+      _userIdController.clear();
+      _query = const AdminRecordQuery();
+    });
+  }
+
+  Future<void> _deleteView(
+    BuildContext context,
+    AdminViewRecordItem view,
+  ) async {
+    final confirmed = await _confirm(
+      context,
+      title: '删除浏览记录',
+      message: '确认删除这条浏览记录？',
+      action: '删除',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .deleteAdminView(accessToken: token, id: view.id);
+      _refreshViewState(view.contentId);
+      if (!context.mounted) return;
+      _showSnack(context, '浏览记录已删除');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  void _refreshViewState(String contentId) {
+    ref.invalidate(adminViewsProvider(_query));
+    ref.invalidate(adminDashboardProvider);
+    ref.invalidate(adminContentsProvider);
+    ref.invalidate(contentDetailProvider(contentId));
+  }
+}
+
+class _RecordFilters extends StatelessWidget {
+  const _RecordFilters({
+    required this.contentIdController,
+    required this.userIdController,
+    required this.onApply,
+    required this.onClear,
+  });
+
+  final TextEditingController contentIdController;
+  final TextEditingController userIdController;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 300,
+          child: TextField(
+            controller: contentIdController,
+            decoration: const InputDecoration(labelText: '内容 ID'),
+          ),
+        ),
+        SizedBox(
+          width: 300,
+          child: TextField(
+            controller: userIdController,
+            decoration: const InputDecoration(labelText: '用户 ID'),
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: onApply,
+          icon: const Icon(Icons.filter_alt_outlined),
+          label: const Text('筛选'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onClear,
+          icon: const Icon(Icons.clear),
+          label: const Text('清空'),
+        ),
+      ],
+    );
+  }
+}
+
+class _LikeAdminRow extends StatelessWidget {
+  const _LikeAdminRow({required this.like, required this.onDelete});
+
+  final AdminLikeItem like;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final createdAt = _formatDate(like.createdAt);
+    final userLabel =
+        like.userNickname.isEmpty ? like.userEmail : like.userNickname;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.favorite_border),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => context.go('/contents/${like.contentId}'),
+                    child: Text(
+                      like.contentTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _MetaText(icon: Icons.person_outline, text: userLabel),
+                if (like.userEmail.isNotEmpty)
+                  _MetaText(icon: Icons.mail_outline, text: like.userEmail),
+                _MetaText(icon: Icons.schedule_outlined, text: createdAt),
+                OutlinedButton.icon(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('删除'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ViewAdminRow extends StatelessWidget {
+  const _ViewAdminRow({required this.view, required this.onDelete});
+
+  final AdminViewRecordItem view;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final createdAt = _formatDate(view.createdAt);
+    final userLabel =
+        view.anonymous
+            ? '匿名访客'
+            : (view.userNickname.isEmpty ? view.userEmail : view.userNickname);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.history_outlined),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => context.go('/contents/${view.contentId}'),
+                    child: Text(
+                      view.contentTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (view.userAgent.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                view.userAgent,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _MetaText(icon: Icons.person_outline, text: userLabel),
+                if (view.userEmail.isNotEmpty)
+                  _MetaText(icon: Icons.mail_outline, text: view.userEmail),
+                if (view.anonymousId.isNotEmpty)
+                  _MetaText(icon: Icons.fingerprint, text: view.anonymousId),
+                _MetaText(icon: Icons.schedule_outlined, text: createdAt),
                 OutlinedButton.icon(
                   onPressed: onDelete,
                   icon: const Icon(Icons.delete_outline),

@@ -65,6 +65,22 @@ public class ViewRecord {
         return id;
     }
 
+    public User getUser() {
+        return user;
+    }
+
+    public String getAnonymousId() {
+        return anonymousId;
+    }
+
+    public String getIpHash() {
+        return ipHash;
+    }
+
+    public String getUserAgent() {
+        return userAgent;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }

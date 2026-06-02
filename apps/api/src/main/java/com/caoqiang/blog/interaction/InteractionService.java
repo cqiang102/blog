@@ -162,6 +162,7 @@ public class InteractionService {
         ViewRecord viewRecord = viewRecordRepository.findByIdAndUserId(viewRecordId, currentUser.id())
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "浏览记录不存在"));
         viewRecordRepository.delete(viewRecord);
+        contentRepository.incrementViewCount(viewRecord.getContent().getId(), -1);
     }
 
     private Content publishedContent(UUID contentId) {

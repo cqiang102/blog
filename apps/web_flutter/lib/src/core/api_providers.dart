@@ -105,6 +105,34 @@ final adminCommentsProvider =
           .fetchAdminComments(accessToken: token, query: query);
     });
 
+final adminLikesProvider =
+    FutureProvider.family<PageResult<AdminLikeItem>, AdminRecordQuery>((
+      ref,
+      query,
+    ) {
+      final token = ref.watch(authControllerProvider).accessToken;
+      if (token == null) {
+        throw const ApiException('请先登录');
+      }
+      return ref
+          .watch(apiClientProvider)
+          .fetchAdminLikes(accessToken: token, query: query);
+    });
+
+final adminViewsProvider =
+    FutureProvider.family<PageResult<AdminViewRecordItem>, AdminRecordQuery>((
+      ref,
+      query,
+    ) {
+      final token = ref.watch(authControllerProvider).accessToken;
+      if (token == null) {
+        throw const ApiException('请先登录');
+      }
+      return ref
+          .watch(apiClientProvider)
+          .fetchAdminViews(accessToken: token, query: query);
+    });
+
 final adminContentsProvider = FutureProvider<PageResult<AdminContentItem>>((
   ref,
 ) {
