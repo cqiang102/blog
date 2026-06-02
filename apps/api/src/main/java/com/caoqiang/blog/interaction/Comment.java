@@ -74,6 +74,10 @@ public class Comment {
         status = CommentStatus.DELETED;
     }
 
+    public void setStatus(CommentStatus status) {
+        this.status = status;
+    }
+
     public boolean isVisible() {
         return status == CommentStatus.VISIBLE;
     }
@@ -100,5 +104,9 @@ public class Comment {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 }

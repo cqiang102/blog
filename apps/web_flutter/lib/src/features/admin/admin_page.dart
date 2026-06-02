@@ -41,7 +41,7 @@ class AdminPage extends ConsumerWidget {
     }
 
     return DefaultTabController(
-      length: 5,
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('管理员中心'),
@@ -59,6 +59,7 @@ class AdminPage extends ConsumerWidget {
               Tab(icon: Icon(Icons.perm_media_outlined), text: '媒体'),
               Tab(icon: Icon(Icons.people_outline), text: '朋友'),
               Tab(icon: Icon(Icons.sell_outlined), text: '标签'),
+              Tab(icon: Icon(Icons.mode_comment_outlined), text: '评论'),
             ],
           ),
         ),
@@ -69,6 +70,7 @@ class AdminPage extends ConsumerWidget {
             _MediaAdminTab(),
             _FriendAdminTab(),
             _TagAdminTab(),
+            _CommentAdminTab(),
           ],
         ),
       ),
@@ -81,6 +83,7 @@ class AdminPage extends ConsumerWidget {
     ref.invalidate(adminMediaProvider);
     ref.invalidate(adminFriendsProvider);
     ref.invalidate(adminTagsProvider);
+    ref.invalidate(adminCommentsProvider);
   }
 }
 
@@ -1151,6 +1154,329 @@ class _TagAdminTab extends ConsumerWidget {
   }
 }
 
+class _CommentAdminTab extends ConsumerStatefulWidget {
+  const _CommentAdminTab();
+
+  @override
+  ConsumerState<_CommentAdminTab> createState() => _CommentAdminTabState();
+}
+
+class _CommentAdminTabState extends ConsumerState<_CommentAdminTab> {
+  final _contentIdController = TextEditingController();
+  final _userIdController = TextEditingController();
+  AdminCommentStatus? _status;
+  AdminCommentQuery _query = const AdminCommentQuery();
+
+  @override
+  void dispose() {
+    _contentIdController.dispose();
+    _userIdController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final comments = ref.watch(adminCommentsProvider(_query));
+
+    return comments.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error:
+          (error, stackTrace) => _ErrorPane(
+            message: error.toString(),
+            onRetry: () => ref.invalidate(adminCommentsProvider(_query)),
+          ),
+      data:
+          (page) => ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              _SectionToolbar(
+                title: '评论管理',
+                actionLabel: '刷新',
+                actionIcon: Icons.refresh,
+                onAction: () => ref.invalidate(adminCommentsProvider(_query)),
+              ),
+              const SizedBox(height: 12),
+              _CommentFilters(
+                status: _status,
+                contentIdController: _contentIdController,
+                userIdController: _userIdController,
+                onStatusChanged: (value) => setState(() => _status = value),
+                onApply: _applyFilters,
+                onClear: _clearFilters,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '共 ${page.total} 条评论',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              if (page.items.isEmpty)
+                const _EmptyPane(message: '暂无评论')
+              else
+                for (final comment in page.items) ...[
+                  _CommentAdminRow(
+                    comment: comment,
+                    onDelete:
+                        comment.deleted
+                            ? null
+                            : () => _deleteComment(context, comment),
+                    onRestore:
+                        comment.deleted
+                            ? () => _setStatus(
+                              context,
+                              comment,
+                              AdminCommentStatus.visible,
+                            )
+                            : null,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+            ],
+          ),
+    );
+  }
+
+  void _applyFilters() {
+    setState(() {
+      _query = AdminCommentQuery(
+        status: _status,
+        contentId: _contentIdController.text.trim(),
+        userId: _userIdController.text.trim(),
+      );
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _status = null;
+      _contentIdController.clear();
+      _userIdController.clear();
+      _query = const AdminCommentQuery();
+    });
+  }
+
+  Future<void> _deleteComment(
+    BuildContext context,
+    AdminCommentItem comment,
+  ) async {
+    final confirmed = await _confirm(
+      context,
+      title: '删除评论',
+      message: '确认删除这条评论？',
+      action: '删除',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .deleteAdminComment(accessToken: token, id: comment.id);
+      _refreshCommentState(comment.contentId);
+      if (!context.mounted) return;
+      _showSnack(context, '评论已删除');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  Future<void> _setStatus(
+    BuildContext context,
+    AdminCommentItem comment,
+    AdminCommentStatus status,
+  ) async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .updateAdminCommentStatus(
+            accessToken: token,
+            id: comment.id,
+            status: status,
+          );
+      _refreshCommentState(comment.contentId);
+      if (!context.mounted) return;
+      _showSnack(
+        context,
+        status == AdminCommentStatus.visible ? '评论已恢复' : '评论已删除',
+      );
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  void _refreshCommentState(String contentId) {
+    ref.invalidate(adminCommentsProvider(_query));
+    ref.invalidate(adminDashboardProvider);
+    ref.invalidate(adminContentsProvider);
+    ref.invalidate(contentDetailProvider(contentId));
+    ref.invalidate(commentsProvider(contentId));
+  }
+}
+
+class _CommentFilters extends StatelessWidget {
+  const _CommentFilters({
+    required this.status,
+    required this.contentIdController,
+    required this.userIdController,
+    required this.onStatusChanged,
+    required this.onApply,
+    required this.onClear,
+  });
+
+  final AdminCommentStatus? status;
+  final TextEditingController contentIdController;
+  final TextEditingController userIdController;
+  final ValueChanged<AdminCommentStatus?> onStatusChanged;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 180,
+          child: DropdownButtonFormField<AdminCommentStatus?>(
+            initialValue: status,
+            decoration: const InputDecoration(labelText: '状态'),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('全部状态')),
+              DropdownMenuItem(
+                value: AdminCommentStatus.visible,
+                child: Text('可见'),
+              ),
+              DropdownMenuItem(
+                value: AdminCommentStatus.deleted,
+                child: Text('已删除'),
+              ),
+            ],
+            onChanged: onStatusChanged,
+          ),
+        ),
+        SizedBox(
+          width: 300,
+          child: TextField(
+            controller: contentIdController,
+            decoration: const InputDecoration(labelText: '内容 ID'),
+          ),
+        ),
+        SizedBox(
+          width: 300,
+          child: TextField(
+            controller: userIdController,
+            decoration: const InputDecoration(labelText: '用户 ID'),
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: onApply,
+          icon: const Icon(Icons.filter_alt_outlined),
+          label: const Text('筛选'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onClear,
+          icon: const Icon(Icons.clear),
+          label: const Text('清空'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CommentAdminRow extends StatelessWidget {
+  const _CommentAdminRow({
+    required this.comment,
+    required this.onDelete,
+    required this.onRestore,
+  });
+
+  final AdminCommentItem comment;
+  final VoidCallback? onDelete;
+  final VoidCallback? onRestore;
+
+  @override
+  Widget build(BuildContext context) {
+    final createdAt = _formatDate(comment.createdAt);
+    final userLabel =
+        comment.userNickname.isEmpty ? comment.userEmail : comment.userNickname;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.mode_comment_outlined),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap:
+                            () => context.go('/contents/${comment.contentId}'),
+                        child: Text(
+                          comment.contentTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        comment.body,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _CommentStatusChip(status: comment.status),
+                _MetaText(icon: Icons.person_outline, text: userLabel),
+                if (comment.userEmail.isNotEmpty)
+                  _MetaText(icon: Icons.mail_outline, text: comment.userEmail),
+                _MetaText(icon: Icons.schedule_outlined, text: createdAt),
+                OutlinedButton.icon(
+                  onPressed: onRestore,
+                  icon: const Icon(Icons.restore_outlined),
+                  label: const Text('恢复'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('删除'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SectionToolbar extends StatelessWidget {
   const _SectionToolbar({
     required this.title,
@@ -1995,6 +2321,22 @@ class _StatusChip extends StatelessWidget {
       ContentStatus.published => scheme.primaryContainer,
       ContentStatus.archived => scheme.errorContainer,
       ContentStatus.draft => scheme.secondaryContainer,
+    };
+    return Chip(label: Text(status.label), backgroundColor: color);
+  }
+}
+
+class _CommentStatusChip extends StatelessWidget {
+  const _CommentStatusChip({required this.status});
+
+  final AdminCommentStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = switch (status) {
+      AdminCommentStatus.visible => scheme.primaryContainer,
+      AdminCommentStatus.deleted => scheme.errorContainer,
     };
     return Chip(label: Text(status.label), backgroundColor: color);
   }

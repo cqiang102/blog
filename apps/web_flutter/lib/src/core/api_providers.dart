@@ -91,6 +91,20 @@ final adminFriendsProvider = FutureProvider<List<FriendLink>>((ref) {
   return ref.watch(apiClientProvider).fetchAdminFriends(token);
 });
 
+final adminCommentsProvider =
+    FutureProvider.family<PageResult<AdminCommentItem>, AdminCommentQuery>((
+      ref,
+      query,
+    ) {
+      final token = ref.watch(authControllerProvider).accessToken;
+      if (token == null) {
+        throw const ApiException('请先登录');
+      }
+      return ref
+          .watch(apiClientProvider)
+          .fetchAdminComments(accessToken: token, query: query);
+    });
+
 final adminContentsProvider = FutureProvider<PageResult<AdminContentItem>>((
   ref,
 ) {

@@ -304,6 +304,45 @@ class BlogApiClient {
     await _delete('/admin/friends/$id', accessToken: accessToken);
   }
 
+  Future<PageResult<AdminCommentItem>> fetchAdminComments({
+    required String accessToken,
+    required AdminCommentQuery query,
+  }) async {
+    final data = await _get(
+      '/admin/comments',
+      accessToken: accessToken,
+      queryParameters: {
+        if (query.status != null) 'status': query.status!.apiValue,
+        if (query.contentId.trim().isNotEmpty)
+          'contentId': query.contentId.trim(),
+        if (query.userId.trim().isNotEmpty) 'userId': query.userId.trim(),
+        'page': query.page.toString(),
+        'size': query.size.toString(),
+      },
+    );
+    return _page(data, AdminCommentItem.fromJson);
+  }
+
+  Future<AdminCommentItem> updateAdminCommentStatus({
+    required String accessToken,
+    required String id,
+    required AdminCommentStatus status,
+  }) async {
+    final data = await _put(
+      '/admin/comments/$id/status',
+      accessToken: accessToken,
+      body: {'status': status.apiValue},
+    );
+    return AdminCommentItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<void> deleteAdminComment({
+    required String accessToken,
+    required String id,
+  }) async {
+    await _delete('/admin/comments/$id', accessToken: accessToken);
+  }
+
   Future<PageResult<AdminContentItem>> fetchAdminContents({
     required String accessToken,
     int page = 0,

@@ -92,6 +92,32 @@ enum MediaAssetType {
   }
 }
 
+enum AdminCommentStatus {
+  visible,
+  deleted;
+
+  String get apiValue {
+    return switch (this) {
+      AdminCommentStatus.visible => 'VISIBLE',
+      AdminCommentStatus.deleted => 'DELETED',
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      AdminCommentStatus.visible => '可见',
+      AdminCommentStatus.deleted => '已删除',
+    };
+  }
+
+  static AdminCommentStatus fromApi(String? value) {
+    return switch (value?.toUpperCase()) {
+      'DELETED' => AdminCommentStatus.deleted,
+      _ => AdminCommentStatus.visible,
+    };
+  }
+}
+
 class BlogContent {
   const BlogContent({
     required this.id,
@@ -231,6 +257,35 @@ class ContentListQuery {
   int get hashCode => Object.hash(query, tag, type, page, size);
 }
 
+class AdminCommentQuery {
+  const AdminCommentQuery({
+    this.status,
+    this.contentId = '',
+    this.userId = '',
+    this.page = 0,
+    this.size = 50,
+  });
+
+  final AdminCommentStatus? status;
+  final String contentId;
+  final String userId;
+  final int page;
+  final int size;
+
+  @override
+  bool operator ==(Object other) {
+    return other is AdminCommentQuery &&
+        other.status == status &&
+        other.contentId == contentId &&
+        other.userId == userId &&
+        other.page == page &&
+        other.size == size;
+  }
+
+  @override
+  int get hashCode => Object.hash(status, contentId, userId, page, size);
+}
+
 class UserProfile {
   const UserProfile({
     required this.id,
@@ -302,6 +357,49 @@ class CommentItem {
       body: _string(json['body']),
       authorNickname: nickname.isEmpty ? '用户' : nickname,
       createdAt: _date(json['createdAt']),
+    );
+  }
+}
+
+class AdminCommentItem {
+  const AdminCommentItem({
+    required this.id,
+    required this.contentId,
+    required this.contentTitle,
+    required this.userId,
+    required this.userNickname,
+    required this.userEmail,
+    required this.status,
+    required this.body,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String contentId;
+  final String contentTitle;
+  final String userId;
+  final String userNickname;
+  final String userEmail;
+  final AdminCommentStatus status;
+  final String body;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  bool get deleted => status == AdminCommentStatus.deleted;
+
+  factory AdminCommentItem.fromJson(Map<String, dynamic> json) {
+    return AdminCommentItem(
+      id: _string(json['id']),
+      contentId: _string(json['contentId']),
+      contentTitle: _string(json['contentTitle']),
+      userId: _string(json['userId']),
+      userNickname: _string(json['userNickname']),
+      userEmail: _string(json['userEmail']),
+      status: AdminCommentStatus.fromApi(_string(json['status'])),
+      body: _string(json['body']),
+      createdAt: _date(json['createdAt']),
+      updatedAt: _date(json['updatedAt']),
     );
   }
 }
