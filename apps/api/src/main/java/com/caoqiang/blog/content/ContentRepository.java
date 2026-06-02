@@ -24,6 +24,14 @@ public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpec
     @EntityGraph(attributePaths = {"tags", "coverMedia", "mediaAssets"})
     Optional<Content> findByIdAndStatus(UUID id, ContentStatus status);
 
+    @Override
+    @EntityGraph(attributePaths = {"tags", "coverMedia"})
+    Optional<Content> findById(UUID id);
+
+    boolean existsBySlug(String slug);
+
+    boolean existsBySlugAndIdNot(String slug, UUID id);
+
     boolean existsByIdAndStatus(UUID id, ContentStatus status);
 
     @Modifying

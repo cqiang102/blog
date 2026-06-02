@@ -210,6 +210,96 @@ class BlogApiClient {
     return AiChatReply.fromJson((data as Map).cast<String, dynamic>());
   }
 
+  Future<AdminDashboard> fetchAdminDashboard(String accessToken) async {
+    final data = await _get('/admin/dashboard', accessToken: accessToken);
+    return AdminDashboard.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<List<TagItem>> fetchAdminTags(String accessToken) async {
+    final data = await _get('/admin/tags', accessToken: accessToken);
+    return (data as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => TagItem.fromJson(item.cast<String, dynamic>()))
+        .toList();
+  }
+
+  Future<TagItem> createAdminTag({
+    required String accessToken,
+    required TagDraft draft,
+  }) async {
+    final data = await _post(
+      '/admin/tags',
+      accessToken: accessToken,
+      body: draft.toJson(),
+    );
+    return TagItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<TagItem> updateAdminTag({
+    required String accessToken,
+    required String id,
+    required TagDraft draft,
+  }) async {
+    final data = await _put(
+      '/admin/tags/$id',
+      accessToken: accessToken,
+      body: draft.toJson(),
+    );
+    return TagItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<void> deleteAdminTag({
+    required String accessToken,
+    required String id,
+  }) async {
+    await _delete('/admin/tags/$id', accessToken: accessToken);
+  }
+
+  Future<PageResult<AdminContentItem>> fetchAdminContents({
+    required String accessToken,
+    int page = 0,
+    int size = 50,
+  }) async {
+    final data = await _get(
+      '/admin/contents',
+      accessToken: accessToken,
+      queryParameters: {'page': page.toString(), 'size': size.toString()},
+    );
+    return _page(data, AdminContentItem.fromJson);
+  }
+
+  Future<AdminContentItem> createAdminContent({
+    required String accessToken,
+    required AdminContentDraft draft,
+  }) async {
+    final data = await _post(
+      '/admin/contents',
+      accessToken: accessToken,
+      body: draft.toJson(),
+    );
+    return AdminContentItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<AdminContentItem> updateAdminContent({
+    required String accessToken,
+    required String id,
+    required AdminContentDraft draft,
+  }) async {
+    final data = await _put(
+      '/admin/contents/$id',
+      accessToken: accessToken,
+      body: draft.toJson(),
+    );
+    return AdminContentItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<void> archiveAdminContent({
+    required String accessToken,
+    required String id,
+  }) async {
+    await _delete('/admin/contents/$id', accessToken: accessToken);
+  }
+
   Future<Object?> _get(
     String path, {
     Map<String, String?> queryParameters = const {},

@@ -62,3 +62,29 @@ final aiQuotaProvider = FutureProvider<AiQuota>((ref) {
   }
   return ref.watch(apiClientProvider).fetchAiQuota(token);
 });
+
+final adminDashboardProvider = FutureProvider<AdminDashboard>((ref) {
+  final token = ref.watch(authControllerProvider).accessToken;
+  if (token == null) {
+    throw const ApiException('请先登录');
+  }
+  return ref.watch(apiClientProvider).fetchAdminDashboard(token);
+});
+
+final adminTagsProvider = FutureProvider<List<TagItem>>((ref) {
+  final token = ref.watch(authControllerProvider).accessToken;
+  if (token == null) {
+    throw const ApiException('请先登录');
+  }
+  return ref.watch(apiClientProvider).fetchAdminTags(token);
+});
+
+final adminContentsProvider = FutureProvider<PageResult<AdminContentItem>>((
+  ref,
+) {
+  final token = ref.watch(authControllerProvider).accessToken;
+  if (token == null) {
+    throw const ApiException('请先登录');
+  }
+  return ref.watch(apiClientProvider).fetchAdminContents(accessToken: token);
+});

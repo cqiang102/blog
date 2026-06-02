@@ -12,6 +12,8 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -86,6 +88,65 @@ public class Content {
     private List<MediaAsset> mediaAssets = new ArrayList<>();
 
     protected Content() {
+    }
+
+    public Content(
+            String title,
+            String slug,
+            ContentType type,
+            ContentStatus status,
+            String summary,
+            String bodyMarkdown,
+            boolean pinned,
+            Instant publishedAt,
+            Set<Tag> tags
+    ) {
+        apply(title, slug, type, status, summary, bodyMarkdown, pinned, publishedAt, tags);
+    }
+
+    @PrePersist
+    void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    public void apply(
+            String title,
+            String slug,
+            ContentType type,
+            ContentStatus status,
+            String summary,
+            String bodyMarkdown,
+            boolean pinned,
+            Instant publishedAt,
+            Set<Tag> tags
+    ) {
+        this.title = title;
+        this.slug = slug;
+        this.type = type;
+        this.status = status;
+        this.summary = summary;
+        this.bodyMarkdown = bodyMarkdown;
+        this.pinned = pinned;
+        this.publishedAt = status == ContentStatus.PUBLISHED
+                ? (publishedAt == null ? Instant.now() : publishedAt)
+                : publishedAt;
+        this.tags.clear();
+        this.tags.addAll(tags);
+    }
+
+    public void archive() {
+        this.status = ContentStatus.ARCHIVED;
     }
 
     public UUID getId() {

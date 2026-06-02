@@ -1,6 +1,12 @@
 package com.caoqiang.blog.admin;
 
+import com.caoqiang.blog.ai.AiChatSessionRepository;
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.content.ContentRepository;
+import com.caoqiang.blog.interaction.CommentRepository;
+import com.caoqiang.blog.interaction.LikeRepository;
+import com.caoqiang.blog.interaction.ViewRecordRepository;
+import com.caoqiang.blog.user.UserRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -12,15 +18,38 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/admin")
 public class AdminController {
 
+    private final ContentRepository contentRepository;
+    private final UserRepository userRepository;
+    private final CommentRepository commentRepository;
+    private final LikeRepository likeRepository;
+    private final ViewRecordRepository viewRecordRepository;
+    private final AiChatSessionRepository aiChatSessionRepository;
+
+    public AdminController(
+            ContentRepository contentRepository,
+            UserRepository userRepository,
+            CommentRepository commentRepository,
+            LikeRepository likeRepository,
+            ViewRecordRepository viewRecordRepository,
+            AiChatSessionRepository aiChatSessionRepository
+    ) {
+        this.contentRepository = contentRepository;
+        this.userRepository = userRepository;
+        this.commentRepository = commentRepository;
+        this.likeRepository = likeRepository;
+        this.viewRecordRepository = viewRecordRepository;
+        this.aiChatSessionRepository = aiChatSessionRepository;
+    }
+
     @GetMapping("/dashboard")
     public ApiResponse<Map<String, Object>> dashboard() {
         return ApiResponse.ok(Map.of(
-                "contents", 0,
-                "users", 0,
-                "comments", 0,
-                "likes", 0,
-                "views", 0,
-                "aiChatsToday", 0
+                "contents", contentRepository.count(),
+                "users", userRepository.count(),
+                "comments", commentRepository.count(),
+                "likes", likeRepository.count(),
+                "views", viewRecordRepository.count(),
+                "aiChats", aiChatSessionRepository.count()
         ));
     }
 

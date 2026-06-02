@@ -65,6 +65,12 @@ public class User {
         return user;
     }
 
+    public static User admin(String email, String passwordHash, String nickname) {
+        User user = register(email, passwordHash, nickname);
+        user.role = Role.ADMIN;
+        return user;
+    }
+
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();
@@ -87,6 +93,13 @@ public class User {
         this.avatarUrl = avatarUrl;
         this.bio = bio;
         this.blogUrl = blogUrl;
+    }
+
+    public void enableAdmin(String passwordHash, String nickname) {
+        this.role = Role.ADMIN;
+        this.status = UserStatus.ACTIVE;
+        this.passwordHash = passwordHash;
+        this.nickname = nickname;
     }
 
     public boolean isActive() {

@@ -11,3 +11,8 @@ spring:
   ai:
     vectorstore:
       type: none
+
+blog:
+  admin:
+    bootstrap:
+      enabled: false

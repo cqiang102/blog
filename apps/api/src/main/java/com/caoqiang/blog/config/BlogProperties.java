@@ -6,11 +6,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class BlogProperties {
 
     private final Ai ai = new Ai();
+    private final Admin admin = new Admin();
     private final Security security = new Security();
     private final Storage storage = new Storage();
 
     public Ai getAi() {
         return ai;
+    }
+
+    public Admin getAdmin() {
+        return admin;
     }
 
     public Security getSecurity() {
@@ -30,6 +35,53 @@ public class BlogProperties {
 
         public void setDailyQuestionLimit(int dailyQuestionLimit) {
             this.dailyQuestionLimit = dailyQuestionLimit;
+        }
+    }
+
+    public static class Admin {
+        private final Bootstrap bootstrap = new Bootstrap();
+
+        public Bootstrap getBootstrap() {
+            return bootstrap;
+        }
+
+        public static class Bootstrap {
+            private boolean enabled = false;
+            private String email;
+            private String password;
+            private String nickname = "站长";
+
+            public boolean isEnabled() {
+                return enabled;
+            }
+
+            public void setEnabled(boolean enabled) {
+                this.enabled = enabled;
+            }
+
+            public String getEmail() {
+                return email;
+            }
+
+            public void setEmail(String email) {
+                this.email = email;
+            }
+
+            public String getPassword() {
+                return password;
+            }
+
+            public void setPassword(String password) {
+                this.password = password;
+            }
+
+            public String getNickname() {
+                return nickname;
+            }
+
+            public void setNickname(String nickname) {
+                this.nickname = nickname;
+            }
         }
     }
 

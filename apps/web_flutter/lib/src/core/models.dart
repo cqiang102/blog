@@ -32,6 +32,36 @@ enum ContentType {
   }
 }
 
+enum ContentStatus {
+  draft,
+  published,
+  archived;
+
+  String get apiValue {
+    return switch (this) {
+      ContentStatus.draft => 'DRAFT',
+      ContentStatus.published => 'PUBLISHED',
+      ContentStatus.archived => 'ARCHIVED',
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      ContentStatus.draft => '草稿',
+      ContentStatus.published => '已发布',
+      ContentStatus.archived => '已归档',
+    };
+  }
+
+  static ContentStatus fromApi(String? value) {
+    return switch (value?.toUpperCase()) {
+      'PUBLISHED' => ContentStatus.published,
+      'ARCHIVED' => ContentStatus.archived,
+      _ => ContentStatus.draft,
+    };
+  }
+}
+
 class BlogContent {
   const BlogContent({
     required this.id,
@@ -352,10 +382,200 @@ class AdminMetric {
   final String value;
 }
 
+class AdminDashboard {
+  const AdminDashboard({
+    required this.contents,
+    required this.users,
+    required this.comments,
+    required this.likes,
+    required this.views,
+    required this.aiChats,
+  });
+
+  final int contents;
+  final int users;
+  final int comments;
+  final int likes;
+  final int views;
+  final int aiChats;
+
+  List<AdminMetric> get metrics {
+    return [
+      AdminMetric('内容', contents.toString()),
+      AdminMetric('用户', users.toString()),
+      AdminMetric('评论', comments.toString()),
+      AdminMetric('点赞', likes.toString()),
+      AdminMetric('浏览', views.toString()),
+      AdminMetric('AI 会话', aiChats.toString()),
+    ];
+  }
+
+  factory AdminDashboard.fromJson(Map<String, dynamic> json) {
+    return AdminDashboard(
+      contents: _int(json['contents']),
+      users: _int(json['users']),
+      comments: _int(json['comments']),
+      likes: _int(json['likes']),
+      views: _int(json['views']),
+      aiChats: _int(json['aiChats']),
+    );
+  }
+}
+
+class TagItem {
+  const TagItem({
+    required this.id,
+    required this.name,
+    required this.slug,
+    this.description = '',
+  });
+
+  final String id;
+  final String name;
+  final String slug;
+  final String description;
+
+  factory TagItem.fromJson(Map<String, dynamic> json) {
+    return TagItem(
+      id: _string(json['id']),
+      name: _string(json['name']),
+      slug: _string(json['slug']),
+      description: _string(json['description']),
+    );
+  }
+}
+
+class TagDraft {
+  const TagDraft({
+    required this.name,
+    required this.slug,
+    required this.description,
+  });
+
+  final String name;
+  final String slug;
+  final String description;
+
+  Map<String, Object?> toJson() {
+    return {
+      'name': name.trim(),
+      'slug': slug.trim(),
+      'description': description.trim(),
+    };
+  }
+}
+
+class AdminContentItem {
+  const AdminContentItem({
+    required this.id,
+    required this.title,
+    required this.slug,
+    required this.type,
+    required this.status,
+    required this.summary,
+    required this.bodyMarkdown,
+    required this.pinned,
+    required this.likeCount,
+    required this.viewCount,
+    required this.commentCount,
+    required this.publishedAt,
+    required this.tags,
+  });
+
+  final String id;
+  final String title;
+  final String slug;
+  final ContentType type;
+  final ContentStatus status;
+  final String summary;
+  final String bodyMarkdown;
+  final bool pinned;
+  final int likeCount;
+  final int viewCount;
+  final int commentCount;
+  final DateTime publishedAt;
+  final List<TagItem> tags;
+
+  bool get archived => status == ContentStatus.archived;
+
+  factory AdminContentItem.fromJson(Map<String, dynamic> json) {
+    return AdminContentItem(
+      id: _string(json['id']),
+      title: _string(json['title']),
+      slug: _string(json['slug']),
+      type: ContentType.fromApi(_string(json['type'])),
+      status: ContentStatus.fromApi(_string(json['status'])),
+      summary: _string(json['summary']),
+      bodyMarkdown: _string(json['bodyMarkdown']),
+      pinned: json['pinned'] == true,
+      likeCount: _int(json['likeCount']),
+      viewCount: _int(json['viewCount']),
+      commentCount: _int(json['commentCount']),
+      publishedAt: _date(json['publishedAt']),
+      tags: _tagItems(json['tags']),
+    );
+  }
+}
+
+class AdminContentDraft {
+  const AdminContentDraft({
+    required this.title,
+    required this.slug,
+    required this.type,
+    required this.status,
+    required this.summary,
+    required this.bodyMarkdown,
+    required this.pinned,
+    required this.tagSlugs,
+  });
+
+  final String title;
+  final String slug;
+  final ContentType type;
+  final ContentStatus status;
+  final String summary;
+  final String bodyMarkdown;
+  final bool pinned;
+  final List<String> tagSlugs;
+
+  factory AdminContentDraft.fromItem(AdminContentItem item) {
+    return AdminContentDraft(
+      title: item.title,
+      slug: item.slug,
+      type: item.type,
+      status: item.status,
+      summary: item.summary,
+      bodyMarkdown: item.bodyMarkdown,
+      pinned: item.pinned,
+      tagSlugs: item.tags.map((tag) => tag.slug).toList(),
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'title': title.trim(),
+      'slug': slug.trim(),
+      'type': type.apiValue,
+      'status': status.apiValue,
+      'summary': summary.trim(),
+      'bodyMarkdown': bodyMarkdown.trim(),
+      'pinned': pinned,
+      'tagSlugs': tagSlugs,
+    };
+  }
+}
+
 List<BlogContent> _contentList(Object? value) {
   return (value as List? ?? const [])
       .whereType<Map>()
       .map((item) => BlogContent.fromSummaryJson(item.cast<String, dynamic>()))
+      .toList();
+}
+
+List<TagItem> _tagItems(Object? value) {
+  return (value as List? ?? const [])
+      .whereType<Map>()
+      .map((item) => TagItem.fromJson(item.cast<String, dynamic>()))
       .toList();
 }
 
