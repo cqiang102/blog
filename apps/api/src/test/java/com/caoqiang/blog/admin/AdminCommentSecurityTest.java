@@ -91,4 +91,10 @@ class AdminCommentSecurityTest {
         mockMvc.perform(get("/api/v1/admin/users").with(user("reader").roles("USER")))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void userCannotAccessAdminAiChats() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/ai/chats").with(user("reader").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
 }

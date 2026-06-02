@@ -393,6 +393,32 @@ class AdminUserQuery {
   int get hashCode => Object.hash(query, role, status, page, size);
 }
 
+class AdminAiChatQuery {
+  const AdminAiChatQuery({
+    this.query = '',
+    this.userId = '',
+    this.page = 0,
+    this.size = 50,
+  });
+
+  final String query;
+  final String userId;
+  final int page;
+  final int size;
+
+  @override
+  bool operator ==(Object other) {
+    return other is AdminAiChatQuery &&
+        other.query == query &&
+        other.userId == userId &&
+        other.page == page &&
+        other.size == size;
+  }
+
+  @override
+  int get hashCode => Object.hash(query, userId, page, size);
+}
+
 class UserProfile {
   const UserProfile({
     required this.id,
@@ -731,6 +757,125 @@ class AiChatReply {
       sessionId: _string(json['sessionId']),
       answer: _string(json['answer']),
       remainingQuestions: _int(json['remainingQuestions']),
+    );
+  }
+}
+
+enum AiChatMessageRole {
+  user,
+  assistant,
+  tool,
+  system;
+
+  String get label {
+    return switch (this) {
+      AiChatMessageRole.user => '用户',
+      AiChatMessageRole.assistant => '助手',
+      AiChatMessageRole.tool => '工具',
+      AiChatMessageRole.system => '系统',
+    };
+  }
+
+  static AiChatMessageRole fromApi(String? value) {
+    return switch (value?.toUpperCase()) {
+      'ASSISTANT' => AiChatMessageRole.assistant,
+      'TOOL' => AiChatMessageRole.tool,
+      'SYSTEM' => AiChatMessageRole.system,
+      _ => AiChatMessageRole.user,
+    };
+  }
+}
+
+class AdminAiChatSessionItem {
+  const AdminAiChatSessionItem({
+    required this.id,
+    required this.userId,
+    required this.userNickname,
+    required this.userEmail,
+    required this.title,
+    required this.messageCount,
+    required this.lastMessage,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String userId;
+  final String userNickname;
+  final String userEmail;
+  final String title;
+  final int messageCount;
+  final String lastMessage;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  factory AdminAiChatSessionItem.fromJson(Map<String, dynamic> json) {
+    return AdminAiChatSessionItem(
+      id: _string(json['id']),
+      userId: _string(json['userId']),
+      userNickname: _string(json['userNickname']),
+      userEmail: _string(json['userEmail']),
+      title: _string(json['title']),
+      messageCount: _int(json['messageCount']),
+      lastMessage: _string(json['lastMessage']),
+      createdAt: _date(json['createdAt']),
+      updatedAt: _date(json['updatedAt']),
+    );
+  }
+}
+
+class AdminAiChatMessageItem {
+  const AdminAiChatMessageItem({
+    required this.id,
+    required this.role,
+    required this.content,
+    required this.toolName,
+    required this.promptTokens,
+    required this.completionTokens,
+    required this.createdAt,
+  });
+
+  final String id;
+  final AiChatMessageRole role;
+  final String content;
+  final String toolName;
+  final int promptTokens;
+  final int completionTokens;
+  final DateTime createdAt;
+
+  factory AdminAiChatMessageItem.fromJson(Map<String, dynamic> json) {
+    return AdminAiChatMessageItem(
+      id: _string(json['id']),
+      role: AiChatMessageRole.fromApi(_string(json['role'])),
+      content: _string(json['content']),
+      toolName: _string(json['toolName']),
+      promptTokens: _int(json['promptTokens']),
+      completionTokens: _int(json['completionTokens']),
+      createdAt: _date(json['createdAt']),
+    );
+  }
+}
+
+class AdminAiChatDetail {
+  const AdminAiChatDetail({required this.session, required this.messages});
+
+  final AdminAiChatSessionItem session;
+  final List<AdminAiChatMessageItem> messages;
+
+  factory AdminAiChatDetail.fromJson(Map<String, dynamic> json) {
+    return AdminAiChatDetail(
+      session: AdminAiChatSessionItem.fromJson(
+        (json['session'] as Map? ?? const {}).cast<String, dynamic>(),
+      ),
+      messages:
+          (json['messages'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
+                (item) => AdminAiChatMessageItem.fromJson(
+                  item.cast<String, dynamic>(),
+                ),
+              )
+              .toList(),
     );
   }
 }

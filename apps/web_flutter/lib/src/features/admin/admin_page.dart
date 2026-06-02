@@ -41,7 +41,7 @@ class AdminPage extends ConsumerWidget {
     }
 
     return DefaultTabController(
-      length: 9,
+      length: 10,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('管理员中心'),
@@ -64,6 +64,7 @@ class AdminPage extends ConsumerWidget {
               Tab(icon: Icon(Icons.favorite_border), text: '点赞'),
               Tab(icon: Icon(Icons.history_outlined), text: '浏览'),
               Tab(icon: Icon(Icons.manage_accounts_outlined), text: '用户'),
+              Tab(icon: Icon(Icons.smart_toy_outlined), text: 'AI'),
             ],
           ),
         ),
@@ -78,6 +79,7 @@ class AdminPage extends ConsumerWidget {
             _LikeAdminTab(),
             _ViewAdminTab(),
             _UserAdminTab(),
+            _AiChatAdminTab(),
           ],
         ),
       ),
@@ -94,6 +96,7 @@ class AdminPage extends ConsumerWidget {
     ref.invalidate(adminLikesProvider);
     ref.invalidate(adminViewsProvider);
     ref.invalidate(adminUsersProvider);
+    ref.invalidate(adminAiChatsProvider);
   }
 }
 
@@ -2257,6 +2260,436 @@ class _AdminUserAvatar extends StatelessWidget {
       onBackgroundImageError: (_, _) {},
       child: null,
     );
+  }
+}
+
+class _AiChatAdminTab extends ConsumerStatefulWidget {
+  const _AiChatAdminTab();
+
+  @override
+  ConsumerState<_AiChatAdminTab> createState() => _AiChatAdminTabState();
+}
+
+class _AiChatAdminTabState extends ConsumerState<_AiChatAdminTab> {
+  final _queryController = TextEditingController();
+  final _userIdController = TextEditingController();
+  AdminAiChatQuery _query = const AdminAiChatQuery();
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    _userIdController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chats = ref.watch(adminAiChatsProvider(_query));
+
+    return chats.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error:
+          (error, stackTrace) => _ErrorPane(
+            message: error.toString(),
+            onRetry: () => ref.invalidate(adminAiChatsProvider(_query)),
+          ),
+      data:
+          (page) => ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              _SectionToolbar(
+                title: 'AI 聊天记录',
+                actionLabel: '刷新',
+                actionIcon: Icons.refresh,
+                onAction: () => ref.invalidate(adminAiChatsProvider(_query)),
+              ),
+              const SizedBox(height: 12),
+              _AiChatFilters(
+                queryController: _queryController,
+                userIdController: _userIdController,
+                onApply: _applyFilters,
+                onClear: _clearFilters,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '共 ${page.total} 个 AI 会话',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              if (page.items.isEmpty)
+                const _EmptyPane(message: '暂无 AI 聊天记录')
+              else
+                for (final session in page.items) ...[
+                  _AiChatAdminRow(
+                    session: session,
+                    onOpen: () => _openChatDetail(context, session),
+                    onDelete: () => _deleteChat(context, session),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+            ],
+          ),
+    );
+  }
+
+  void _applyFilters() {
+    setState(() {
+      _query = AdminAiChatQuery(
+        query: _queryController.text.trim(),
+        userId: _userIdController.text.trim(),
+      );
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _queryController.clear();
+      _userIdController.clear();
+      _query = const AdminAiChatQuery();
+    });
+  }
+
+  Future<void> _openChatDetail(
+    BuildContext context,
+    AdminAiChatSessionItem session,
+  ) async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      final detail = await ref
+          .read(apiClientProvider)
+          .fetchAdminAiChatDetail(accessToken: token, id: session.id);
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => _AiChatDetailDialog(detail: detail),
+      );
+    } on ApiException catch (error) {
+      if (!context.mounted) return;
+      _showSnack(context, error.message);
+    } catch (error) {
+      if (!context.mounted) return;
+      _showSnack(context, error.toString());
+    }
+  }
+
+  Future<void> _deleteChat(
+    BuildContext context,
+    AdminAiChatSessionItem session,
+  ) async {
+    final title = session.title.isEmpty ? '未命名会话' : session.title;
+    final confirmed = await _confirm(
+      context,
+      title: '删除 AI 会话',
+      message: '确认删除「$title」及其消息记录？',
+      action: '删除',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .deleteAdminAiChat(accessToken: token, id: session.id);
+      _refreshAiChatState();
+      if (!context.mounted) return;
+      _showSnack(context, 'AI 会话已删除');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  void _refreshAiChatState() {
+    ref.invalidate(adminAiChatsProvider(_query));
+    ref.invalidate(adminDashboardProvider);
+  }
+}
+
+class _AiChatFilters extends StatelessWidget {
+  const _AiChatFilters({
+    required this.queryController,
+    required this.userIdController,
+    required this.onApply,
+    required this.onClear,
+  });
+
+  final TextEditingController queryController;
+  final TextEditingController userIdController;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 260,
+          child: TextField(
+            controller: queryController,
+            decoration: const InputDecoration(labelText: '标题 / 用户'),
+          ),
+        ),
+        SizedBox(
+          width: 300,
+          child: TextField(
+            controller: userIdController,
+            decoration: const InputDecoration(labelText: '用户 ID'),
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: onApply,
+          icon: const Icon(Icons.filter_alt_outlined),
+          label: const Text('筛选'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onClear,
+          icon: const Icon(Icons.clear),
+          label: const Text('清空'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AiChatAdminRow extends StatelessWidget {
+  const _AiChatAdminRow({
+    required this.session,
+    required this.onOpen,
+    required this.onDelete,
+  });
+
+  final AdminAiChatSessionItem session;
+  final VoidCallback onOpen;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = session.title.isEmpty ? '未命名会话' : session.title;
+    final userLabel =
+        session.userNickname.isEmpty ? session.userEmail : session.userNickname;
+    final lastMessage =
+        session.lastMessage.isEmpty ? '暂无消息' : session.lastMessage;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.smart_toy_outlined),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        lastMessage,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _MetaText(icon: Icons.person_outline, text: userLabel),
+                if (session.userEmail.isNotEmpty)
+                  _MetaText(icon: Icons.mail_outline, text: session.userEmail),
+                _MetaText(
+                  icon: Icons.forum_outlined,
+                  text: '${session.messageCount} 条消息',
+                ),
+                _MetaText(
+                  icon: Icons.update,
+                  text: _formatDate(session.updatedAt),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onOpen,
+                  icon: const Icon(Icons.visibility_outlined),
+                  label: const Text('查看'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('删除'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AiChatDetailDialog extends StatelessWidget {
+  const _AiChatDetailDialog({required this.detail});
+
+  final AdminAiChatDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final session = detail.session;
+    final title = session.title.isEmpty ? '未命名会话' : session.title;
+    final userLabel =
+        session.userNickname.isEmpty ? session.userEmail : session.userNickname;
+    return AlertDialog(
+      title: const Text('AI 聊天详情'),
+      content: SizedBox(
+        width: 760,
+        height: MediaQuery.of(context).size.height * 0.72,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _MetaText(icon: Icons.person_outline, text: userLabel),
+                if (session.userEmail.isNotEmpty)
+                  _MetaText(icon: Icons.mail_outline, text: session.userEmail),
+                _MetaText(
+                  icon: Icons.forum_outlined,
+                  text: '${session.messageCount} 条消息',
+                ),
+                _MetaText(
+                  icon: Icons.schedule_outlined,
+                  text: _formatDate(session.createdAt),
+                ),
+              ],
+            ),
+            const Divider(height: 28),
+            Expanded(
+              child:
+                  detail.messages.isEmpty
+                      ? const _EmptyPane(message: '暂无消息')
+                      : ListView.separated(
+                        itemCount: detail.messages.length,
+                        separatorBuilder:
+                            (context, index) => const SizedBox(height: 10),
+                        itemBuilder:
+                            (context, index) => _AiChatMessageRow(
+                              message: detail.messages[index],
+                            ),
+                      ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton.icon(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.check),
+          label: const Text('关闭'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AiChatMessageRow extends StatelessWidget {
+  const _AiChatMessageRow({required this.message});
+
+  final AdminAiChatMessageItem message;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final background = switch (message.role) {
+      AiChatMessageRole.user => scheme.secondaryContainer,
+      AiChatMessageRole.assistant => scheme.primaryContainer,
+      AiChatMessageRole.tool => scheme.tertiaryContainer,
+      AiChatMessageRole.system => scheme.surfaceContainerHighest,
+    };
+    final tokenText = [
+      if (message.promptTokens > 0) 'prompt ${message.promptTokens}',
+      if (message.completionTokens > 0)
+        'completion ${message.completionTokens}',
+    ].join(' / ');
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _AiRoleChip(role: message.role),
+                _MetaText(
+                  icon: Icons.schedule_outlined,
+                  text: _formatDate(message.createdAt),
+                ),
+                if (message.toolName.isNotEmpty)
+                  _MetaText(icon: Icons.build_outlined, text: message.toolName),
+                if (tokenText.isNotEmpty)
+                  _MetaText(icon: Icons.data_usage, text: tokenText),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SelectableText(message.content),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AiRoleChip extends StatelessWidget {
+  const _AiRoleChip({required this.role});
+
+  final AiChatMessageRole role;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = switch (role) {
+      AiChatMessageRole.user => scheme.secondaryContainer,
+      AiChatMessageRole.assistant => scheme.primaryContainer,
+      AiChatMessageRole.tool => scheme.tertiaryContainer,
+      AiChatMessageRole.system => scheme.surfaceContainerHighest,
+    };
+    return Chip(label: Text(role.label), backgroundColor: color);
   }
 }
 

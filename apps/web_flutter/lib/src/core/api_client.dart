@@ -431,6 +431,38 @@ class BlogApiClient {
     await _delete('/admin/users/$id', accessToken: accessToken);
   }
 
+  Future<PageResult<AdminAiChatSessionItem>> fetchAdminAiChats({
+    required String accessToken,
+    required AdminAiChatQuery query,
+  }) async {
+    final data = await _get(
+      '/admin/ai/chats',
+      accessToken: accessToken,
+      queryParameters: {
+        if (query.query.trim().isNotEmpty) 'query': query.query.trim(),
+        if (query.userId.trim().isNotEmpty) 'userId': query.userId.trim(),
+        'page': query.page.toString(),
+        'size': query.size.toString(),
+      },
+    );
+    return _page(data, AdminAiChatSessionItem.fromJson);
+  }
+
+  Future<AdminAiChatDetail> fetchAdminAiChatDetail({
+    required String accessToken,
+    required String id,
+  }) async {
+    final data = await _get('/admin/ai/chats/$id', accessToken: accessToken);
+    return AdminAiChatDetail.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<void> deleteAdminAiChat({
+    required String accessToken,
+    required String id,
+  }) async {
+    await _delete('/admin/ai/chats/$id', accessToken: accessToken);
+  }
+
   Future<PageResult<AdminContentItem>> fetchAdminContents({
     required String accessToken,
     int page = 0,

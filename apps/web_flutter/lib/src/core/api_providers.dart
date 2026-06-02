@@ -147,6 +147,19 @@ final adminUsersProvider =
           .fetchAdminUsers(accessToken: token, query: query);
     });
 
+final adminAiChatsProvider =
+    FutureProvider.family<PageResult<AdminAiChatSessionItem>, AdminAiChatQuery>(
+      (ref, query) {
+        final token = ref.watch(authControllerProvider).accessToken;
+        if (token == null) {
+          throw const ApiException('请先登录');
+        }
+        return ref
+            .watch(apiClientProvider)
+            .fetchAdminAiChats(accessToken: token, query: query);
+      },
+    );
+
 final adminContentsProvider = FutureProvider<PageResult<AdminContentItem>>((
   ref,
 ) {

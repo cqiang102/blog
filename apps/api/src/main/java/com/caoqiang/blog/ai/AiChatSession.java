@@ -61,4 +61,20 @@ public class AiChatSession {
     public UUID getId() {
         return id;
     }
+
+    public User getUser() {
+        return user;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
 }

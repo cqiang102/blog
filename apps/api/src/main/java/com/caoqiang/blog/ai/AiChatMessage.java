@@ -59,4 +59,36 @@ public class AiChatMessage {
             createdAt = Instant.now();
         }
     }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public AiChatSession getSession() {
+        return session;
+    }
+
+    public AiMessageRole getRole() {
+        return role;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public String getToolName() {
+        return toolName;
+    }
+
+    public Integer getPromptTokens() {
+        return promptTokens;
+    }
+
+    public Integer getCompletionTokens() {
+        return completionTokens;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }
