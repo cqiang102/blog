@@ -14,10 +14,12 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Service
 public class AiChatService {
@@ -95,6 +97,104 @@ public class AiChatService {
                 Math.max(0, dailyLimit - quota.getQuestionCount()),
                 (int) (MAX_MESSAGES_PER_SESSION - messageCount - 2)
         );
+    }
+
+    public SseEmitter streamChat(AuthenticatedUser currentUser, AiChatRequest request) {
+        SseEmitter emitter = new SseEmitter(120_000L);
+
+        org.springframework.core.task.AsyncTaskExecutor taskExecutor =
+                new org.springframework.core.task.SimpleAsyncTaskExecutor("ai-stream-");
+
+        taskExecutor.execute(() -> {
+            User user;
+            try {
+                user = activeUser(currentUser);
+            } catch (Exception e) {
+                sendError(emitter, "登录状态无效");
+                return;
+            }
+
+            int dailyLimit = blogProperties.getAi().getDailyQuestionLimit();
+            int currentCount = getCachedQuotaCount(user.getId());
+            if (currentCount >= dailyLimit) {
+                sendError(emitter, "今日 AI 提问次数已用完");
+                return;
+            }
+
+            AiChatSession session;
+            try {
+                session = resolveSession(user, request.sessionId());
+            } catch (Exception e) {
+                sendError(emitter, "会话不存在");
+                return;
+            }
+
+            long messageCount = messageRepository.countBySessionId(session.getId());
+            if (messageCount >= MAX_MESSAGES_PER_SESSION) {
+                sendError(emitter, "该会话消息数已达上限，请创建新会话");
+                return;
+            }
+
+            messageRepository.save(new AiChatMessage(session, AiMessageRole.USER, request.message().trim()));
+
+            AiDailyQuota quota;
+            try {
+                quota = quotaFor(user);
+                quota.increase();
+                String cacheKey = QUOTA_CACHE_PREFIX + user.getId() + ":" + LocalDate.now(clock.withZone(ZoneOffset.UTC));
+                redisTemplate.opsForValue().increment(cacheKey);
+                redisTemplate.expire(cacheKey, getSecondsUntilMidnight(), TimeUnit.SECONDS);
+            } catch (Exception e) {
+                sendError(emitter, "配额更新失败");
+                return;
+            }
+
+            StringBuilder fullAnswer = new StringBuilder();
+            AiUserContext.set(currentUser);
+            try {
+                String conversationId = session.getId().toString();
+                chatClient.prompt()
+                        .user(request.message())
+                        .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                        .stream()
+                        .chatResponse()
+                        .doOnNext(response -> {
+                            String token = response.getResult().getOutput().getText();
+                            if (token != null && !token.isEmpty()) {
+                                fullAnswer.append(token);
+                                try {
+                                    emitter.send(SseEmitter.event()
+                                            .name("token")
+                                            .data(token));
+                                } catch (Exception ignored) {
+                                }
+                            }
+                        })
+                        .doOnError(e -> sendError(emitter, "AI 服务暂时不可用: " + e.getMessage()))
+                        .doOnComplete(() -> {
+                            messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, fullAnswer.toString()));
+                            try {
+                                emitter.send(SseEmitter.event()
+                                        .name("done")
+                                        .data(new AiChatResponse(
+                                                session.getId(),
+                                                fullAnswer.toString(),
+                                                Math.max(0, dailyLimit - quota.getQuestionCount()),
+                                                (int) (MAX_MESSAGES_PER_SESSION - messageCount - 2)
+                                        )));
+                                emitter.complete();
+                            } catch (Exception ignored) {
+                            }
+                        })
+                        .subscribe();
+            } catch (Exception e) {
+                sendError(emitter, "AI 服务暂时不可用: " + e.getMessage());
+            } finally {
+                AiUserContext.clear();
+            }
+        });
+
+        return emitter;
     }
 
     @Transactional(readOnly = true)
@@ -220,5 +320,13 @@ public class AiChatService {
                 session.getCreatedAt(),
                 session.getUpdatedAt()
         );
+    }
+
+    private void sendError(SseEmitter emitter, String message) {
+        try {
+            emitter.send(SseEmitter.event().name("error").data(message));
+            emitter.complete();
+        } catch (Exception ignored) {
+        }
     }
 }

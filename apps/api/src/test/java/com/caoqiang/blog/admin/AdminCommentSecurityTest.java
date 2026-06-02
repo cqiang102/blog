@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.caoqiang.blog.ai.AiChatMessageRepository;
 import com.caoqiang.blog.ai.AiChatSessionRepository;
 import com.caoqiang.blog.ai.AiDailyQuotaRepository;
+import com.caoqiang.blog.ai.KnowledgeChunkRepository;
 import com.caoqiang.blog.ai.KnowledgeDocRepository;
 import com.caoqiang.blog.auth.RefreshTokenRepository;
 import com.caoqiang.blog.content.ContentRepository;
@@ -18,6 +19,8 @@ import com.caoqiang.blog.interaction.LikeRepository;
 import com.caoqiang.blog.interaction.ViewRecordRepository;
 import com.caoqiang.blog.user.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -71,6 +74,15 @@ class AdminCommentSecurityTest {
 
     @MockitoBean
     private KnowledgeDocRepository knowledgeDocRepository;
+
+    @MockitoBean
+    private KnowledgeChunkRepository knowledgeChunkRepository;
+
+    @MockitoBean
+    private EmbeddingModel embeddingModel;
+
+    @MockitoBean
+    private ChatClient chatClient;
 
     @Test
     void userCannotAccessAdminComments() throws Exception {

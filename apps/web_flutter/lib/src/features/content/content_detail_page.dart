@@ -252,7 +252,23 @@ class _CommentList extends ConsumerWidget {
             child: ListTile(
               leading: const CircleAvatar(child: Icon(Icons.person)),
               title: Text(comment.authorNickname),
-              subtitle: Text(comment.body),
+              subtitle: comment.blocked
+                  ? Row(
+                      children: [
+                        const Icon(Icons.block, size: 14, color: Colors.orange),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            '评论审核中，暂不可见',
+                            style: TextStyle(
+                              color: Colors.orange.shade700,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(comment.body),
               trailing: auth.isAuthenticated && auth.user?.id == comment.authorId
                   ? IconButton(
                       tooltip: '删除评论',

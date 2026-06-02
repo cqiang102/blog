@@ -538,6 +538,7 @@ class CommentItem {
     required this.authorId,
     required this.authorNickname,
     required this.createdAt,
+    this.auditStatus,
   });
 
   final String id;
@@ -547,6 +548,9 @@ class CommentItem {
   final String authorId;
   final String authorNickname;
   final DateTime createdAt;
+  final String? auditStatus;
+
+  bool get blocked => auditStatus == 'BLOCKED';
 
   factory CommentItem.fromJson(Map<String, dynamic> json) {
     final author = (json['author'] as Map? ?? const {}).cast<String, dynamic>();
@@ -559,6 +563,7 @@ class CommentItem {
       authorId: _string(author['id']),
       authorNickname: nickname.isEmpty ? '用户' : nickname,
       createdAt: _date(json['createdAt']),
+      auditStatus: _nullableString(json['auditStatus']),
     );
   }
 }

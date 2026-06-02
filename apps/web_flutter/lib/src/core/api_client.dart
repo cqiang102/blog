@@ -10,6 +10,13 @@ const apiBaseUrl = String.fromEnvironment(
   defaultValue: 'http://localhost:8080/api/v1',
 );
 
+class SseEvent {
+  const SseEvent(this.type, this.data);
+
+  final String type;
+  final String data;
+}
+
 class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode});
 
@@ -277,6 +284,63 @@ class BlogApiClient {
       body: {'sessionId': sessionId, 'message': message},
     );
     return AiChatReply.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Stream<SseEvent> sendAiMessageStream({
+    required String accessToken,
+    required String message,
+    String? sessionId,
+  }) async* {
+    final uri = _uri('/ai/chat/stream', {});
+    final request = http.Request('POST', uri);
+    request.headers.addAll({
+      'Accept': 'text/event-stream',
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $accessToken',
+    });
+    request.body = jsonEncode({'sessionId': sessionId, 'message': message});
+
+    final response = await _httpClient.send(request);
+    if (response.statusCode >= 400) {
+      final body = await response.stream.bytesToString();
+      try {
+        final decoded = jsonDecode(body);
+        if (decoded is Map) {
+          throw ApiException(
+            decoded['message']?.toString() ?? '请求失败',
+            statusCode: response.statusCode,
+          );
+        }
+      } catch (e) {
+        if (e is ApiException) rethrow;
+      }
+      throw ApiException('请求失败', statusCode: response.statusCode);
+    }
+
+    String buffer = '';
+    await for (final chunk in response.stream.transform(utf8.decoder)) {
+      buffer += chunk;
+      while (true) {
+        final eventEnd = buffer.indexOf('\n\n');
+        if (eventEnd < 0) break;
+
+        final eventBlock = buffer.substring(0, eventEnd);
+        buffer = buffer.substring(eventEnd + 2);
+
+        String eventType = 'message';
+        final dataLines = <String>[];
+        for (final line in eventBlock.split('\n')) {
+          if (line.startsWith('event:')) {
+            eventType = line.substring(6).trim();
+          } else if (line.startsWith('data:')) {
+            dataLines.add(line.substring(5).trim());
+          }
+        }
+        if (dataLines.isNotEmpty) {
+          yield SseEvent(eventType, dataLines.join('\n'));
+        }
+      }
+    }
   }
 
   Future<AiSessionItem> createAiSession({

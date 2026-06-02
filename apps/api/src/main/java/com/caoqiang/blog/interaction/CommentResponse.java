@@ -9,6 +9,7 @@ public record CommentResponse(
         String contentTitle,
         String body,
         CommentAuthor author,
+        String auditStatus,
         Instant createdAt
 ) {
 
@@ -23,6 +24,7 @@ public record CommentResponse(
                         comment.getUser().getNickname(),
                         comment.getUser().getAvatarUrl()
                 ),
+                comment.getAuditStatus(),
                 comment.getCreatedAt()
         );
     }

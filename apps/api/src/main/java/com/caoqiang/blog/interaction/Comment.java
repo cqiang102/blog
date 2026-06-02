@@ -39,6 +39,12 @@ public class Comment {
     @Column(nullable = false, length = 20)
     private CommentStatus status = CommentStatus.VISIBLE;
 
+    @Column(name = "audit_status", length = 20)
+    private String auditStatus;
+
+    @Column(name = "audit_reason", columnDefinition = "TEXT")
+    private String auditReason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -82,6 +88,24 @@ public class Comment {
         return status == CommentStatus.VISIBLE;
     }
 
+    public boolean isPending() {
+        return status == CommentStatus.PENDING;
+    }
+
+    public boolean isBlocked() {
+        return status == CommentStatus.BLOCKED;
+    }
+
+    public void setAuditResult(String auditStatus, String auditReason) {
+        this.auditStatus = auditStatus;
+        this.auditReason = auditReason;
+        if ("BLOCKED".equals(auditStatus)) {
+            this.status = CommentStatus.BLOCKED;
+        } else {
+            this.status = CommentStatus.VISIBLE;
+        }
+    }
+
     public UUID getId() {
         return id;
     }
@@ -100,6 +124,14 @@ public class Comment {
 
     public CommentStatus getStatus() {
         return status;
+    }
+
+    public String getAuditStatus() {
+        return auditStatus;
+    }
+
+    public String getAuditReason() {
+        return auditReason;
     }
 
     public Instant getCreatedAt() {

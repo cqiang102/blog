@@ -17,6 +17,8 @@ import com.caoqiang.blog.interaction.LikeRepository;
 import com.caoqiang.blog.interaction.ViewRecordRepository;
 import com.caoqiang.blog.user.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -72,6 +74,12 @@ class BlogApiApplicationContextTest {
 
     @MockitoBean
     private AuditLogRepository auditLogRepository;
+
+    @MockitoBean
+    private EmbeddingModel embeddingModel;
+
+    @MockitoBean
+    private ChatClient chatClient;
 
     @Test
     void contextLoadsWithoutDatabaseForDiagnostics() {

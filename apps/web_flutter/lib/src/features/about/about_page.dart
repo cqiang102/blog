@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -147,7 +148,10 @@ class _AboutPageState extends ConsumerState<AboutPage> {
                                     padding: const EdgeInsets.all(16),
                                     itemCount: _messages.length,
                                     itemBuilder: (context, index) =>
-                                        _ChatBubble(message: _messages[index]),
+                                        _ChatBubble(
+                                          message: _messages[index],
+                                          isStreaming: _sending && index == _messages.length - 1 && !_messages[index].mine,
+                                        ),
                                   ),
                       ),
                       if (_sessionLimitReached)
@@ -271,32 +275,57 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     setState(() {
       _sending = true;
       _messages.add(_ChatMessage(true, text));
+      _messages.add(_ChatMessage(false, ''));
       _controller.clear();
     });
 
     try {
-      final reply = await ref
-          .read(apiClientProvider)
-          .sendAiMessage(
+      final stream = ref.read(apiClientProvider).sendAiMessageStream(
             accessToken: token,
             sessionId: _sessionId,
             message: text,
           );
-      if (!mounted) return;
-      setState(() {
-        _sessionId = reply.sessionId;
-        _remaining = reply.remainingQuestions;
-        _remainingMessages = reply.remainingMessages;
-        _sessionLimitReached = _remainingMessages <= 0;
-        _messages.add(_ChatMessage(false, reply.answer));
-      });
-      ref.invalidate(aiQuotaProvider);
+
+      await for (final event in stream) {
+        if (!mounted) return;
+        if (event.type == 'token') {
+          setState(() {
+            final last = _messages.last;
+            _messages[_messages.length - 1] = _ChatMessage(false, last.text + event.data);
+          });
+        } else if (event.type == 'done') {
+          final reply = AiChatReply.fromJson(
+            (jsonDecode(event.data) as Map).cast<String, dynamic>(),
+          );
+          setState(() {
+            _sessionId = reply.sessionId;
+            _remaining = reply.remainingQuestions;
+            _remainingMessages = reply.remainingMessages;
+            _sessionLimitReached = _remainingMessages <= 0;
+          });
+          ref.invalidate(aiQuotaProvider);
+        } else if (event.type == 'error') {
+          setState(() {
+            _messages[_messages.length - 1] = _ChatMessage(false, '错误：${event.data}');
+          });
+        }
+      }
     } on ApiException catch (error) {
       if (error.message.contains('会话消息数已达上限')) {
         setState(() => _sessionLimitReached = true);
       }
+      setState(() {
+        if (_messages.isNotEmpty && !_messages.last.mine && _messages.last.text.isEmpty) {
+          _messages.removeLast();
+        }
+      });
       _showError(error.message);
     } catch (error) {
+      setState(() {
+        if (_messages.isNotEmpty && !_messages.last.mine && _messages.last.text.isEmpty) {
+          _messages.removeLast();
+        }
+      });
       _showError(error.toString());
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -418,9 +447,10 @@ class _SessionListSheet extends StatelessWidget {
 }
 
 class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({required this.message});
+  const _ChatBubble({required this.message, this.isStreaming = false});
 
   final _ChatMessage message;
+  final bool isStreaming;
 
   @override
   Widget build(BuildContext context) {
@@ -438,14 +468,20 @@ class _ChatBubble extends StatelessWidget {
           border:
               message.mine ? null : Border.all(color: const Color(0xFFE0E7E3)),
         ),
-        child: Text(
-          message.text,
-          style: TextStyle(
-            color: message.mine
-                ? Colors.white
-                : Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
+        child: message.text.isEmpty && isStreaming
+            ? const SizedBox(
+                width: 24,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Text(
+                '${message.text}${isStreaming ? '▍' : ''}',
+                style: TextStyle(
+                  color: message.mine
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
       ),
     );
   }

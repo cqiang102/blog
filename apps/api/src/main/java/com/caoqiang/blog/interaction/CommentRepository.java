@@ -1,5 +1,6 @@
 package com.caoqiang.blog.interaction;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -20,6 +21,8 @@ public interface CommentRepository extends JpaRepository<Comment, UUID>, JpaSpec
     Optional<Comment> findById(UUID id);
 
     Page<Comment> findByContentIdAndStatusOrderByCreatedAtDesc(UUID contentId, CommentStatus status, Pageable pageable);
+
+    Page<Comment> findByContentIdAndStatusInOrderByCreatedAtDesc(UUID contentId, List<CommentStatus> statuses, Pageable pageable);
 
     Page<Comment> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
 

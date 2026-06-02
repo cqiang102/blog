@@ -114,7 +114,7 @@ class AiToolServiceTest {
                 UUID.randomUUID(), "测试用户", null
         );
         CommentResponse commentResponse = new CommentResponse(
-                commentId, contentId, "测试标题", "测试评论", author, Instant.now()
+                commentId, contentId, "测试标题", "测试评论", author, null, Instant.now()
         );
 
         when(interactionService.comment(eq(currentUser), eq(contentId), any())).thenReturn(commentResponse);

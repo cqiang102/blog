@@ -29,11 +29,13 @@ public class InteractionController {
 
     @GetMapping("/contents/{contentId}/comments")
     public ApiResponse<PageResponse<CommentResponse>> comments(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID contentId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ApiResponse.ok(interactionService.comments(contentId, page, size));
+        UUID userId = currentUser != null ? currentUser.id() : null;
+        return ApiResponse.ok(interactionService.comments(contentId, page, size, userId));
     }
 
     @PostMapping("/contents/{contentId}/comments")

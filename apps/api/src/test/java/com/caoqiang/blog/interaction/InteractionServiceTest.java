@@ -44,6 +44,9 @@ class InteractionServiceTest {
     @Mock
     private ViewRecordRepository viewRecordRepository;
 
+    @Mock
+    private CommentAuditService commentAuditService;
+
     private InteractionService interactionService;
 
     private Content testContent;
@@ -53,7 +56,7 @@ class InteractionServiceTest {
     @BeforeEach
     void setUp() {
         interactionService = new InteractionService(
-                contentRepository, userRepository, commentRepository, likeRepository, viewRecordRepository
+                contentRepository, userRepository, commentRepository, likeRepository, viewRecordRepository, commentAuditService
         );
 
         testContent = new Content(

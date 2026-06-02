@@ -32,8 +32,3 @@ blog:
   data:
     redis:
       enabled: false
-
-blog:
-  admin:
-    bootstrap:
-      enabled: false

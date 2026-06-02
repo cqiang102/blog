@@ -12,6 +12,7 @@ import com.caoqiang.blog.user.UserRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,30 +32,37 @@ public class InteractionService {
     private final CommentRepository commentRepository;
     private final LikeRepository likeRepository;
     private final ViewRecordRepository viewRecordRepository;
+    private final CommentAuditService commentAuditService;
 
     public InteractionService(
             ContentRepository contentRepository,
             UserRepository userRepository,
             CommentRepository commentRepository,
             LikeRepository likeRepository,
-            ViewRecordRepository viewRecordRepository
+            ViewRecordRepository viewRecordRepository,
+            CommentAuditService commentAuditService
     ) {
         this.contentRepository = contentRepository;
         this.userRepository = userRepository;
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
+        this.commentAuditService = commentAuditService;
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<CommentResponse> comments(UUID contentId, int page, int size) {
-        Page<Comment> result = commentRepository.findByContentIdAndStatusOrderByCreatedAtDesc(
+    public PageResponse<CommentResponse> comments(UUID contentId, int page, int size, UUID currentUserId) {
+        List<CommentStatus> statuses = List.of(CommentStatus.VISIBLE, CommentStatus.BLOCKED);
+        Page<Comment> result = commentRepository.findByContentIdAndStatusInOrderByCreatedAtDesc(
                 contentId,
-                CommentStatus.VISIBLE,
+                statuses,
                 pageRequest(page, size)
         );
         return new PageResponse<>(
-                result.getContent().stream().map(CommentResponse::from).toList(),
+                result.getContent().stream()
+                        .filter(c -> c.isVisible() || (currentUserId != null && c.getUser().getId().equals(currentUserId)))
+                        .map(CommentResponse::from)
+                        .toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements()
@@ -67,6 +75,9 @@ public class InteractionService {
         User user = activeUser(currentUser.id());
         Comment comment = commentRepository.save(new Comment(content, user, request.body().trim()));
         contentRepository.incrementCommentCount(contentId, 1);
+
+        commentAuditService.audit(comment.getId());
+
         return CommentResponse.from(comment);
     }
 
