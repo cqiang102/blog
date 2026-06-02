@@ -21,13 +21,15 @@ class ApiException implements Exception {
 }
 
 class BlogApiClient {
-  const BlogApiClient({
+  BlogApiClient({
     required http.Client httpClient,
     this.baseUrl = apiBaseUrl,
   }) : _httpClient = httpClient;
 
   final http.Client _httpClient;
   final String baseUrl;
+
+  Future<String?> Function()? onUnauthorized;
 
   String get githubAuthorizationUrl {
     final apiUri = Uri.parse(baseUrl);
@@ -83,6 +85,14 @@ class BlogApiClient {
         .toList();
   }
 
+  Future<List<TagItem>> fetchTags() async {
+    final data = await _get('/contents/tags');
+    return (data as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => TagItem.fromJson(item.cast<String, dynamic>()))
+        .toList();
+  }
+
   Future<AuthSession> login({
     required String email,
     required String password,
@@ -102,6 +112,14 @@ class BlogApiClient {
     final data = await _post(
       '/auth/register',
       body: {'email': email, 'password': password, 'nickname': nickname},
+    );
+    return AuthSession.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<AuthSession> refreshAccessToken(String refreshToken) async {
+    final data = await _post(
+      '/auth/refresh',
+      body: {'refreshToken': refreshToken},
     );
     return AuthSession.fromJson((data as Map).cast<String, dynamic>());
   }
@@ -190,8 +208,17 @@ class BlogApiClient {
   Future<PageResult<UserActivity>> fetchMyActivity({
     required String accessToken,
     required String type,
+    int page = 0,
+    int size = 20,
   }) async {
-    final data = await _get('/me/$type', accessToken: accessToken);
+    final data = await _get(
+      '/me/$type',
+      accessToken: accessToken,
+      queryParameters: {
+        'page': page.toString(),
+        'size': size.toString(),
+      },
+    );
     return _page(data, UserActivity.fromJson);
   }
 
@@ -759,7 +786,7 @@ class BlogApiClient {
       if (accessToken != null) 'Authorization': 'Bearer $accessToken',
     };
 
-    final response = switch (method) {
+    var response = switch (method) {
       'POST' => await _httpClient.post(
         uri,
         headers: headers,
@@ -773,6 +800,27 @@ class BlogApiClient {
       'DELETE' => await _httpClient.delete(uri, headers: headers),
       _ => await _httpClient.get(uri, headers: headers),
     };
+
+    if (response.statusCode == 401 && accessToken != null && onUnauthorized != null) {
+      final newToken = await onUnauthorized!();
+      if (newToken != null) {
+        headers['Authorization'] = 'Bearer $newToken';
+        response = switch (method) {
+          'POST' => await _httpClient.post(
+            uri,
+            headers: headers,
+            body: body == null ? null : jsonEncode(body),
+          ),
+          'PUT' => await _httpClient.put(
+            uri,
+            headers: headers,
+            body: jsonEncode(body),
+          ),
+          'DELETE' => await _httpClient.delete(uri, headers: headers),
+          _ => await _httpClient.get(uri, headers: headers),
+        };
+      }
+    }
 
     final decoded =
         response.body.isEmpty ? <String, Object?>{} : jsonDecode(response.body);

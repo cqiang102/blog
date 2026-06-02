@@ -7,7 +7,9 @@ import 'api_client.dart';
 import 'models.dart';
 
 class AuthController extends ChangeNotifier {
-  AuthController(this._apiClient);
+  AuthController(this._apiClient) {
+    _apiClient.onUnauthorized = _handleUnauthorized;
+  }
 
   static const _accessTokenKey = 'auth.accessToken';
   static const _refreshTokenKey = 'auth.refreshToken';
@@ -17,6 +19,7 @@ class AuthController extends ChangeNotifier {
 
   bool _loaded = false;
   bool _busy = false;
+  bool _refreshing = false;
   String? _accessToken;
   UserProfile? _user;
 
@@ -46,6 +49,21 @@ class AuthController extends ChangeNotifier {
         _user = await _apiClient.me(_accessToken!);
         await _saveUser(preferences);
         notifyListeners();
+      } on ApiException catch (e) {
+        if (e.statusCode == 401) {
+          final newToken = await _handleUnauthorized();
+          if (newToken != null) {
+            try {
+              _user = await _apiClient.me(newToken);
+              await _saveUser(preferences);
+              notifyListeners();
+            } catch (_) {
+              await logout();
+            }
+          }
+        } else {
+          await logout();
+        }
       } catch (_) {
         await logout();
       }
@@ -142,5 +160,35 @@ class AuthController extends ChangeNotifier {
     if (_busy == value) return;
     _busy = value;
     notifyListeners();
+  }
+
+  Future<String?> _handleUnauthorized() async {
+    if (_refreshing) return null;
+    _refreshing = true;
+
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final refreshToken = preferences.getString(_refreshTokenKey);
+      if (refreshToken == null) {
+        await logout();
+        return null;
+      }
+
+      final session = await _apiClient.refreshAccessToken(refreshToken);
+      _accessToken = session.accessToken;
+      _user = session.user;
+
+      await preferences.setString(_accessTokenKey, session.accessToken);
+      await preferences.setString(_refreshTokenKey, session.refreshToken);
+      await _saveUser(preferences);
+      notifyListeners();
+
+      return session.accessToken;
+    } catch (_) {
+      await logout();
+      return null;
+    } finally {
+      _refreshing = false;
+    }
   }
 }

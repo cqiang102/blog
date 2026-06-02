@@ -535,6 +535,7 @@ class CommentItem {
     required this.contentId,
     required this.contentTitle,
     required this.body,
+    required this.authorId,
     required this.authorNickname,
     required this.createdAt,
   });
@@ -543,6 +544,7 @@ class CommentItem {
   final String contentId;
   final String contentTitle;
   final String body;
+  final String authorId;
   final String authorNickname;
   final DateTime createdAt;
 
@@ -554,6 +556,7 @@ class CommentItem {
       contentId: _string(json['contentId']),
       contentTitle: _string(json['contentTitle']),
       body: _string(json['body']),
+      authorId: _string(author['id']),
       authorNickname: nickname.isEmpty ? '用户' : nickname,
       createdAt: _date(json['createdAt']),
     );

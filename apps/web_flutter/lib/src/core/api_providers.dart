@@ -22,6 +22,10 @@ final recommendationsProvider = FutureProvider<Recommendations>((ref) {
   return ref.watch(apiClientProvider).fetchRecommendations();
 });
 
+final tagsProvider = FutureProvider<List<TagItem>>((ref) {
+  return ref.watch(apiClientProvider).fetchTags();
+});
+
 final contentListProvider =
     FutureProvider.family<PageResult<BlogContent>, ContentListQuery>((
       ref,

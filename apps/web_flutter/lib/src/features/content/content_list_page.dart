@@ -112,7 +112,7 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
                 onSubmitted: (_) => _resetAndLoad(),
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search),
-                  hintText: '搜索标题、摘要',
+                  hintText: '搜索标题、摘要、正文',
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: () {
@@ -160,32 +160,37 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
   }
 
   Widget _buildTagFilters() {
-    if (_items.isEmpty) return const SizedBox.shrink();
-    final tags = _items.expand((item) => item.tags).toSet().toList()..sort();
-    if (tags.isEmpty) return const SizedBox.shrink();
+    final tagsAsync = ref.watch(tagsProvider);
+    return tagsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (error, stackTrace) => const SizedBox.shrink(),
+      data: (tags) {
+        if (tags.isEmpty) return const SizedBox.shrink();
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        FilterChip(
-          label: const Text('全部标签'),
-          selected: _tag == null,
-          onSelected: (_) {
-            setState(() => _tag = null);
-            _resetAndLoad();
-          },
-        ),
-        for (final tag in tags)
-          FilterChip(
-            label: Text(tag),
-            selected: _tag == tag,
-            onSelected: (_) {
-              setState(() => _tag = tag);
-              _resetAndLoad();
-            },
-          ),
-      ],
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilterChip(
+              label: const Text('全部标签'),
+              selected: _tag == null,
+              onSelected: (_) {
+                setState(() => _tag = null);
+                _resetAndLoad();
+              },
+            ),
+            for (final tag in tags)
+              FilterChip(
+                label: Text(tag.name),
+                selected: _tag == tag.slug,
+                onSelected: (_) {
+                  setState(() => _tag = tag.slug);
+                  _resetAndLoad();
+                },
+              ),
+          ],
+        );
+      },
     );
   }
 

@@ -137,7 +137,7 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
                           child: Center(child: CircularProgressIndicator()),
                         ),
                     error: (error, stackTrace) => Text(error.toString()),
-                    data: (page) => _CommentList(comments: page.items),
+                    data: (page) => _CommentList(comments: page.items, contentId: widget.id),
                   ),
                 ],
               ),
@@ -228,19 +228,23 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
   }
 }
 
-class _CommentList extends StatelessWidget {
-  const _CommentList({required this.comments});
+class _CommentList extends ConsumerWidget {
+  const _CommentList({required this.comments, required this.contentId});
 
   final List<CommentItem> comments;
+  final String contentId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (comments.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
         child: Text('暂无评论'),
       );
     }
+
+    final auth = ref.watch(authControllerProvider);
+
     return Column(
       children: [
         for (final comment in comments)
@@ -249,10 +253,38 @@ class _CommentList extends StatelessWidget {
               leading: const CircleAvatar(child: Icon(Icons.person)),
               title: Text(comment.authorNickname),
               subtitle: Text(comment.body),
+              trailing: auth.isAuthenticated && auth.user?.id == comment.authorId
+                  ? IconButton(
+                      tooltip: '删除评论',
+                      onPressed: () => _deleteComment(context, ref, comment),
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    )
+                  : null,
             ),
           ),
       ],
     );
+  }
+
+  Future<void> _deleteComment(
+    BuildContext context,
+    WidgetRef ref,
+    CommentItem comment,
+  ) async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .deleteComment(accessToken: token, commentId: comment.id);
+      ref.invalidate(commentsProvider(contentId));
+    } on ApiException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
   }
 }
 

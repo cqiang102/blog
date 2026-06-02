@@ -19,9 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContentController {
 
     private final ContentService contentService;
+    private final TagRepository tagRepository;
 
-    public ContentController(ContentService contentService) {
+    public ContentController(ContentService contentService, TagRepository tagRepository) {
         this.contentService = contentService;
+        this.tagRepository = tagRepository;
     }
 
     @GetMapping("/recommendations")
@@ -48,5 +50,12 @@ public class ContentController {
             @AuthenticationPrincipal AuthenticatedUser currentUser
     ) {
         return ApiResponse.ok(contentService.detail(id, currentUser));
+    }
+
+    @GetMapping("/tags")
+    public ApiResponse<List<TagResponse>> tags() {
+        return ApiResponse.ok(tagRepository.findAll().stream()
+                .map(tag -> new TagResponse(tag.getId(), tag.getName(), tag.getSlug(), tag.getDescription()))
+                .toList());
     }
 }

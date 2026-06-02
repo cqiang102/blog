@@ -287,63 +287,168 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
   }
 }
 
-class _RecordList extends ConsumerWidget {
+class _RecordList extends ConsumerStatefulWidget {
   const _RecordList({required this.type, required this.label});
 
   final String type;
   final String label;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final records = ref.watch(userActivityProvider(type));
-    return records.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stackTrace) => Center(child: Text(error.toString())),
-      data: (page) {
-        if (page.items.isEmpty) {
-          return Center(child: Text('暂无$label记录'));
+  ConsumerState<_RecordList> createState() => _RecordListState();
+}
+
+class _RecordListState extends ConsumerState<_RecordList> {
+  final _scrollController = ScrollController();
+  final List<UserActivity> _items = [];
+  int _currentPage = 0;
+  int _total = 0;
+  bool _isLoading = false;
+  bool _hasMore = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _loadMore();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200 &&
+        !_isLoading &&
+        _hasMore) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoading) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final token = ref.read(authControllerProvider).accessToken;
+      if (token == null) {
+        setState(() {
+          _error = '请先登录';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final result = await ref.read(apiClientProvider).fetchMyActivity(
+            accessToken: token,
+            type: widget.type,
+            page: _currentPage,
+            size: 20,
+          );
+      setState(() {
+        _items.addAll(result.items);
+        _total = result.total;
+        _currentPage++;
+        _hasMore = _items.length < _total;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _resetAndLoad() {
+    setState(() {
+      _items.clear();
+      _currentPage = 0;
+      _total = 0;
+      _hasMore = true;
+      _error = null;
+    });
+    _loadMore();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_items.isEmpty && _isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null && _items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _resetAndLoad,
+              icon: const Icon(Icons.refresh),
+              label: const Text('重试'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_items.isEmpty) {
+      return Center(child: Text('暂无${widget.label}记录'));
+    }
+
+    return ListView.separated(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(24),
+      itemCount: _items.length + (_hasMore ? 1 : 0),
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        if (index >= _items.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
-        return ListView.separated(
-          padding: const EdgeInsets.all(24),
-          itemCount: page.items.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final item = page.items[index];
-            final date = DateFormat('yyyy-MM-dd HH:mm').format(item.createdAt);
-            return Card(
-              child: ListTile(
-                leading: const Icon(Icons.article_outlined),
-                title: Text(item.title),
-                subtitle: Text(date),
-                onTap: () => context.go('/contents/${item.contentId}'),
-                trailing: IconButton(
-                  tooltip: '删除',
-                  onPressed: () => _delete(context, ref, item),
-                  icon: const Icon(Icons.delete_outline),
-                ),
-              ),
-            );
-          },
+        final item = _items[index];
+        final date = DateFormat('yyyy-MM-dd HH:mm').format(item.createdAt);
+        return Card(
+          child: ListTile(
+            leading: const Icon(Icons.article_outlined),
+            title: Text(item.title),
+            subtitle: Text(date),
+            onTap: () => context.go('/contents/${item.contentId}'),
+            trailing: IconButton(
+              tooltip: '删除',
+              onPressed: () => _delete(item),
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ),
         );
       },
     );
   }
 
-  Future<void> _delete(
-    BuildContext context,
-    WidgetRef ref,
-    UserActivity item,
-  ) async {
+  Future<void> _delete(UserActivity item) async {
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
 
     try {
       await ref
           .read(apiClientProvider)
-          .deleteMyActivity(accessToken: token, type: type, id: item.id);
-      ref.invalidate(userActivityProvider(type));
+          .deleteMyActivity(accessToken: token, type: widget.type, id: item.id);
+      setState(() {
+        _items.remove(item);
+        _total--;
+      });
     } on ApiException catch (error) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
