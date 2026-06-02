@@ -62,6 +62,36 @@ enum ContentStatus {
   }
 }
 
+enum MediaAssetType {
+  image,
+  video,
+  file;
+
+  String get apiValue {
+    return switch (this) {
+      MediaAssetType.image => 'IMAGE',
+      MediaAssetType.video => 'VIDEO',
+      MediaAssetType.file => 'FILE',
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      MediaAssetType.image => '图片',
+      MediaAssetType.video => '视频',
+      MediaAssetType.file => '文件',
+    };
+  }
+
+  static MediaAssetType fromApi(String? value) {
+    return switch (value?.toUpperCase()) {
+      'VIDEO' => MediaAssetType.video,
+      'FILE' => MediaAssetType.file,
+      _ => MediaAssetType.image,
+    };
+  }
+}
+
 class BlogContent {
   const BlogContent({
     required this.id,
@@ -385,6 +415,7 @@ class AdminMetric {
 class AdminDashboard {
   const AdminDashboard({
     required this.contents,
+    required this.media,
     required this.users,
     required this.comments,
     required this.likes,
@@ -393,6 +424,7 @@ class AdminDashboard {
   });
 
   final int contents;
+  final int media;
   final int users;
   final int comments;
   final int likes;
@@ -402,6 +434,7 @@ class AdminDashboard {
   List<AdminMetric> get metrics {
     return [
       AdminMetric('内容', contents.toString()),
+      AdminMetric('媒体', media.toString()),
       AdminMetric('用户', users.toString()),
       AdminMetric('评论', comments.toString()),
       AdminMetric('点赞', likes.toString()),
@@ -413,6 +446,7 @@ class AdminDashboard {
   factory AdminDashboard.fromJson(Map<String, dynamic> json) {
     return AdminDashboard(
       contents: _int(json['contents']),
+      media: _int(json['media']),
       users: _int(json['users']),
       comments: _int(json['comments']),
       likes: _int(json['likes']),
@@ -475,6 +509,9 @@ class AdminContentItem {
     required this.summary,
     required this.bodyMarkdown,
     required this.pinned,
+    required this.coverMediaId,
+    required this.coverUrl,
+    required this.mediaCount,
     required this.likeCount,
     required this.viewCount,
     required this.commentCount,
@@ -490,6 +527,9 @@ class AdminContentItem {
   final String summary;
   final String bodyMarkdown;
   final bool pinned;
+  final String coverMediaId;
+  final String coverUrl;
+  final int mediaCount;
   final int likeCount;
   final int viewCount;
   final int commentCount;
@@ -508,12 +548,123 @@ class AdminContentItem {
       summary: _string(json['summary']),
       bodyMarkdown: _string(json['bodyMarkdown']),
       pinned: json['pinned'] == true,
+      coverMediaId: _string(json['coverMediaId']),
+      coverUrl: _string(json['coverUrl']),
+      mediaCount: _int(json['mediaCount']),
       likeCount: _int(json['likeCount']),
       viewCount: _int(json['viewCount']),
       commentCount: _int(json['commentCount']),
       publishedAt: _date(json['publishedAt']),
       tags: _tagItems(json['tags']),
     );
+  }
+}
+
+class AdminMediaItem {
+  const AdminMediaItem({
+    required this.id,
+    required this.contentId,
+    required this.contentTitle,
+    required this.type,
+    required this.publicUrl,
+    required this.filename,
+    required this.contentType,
+    required this.byteSize,
+    required this.width,
+    required this.height,
+    required this.durationSeconds,
+    required this.cover,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String contentId;
+  final String contentTitle;
+  final MediaAssetType type;
+  final String publicUrl;
+  final String filename;
+  final String contentType;
+  final int byteSize;
+  final int width;
+  final int height;
+  final int durationSeconds;
+  final bool cover;
+  final DateTime createdAt;
+
+  String get displayName {
+    if (filename.isNotEmpty) return filename;
+    if (publicUrl.isNotEmpty) return publicUrl;
+    return id;
+  }
+
+  factory AdminMediaItem.fromJson(Map<String, dynamic> json) {
+    return AdminMediaItem(
+      id: _string(json['id']),
+      contentId: _string(json['contentId']),
+      contentTitle: _string(json['contentTitle']),
+      type: MediaAssetType.fromApi(_string(json['type'])),
+      publicUrl: _string(json['publicUrl']),
+      filename: _string(json['filename']),
+      contentType: _string(json['contentType']),
+      byteSize: _int(json['byteSize']),
+      width: _int(json['width']),
+      height: _int(json['height']),
+      durationSeconds: _int(json['durationSeconds']),
+      cover: json['cover'] == true,
+      createdAt: _date(json['createdAt']),
+    );
+  }
+}
+
+class AdminMediaDraft {
+  const AdminMediaDraft({
+    required this.contentId,
+    required this.type,
+    required this.publicUrl,
+    required this.filename,
+    required this.contentType,
+    required this.byteSize,
+    required this.width,
+    required this.height,
+    required this.durationSeconds,
+  });
+
+  final String contentId;
+  final MediaAssetType type;
+  final String publicUrl;
+  final String filename;
+  final String contentType;
+  final int? byteSize;
+  final int? width;
+  final int? height;
+  final int? durationSeconds;
+
+  factory AdminMediaDraft.fromItem(AdminMediaItem item) {
+    return AdminMediaDraft(
+      contentId: item.contentId,
+      type: item.type,
+      publicUrl: item.publicUrl,
+      filename: item.filename,
+      contentType: item.contentType,
+      byteSize: item.byteSize == 0 ? null : item.byteSize,
+      width: item.width == 0 ? null : item.width,
+      height: item.height == 0 ? null : item.height,
+      durationSeconds: item.durationSeconds == 0 ? null : item.durationSeconds,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'contentId': contentId.isEmpty ? null : contentId,
+      'type': type.apiValue,
+      'publicUrl': publicUrl.trim(),
+      'filename': filename.trim(),
+      'contentType': contentType.trim(),
+      'byteSize': byteSize,
+      'width': width,
+      'height': height,
+      'durationSeconds': durationSeconds,
+    };
   }
 }
 

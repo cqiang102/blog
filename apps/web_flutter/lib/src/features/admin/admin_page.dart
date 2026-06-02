@@ -40,7 +40,7 @@ class AdminPage extends ConsumerWidget {
     }
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('管理员中心'),
@@ -55,12 +55,18 @@ class AdminPage extends ConsumerWidget {
             tabs: [
               Tab(icon: Icon(Icons.space_dashboard_outlined), text: '概览'),
               Tab(icon: Icon(Icons.article_outlined), text: '内容'),
+              Tab(icon: Icon(Icons.perm_media_outlined), text: '媒体'),
               Tab(icon: Icon(Icons.sell_outlined), text: '标签'),
             ],
           ),
         ),
         body: const TabBarView(
-          children: [_DashboardTab(), _ContentAdminTab(), _TagAdminTab()],
+          children: [
+            _DashboardTab(),
+            _ContentAdminTab(),
+            _MediaAdminTab(),
+            _TagAdminTab(),
+          ],
         ),
       ),
     );
@@ -69,6 +75,7 @@ class AdminPage extends ConsumerWidget {
   void _refresh(WidgetRef ref) {
     ref.invalidate(adminDashboardProvider);
     ref.invalidate(adminContentsProvider);
+    ref.invalidate(adminMediaProvider);
     ref.invalidate(adminTagsProvider);
   }
 }
@@ -364,6 +371,12 @@ class _ContentAdminRow extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _MediaThumb(
+                  url: content.coverUrl,
+                  type: MediaAssetType.image,
+                  size: const Size(96, 64),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: InkWell(
                     onTap: () => context.go('/contents/${content.id}'),
@@ -414,6 +427,15 @@ class _ContentAdminRow extends StatelessWidget {
                     avatar: Icon(Icons.push_pin_outlined, size: 18),
                     label: Text('置顶'),
                   ),
+                Chip(
+                  avatar: const Icon(Icons.perm_media_outlined, size: 18),
+                  label: Text('${content.mediaCount} 个媒体'),
+                ),
+                if (content.coverMediaId.isNotEmpty)
+                  const Chip(
+                    avatar: Icon(Icons.image_outlined, size: 18),
+                    label: Text('有封面'),
+                  ),
                 for (final tag in content.tags) Chip(label: Text(tag.name)),
               ],
             ),
@@ -435,6 +457,280 @@ class _ContentAdminRow extends StatelessWidget {
                   text: '${content.commentCount}',
                 ),
                 _MetaText(icon: Icons.schedule_outlined, text: publishedAt),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaAdminTab extends ConsumerWidget {
+  const _MediaAdminTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final media = ref.watch(adminMediaProvider);
+    final contentsValue = ref.watch(adminContentsProvider);
+    final contents = contentsValue.maybeWhen(
+      data: (page) => page.items,
+      orElse: () => const <AdminContentItem>[],
+    );
+    final contentError = contentsValue.maybeWhen(
+      error: (error, stackTrace) => error.toString(),
+      orElse: () => null,
+    );
+
+    return media.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error:
+          (error, stackTrace) => _ErrorPane(
+            message: error.toString(),
+            onRetry: () => ref.invalidate(adminMediaProvider),
+          ),
+      data:
+          (page) => ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              _SectionToolbar(
+                title: '媒体管理',
+                actionLabel: '新增媒体',
+                actionIcon: Icons.add,
+                onAction: () => _openMediaEditor(context, ref, contents),
+              ),
+              if (contentError != null) ...[
+                const SizedBox(height: 12),
+                _InlineError(message: contentError),
+              ],
+              const SizedBox(height: 12),
+              if (page.items.isEmpty)
+                const _EmptyPane(message: '暂无媒体资源')
+              else
+                for (final item in page.items) ...[
+                  _MediaAdminRow(
+                    media: item,
+                    onEdit:
+                        () => _openMediaEditor(
+                          context,
+                          ref,
+                          contents,
+                          media: item,
+                        ),
+                    onSetCover:
+                        item.contentId.isEmpty || item.cover
+                            ? null
+                            : () => _setCover(context, ref, item),
+                    onDelete: () => _deleteMedia(context, ref, item),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+            ],
+          ),
+    );
+  }
+
+  Future<void> _openMediaEditor(
+    BuildContext context,
+    WidgetRef ref,
+    List<AdminContentItem> contents, {
+    AdminMediaItem? media,
+  }) async {
+    final draft = await showDialog<AdminMediaDraft>(
+      context: context,
+      builder:
+          (context) => _MediaEditorDialog(media: media, contents: contents),
+    );
+    if (draft == null || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      final api = ref.read(apiClientProvider);
+      if (media == null) {
+        await api.createAdminMedia(accessToken: token, draft: draft);
+      } else {
+        await api.updateAdminMedia(
+          accessToken: token,
+          id: media.id,
+          draft: draft,
+        );
+      }
+      _refreshMediaState(ref);
+      if (!context.mounted) return;
+      _showSnack(context, media == null ? '媒体已创建' : '媒体已保存');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  Future<void> _setCover(
+    BuildContext context,
+    WidgetRef ref,
+    AdminMediaItem media,
+  ) async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null || media.contentId.isEmpty) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .setAdminContentCover(
+            accessToken: token,
+            contentId: media.contentId,
+            mediaId: media.id,
+          );
+      _refreshMediaState(ref);
+      if (!context.mounted) return;
+      _showSnack(context, '封面已设置');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  Future<void> _deleteMedia(
+    BuildContext context,
+    WidgetRef ref,
+    AdminMediaItem media,
+  ) async {
+    final confirmed = await _confirm(
+      context,
+      title: '删除媒体',
+      message: '确认删除「${media.displayName}」？',
+      action: '删除',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .deleteAdminMedia(accessToken: token, id: media.id);
+      _refreshMediaState(ref);
+      if (!context.mounted) return;
+      _showSnack(context, '媒体已删除');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  void _refreshMediaState(WidgetRef ref) {
+    ref.invalidate(adminMediaProvider);
+    ref.invalidate(adminContentsProvider);
+    ref.invalidate(adminDashboardProvider);
+    ref.invalidate(recommendationsProvider);
+  }
+}
+
+class _MediaAdminRow extends StatelessWidget {
+  const _MediaAdminRow({
+    required this.media,
+    required this.onEdit,
+    required this.onSetCover,
+    required this.onDelete,
+  });
+
+  final AdminMediaItem media;
+  final VoidCallback onEdit;
+  final VoidCallback? onSetCover;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final createdAt = _formatDate(media.createdAt);
+    final size = media.byteSize == 0 ? '' : _formatBytes(media.byteSize);
+    final dimensions =
+        media.width > 0 && media.height > 0
+            ? '${media.width} x ${media.height}'
+            : '';
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _MediaThumb(
+                  url: media.publicUrl,
+                  type: media.type,
+                  size: const Size(112, 72),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        media.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        media.publicUrl,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          Chip(label: Text(media.type.label)),
+                          if (media.cover)
+                            const Chip(
+                              avatar: Icon(Icons.image_outlined, size: 18),
+                              label: Text('封面'),
+                            ),
+                          if (media.contentTitle.isNotEmpty)
+                            Chip(label: Text(media.contentTitle)),
+                          if (media.contentType.isNotEmpty)
+                            Chip(label: Text(media.contentType)),
+                          if (size.isNotEmpty) Chip(label: Text(size)),
+                          if (dimensions.isNotEmpty)
+                            Chip(label: Text(dimensions)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _MetaText(icon: Icons.schedule_outlined, text: createdAt),
+                OutlinedButton.icon(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('编辑'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onSetCover,
+                  icon: const Icon(Icons.image_outlined),
+                  label: const Text('设封面'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('删除'),
+                ),
               ],
             ),
           ],
@@ -816,6 +1112,213 @@ class _ContentEditorDialogState extends State<_ContentEditorDialog> {
   }
 }
 
+class _MediaEditorDialog extends StatefulWidget {
+  const _MediaEditorDialog({required this.media, required this.contents});
+
+  final AdminMediaItem? media;
+  final List<AdminContentItem> contents;
+
+  @override
+  State<_MediaEditorDialog> createState() => _MediaEditorDialogState();
+}
+
+class _MediaEditorDialogState extends State<_MediaEditorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _urlController = TextEditingController();
+  final _filenameController = TextEditingController();
+  final _contentTypeController = TextEditingController();
+  final _byteSizeController = TextEditingController();
+  final _widthController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _durationController = TextEditingController();
+  late MediaAssetType _type;
+  late String _contentId;
+
+  @override
+  void initState() {
+    super.initState();
+    final media = widget.media;
+    final draft =
+        media == null
+            ? const AdminMediaDraft(
+              contentId: '',
+              type: MediaAssetType.image,
+              publicUrl: '',
+              filename: '',
+              contentType: 'image/jpeg',
+              byteSize: null,
+              width: null,
+              height: null,
+              durationSeconds: null,
+            )
+            : AdminMediaDraft.fromItem(media);
+    final knownContent = widget.contents.any(
+      (content) => content.id == draft.contentId,
+    );
+    _contentId = knownContent ? draft.contentId : '';
+    _type = draft.type;
+    _urlController.text = draft.publicUrl;
+    _filenameController.text = draft.filename;
+    _contentTypeController.text = draft.contentType;
+    _byteSizeController.text = draft.byteSize?.toString() ?? '';
+    _widthController.text = draft.width?.toString() ?? '';
+    _heightController.text = draft.height?.toString() ?? '';
+    _durationController.text = draft.durationSeconds?.toString() ?? '';
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    _filenameController.dispose();
+    _contentTypeController.dispose();
+    _byteSizeController.dispose();
+    _widthController.dispose();
+    _heightController.dispose();
+    _durationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.media == null ? '新增媒体' : '编辑媒体'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: _contentId,
+                  decoration: const InputDecoration(labelText: '绑定内容'),
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('不绑定内容')),
+                    for (final content in widget.contents)
+                      DropdownMenuItem(
+                        value: content.id,
+                        child: Text(
+                          content.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged:
+                      (value) => setState(() => _contentId = value ?? ''),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<MediaAssetType>(
+                  initialValue: _type,
+                  decoration: const InputDecoration(labelText: '媒体类型'),
+                  items: [
+                    for (final type in MediaAssetType.values)
+                      DropdownMenuItem(value: type, child: Text(type.label)),
+                  ],
+                  onChanged:
+                      (value) =>
+                          setState(() => _type = value ?? MediaAssetType.image),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _urlController,
+                  decoration: const InputDecoration(labelText: '媒体 URL'),
+                  validator: _validateUrl,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _filenameController,
+                  decoration: const InputDecoration(labelText: '文件名'),
+                  maxLength: 240,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _contentTypeController,
+                  decoration: const InputDecoration(labelText: 'MIME 类型'),
+                  maxLength: 120,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _NumberField(controller: _byteSizeController, label: '字节数'),
+                    _NumberField(controller: _widthController, label: '宽度'),
+                    _NumberField(controller: _heightController, label: '高度'),
+                    _NumberField(controller: _durationController, label: '时长秒'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton.icon(
+          onPressed: _submit,
+          icon: const Icon(Icons.save),
+          label: const Text('保存'),
+        ),
+      ],
+    );
+  }
+
+  String? _validateUrl(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return '请输入媒体 URL';
+    final uri = Uri.tryParse(text);
+    if (uri == null || !uri.hasScheme) return '请输入完整 URL';
+    return null;
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.of(context).pop(
+      AdminMediaDraft(
+        contentId: _contentId,
+        type: _type,
+        publicUrl: _urlController.text,
+        filename: _filenameController.text,
+        contentType: _contentTypeController.text,
+        byteSize: _parseNullableInt(_byteSizeController.text),
+        width: _parseNullableInt(_widthController.text),
+        height: _parseNullableInt(_heightController.text),
+        durationSeconds: _parseNullableInt(_durationController.text),
+      ),
+    );
+  }
+}
+
+class _NumberField extends StatelessWidget {
+  const _NumberField({required this.controller, required this.label});
+
+  final TextEditingController controller;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 148,
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(labelText: label),
+        keyboardType: TextInputType.number,
+        validator: (value) {
+          final text = value?.trim() ?? '';
+          if (text.isEmpty) return null;
+          return int.tryParse(text) == null ? '请输入数字' : null;
+        },
+      ),
+    );
+  }
+}
+
 class _TagEditorDialog extends StatefulWidget {
   const _TagEditorDialog({required this.tag});
 
@@ -944,6 +1447,53 @@ class _MetaText extends StatelessWidget {
   }
 }
 
+class _MediaThumb extends StatelessWidget {
+  const _MediaThumb({
+    required this.url,
+    required this.type,
+    required this.size,
+  });
+
+  final String url;
+  final MediaAssetType type;
+  final Size size;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallbackIcon = switch (type) {
+      MediaAssetType.video => Icons.play_circle_outline,
+      MediaAssetType.file => Icons.insert_drive_file_outlined,
+      MediaAssetType.image => Icons.image_outlined,
+    };
+    final placeholder = SizedBox(
+      width: size.width,
+      height: size.height,
+      child: ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: Icon(fallbackIcon),
+      ),
+    );
+
+    if (url.isEmpty || type != MediaAssetType.image) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: placeholder,
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        url,
+        width: size.width,
+        height: size.height,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => placeholder,
+      ),
+    );
+  }
+}
+
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.message});
 
@@ -1048,4 +1598,19 @@ String _formatDate(DateTime date) {
     return '未发布';
   }
   return DateFormat('yyyy-MM-dd HH:mm').format(date);
+}
+
+String _formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  final kb = bytes / 1024;
+  if (kb < 1024) return '${kb.toStringAsFixed(1)} KB';
+  final mb = kb / 1024;
+  if (mb < 1024) return '${mb.toStringAsFixed(1)} MB';
+  return '${(mb / 1024).toStringAsFixed(1)} GB';
+}
+
+int? _parseNullableInt(String value) {
+  final text = value.trim();
+  if (text.isEmpty) return null;
+  return int.tryParse(text);
 }

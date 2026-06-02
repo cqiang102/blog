@@ -5,6 +5,7 @@ import com.caoqiang.blog.ai.AiChatSessionRepository;
 import com.caoqiang.blog.ai.AiDailyQuotaRepository;
 import com.caoqiang.blog.auth.RefreshTokenRepository;
 import com.caoqiang.blog.content.ContentRepository;
+import com.caoqiang.blog.content.MediaAssetRepository;
 import com.caoqiang.blog.content.TagRepository;
 import com.caoqiang.blog.interaction.CommentRepository;
 import com.caoqiang.blog.interaction.LikeRepository;
@@ -27,6 +28,9 @@ class BlogApiApplicationContextTest {
 
     @MockitoBean
     private ContentRepository contentRepository;
+
+    @MockitoBean
+    private MediaAssetRepository mediaAssetRepository;
 
     @MockitoBean
     private TagRepository tagRepository;

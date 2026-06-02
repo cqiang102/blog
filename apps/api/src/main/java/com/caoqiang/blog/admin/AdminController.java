@@ -3,6 +3,7 @@ package com.caoqiang.blog.admin;
 import com.caoqiang.blog.ai.AiChatSessionRepository;
 import com.caoqiang.blog.common.ApiResponse;
 import com.caoqiang.blog.content.ContentRepository;
+import com.caoqiang.blog.content.MediaAssetRepository;
 import com.caoqiang.blog.interaction.CommentRepository;
 import com.caoqiang.blog.interaction.LikeRepository;
 import com.caoqiang.blog.interaction.ViewRecordRepository;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminController {
 
     private final ContentRepository contentRepository;
+    private final MediaAssetRepository mediaAssetRepository;
     private final UserRepository userRepository;
     private final CommentRepository commentRepository;
     private final LikeRepository likeRepository;
@@ -27,6 +29,7 @@ public class AdminController {
 
     public AdminController(
             ContentRepository contentRepository,
+            MediaAssetRepository mediaAssetRepository,
             UserRepository userRepository,
             CommentRepository commentRepository,
             LikeRepository likeRepository,
@@ -34,6 +37,7 @@ public class AdminController {
             AiChatSessionRepository aiChatSessionRepository
     ) {
         this.contentRepository = contentRepository;
+        this.mediaAssetRepository = mediaAssetRepository;
         this.userRepository = userRepository;
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
@@ -45,6 +49,7 @@ public class AdminController {
     public ApiResponse<Map<String, Object>> dashboard() {
         return ApiResponse.ok(Map.of(
                 "contents", contentRepository.count(),
+                "media", mediaAssetRepository.count(),
                 "users", userRepository.count(),
                 "comments", commentRepository.count(),
                 "likes", likeRepository.count(),

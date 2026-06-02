@@ -149,6 +149,10 @@ public class Content {
         this.status = ContentStatus.ARCHIVED;
     }
 
+    public void setCoverMedia(MediaAsset coverMedia) {
+        this.coverMedia = coverMedia;
+    }
+
     public UUID getId() {
         return id;
     }

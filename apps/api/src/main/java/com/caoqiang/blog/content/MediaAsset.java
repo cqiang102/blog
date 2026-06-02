@@ -8,6 +8,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
@@ -57,6 +58,59 @@ public class MediaAsset {
     private Instant createdAt;
 
     protected MediaAsset() {
+    }
+
+    public MediaAsset(
+            Content content,
+            MediaAssetType type,
+            String bucket,
+            String objectKey,
+            String publicUrl,
+            String filename,
+            String contentType,
+            Long byteSize,
+            Integer width,
+            Integer height,
+            Integer durationSeconds
+    ) {
+        update(content, type, bucket, objectKey, publicUrl, filename, contentType, byteSize, width, height, durationSeconds);
+    }
+
+    @PrePersist
+    void onCreate() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+    }
+
+    public void update(
+            Content content,
+            MediaAssetType type,
+            String bucket,
+            String objectKey,
+            String publicUrl,
+            String filename,
+            String contentType,
+            Long byteSize,
+            Integer width,
+            Integer height,
+            Integer durationSeconds
+    ) {
+        this.content = content;
+        this.type = type;
+        this.bucket = bucket;
+        this.objectKey = objectKey;
+        this.publicUrl = publicUrl;
+        this.filename = filename;
+        this.contentType = contentType;
+        this.byteSize = byteSize;
+        this.width = width;
+        this.height = height;
+        this.durationSeconds = durationSeconds;
+    }
+
+    public Content getContent() {
+        return content;
     }
 
     public UUID getId() {

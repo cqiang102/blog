@@ -300,6 +300,69 @@ class BlogApiClient {
     await _delete('/admin/contents/$id', accessToken: accessToken);
   }
 
+  Future<PageResult<AdminMediaItem>> fetchAdminMedia({
+    required String accessToken,
+    String? contentId,
+    int page = 0,
+    int size = 80,
+  }) async {
+    final data = await _get(
+      '/admin/media-assets',
+      accessToken: accessToken,
+      queryParameters: {
+        if (contentId != null && contentId.isNotEmpty) 'contentId': contentId,
+        'page': page.toString(),
+        'size': size.toString(),
+      },
+    );
+    return _page(data, AdminMediaItem.fromJson);
+  }
+
+  Future<AdminMediaItem> createAdminMedia({
+    required String accessToken,
+    required AdminMediaDraft draft,
+  }) async {
+    final data = await _post(
+      '/admin/media-assets',
+      accessToken: accessToken,
+      body: draft.toJson(),
+    );
+    return AdminMediaItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<AdminMediaItem> updateAdminMedia({
+    required String accessToken,
+    required String id,
+    required AdminMediaDraft draft,
+  }) async {
+    final data = await _put(
+      '/admin/media-assets/$id',
+      accessToken: accessToken,
+      body: draft.toJson(),
+    );
+    return AdminMediaItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<void> deleteAdminMedia({
+    required String accessToken,
+    required String id,
+  }) async {
+    await _delete('/admin/media-assets/$id', accessToken: accessToken);
+  }
+
+  Future<AdminContentItem> setAdminContentCover({
+    required String accessToken,
+    required String contentId,
+    required String mediaId,
+  }) async {
+    final data = await _put(
+      '/admin/contents/$contentId/cover/$mediaId',
+      accessToken: accessToken,
+      body: const {},
+    );
+    return AdminContentItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
   Future<Object?> _get(
     String path, {
     Map<String, String?> queryParameters = const {},

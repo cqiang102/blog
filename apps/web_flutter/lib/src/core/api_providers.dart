@@ -88,3 +88,11 @@ final adminContentsProvider = FutureProvider<PageResult<AdminContentItem>>((
   }
   return ref.watch(apiClientProvider).fetchAdminContents(accessToken: token);
 });
+
+final adminMediaProvider = FutureProvider<PageResult<AdminMediaItem>>((ref) {
+  final token = ref.watch(authControllerProvider).accessToken;
+  if (token == null) {
+    throw const ApiException('请先登录');
+  }
+  return ref.watch(apiClientProvider).fetchAdminMedia(accessToken: token);
+});

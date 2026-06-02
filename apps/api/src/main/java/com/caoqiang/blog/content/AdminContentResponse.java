@@ -13,6 +13,9 @@ public record AdminContentResponse(
         String summary,
         String bodyMarkdown,
         boolean pinned,
+        UUID coverMediaId,
+        String coverUrl,
+        int mediaCount,
         long likeCount,
         long viewCount,
         long commentCount,
@@ -30,11 +33,21 @@ public record AdminContentResponse(
                 content.getSummary(),
                 content.getBodyMarkdown(),
                 content.isPinned(),
+                content.getCoverMedia() == null ? null : content.getCoverMedia().getId(),
+                coverUrl(content),
+                content.getMediaAssets().size(),
                 content.getLikeCount(),
                 content.getViewCount(),
                 content.getCommentCount(),
                 content.getPublishedAt(),
                 content.getTags().stream().map(TagResponse::from).toList()
         );
+    }
+
+    private static String coverUrl(Content content) {
+        if (content.getCoverMedia() != null) {
+            return content.getCoverMedia().getPublicUrl();
+        }
+        return null;
     }
 }
