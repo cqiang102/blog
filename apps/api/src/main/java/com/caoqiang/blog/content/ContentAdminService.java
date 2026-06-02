@@ -1,5 +1,6 @@
 package com.caoqiang.blog.content;
 
+import com.caoqiang.blog.ai.KnowledgeIndexService;
 import com.caoqiang.blog.common.BusinessException;
 import com.caoqiang.blog.common.PageResponse;
 import com.caoqiang.blog.common.SlugUtils;
@@ -25,10 +26,16 @@ public class ContentAdminService {
 
     private final ContentRepository contentRepository;
     private final TagRepository tagRepository;
+    private final KnowledgeIndexService knowledgeIndexService;
 
-    public ContentAdminService(ContentRepository contentRepository, TagRepository tagRepository) {
+    public ContentAdminService(
+            ContentRepository contentRepository,
+            TagRepository tagRepository,
+            KnowledgeIndexService knowledgeIndexService
+    ) {
         this.contentRepository = contentRepository;
         this.tagRepository = tagRepository;
+        this.knowledgeIndexService = knowledgeIndexService;
     }
 
     @Transactional(readOnly = true)
@@ -73,7 +80,18 @@ public class ContentAdminService {
                 publishedAt(request),
                 tags(request.tagSlugs())
         );
-        return AdminContentResponse.from(contentRepository.save(content));
+        Content saved = contentRepository.save(content);
+
+        // 发布状态的内容自动索引到向量数据库
+        if (saved.getStatus() == ContentStatus.PUBLISHED) {
+            try {
+                knowledgeIndexService.indexContent(saved);
+            } catch (Exception e) {
+                System.err.println("Failed to index content " + saved.getId() + ": " + e.getMessage());
+            }
+        }
+
+        return AdminContentResponse.from(saved);
     }
 
     @Transactional
@@ -97,6 +115,23 @@ public class ContentAdminService {
                 publishedAt(request),
                 tags(request.tagSlugs())
         );
+
+        // 发布状态的内容更新后重新索引
+        if (content.getStatus() == ContentStatus.PUBLISHED) {
+            try {
+                knowledgeIndexService.indexContent(content);
+            } catch (Exception e) {
+                System.err.println("Failed to reindex content " + content.getId() + ": " + e.getMessage());
+            }
+        } else {
+            // 非发布状态删除索引
+            try {
+                knowledgeIndexService.deleteContentIndex(content.getId());
+            } catch (Exception e) {
+                System.err.println("Failed to delete content index " + content.getId() + ": " + e.getMessage());
+            }
+        }
+
         return AdminContentResponse.from(content);
     }
 
@@ -106,6 +141,13 @@ public class ContentAdminService {
         Content content = contentRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
         content.archive();
+
+        // 归档后删除向量索引
+        try {
+            knowledgeIndexService.deleteContentIndex(content.getId());
+        } catch (Exception e) {
+            System.err.println("Failed to delete content index " + content.getId() + ": " + e.getMessage());
+        }
     }
 
     private Instant publishedAt(AdminContentRequest request) {

@@ -1,5 +1,6 @@
 package com.caoqiang.blog.ai;
 
+import com.caoqiang.blog.content.Content;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -53,6 +54,49 @@ public class KnowledgeIndexService {
 
             knowledgeChunkRepository.save(chunk);
         }
+    }
+
+    @Transactional
+    public void indexContent(Content content) {
+        // 先删除该内容的旧索引
+        knowledgeChunkRepository.deleteByContentId(content.getId());
+
+        // 构建要索引的文本：标题 + 摘要 + 正文
+        StringBuilder textBuilder = new StringBuilder();
+        if (content.getTitle() != null && !content.getTitle().isBlank()) {
+            textBuilder.append(content.getTitle()).append("\n\n");
+        }
+        if (content.getSummary() != null && !content.getSummary().isBlank()) {
+            textBuilder.append(content.getSummary()).append("\n\n");
+        }
+        if (content.getBodyMarkdown() != null && !content.getBodyMarkdown().isBlank()) {
+            textBuilder.append(content.getBodyMarkdown());
+        }
+
+        String fullText = textBuilder.toString().trim();
+        if (fullText.isEmpty()) {
+            return;
+        }
+
+        List<String> chunks = splitText(fullText);
+        for (int i = 0; i < chunks.size(); i++) {
+            String chunkContent = chunks.get(i);
+            KnowledgeChunk chunk = new KnowledgeChunk(content.getId(), i, chunkContent);
+
+            try {
+                float[] embedding = embeddingModel.embed(chunkContent);
+                chunk.setEmbedding(vectorToString(embedding));
+            } catch (Exception e) {
+                chunk.setMetadata("{\"error\": \"embedding generation failed\"}");
+            }
+
+            knowledgeChunkRepository.save(chunk);
+        }
+    }
+
+    @Transactional
+    public void deleteContentIndex(UUID contentId) {
+        knowledgeChunkRepository.deleteByContentId(contentId);
     }
 
     @Transactional

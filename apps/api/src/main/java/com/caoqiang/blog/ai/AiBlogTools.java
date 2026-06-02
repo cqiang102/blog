@@ -88,8 +88,8 @@ public class AiBlogTools {
         }
     }
 
-    @Tool(description = "搜索知识库。根据关键词搜索个人知识库中的相关内容，返回匹配的知识片段。用于回答用户关于个人经历、技术观点等问题。")
-    public List<String> searchKnowledge(
+    @Tool(description = "搜索知识库。根据关键词搜索博客内容的向量索引，返回匹配的内容片段及其来源文章。用于回答用户关于博客内容、技术观点等问题。")
+    public List<Map<String, Object>> searchKnowledge(
             @ToolParam(description = "搜索关键词") String query
     ) {
         try {
@@ -98,28 +98,43 @@ public class AiBlogTools {
             List<Object[]> similarChunks = knowledgeChunkRepository.findSimilarChunks(embeddingStr, 5);
 
             if (!similarChunks.isEmpty()) {
-                List<String> results = new ArrayList<>();
+                List<Map<String, Object>> results = new ArrayList<>();
                 for (Object[] chunk : similarChunks) {
-                    String content = (String) chunk[2];
-                    results.add(content);
+                    UUID contentId = chunk[2] != null ? (UUID) chunk[2] : null;
+                    String content = (String) chunk[3];
+                    double score = chunk[5] != null ? ((Number) chunk[5]).doubleValue() : 0;
+
+                    Map<String, Object> result = new java.util.HashMap<>();
+                    result.put("content", content);
+                    result.put("score", score);
+
+                    // 如果有 contentId，获取文章标题
+                    if (contentId != null) {
+                        contentRepository.findById(contentId).ifPresent(c -> {
+                            result.put("contentId", contentId.toString());
+                            result.put("title", c.getTitle());
+                        });
+                    }
+
+                    results.add(result);
                 }
                 return results;
             }
         } catch (Exception ignored) {
         }
 
-        List<String> results = new ArrayList<>();
-        List<KnowledgeDoc> docs = knowledgeDocRepository.findAll();
-        for (KnowledgeDoc doc : docs) {
-            if (doc.isEnabled() && doc.getBody() != null &&
-                    (doc.getBody().toLowerCase().contains(query.toLowerCase()) ||
-                     doc.getTitle().toLowerCase().contains(query.toLowerCase()))) {
-                String body = doc.getBody();
-                if (body.length() > 500) {
-                    body = body.substring(0, 500) + "...";
-                }
-                results.add(doc.getTitle() + ": " + body);
-            }
+        // 向量搜索失败时，回退到文本搜索
+        List<Map<String, Object>> results = new ArrayList<>();
+        PageResponse<ContentSummaryResponse> searchResults = contentService.list(
+                query, null, null, null, null, 0, 5
+        );
+        for (ContentSummaryResponse item : searchResults.items()) {
+            results.add(Map.of(
+                    "contentId", item.id().toString(),
+                    "title", item.title(),
+                    "content", item.summary() != null ? item.summary() : "",
+                    "score", 0.0
+            ));
         }
         return results;
     }

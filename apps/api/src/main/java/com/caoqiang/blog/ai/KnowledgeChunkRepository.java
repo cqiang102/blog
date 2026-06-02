@@ -9,11 +9,14 @@ import org.springframework.data.repository.query.Param;
 public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, UUID> {
 
     @Query(value = """
-            SELECT kc.id, kc.doc_id, kc.chunk_index, kc.content, kc.metadata,
+            SELECT kc.id, kc.doc_id, kc.content_id, kc.chunk_index, kc.content, kc.metadata,
                    1 - (kc.embedding <=> :queryEmbedding::vector) AS score
             FROM knowledge_chunks kc
-            JOIN knowledge_docs kd ON kc.doc_id = kd.id
-            WHERE kd.enabled = true
+            LEFT JOIN knowledge_docs kd ON kc.doc_id = kd.id
+            LEFT JOIN contents c ON kc.content_id = c.id
+            WHERE (kd.id IS NULL OR kd.enabled = true)
+              AND (c.id IS NULL OR c.status = 'PUBLISHED')
+              AND kc.embedding IS NOT NULL
             ORDER BY kc.embedding <=> :queryEmbedding::vector
             LIMIT :limit
             """, nativeQuery = true)
@@ -25,4 +28,6 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
     List<KnowledgeChunk> findByDocIdOrderByChunkIndex(UUID docId);
 
     void deleteByDocId(UUID docId);
+
+    void deleteByContentId(UUID contentId);
 }

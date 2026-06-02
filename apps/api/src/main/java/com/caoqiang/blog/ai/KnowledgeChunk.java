@@ -20,8 +20,11 @@ public class KnowledgeChunk {
     private UUID id = UUID.randomUUID();
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "doc_id", nullable = false)
+    @JoinColumn(name = "doc_id")
     private KnowledgeDoc doc;
+
+    @Column(name = "content_id")
+    private UUID contentId;
 
     @Column(name = "chunk_index", nullable = false)
     private int chunkIndex;
@@ -47,6 +50,12 @@ public class KnowledgeChunk {
         this.content = content;
     }
 
+    public KnowledgeChunk(UUID contentId, int chunkIndex, String content) {
+        this.contentId = contentId;
+        this.chunkIndex = chunkIndex;
+        this.content = content;
+    }
+
     @PrePersist
     void onCreate() {
         if (createdAt == null) {
@@ -60,6 +69,10 @@ public class KnowledgeChunk {
 
     public KnowledgeDoc getDoc() {
         return doc;
+    }
+
+    public UUID getContentId() {
+        return contentId;
     }
 
     public int getChunkIndex() {
