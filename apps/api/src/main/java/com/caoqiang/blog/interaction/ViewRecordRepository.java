@@ -22,4 +22,8 @@ public interface ViewRecordRepository extends JpaRepository<ViewRecord, UUID>, J
     Page<ViewRecord> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
 
     Optional<ViewRecord> findByIdAndUserId(UUID id, UUID userId);
+
+    boolean existsByContentIdAndAnonymousId(UUID contentId, String anonymousId);
+
+    boolean existsByContentIdAndUserId(UUID contentId, UUID userId);
 }

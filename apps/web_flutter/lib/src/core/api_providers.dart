@@ -190,3 +190,17 @@ final adminMediaProvider = FutureProvider<PageResult<AdminMediaItem>>((ref) {
   }
   return ref.watch(apiClientProvider).fetchAdminMedia(accessToken: token);
 });
+
+final adminAuditLogsProvider =
+    FutureProvider.family<PageResult<AuditLogItem>, AuditLogQuery>((
+      ref,
+      query,
+    ) {
+      final token = ref.watch(authControllerProvider).accessToken;
+      if (token == null) {
+        throw const ApiException('请先登录');
+      }
+      return ref
+          .watch(apiClientProvider)
+          .fetchAdminAuditLogs(accessToken: token, query: query);
+    });

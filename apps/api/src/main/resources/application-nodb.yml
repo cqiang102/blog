@@ -6,11 +6,32 @@ spring:
       - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
       - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
       - org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
+      - org.springframework.boot.data.redis.autoconfigure.RedisAutoConfiguration
+      - org.springframework.ai.chat.memory.repository.jdbc.autoconfigure.JdbcChatMemoryRepositoryAutoConfiguration
   flyway:
     enabled: false
   ai:
     vectorstore:
       type: none
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: never
+  data:
+    redis:
+      enabled: false
+
+blog:
+  admin:
+    bootstrap:
+      enabled: false
+  ai:
+    vectorstore:
+      type: none
+  data:
+    redis:
+      enabled: false
 
 blog:
   admin:

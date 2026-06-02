@@ -21,9 +21,14 @@ public class KnowledgeAdminService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final KnowledgeDocRepository knowledgeDocRepository;
+    private final KnowledgeIndexService knowledgeIndexService;
 
-    public KnowledgeAdminService(KnowledgeDocRepository knowledgeDocRepository) {
+    public KnowledgeAdminService(
+            KnowledgeDocRepository knowledgeDocRepository,
+            KnowledgeIndexService knowledgeIndexService
+    ) {
         this.knowledgeDocRepository = knowledgeDocRepository;
+        this.knowledgeIndexService = knowledgeIndexService;
     }
 
     @Transactional(readOnly = true)
@@ -58,7 +63,18 @@ public class KnowledgeAdminService {
                 normalize(request.body()),
                 request.enabled()
         );
-        return KnowledgeDocResponse.from(knowledgeDocRepository.save(doc));
+        KnowledgeDoc saved = knowledgeDocRepository.save(doc);
+
+        if (saved.isEnabled() && saved.getBody() != null && !saved.getBody().isBlank()) {
+            try {
+                knowledgeIndexService.indexDocument(saved.getId());
+            } catch (Exception e) {
+                // 索引失败不影响文档保存
+                System.err.println("Failed to index new document: " + e.getMessage());
+            }
+        }
+
+        return KnowledgeDocResponse.from(saved);
     }
 
     @Transactional
@@ -71,6 +87,15 @@ public class KnowledgeAdminService {
                 normalize(request.body()),
                 request.enabled()
         );
+
+        if (doc.isEnabled() && doc.getBody() != null && !doc.getBody().isBlank()) {
+            try {
+                knowledgeIndexService.indexDocument(id);
+            } catch (Exception e) {
+                System.err.println("Failed to reindex document: " + e.getMessage());
+            }
+        }
+
         return KnowledgeDocResponse.from(doc);
     }
 

@@ -71,7 +71,11 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
   final _blogUrlController = TextEditingController();
   final _emailController = TextEditingController();
   final _avatarUrlController = TextEditingController();
+  final _oldPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   String? _seededUserId;
+  bool _changingPassword = false;
 
   @override
   void dispose() {
@@ -80,6 +84,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     _blogUrlController.dispose();
     _emailController.dispose();
     _avatarUrlController.dispose();
+    _oldPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -144,6 +151,51 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
             label: const Text('保存'),
           ),
         ),
+        const SizedBox(height: 32),
+        const Divider(),
+        const SizedBox(height: 16),
+        Text(
+          '修改密码',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _oldPasswordController,
+          decoration: const InputDecoration(labelText: '当前密码'),
+          obscureText: true,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _newPasswordController,
+          decoration: const InputDecoration(
+            labelText: '新密码',
+            hintText: '至少6个字符',
+          ),
+          obscureText: true,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _confirmPasswordController,
+          decoration: const InputDecoration(labelText: '确认新密码'),
+          obscureText: true,
+        ),
+        const SizedBox(height: 20),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: _changingPassword ? null : _changePassword,
+            icon:
+                _changingPassword
+                    ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Icons.lock_outline),
+            label: const Text('修改密码'),
+          ),
+        ),
       ],
     );
   }
@@ -176,6 +228,54 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       _showError(error.message);
     } catch (error) {
       _showError(error.toString());
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final oldPassword = _oldPasswordController.text;
+    final newPassword = _newPasswordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (oldPassword.isEmpty) {
+      _showError('请输入当前密码');
+      return;
+    }
+    if (newPassword.length < 6) {
+      _showError('新密码至少6个字符');
+      return;
+    }
+    if (newPassword != confirmPassword) {
+      _showError('两次输入的密码不一致');
+      return;
+    }
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    setState(() => _changingPassword = true);
+    try {
+      await ref
+          .read(apiClientProvider)
+          .changePassword(
+            accessToken: token,
+            oldPassword: oldPassword,
+            newPassword: newPassword,
+          );
+      if (!mounted) return;
+      _oldPasswordController.clear();
+      _newPasswordController.clear();
+      _confirmPasswordController.clear();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('密码已修改')));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _showError(error.message);
+    } catch (error) {
+      if (!mounted) return;
+      _showError(error.toString());
+    } finally {
+      if (mounted) setState(() => _changingPassword = false);
     }
   }
 

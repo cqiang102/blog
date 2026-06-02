@@ -319,6 +319,8 @@ class ContentListQuery {
     this.query = '',
     this.tag,
     this.type,
+    this.startDate,
+    this.endDate,
     this.page = 0,
     this.size = 10,
   });
@@ -326,6 +328,8 @@ class ContentListQuery {
   final String query;
   final String? tag;
   final ContentType? type;
+  final DateTime? startDate;
+  final DateTime? endDate;
   final int page;
   final int size;
 
@@ -335,12 +339,14 @@ class ContentListQuery {
         other.query == query &&
         other.tag == tag &&
         other.type == type &&
+        other.startDate == startDate &&
+        other.endDate == endDate &&
         other.page == page &&
         other.size == size;
   }
 
   @override
-  int get hashCode => Object.hash(query, tag, type, page, size);
+  int get hashCode => Object.hash(query, tag, type, startDate, endDate, page, size);
 }
 
 class AdminCommentQuery {
@@ -806,17 +812,69 @@ class AiChatReply {
     required this.sessionId,
     required this.answer,
     required this.remainingQuestions,
+    required this.remainingMessages,
   });
 
   final String sessionId;
   final String answer;
   final int remainingQuestions;
+  final int remainingMessages;
 
   factory AiChatReply.fromJson(Map<String, dynamic> json) {
     return AiChatReply(
       sessionId: _string(json['sessionId']),
       answer: _string(json['answer']),
       remainingQuestions: _int(json['remainingQuestions']),
+      remainingMessages: _int(json['remainingMessages']),
+    );
+  }
+}
+
+class AiSessionItem {
+  const AiSessionItem({
+    required this.id,
+    required this.title,
+    required this.messageCount,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String title;
+  final int messageCount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  factory AiSessionItem.fromJson(Map<String, dynamic> json) {
+    return AiSessionItem(
+      id: _string(json['id']),
+      title: _string(json['title']),
+      messageCount: _int(json['messageCount']),
+      createdAt: _date(json['createdAt']),
+      updatedAt: _date(json['updatedAt']),
+    );
+  }
+}
+
+class AiMessageItem {
+  const AiMessageItem({
+    required this.id,
+    required this.role,
+    required this.content,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String role;
+  final String content;
+  final DateTime createdAt;
+
+  factory AiMessageItem.fromJson(Map<String, dynamic> json) {
+    return AiMessageItem(
+      id: _string(json['id']),
+      role: _string(json['role']),
+      content: _string(json['content']),
+      createdAt: _date(json['createdAt']),
     );
   }
 }
@@ -1423,6 +1481,68 @@ class AdminContentDraft {
       'tagSlugs': tagSlugs,
     };
   }
+}
+
+class AuditLogItem {
+  const AuditLogItem({
+    required this.id,
+    required this.action,
+    required this.resourceType,
+    this.actorUserId,
+    this.actorNickname,
+    this.resourceId,
+    this.detail,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String? actorUserId;
+  final String? actorNickname;
+  final String action;
+  final String resourceType;
+  final String? resourceId;
+  final String? detail;
+  final DateTime createdAt;
+
+  factory AuditLogItem.fromJson(Map<String, dynamic> json) {
+    return AuditLogItem(
+      id: _string(json['id']),
+      actorUserId: _nullableString(json['actorUserId']),
+      actorNickname: _nullableString(json['actorNickname']),
+      action: _string(json['action']),
+      resourceType: _string(json['resourceType']),
+      resourceId: _nullableString(json['resourceId']),
+      detail: _nullableString(json['detail']),
+      createdAt: _date(json['createdAt']),
+    );
+  }
+}
+
+class AuditLogQuery {
+  const AuditLogQuery({
+    this.action,
+    this.resourceType,
+    this.page = 0,
+    this.size = 50,
+  });
+
+  final String? action;
+  final String? resourceType;
+  final int page;
+  final int size;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AuditLogQuery &&
+          runtimeType == other.runtimeType &&
+          action == other.action &&
+          resourceType == other.resourceType &&
+          page == other.page &&
+          size == other.size;
+
+  @override
+  int get hashCode => Object.hash(action, resourceType, page, size);
 }
 
 List<BlogContent> _contentList(Object? value) {

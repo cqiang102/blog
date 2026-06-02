@@ -44,7 +44,7 @@ class InteractionAdminServiceTest {
     @Test
     void deletingViewDecrementsContentViewCount() {
         Content content = content();
-        ViewRecord viewRecord = new ViewRecord(content, user(), "JUnit");
+        ViewRecord viewRecord = new ViewRecord(content, user(), "anonymous", "iphash", "JUnit");
         InteractionAdminService service = new InteractionAdminService(likeRepository, viewRecordRepository, contentRepository);
         when(viewRecordRepository.findById(viewRecord.getId())).thenReturn(Optional.of(viewRecord));
 

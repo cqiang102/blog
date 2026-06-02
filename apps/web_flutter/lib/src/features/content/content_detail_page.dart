@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
@@ -296,7 +297,7 @@ class _ContentViewer extends StatelessWidget {
         ),
       ),
       ContentType.image => _ImageGallery(urls: content.mediaUrls),
-      ContentType.video => _VideoPlaceholder(content: content),
+      ContentType.video => _VideoPlayerWidget(content: content),
     };
   }
 }
@@ -340,35 +341,122 @@ class _ImageGallery extends StatelessWidget {
   }
 }
 
-class _VideoPlaceholder extends StatelessWidget {
-  const _VideoPlaceholder({required this.content});
+class _VideoPlayerWidget extends StatefulWidget {
+  const _VideoPlayerWidget({required this.content});
 
   final BlogContent content;
 
   @override
+  State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPlayer();
+  }
+
+  Future<void> _initPlayer() async {
+    final videoUrl = widget.content.mediaUrls.isNotEmpty
+        ? widget.content.mediaUrls.first
+        : '';
+    if (videoUrl.isEmpty) {
+      setState(() => _hasError = true);
+      return;
+    }
+
+    try {
+      _controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+      await _controller!.initialize();
+      _controller!.addListener(() {
+        if (mounted) setState(() {});
+      });
+      setState(() => _isInitialized = true);
+    } catch (e) {
+      setState(() => _hasError = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (content.coverUrl.isEmpty) {
-      return const _MediaEmpty(label: '暂无视频封面');
+    if (_hasError) {
+      return _MediaEmpty(label: '视频加载失败');
+    }
+
+    if (!_isInitialized || _controller == null) {
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (widget.content.coverUrl.isNotEmpty)
+                Image.network(widget.content.coverUrl, fit: BoxFit.cover),
+              const Center(child: CircularProgressIndicator()),
+            ],
+          ),
+        ),
+      );
     }
 
     return AspectRatio(
-      aspectRatio: 16 / 9,
+      aspectRatio: _controller!.value.aspectRatio,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Stack(
-          fit: StackFit.expand,
+          alignment: Alignment.bottomCenter,
           children: [
-            Image.network(content.coverUrl, fit: BoxFit.cover),
-            ColoredBox(color: Colors.black.withValues(alpha: 0.32)),
-            Center(
-              child: Icon(
-                Icons.play_circle_fill,
-                size: 80,
-                color: Theme.of(context).colorScheme.secondary,
-              ),
-            ),
+            VideoPlayer(_controller!),
+            _ControlsOverlay(controller: _controller!),
+            VideoProgressIndicator(_controller!, allowScrubbing: true),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ControlsOverlay extends StatelessWidget {
+  const _ControlsOverlay({required this.controller});
+
+  final VideoPlayerController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        if (controller.value.isPlaying) {
+          controller.pause();
+        } else {
+          controller.play();
+        }
+      },
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: controller.value.isPlaying
+            ? const SizedBox.shrink()
+            : Container(
+                color: Colors.black26,
+                child: const Center(
+                  child: Icon(
+                    Icons.play_arrow,
+                    color: Colors.white,
+                    size: 64,
+                  ),
+                ),
+              ),
       ),
     );
   }

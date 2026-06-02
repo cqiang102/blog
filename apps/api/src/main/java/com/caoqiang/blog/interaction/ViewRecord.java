@@ -44,9 +44,11 @@ public class ViewRecord {
     protected ViewRecord() {
     }
 
-    public ViewRecord(Content content, User user, String userAgent) {
+    public ViewRecord(Content content, User user, String anonymousId, String ipHash, String userAgent) {
         this.content = content;
         this.user = user;
+        this.anonymousId = anonymousId;
+        this.ipHash = ipHash;
         this.userAgent = userAgent;
     }
 

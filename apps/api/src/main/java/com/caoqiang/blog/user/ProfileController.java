@@ -43,6 +43,15 @@ public class ProfileController {
         return ApiResponse.ok(profileService.update(currentUser, request));
     }
 
+    @PutMapping("/password")
+    public ApiResponse<Map<String, Object>> changePassword(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        profileService.changePassword(currentUser, request);
+        return ApiResponse.ok(Map.of("changed", true));
+    }
+
     @GetMapping("/comments")
     public ApiResponse<PageResponse<UserActivityResponse>> comments(
             @AuthenticationPrincipal AuthenticatedUser currentUser,

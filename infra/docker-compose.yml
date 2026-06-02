@@ -2,7 +2,7 @@ name: personal-blog
 
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg18
     container_name: blog-postgres
     environment:
       POSTGRES_DB: blog

@@ -9,6 +9,9 @@ import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.ContentStatus;
 import com.caoqiang.blog.user.User;
 import com.caoqiang.blog.user.UserRepository;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Base64;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -21,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class InteractionService {
 
     private static final int MAX_PAGE_SIZE = 50;
+    private static final Base64.Encoder BASE64_ENCODER = Base64.getUrlEncoder().withoutPadding();
 
     private final ContentRepository contentRepository;
     private final UserRepository userRepository;
@@ -105,10 +109,24 @@ public class InteractionService {
     }
 
     @Transactional
-    public ViewStateResponse recordView(AuthenticatedUser currentUser, UUID contentId, String userAgent) {
+    public ViewStateResponse recordView(AuthenticatedUser currentUser, UUID contentId, String clientIp, String userAgent) {
         Content content = publishedContent(contentId);
         User user = currentUser == null ? null : activeUser(currentUser.id());
-        viewRecordRepository.save(new ViewRecord(content, user, userAgent));
+
+        String anonymousId = generateAnonymousId(clientIp, userAgent);
+        String ipHash = hashIp(clientIp);
+
+        if (user != null) {
+            if (viewRecordRepository.existsByContentIdAndUserId(contentId, user.getId())) {
+                return new ViewStateResponse(contentId, true, content.getViewCount());
+            }
+        } else {
+            if (viewRecordRepository.existsByContentIdAndAnonymousId(contentId, anonymousId)) {
+                return new ViewStateResponse(contentId, true, content.getViewCount());
+            }
+        }
+
+        viewRecordRepository.save(new ViewRecord(content, user, anonymousId, ipHash, userAgent));
         contentRepository.incrementViewCount(contentId, 1);
         return new ViewStateResponse(contentId, true, content.getViewCount() + 1);
     }
@@ -182,5 +200,24 @@ public class InteractionService {
                 Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
                 Sort.by(Sort.Direction.DESC, "createdAt")
         );
+    }
+
+    private String generateAnonymousId(String clientIp, String userAgent) {
+        String raw = (clientIp != null ? clientIp : "unknown") + "|" + (userAgent != null ? userAgent : "unknown");
+        return hashString(raw);
+    }
+
+    private String hashIp(String clientIp) {
+        return hashString(clientIp != null ? clientIp : "unknown");
+    }
+
+    private String hashString(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            return BASE64_ENCODER.encodeToString(hash);
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to hash", e);
+        }
     }
 }

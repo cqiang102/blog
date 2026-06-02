@@ -1,0 +1,204 @@
+package com.caoqiang.blog.ai;
+
+import com.caoqiang.blog.auth.AuthenticatedUser;
+import com.caoqiang.blog.common.BusinessException;
+import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.content.Content;
+import com.caoqiang.blog.content.ContentDetailResponse;
+import com.caoqiang.blog.content.ContentRepository;
+import com.caoqiang.blog.content.ContentService;
+import com.caoqiang.blog.content.ContentStatus;
+import com.caoqiang.blog.content.ContentSummaryResponse;
+import com.caoqiang.blog.interaction.CommentRequest;
+import com.caoqiang.blog.interaction.CommentResponse;
+import com.caoqiang.blog.interaction.InteractionService;
+import com.caoqiang.blog.interaction.LikeStateResponse;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.stereotype.Component;
+
+@Component
+public class AiBlogTools {
+
+    private final ContentService contentService;
+    private final ContentRepository contentRepository;
+    private final InteractionService interactionService;
+    private final KnowledgeChunkRepository knowledgeChunkRepository;
+    private final KnowledgeDocRepository knowledgeDocRepository;
+    private final EmbeddingModel embeddingModel;
+
+    public AiBlogTools(
+            ContentService contentService,
+            ContentRepository contentRepository,
+            InteractionService interactionService,
+            KnowledgeChunkRepository knowledgeChunkRepository,
+            KnowledgeDocRepository knowledgeDocRepository,
+            EmbeddingModel embeddingModel
+    ) {
+        this.contentService = contentService;
+        this.contentRepository = contentRepository;
+        this.interactionService = interactionService;
+        this.knowledgeChunkRepository = knowledgeChunkRepository;
+        this.knowledgeDocRepository = knowledgeDocRepository;
+        this.embeddingModel = embeddingModel;
+    }
+
+    @Tool(description = "搜索博客文章。根据关键词搜索已发布的博客内容，返回匹配的文章列表（含标题、摘要、类型）。当用户想查找或浏览博客内容时调用。")
+    public Map<String, Object> searchContent(
+            @ToolParam(description = "搜索关键词") String query,
+            @ToolParam(description = "返回结果数量上限，最大10") int limit
+    ) {
+        PageResponse<ContentSummaryResponse> results = contentService.list(
+                query, null, null, null, null, 0, Math.min(limit, 10)
+        );
+        return Map.of(
+                "results", results.items().stream().map(item -> Map.of(
+                        "id", item.id().toString(),
+                        "title", item.title(),
+                        "summary", item.summary() != null ? item.summary() : "",
+                        "type", item.type().name()
+                )).toList(),
+                "total", results.total()
+        );
+    }
+
+    @Tool(description = "获取博客文章详情。根据文章ID获取完整内容，包括正文、点赞数、浏览数、评论数等。当用户想了解某篇文章的具体内容时调用。")
+    public Map<String, Object> getContentDetail(
+            @ToolParam(description = "文章的UUID") UUID contentId
+    ) {
+        try {
+            ContentDetailResponse detail = contentService.detail(contentId, null);
+            return Map.of(
+                    "id", detail.id().toString(),
+                    "title", detail.title(),
+                    "summary", detail.summary() != null ? detail.summary() : "",
+                    "markdown", detail.bodyMarkdown() != null ? detail.bodyMarkdown() : "",
+                    "type", detail.type().name(),
+                    "likeCount", detail.likeCount(),
+                    "viewCount", detail.viewCount(),
+                    "commentCount", detail.commentCount()
+            );
+        } catch (Exception e) {
+            return Map.of("error", "内容不存在或已归档");
+        }
+    }
+
+    @Tool(description = "搜索知识库。根据关键词搜索个人知识库中的相关内容，返回匹配的知识片段。用于回答用户关于个人经历、技术观点等问题。")
+    public List<String> searchKnowledge(
+            @ToolParam(description = "搜索关键词") String query
+    ) {
+        try {
+            float[] queryEmbedding = embeddingModel.embed(query);
+            String embeddingStr = vectorToString(queryEmbedding);
+            List<Object[]> similarChunks = knowledgeChunkRepository.findSimilarChunks(embeddingStr, 5);
+
+            if (!similarChunks.isEmpty()) {
+                List<String> results = new ArrayList<>();
+                for (Object[] chunk : similarChunks) {
+                    String content = (String) chunk[2];
+                    results.add(content);
+                }
+                return results;
+            }
+        } catch (Exception ignored) {
+        }
+
+        List<String> results = new ArrayList<>();
+        List<KnowledgeDoc> docs = knowledgeDocRepository.findAll();
+        for (KnowledgeDoc doc : docs) {
+            if (doc.isEnabled() && doc.getBody() != null &&
+                    (doc.getBody().toLowerCase().contains(query.toLowerCase()) ||
+                     doc.getTitle().toLowerCase().contains(query.toLowerCase()))) {
+                String body = doc.getBody();
+                if (body.length() > 500) {
+                    body = body.substring(0, 500) + "...";
+                }
+                results.add(doc.getTitle() + ": " + body);
+            }
+        }
+        return results;
+    }
+
+    @Tool(description = "对博客文章点赞。当用户表示喜欢某篇文章或想给文章点赞时调用。")
+    public Map<String, Object> likeContent(
+            @ToolParam(description = "文章的UUID") UUID contentId
+    ) {
+        AuthenticatedUser currentUser = AiUserContext.get();
+        if (currentUser == null) {
+            return Map.of("error", "请先登录");
+        }
+        try {
+            LikeStateResponse result = interactionService.like(currentUser, contentId);
+            return Map.of("liked", result.liked(), "likeCount", result.likeCount());
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    @Tool(description = "取消对博客文章的点赞。当用户想取消之前的点赞时调用。")
+    public Map<String, Object> unlikeContent(
+            @ToolParam(description = "文章的UUID") UUID contentId
+    ) {
+        AuthenticatedUser currentUser = AiUserContext.get();
+        if (currentUser == null) {
+            return Map.of("error", "请先登录");
+        }
+        try {
+            LikeStateResponse result = interactionService.unlike(currentUser, contentId);
+            return Map.of("liked", result.liked(), "likeCount", result.likeCount());
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    @Tool(description = "对博客文章发表评论。当用户想对某篇文章发表评论或留言时调用。")
+    public Map<String, Object> commentContent(
+            @ToolParam(description = "文章的UUID") UUID contentId,
+            @ToolParam(description = "评论内容") String body
+    ) {
+        AuthenticatedUser currentUser = AiUserContext.get();
+        if (currentUser == null) {
+            return Map.of("error", "请先登录");
+        }
+        try {
+            CommentResponse result = interactionService.comment(currentUser, contentId, new CommentRequest(body));
+            return Map.of(
+                    "commentId", result.id().toString(),
+                    "body", result.body()
+            );
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    @Tool(description = "删除自己的评论。当用户想删除之前发表的评论时调用。只能删除自己发布的评论。")
+    public Map<String, Object> deleteComment(
+            @ToolParam(description = "评论的UUID") UUID commentId
+    ) {
+        AuthenticatedUser currentUser = AiUserContext.get();
+        if (currentUser == null) {
+            return Map.of("error", "请先登录");
+        }
+        try {
+            interactionService.deleteComment(currentUser, commentId);
+            return Map.of("deleted", true);
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    private String vectorToString(float[] embedding) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < embedding.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(embedding[i]);
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+}

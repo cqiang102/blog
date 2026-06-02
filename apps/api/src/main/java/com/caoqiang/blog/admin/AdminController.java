@@ -2,7 +2,10 @@ package com.caoqiang.blog.admin;
 
 import com.caoqiang.blog.ai.AiChatSessionRepository;
 import com.caoqiang.blog.ai.KnowledgeDocRepository;
+import com.caoqiang.blog.audit.AuditLogResponse;
+import com.caoqiang.blog.audit.AuditLogService;
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.PageResponse;
 import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.MediaAssetRepository;
 import com.caoqiang.blog.friend.FriendRepository;
@@ -10,11 +13,12 @@ import com.caoqiang.blog.interaction.CommentRepository;
 import com.caoqiang.blog.interaction.LikeRepository;
 import com.caoqiang.blog.interaction.ViewRecordRepository;
 import com.caoqiang.blog.user.UserRepository;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -30,6 +34,7 @@ public class AdminController {
     private final ViewRecordRepository viewRecordRepository;
     private final AiChatSessionRepository aiChatSessionRepository;
     private final KnowledgeDocRepository knowledgeDocRepository;
+    private final AuditLogService auditLogService;
 
     public AdminController(
             ContentRepository contentRepository,
@@ -40,7 +45,8 @@ public class AdminController {
             LikeRepository likeRepository,
             ViewRecordRepository viewRecordRepository,
             AiChatSessionRepository aiChatSessionRepository,
-            KnowledgeDocRepository knowledgeDocRepository
+            KnowledgeDocRepository knowledgeDocRepository,
+            AuditLogService auditLogService
     ) {
         this.contentRepository = contentRepository;
         this.mediaAssetRepository = mediaAssetRepository;
@@ -51,6 +57,7 @@ public class AdminController {
         this.viewRecordRepository = viewRecordRepository;
         this.aiChatSessionRepository = aiChatSessionRepository;
         this.knowledgeDocRepository = knowledgeDocRepository;
+        this.auditLogService = auditLogService;
     }
 
     @GetMapping("/dashboard")
@@ -69,12 +76,14 @@ public class AdminController {
     }
 
     @GetMapping("/logs")
-    public ApiResponse<List<Map<String, Object>>> logs() {
-        return ApiResponse.ok(List.of(Map.of(
-                "time", Instant.now(),
-                "level", "INFO",
-                "message", "Admin log endpoint placeholder"
-        )));
+    public ApiResponse<PageResponse<AuditLogResponse>> logs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String action,
+            @RequestParam(required = false) String resourceType,
+            @RequestParam(required = false) UUID actorUserId
+    ) {
+        return ApiResponse.ok(auditLogService.list(page, size, action, resourceType, actorUserId));
     }
 
     @GetMapping("/modules")
@@ -89,7 +98,8 @@ public class AdminController {
                 "friends",
                 "users",
                 "ai-chats",
-                "knowledge"
+                "knowledge",
+                "logs"
         ));
     }
 }

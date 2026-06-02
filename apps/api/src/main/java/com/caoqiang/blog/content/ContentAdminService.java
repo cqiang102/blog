@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -54,6 +55,7 @@ public class ContentAdminService {
     }
 
     @Transactional
+    @CacheEvict(value = "recommendations", allEntries = true)
     public AdminContentResponse create(AdminContentRequest request) {
         String slug = slugFor(request);
         if (contentRepository.existsBySlug(slug)) {
@@ -75,6 +77,7 @@ public class ContentAdminService {
     }
 
     @Transactional
+    @CacheEvict(value = "recommendations", allEntries = true)
     public AdminContentResponse update(UUID id, AdminContentRequest request) {
         Content content = contentRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
@@ -98,6 +101,7 @@ public class ContentAdminService {
     }
 
     @Transactional
+    @CacheEvict(value = "recommendations", allEntries = true)
     public void archive(UUID id) {
         Content content = contentRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));

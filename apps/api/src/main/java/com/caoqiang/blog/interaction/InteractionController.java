@@ -76,6 +76,20 @@ public class InteractionController {
             @PathVariable UUID contentId,
             HttpServletRequest request
     ) {
-        return ApiResponse.ok(interactionService.recordView(currentUser, contentId, request.getHeader("User-Agent")));
+        String clientIp = getClientIp(request);
+        String userAgent = request.getHeader("User-Agent");
+        return ApiResponse.ok(interactionService.recordView(currentUser, contentId, clientIp, userAgent));
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip != null && !ip.isEmpty()) {
+            return ip.split(",")[0].trim();
+        }
+        ip = request.getHeader("X-Real-IP");
+        if (ip != null && !ip.isEmpty()) {
+            return ip;
+        }
+        return request.getRemoteAddr();
     }
 }

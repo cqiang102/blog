@@ -48,6 +48,8 @@ class BlogApiClient {
         if (query.query.trim().isNotEmpty) 'query': query.query.trim(),
         if (query.tag != null) 'tag': query.tag,
         if (query.type != null) 'type': query.type!.apiValue,
+        if (query.startDate != null) 'from': query.startDate!.toUtc().toIso8601String(),
+        if (query.endDate != null) 'to': query.endDate!.toUtc().toIso8601String(),
         'page': query.page.toString(),
         'size': query.size.toString(),
       },
@@ -206,6 +208,37 @@ class BlogApiClient {
     return AiQuota.fromJson((data as Map).cast<String, dynamic>());
   }
 
+  Future<void> changePassword({
+    required String accessToken,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    await _put(
+      '/me/password',
+      accessToken: accessToken,
+      body: {'oldPassword': oldPassword, 'newPassword': newPassword},
+    );
+  }
+
+  Future<PageResult<AuditLogItem>> fetchAdminAuditLogs({
+    required String accessToken,
+    required AuditLogQuery query,
+  }) async {
+    final data = await _get(
+      '/admin/logs',
+      accessToken: accessToken,
+      queryParameters: {
+        if (query.action != null && query.action!.isNotEmpty)
+          'action': query.action,
+        if (query.resourceType != null && query.resourceType!.isNotEmpty)
+          'resourceType': query.resourceType,
+        'page': query.page.toString(),
+        'size': query.size.toString(),
+      },
+    );
+    return _page(data, AuditLogItem.fromJson);
+  }
+
   Future<AiChatReply> sendAiMessage({
     required String accessToken,
     required String message,
@@ -217,6 +250,40 @@ class BlogApiClient {
       body: {'sessionId': sessionId, 'message': message},
     );
     return AiChatReply.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<AiSessionItem> createAiSession({
+    required String accessToken,
+    String? title,
+  }) async {
+    final data = await _post(
+      '/ai/sessions',
+      accessToken: accessToken,
+      body: {if (title != null) 'title': title},
+    );
+    return AiSessionItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<List<AiSessionItem>> fetchAiSessions(String accessToken) async {
+    final data = await _get('/ai/sessions', accessToken: accessToken);
+    return (data as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => AiSessionItem.fromJson(item.cast<String, dynamic>()))
+        .toList();
+  }
+
+  Future<PageResult<AiMessageItem>> fetchAiSessionMessages({
+    required String accessToken,
+    required String sessionId,
+    int page = 0,
+    int size = 50,
+  }) async {
+    final data = await _get(
+      '/ai/sessions/$sessionId/messages',
+      accessToken: accessToken,
+      queryParameters: {'page': page.toString(), 'size': size.toString()},
+    );
+    return _page(data, AiMessageItem.fromJson);
   }
 
   Future<AdminDashboard> fetchAdminDashboard(String accessToken) async {

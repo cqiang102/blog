@@ -1,6 +1,8 @@
 package com.caoqiang.blog.config;
 
+import com.caoqiang.blog.auth.GithubOAuth2UserService;
 import com.caoqiang.blog.auth.JwtAuthenticationFilter;
+import com.caoqiang.blog.auth.OAuth2LoginSuccessHandler;
 import java.time.Clock;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
@@ -25,7 +27,9 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
-            ObjectProvider<ClientRegistrationRepository> clientRegistrationRepository
+            ObjectProvider<ClientRegistrationRepository> clientRegistrationRepository,
+            ObjectProvider<GithubOAuth2UserService> githubOAuth2UserService,
+            ObjectProvider<OAuth2LoginSuccessHandler> oAuth2LoginSuccessHandler
     ) throws Exception {
         http
                 .cors(Customizer.withDefaults())
@@ -51,8 +55,12 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         if (clientRegistrationRepository.getIfAvailable() != null) {
-            http.oauth2Login(oauth2 -> {
-            });
+            http.oauth2Login(oauth2 -> oauth2
+                    .userInfoEndpoint(userInfo -> userInfo
+                            .userService(githubOAuth2UserService.getIfAvailable())
+                    )
+                    .successHandler(oAuth2LoginSuccessHandler.getIfAvailable())
+            );
         }
 
         return http.build();

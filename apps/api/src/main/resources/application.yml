@@ -5,6 +5,16 @@ spring:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:blog}
     username: ${POSTGRES_USER:blog}
     password: ${POSTGRES_PASSWORD:blog}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000
   jpa:
     hibernate:
       ddl-auto: validate
@@ -38,6 +48,11 @@ spring:
       pgvector:
         initialize-schema: false
         dimensions: 1536
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: always
 
 server:
   port: ${SERVER_PORT:8080}
