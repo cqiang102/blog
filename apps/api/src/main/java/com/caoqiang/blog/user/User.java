@@ -95,6 +95,20 @@ public class User {
         this.blogUrl = blogUrl;
     }
 
+    public void applyAdminUpdate(
+            String email,
+            String nickname,
+            String avatarUrl,
+            String bio,
+            String blogUrl,
+            Role role,
+            UserStatus status
+    ) {
+        updateProfile(email, nickname, avatarUrl, bio, blogUrl);
+        this.role = role;
+        this.status = status;
+    }
+
     public void enableAdmin(String passwordHash, String nickname) {
         this.role = Role.ADMIN;
         this.status = UserStatus.ACTIVE;
@@ -140,5 +154,13 @@ public class User {
 
     public UserStatus getStatus() {
         return status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 }

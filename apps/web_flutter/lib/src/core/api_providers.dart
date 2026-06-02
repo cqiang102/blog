@@ -133,6 +133,20 @@ final adminViewsProvider =
           .fetchAdminViews(accessToken: token, query: query);
     });
 
+final adminUsersProvider =
+    FutureProvider.family<PageResult<AdminUserItem>, AdminUserQuery>((
+      ref,
+      query,
+    ) {
+      final token = ref.watch(authControllerProvider).accessToken;
+      if (token == null) {
+        throw const ApiException('请先登录');
+      }
+      return ref
+          .watch(apiClientProvider)
+          .fetchAdminUsers(accessToken: token, query: query);
+    });
+
 final adminContentsProvider = FutureProvider<PageResult<AdminContentItem>>((
   ref,
 ) {

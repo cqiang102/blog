@@ -118,6 +118,58 @@ enum AdminCommentStatus {
   }
 }
 
+enum AdminUserRole {
+  user,
+  admin;
+
+  String get apiValue {
+    return switch (this) {
+      AdminUserRole.user => 'USER',
+      AdminUserRole.admin => 'ADMIN',
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      AdminUserRole.user => '普通用户',
+      AdminUserRole.admin => '管理员',
+    };
+  }
+
+  static AdminUserRole fromApi(String? value) {
+    return switch (value?.toUpperCase()) {
+      'ADMIN' => AdminUserRole.admin,
+      _ => AdminUserRole.user,
+    };
+  }
+}
+
+enum AdminUserStatus {
+  active,
+  disabled;
+
+  String get apiValue {
+    return switch (this) {
+      AdminUserStatus.active => 'ACTIVE',
+      AdminUserStatus.disabled => 'DISABLED',
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      AdminUserStatus.active => '启用',
+      AdminUserStatus.disabled => '禁用',
+    };
+  }
+
+  static AdminUserStatus fromApi(String? value) {
+    return switch (value?.toUpperCase()) {
+      'DISABLED' => AdminUserStatus.disabled,
+      _ => AdminUserStatus.active,
+    };
+  }
+}
+
 class BlogContent {
   const BlogContent({
     required this.id,
@@ -310,6 +362,35 @@ class AdminRecordQuery {
 
   @override
   int get hashCode => Object.hash(contentId, userId, page, size);
+}
+
+class AdminUserQuery {
+  const AdminUserQuery({
+    this.query = '',
+    this.role,
+    this.status,
+    this.page = 0,
+    this.size = 50,
+  });
+
+  final String query;
+  final AdminUserRole? role;
+  final AdminUserStatus? status;
+  final int page;
+  final int size;
+
+  @override
+  bool operator ==(Object other) {
+    return other is AdminUserQuery &&
+        other.query == query &&
+        other.role == role &&
+        other.status == status &&
+        other.page == page &&
+        other.size == size;
+  }
+
+  @override
+  int get hashCode => Object.hash(query, role, status, page, size);
 }
 
 class UserProfile {
@@ -528,6 +609,93 @@ class UserActivity {
       title: _string(json['title']),
       createdAt: _date(json['createdAt']),
     );
+  }
+}
+
+class AdminUserItem {
+  const AdminUserItem({
+    required this.id,
+    required this.email,
+    required this.nickname,
+    required this.avatarUrl,
+    required this.bio,
+    required this.blogUrl,
+    required this.role,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String email;
+  final String nickname;
+  final String avatarUrl;
+  final String bio;
+  final String blogUrl;
+  final AdminUserRole role;
+  final AdminUserStatus status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  bool get disabled => status == AdminUserStatus.disabled;
+
+  factory AdminUserItem.fromJson(Map<String, dynamic> json) {
+    return AdminUserItem(
+      id: _string(json['id']),
+      email: _string(json['email']),
+      nickname: _string(json['nickname']),
+      avatarUrl: _string(json['avatarUrl']),
+      bio: _string(json['bio']),
+      blogUrl: _string(json['blogUrl']),
+      role: AdminUserRole.fromApi(_string(json['role'])),
+      status: AdminUserStatus.fromApi(_string(json['status'])),
+      createdAt: _date(json['createdAt']),
+      updatedAt: _date(json['updatedAt']),
+    );
+  }
+}
+
+class AdminUserDraft {
+  const AdminUserDraft({
+    required this.email,
+    required this.nickname,
+    required this.avatarUrl,
+    required this.bio,
+    required this.blogUrl,
+    required this.role,
+    required this.status,
+  });
+
+  final String email;
+  final String nickname;
+  final String avatarUrl;
+  final String bio;
+  final String blogUrl;
+  final AdminUserRole role;
+  final AdminUserStatus status;
+
+  factory AdminUserDraft.fromItem(AdminUserItem item) {
+    return AdminUserDraft(
+      email: item.email,
+      nickname: item.nickname,
+      avatarUrl: item.avatarUrl,
+      bio: item.bio,
+      blogUrl: item.blogUrl,
+      role: item.role,
+      status: item.status,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return {
+      'email': email.trim(),
+      'nickname': nickname.trim(),
+      'avatarUrl': avatarUrl.trim(),
+      'bio': bio.trim(),
+      'blogUrl': blogUrl.trim(),
+      'role': role.apiValue,
+      'status': status.apiValue,
+    };
   }
 }
 

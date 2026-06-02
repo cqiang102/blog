@@ -393,6 +393,44 @@ class BlogApiClient {
     await _delete('/admin/views/$id', accessToken: accessToken);
   }
 
+  Future<PageResult<AdminUserItem>> fetchAdminUsers({
+    required String accessToken,
+    required AdminUserQuery query,
+  }) async {
+    final data = await _get(
+      '/admin/users',
+      accessToken: accessToken,
+      queryParameters: {
+        if (query.query.trim().isNotEmpty) 'query': query.query.trim(),
+        if (query.role != null) 'role': query.role!.apiValue,
+        if (query.status != null) 'status': query.status!.apiValue,
+        'page': query.page.toString(),
+        'size': query.size.toString(),
+      },
+    );
+    return _page(data, AdminUserItem.fromJson);
+  }
+
+  Future<AdminUserItem> updateAdminUser({
+    required String accessToken,
+    required String id,
+    required AdminUserDraft draft,
+  }) async {
+    final data = await _put(
+      '/admin/users/$id',
+      accessToken: accessToken,
+      body: draft.toJson(),
+    );
+    return AdminUserItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  Future<void> deleteAdminUser({
+    required String accessToken,
+    required String id,
+  }) async {
+    await _delete('/admin/users/$id', accessToken: accessToken);
+  }
+
   Future<PageResult<AdminContentItem>> fetchAdminContents({
     required String accessToken,
     int page = 0,

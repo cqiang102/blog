@@ -41,7 +41,7 @@ class AdminPage extends ConsumerWidget {
     }
 
     return DefaultTabController(
-      length: 8,
+      length: 9,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('管理员中心'),
@@ -63,6 +63,7 @@ class AdminPage extends ConsumerWidget {
               Tab(icon: Icon(Icons.mode_comment_outlined), text: '评论'),
               Tab(icon: Icon(Icons.favorite_border), text: '点赞'),
               Tab(icon: Icon(Icons.history_outlined), text: '浏览'),
+              Tab(icon: Icon(Icons.manage_accounts_outlined), text: '用户'),
             ],
           ),
         ),
@@ -76,6 +77,7 @@ class AdminPage extends ConsumerWidget {
             _CommentAdminTab(),
             _LikeAdminTab(),
             _ViewAdminTab(),
+            _UserAdminTab(),
           ],
         ),
       ),
@@ -91,6 +93,7 @@ class AdminPage extends ConsumerWidget {
     ref.invalidate(adminCommentsProvider);
     ref.invalidate(adminLikesProvider);
     ref.invalidate(adminViewsProvider);
+    ref.invalidate(adminUsersProvider);
   }
 }
 
@@ -1910,6 +1913,353 @@ class _ViewAdminRow extends StatelessWidget {
   }
 }
 
+class _UserAdminTab extends ConsumerStatefulWidget {
+  const _UserAdminTab();
+
+  @override
+  ConsumerState<_UserAdminTab> createState() => _UserAdminTabState();
+}
+
+class _UserAdminTabState extends ConsumerState<_UserAdminTab> {
+  final _queryController = TextEditingController();
+  AdminUserRole? _role;
+  AdminUserStatus? _status;
+  AdminUserQuery _query = const AdminUserQuery();
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final users = ref.watch(adminUsersProvider(_query));
+    final currentUserId = ref.watch(authControllerProvider).user?.id;
+
+    return users.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error:
+          (error, stackTrace) => _ErrorPane(
+            message: error.toString(),
+            onRetry: () => ref.invalidate(adminUsersProvider(_query)),
+          ),
+      data:
+          (page) => ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              _SectionToolbar(
+                title: '用户管理',
+                actionLabel: '刷新',
+                actionIcon: Icons.refresh,
+                onAction: () => ref.invalidate(adminUsersProvider(_query)),
+              ),
+              const SizedBox(height: 12),
+              _UserFilters(
+                queryController: _queryController,
+                role: _role,
+                status: _status,
+                onRoleChanged: (value) => setState(() => _role = value),
+                onStatusChanged: (value) => setState(() => _status = value),
+                onApply: _applyFilters,
+                onClear: _clearFilters,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '共 ${page.total} 个用户',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              if (page.items.isEmpty)
+                const _EmptyPane(message: '暂无用户')
+              else
+                for (final user in page.items) ...[
+                  _UserAdminRow(
+                    user: user,
+                    isCurrentUser: user.id == currentUserId,
+                    onEdit: () => _openUserEditor(context, user),
+                    onDisable:
+                        user.id == currentUserId || user.disabled
+                            ? null
+                            : () => _disableUser(context, user),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+            ],
+          ),
+    );
+  }
+
+  void _applyFilters() {
+    setState(() {
+      _query = AdminUserQuery(
+        query: _queryController.text.trim(),
+        role: _role,
+        status: _status,
+      );
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _queryController.clear();
+      _role = null;
+      _status = null;
+      _query = const AdminUserQuery();
+    });
+  }
+
+  Future<void> _openUserEditor(BuildContext context, AdminUserItem user) async {
+    final draft = await showDialog<AdminUserDraft>(
+      context: context,
+      builder: (context) => _UserEditorDialog(user: user),
+    );
+    if (draft == null || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .updateAdminUser(accessToken: token, id: user.id, draft: draft);
+      _refreshUserState();
+      if (!context.mounted) return;
+      _showSnack(context, '用户已保存');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  Future<void> _disableUser(BuildContext context, AdminUserItem user) async {
+    final confirmed = await _confirm(
+      context,
+      title: '禁用用户',
+      message: '确认禁用「${user.nickname}」？',
+      action: '禁用',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .deleteAdminUser(accessToken: token, id: user.id);
+      _refreshUserState();
+      if (!context.mounted) return;
+      _showSnack(context, '用户已禁用');
+    } on ApiException catch (error) {
+      _showSnack(context, error.message);
+    } catch (error) {
+      _showSnack(context, error.toString());
+    }
+  }
+
+  void _refreshUserState() {
+    ref.invalidate(adminUsersProvider(_query));
+    ref.invalidate(adminDashboardProvider);
+  }
+}
+
+class _UserFilters extends StatelessWidget {
+  const _UserFilters({
+    required this.queryController,
+    required this.role,
+    required this.status,
+    required this.onRoleChanged,
+    required this.onStatusChanged,
+    required this.onApply,
+    required this.onClear,
+  });
+
+  final TextEditingController queryController;
+  final AdminUserRole? role;
+  final AdminUserStatus? status;
+  final ValueChanged<AdminUserRole?> onRoleChanged;
+  final ValueChanged<AdminUserStatus?> onStatusChanged;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 260,
+          child: TextField(
+            controller: queryController,
+            decoration: const InputDecoration(labelText: '邮箱 / 昵称'),
+          ),
+        ),
+        SizedBox(
+          width: 180,
+          child: DropdownButtonFormField<AdminUserRole?>(
+            initialValue: role,
+            decoration: const InputDecoration(labelText: '角色'),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('全部角色')),
+              DropdownMenuItem(value: AdminUserRole.user, child: Text('普通用户')),
+              DropdownMenuItem(value: AdminUserRole.admin, child: Text('管理员')),
+            ],
+            onChanged: onRoleChanged,
+          ),
+        ),
+        SizedBox(
+          width: 180,
+          child: DropdownButtonFormField<AdminUserStatus?>(
+            initialValue: status,
+            decoration: const InputDecoration(labelText: '状态'),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('全部状态')),
+              DropdownMenuItem(
+                value: AdminUserStatus.active,
+                child: Text('启用'),
+              ),
+              DropdownMenuItem(
+                value: AdminUserStatus.disabled,
+                child: Text('禁用'),
+              ),
+            ],
+            onChanged: onStatusChanged,
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: onApply,
+          icon: const Icon(Icons.filter_alt_outlined),
+          label: const Text('筛选'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onClear,
+          icon: const Icon(Icons.clear),
+          label: const Text('清空'),
+        ),
+      ],
+    );
+  }
+}
+
+class _UserAdminRow extends StatelessWidget {
+  const _UserAdminRow({
+    required this.user,
+    required this.isCurrentUser,
+    required this.onEdit,
+    required this.onDisable,
+  });
+
+  final AdminUserItem user;
+  final bool isCurrentUser;
+  final VoidCallback onEdit;
+  final VoidCallback? onDisable;
+
+  @override
+  Widget build(BuildContext context) {
+    final createdAt = _formatDate(user.createdAt);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _AdminUserAvatar(user: user),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              user.nickname,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          if (isCurrentUser) const Chip(label: Text('当前账号')),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        user.email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (user.bio.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          user.bio,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _UserRoleChip(role: user.role),
+                _UserStatusChip(status: user.status),
+                if (user.blogUrl.isNotEmpty)
+                  _MetaText(icon: Icons.link_outlined, text: user.blogUrl),
+                _MetaText(icon: Icons.schedule_outlined, text: createdAt),
+                OutlinedButton.icon(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('编辑'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onDisable,
+                  icon: const Icon(Icons.block),
+                  label: const Text('禁用'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminUserAvatar extends StatelessWidget {
+  const _AdminUserAvatar({required this.user});
+
+  final AdminUserItem user;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback =
+        user.nickname.isEmpty ? '?' : user.nickname.substring(0, 1);
+    if (user.avatarUrl.isEmpty) {
+      return CircleAvatar(radius: 24, child: Text(fallback));
+    }
+    return CircleAvatar(
+      radius: 24,
+      backgroundImage: NetworkImage(user.avatarUrl),
+      onBackgroundImageError: (_, _) {},
+      child: null,
+    );
+  }
+}
+
 class _SectionToolbar extends StatelessWidget {
   const _SectionToolbar({
     required this.title,
@@ -2646,6 +2996,190 @@ class _FriendEditorDialogState extends State<_FriendEditorDialog> {
   }
 }
 
+class _UserEditorDialog extends StatefulWidget {
+  const _UserEditorDialog({required this.user});
+
+  final AdminUserItem user;
+
+  @override
+  State<_UserEditorDialog> createState() => _UserEditorDialogState();
+}
+
+class _UserEditorDialogState extends State<_UserEditorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _nicknameController = TextEditingController();
+  final _avatarController = TextEditingController();
+  final _bioController = TextEditingController();
+  final _blogUrlController = TextEditingController();
+  late AdminUserRole _role;
+  late AdminUserStatus _status;
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = AdminUserDraft.fromItem(widget.user);
+    _emailController.text = draft.email;
+    _nicknameController.text = draft.nickname;
+    _avatarController.text = draft.avatarUrl;
+    _bioController.text = draft.bio;
+    _blogUrlController.text = draft.blogUrl;
+    _role = draft.role;
+    _status = draft.status;
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _nicknameController.dispose();
+    _avatarController.dispose();
+    _bioController.dispose();
+    _blogUrlController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('编辑用户'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 620),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(labelText: '邮箱'),
+                  maxLength: 320,
+                  validator: _validateEmail,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _nicknameController,
+                  decoration: const InputDecoration(labelText: '昵称'),
+                  maxLength: 80,
+                  validator:
+                      (value) =>
+                          value == null || value.trim().isEmpty
+                              ? '请输入昵称'
+                              : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _avatarController,
+                  decoration: const InputDecoration(labelText: '头像 URL'),
+                  validator: _validateOptionalUrl,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _blogUrlController,
+                  decoration: const InputDecoration(labelText: '博客地址'),
+                  validator: _validateOptionalUrl,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _bioController,
+                  decoration: const InputDecoration(labelText: '简介'),
+                  maxLines: 3,
+                  maxLength: 2000,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: 220,
+                      child: DropdownButtonFormField<AdminUserRole>(
+                        initialValue: _role,
+                        decoration: const InputDecoration(labelText: '角色'),
+                        items: [
+                          for (final role in AdminUserRole.values)
+                            DropdownMenuItem(
+                              value: role,
+                              child: Text(role.label),
+                            ),
+                        ],
+                        onChanged:
+                            (value) => setState(
+                              () => _role = value ?? AdminUserRole.user,
+                            ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 220,
+                      child: DropdownButtonFormField<AdminUserStatus>(
+                        initialValue: _status,
+                        decoration: const InputDecoration(labelText: '状态'),
+                        items: [
+                          for (final status in AdminUserStatus.values)
+                            DropdownMenuItem(
+                              value: status,
+                              child: Text(status.label),
+                            ),
+                        ],
+                        onChanged:
+                            (value) => setState(
+                              () => _status = value ?? AdminUserStatus.active,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton.icon(
+          onPressed: _submit,
+          icon: const Icon(Icons.save),
+          label: const Text('保存'),
+        ),
+      ],
+    );
+  }
+
+  String? _validateEmail(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return '请输入邮箱';
+    if (!text.contains('@')) return '请输入有效邮箱';
+    return null;
+  }
+
+  String? _validateOptionalUrl(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return null;
+    final uri = Uri.tryParse(text);
+    if (uri == null || !uri.hasScheme) return '请输入完整 URL';
+    return null;
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.of(context).pop(
+      AdminUserDraft(
+        email: _emailController.text,
+        nickname: _nicknameController.text,
+        avatarUrl: _avatarController.text,
+        bio: _bioController.text,
+        blogUrl: _blogUrlController.text,
+        role: _role,
+        status: _status,
+      ),
+    );
+  }
+}
+
 class _TagEditorDialog extends StatefulWidget {
   const _TagEditorDialog({required this.tag});
 
@@ -2770,6 +3304,38 @@ class _CommentStatusChip extends StatelessWidget {
     final color = switch (status) {
       AdminCommentStatus.visible => scheme.primaryContainer,
       AdminCommentStatus.deleted => scheme.errorContainer,
+    };
+    return Chip(label: Text(status.label), backgroundColor: color);
+  }
+}
+
+class _UserRoleChip extends StatelessWidget {
+  const _UserRoleChip({required this.role});
+
+  final AdminUserRole role;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = switch (role) {
+      AdminUserRole.admin => scheme.tertiaryContainer,
+      AdminUserRole.user => scheme.secondaryContainer,
+    };
+    return Chip(label: Text(role.label), backgroundColor: color);
+  }
+}
+
+class _UserStatusChip extends StatelessWidget {
+  const _UserStatusChip({required this.status});
+
+  final AdminUserStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = switch (status) {
+      AdminUserStatus.active => scheme.primaryContainer,
+      AdminUserStatus.disabled => scheme.errorContainer,
     };
     return Chip(label: Text(status.label), backgroundColor: color);
   }
