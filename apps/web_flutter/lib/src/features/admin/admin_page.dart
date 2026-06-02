@@ -28,7 +28,12 @@ class AdminPage extends StatelessWidget {
             children: [
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final columns = constraints.maxWidth >= 960 ? 6 : constraints.maxWidth >= 640 ? 3 : 2;
+                  final columns =
+                      constraints.maxWidth >= 960
+                          ? 6
+                          : constraints.maxWidth >= 640
+                          ? 3
+                          : 2;
                   return GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -52,7 +57,8 @@ class AdminPage extends StatelessWidget {
                               const SizedBox(height: 8),
                               Text(
                                 metric.value,
-                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                                style: Theme.of(context).textTheme.headlineSmall
+                                    ?.copyWith(fontWeight: FontWeight.w700),
                               ),
                             ],
                           ),
@@ -63,7 +69,12 @@ class AdminPage extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 24),
-              Text('管理模块', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                '管理模块',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 12,

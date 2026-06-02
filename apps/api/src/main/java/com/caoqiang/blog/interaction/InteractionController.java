@@ -1,47 +1,81 @@
 package com.caoqiang.blog.interaction;
 
+import com.caoqiang.blog.auth.AuthenticatedUser;
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.PageResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1")
 public class InteractionController {
 
+    private final InteractionService interactionService;
+
+    public InteractionController(InteractionService interactionService) {
+        this.interactionService = interactionService;
+    }
+
+    @GetMapping("/contents/{contentId}/comments")
+    public ApiResponse<PageResponse<CommentResponse>> comments(
+            @PathVariable UUID contentId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(interactionService.comments(contentId, page, size));
+    }
+
     @PostMapping("/contents/{contentId}/comments")
-    public ApiResponse<Map<String, Object>> comment(@PathVariable UUID contentId, @Valid @RequestBody CommentRequest request) {
-        return ApiResponse.ok(Map.of("contentId", contentId, "commentId", UUID.randomUUID(), "body", request.body()));
+    public ApiResponse<CommentResponse> comment(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable UUID contentId,
+            @Valid @RequestBody CommentRequest request
+    ) {
+        return ApiResponse.ok(interactionService.comment(currentUser, contentId, request));
     }
 
     @DeleteMapping("/comments/{commentId}")
-    public ApiResponse<Map<String, Object>> deleteComment(@PathVariable UUID commentId) {
+    public ApiResponse<Map<String, Object>> deleteComment(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable UUID commentId
+    ) {
+        interactionService.deleteComment(currentUser, commentId);
         return ApiResponse.ok(Map.of("deleted", true, "commentId", commentId));
     }
 
     @PostMapping("/contents/{contentId}/likes")
-    public ApiResponse<Map<String, Object>> like(@PathVariable UUID contentId) {
-        return ApiResponse.ok(Map.of("contentId", contentId, "liked", true));
+    public ApiResponse<LikeStateResponse> like(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable UUID contentId
+    ) {
+        return ApiResponse.ok(interactionService.like(currentUser, contentId));
     }
 
     @DeleteMapping("/contents/{contentId}/likes")
-    public ApiResponse<Map<String, Object>> unlike(@PathVariable UUID contentId) {
-        return ApiResponse.ok(Map.of("contentId", contentId, "liked", false));
+    public ApiResponse<LikeStateResponse> unlike(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable UUID contentId
+    ) {
+        return ApiResponse.ok(interactionService.unlike(currentUser, contentId));
     }
 
     @PostMapping("/contents/{contentId}/views")
-    public ApiResponse<Map<String, Object>> recordView(@PathVariable UUID contentId) {
-        return ApiResponse.ok(Map.of("contentId", contentId, "recorded", true));
-    }
-
-    public record CommentRequest(@NotBlank @Size(max = 2000) String body) {
+    public ApiResponse<ViewStateResponse> recordView(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable UUID contentId,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.ok(interactionService.recordView(currentUser, contentId, request.getHeader("User-Agent")));
     }
 }

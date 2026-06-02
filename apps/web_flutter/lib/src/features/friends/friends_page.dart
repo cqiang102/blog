@@ -27,7 +27,11 @@ class FriendsPage extends StatelessWidget {
               final friend = friends[index];
               return Card(
                 child: InkWell(
-                  onTap: () => launchUrl(Uri.parse(friend.siteUrl), webOnlyWindowName: '_blank'),
+                  onTap:
+                      () => launchUrl(
+                        Uri.parse(friend.siteUrl),
+                        webOnlyWindowName: '_blank',
+                      ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -35,21 +39,29 @@ class FriendsPage extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            CircleAvatar(backgroundImage: NetworkImage(friend.avatarUrl), radius: 28),
+                            CircleAvatar(
+                              backgroundImage: NetworkImage(friend.avatarUrl),
+                              radius: 28,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 friend.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w700),
                               ),
                             ),
                             const Icon(Icons.open_in_new),
                           ],
                         ),
                         const SizedBox(height: 16),
-                        Text(friend.intro, maxLines: 3, overflow: TextOverflow.ellipsis),
+                        Text(
+                          friend.intro,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                     ),
                   ),

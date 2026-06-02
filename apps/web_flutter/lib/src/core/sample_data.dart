@@ -6,7 +6,8 @@ final sampleContents = <BlogContent>[
     title: '置顶：我的博客启动计划',
     type: ContentType.article,
     summary: '从工程骨架、内容管理到 AI 助手，把个人博客做成一个长期可维护的小产品。',
-    coverUrl: 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1200&q=80',
+    coverUrl:
+        'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1200&q=80',
     tags: ['Flutter', 'Spring Boot', 'AI'],
     pinned: true,
     likeCount: 42,
@@ -32,7 +33,8 @@ final route = GoRoute(path: '/contents/:id');
     title: '一组生活照片',
     type: ContentType.image,
     summary: '图片内容使用画廊模式，适合记录旅行、桌面和日常瞬间。',
-    coverUrl: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+    coverUrl:
+        'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
     tags: ['生活', '摄影'],
     pinned: false,
     likeCount: 31,
@@ -50,7 +52,8 @@ final route = GoRoute(path: '/contents/:id');
     title: '一次短视频记录',
     type: ContentType.video,
     summary: '视频内容预留播放器、封面和元数据，后续接 MinIO 媒体文件。',
-    coverUrl: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=1200&q=80',
+    coverUrl:
+        'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&w=1200&q=80',
     tags: ['视频', '记录'],
     pinned: false,
     likeCount: 19,
@@ -64,19 +67,22 @@ final sampleFriends = <FriendLink>[
   const FriendLink(
     name: 'River Notes',
     intro: '写技术和生活的朋友。',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
+    avatarUrl:
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
     siteUrl: 'https://example.com',
   ),
   const FriendLink(
     name: '小栈',
     intro: '前端、摄影、咖啡。',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+    avatarUrl:
+        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
     siteUrl: 'https://example.org',
   ),
   const FriendLink(
     name: 'North Lab',
     intro: '后端和 AI 工程笔记。',
-    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+    avatarUrl:
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
     siteUrl: 'https://example.net',
   ),
 ];

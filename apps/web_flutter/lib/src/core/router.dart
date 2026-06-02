@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'api_providers.dart';
 import '../features/about/about_page.dart';
 import '../features/admin/admin_page.dart';
 import '../features/auth/auth_page.dart';
@@ -12,38 +13,83 @@ import '../features/home/home_page.dart';
 import '../features/profile/profile_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
+  final auth = ref.watch(authControllerProvider);
   return GoRouter(
     initialLocation: '/',
+    refreshListenable: auth,
+    redirect: (context, state) {
+      if (!auth.isLoaded) return null;
+
+      final location = state.uri.path;
+      final isLogin = location == '/login';
+      final isProtected =
+          location.startsWith('/profile') || location.startsWith('/admin');
+
+      if (isProtected && !auth.isAuthenticated) {
+        return Uri(
+          path: '/login',
+          queryParameters: {'from': location},
+        ).toString();
+      }
+      if (isLogin && auth.isAuthenticated) {
+        return state.uri.queryParameters['from'] ?? '/profile';
+      }
+      return null;
+    },
     routes: [
       ShellRoute(
         builder: (context, state, child) => BlogShell(child: child),
         routes: [
           GoRoute(path: '/', builder: (context, state) => const HomePage()),
-          GoRoute(path: '/contents', builder: (context, state) => const ContentListPage()),
+          GoRoute(
+            path: '/contents',
+            builder: (context, state) => const ContentListPage(),
+          ),
           GoRoute(
             path: '/contents/:id',
-            builder: (context, state) => ContentDetailPage(id: state.pathParameters['id']!),
+            builder:
+                (context, state) =>
+                    ContentDetailPage(id: state.pathParameters['id']!),
           ),
-          GoRoute(path: '/friends', builder: (context, state) => const FriendsPage()),
-          GoRoute(path: '/about', builder: (context, state) => const AboutPage()),
-          GoRoute(path: '/login', builder: (context, state) => const AuthPage()),
-          GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
-          GoRoute(path: '/admin', builder: (context, state) => const AdminPage()),
+          GoRoute(
+            path: '/friends',
+            builder: (context, state) => const FriendsPage(),
+          ),
+          GoRoute(
+            path: '/about',
+            builder: (context, state) => const AboutPage(),
+          ),
+          GoRoute(
+            path: '/login',
+            builder: (context, state) => const AuthPage(),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const ProfilePage(),
+          ),
+          GoRoute(
+            path: '/admin',
+            builder: (context, state) => const AdminPage(),
+          ),
         ],
       ),
     ],
   );
 });
 
-class BlogShell extends StatelessWidget {
+class BlogShell extends ConsumerWidget {
   const BlogShell({required this.child, super.key});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
     final selectedIndex = _selectedIndex(location);
+    final auth = ref.watch(authControllerProvider);
+    final nickname = auth.user?.nickname.trim();
+    final avatarText =
+        nickname == null || nickname.isEmpty ? 'C' : nickname.characters.first;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -55,14 +101,15 @@ class BlogShell extends StatelessWidget {
               children: [
                 NavigationRail(
                   selectedIndex: selectedIndex,
-                  onDestinationSelected: (index) => context.go(_destinations[index].path),
+                  onDestinationSelected:
+                      (index) => context.go(_destinations[index].path),
                   labelType: NavigationRailLabelType.all,
                   leading: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: CircleAvatar(
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
-                      child: const Text('C'),
+                      child: Text(avatarText),
                     ),
                   ),
                   destinations: [
@@ -85,7 +132,8 @@ class BlogShell extends StatelessWidget {
           body: child,
           bottomNavigationBar: NavigationBar(
             selectedIndex: selectedIndex > 4 ? 0 : selectedIndex,
-            onDestinationSelected: (index) => context.go(_destinations[index].path),
+            onDestinationSelected:
+                (index) => context.go(_destinations[index].path),
             destinations: [
               for (final item in _destinations.take(5))
                 NavigationDestination(
@@ -126,6 +174,11 @@ const _destinations = <_Destination>[
   _Destination('/friends', '朋友', Icons.people_outline, Icons.people),
   _Destination('/about', '关于我', Icons.smart_toy_outlined, Icons.smart_toy),
   _Destination('/profile', '我的', Icons.person_outline, Icons.person),
-  _Destination('/admin', '管理', Icons.admin_panel_settings_outlined, Icons.admin_panel_settings),
+  _Destination(
+    '/admin',
+    '管理',
+    Icons.admin_panel_settings_outlined,
+    Icons.admin_panel_settings,
+  ),
   _Destination('/login', '登录', Icons.login_outlined, Icons.login),
 ];
