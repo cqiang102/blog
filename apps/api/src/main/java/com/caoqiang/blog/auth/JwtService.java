@@ -2,9 +2,9 @@ package com.caoqiang.blog.auth;
 
 import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.user.User;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -154,7 +154,7 @@ public class JwtService {
                     Role.valueOf(payload.path("role").asText()),
                     expiresAt
             );
-        } catch (IOException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalArgumentException("JWT payload is invalid", exception);
         }
     }
@@ -169,7 +169,7 @@ public class JwtService {
     private String encodeJson(Map<String, Object> value) {
         try {
             return BASE64_URL_ENCODER.encodeToString(objectMapper.writeValueAsBytes(value));
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalStateException("Unable to serialize JWT", exception);
         }
     }

@@ -21,10 +21,15 @@ import org.redisson.api.RedissonClient;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+import javax.sql.DataSource;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK, properties = {
+    "spring.autoconfigure.exclude=org.springframework.ai.chat.memory.repository.jdbc.autoconfigure.JdbcChatMemoryRepositoryAutoConfiguration"
+})
 @ActiveProfiles({"local", "nodb"})
 class BlogApiApplicationContextTest {
 
@@ -84,6 +89,12 @@ class BlogApiApplicationContextTest {
 
     @MockitoBean
     private RedissonClient redissonClient;
+
+    @MockitoBean
+    private JdbcTemplate jdbcTemplate;
+
+    @MockitoBean
+    private DataSource dataSource;
 
     @Test
     void contextLoadsWithoutDatabaseForDiagnostics() {
