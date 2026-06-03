@@ -8,7 +8,6 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +41,7 @@ public class KnowledgeIndexService {
     public KnowledgeIndexService(
             KnowledgeDocRepository knowledgeDocRepository,
             KnowledgeChunkRepository knowledgeChunkRepository,
-            @Qualifier("ollamaEmbeddingModel") EmbeddingModel embeddingModel
+            EmbeddingModel embeddingModel
     ) {
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.knowledgeChunkRepository = knowledgeChunkRepository;

@@ -10,14 +10,13 @@ spring:
   flyway:
     enabled: true
   ai:
+    model:
+      embedding: ollama
     openai:
       api-key: ${OPENAI_API_KEY}
       base-url: ${OPENAI_BASE_URL}
       chat:
-        options:
-          model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
-      embedding:
-        enabled: false
+        model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       embedding:

@@ -34,13 +34,13 @@ spring:
       client:
         registration: {}
   ai:
+    model:
+      embedding: ollama
     openai:
       api-key: ${OPENAI_API_KEY:sk-local-placeholder}
       base-url: ${OPENAI_BASE_URL:https://api.openai.com}
       chat:
         model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
-      embedding:
-        enabled: false
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       embedding:
