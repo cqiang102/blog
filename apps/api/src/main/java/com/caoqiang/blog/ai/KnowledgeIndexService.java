@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 关键特性：
  * <ul>
  *   <li>文本分块：按段落边界切分，支持长段落按句子二次切分，块间有 {@value #CHUNK_OVERLAP} 字符重叠</li>
- *   <li>向量嵌入：使用 Spring AI {@link EmbeddingModel} 生成 1536 维向量</li>
+ *   <li>向量嵌入：使用 Spring AI {@link EmbeddingModel} 生成 768 维向量</li>
  *   <li>双重索引源：支持知识文档（{@link KnowledgeDoc}）和博客内容（{@link Content}）两种来源</li>
  * </ul>
  */

@@ -15,7 +15,7 @@ import java.util.UUID;
  * 知识分块实体（含向量嵌入）。
  * <p>
  * 对应数据库表 {@code knowledge_chunks}，存储文档或博客内容经过分块和向量嵌入后的数据。
- * 每个分块包含原始文本内容和 1536 维的向量表示，用于语义相似度搜索。
+ * 每个分块包含原始文本内容和 768 维的向量表示，用于语义相似度搜索。
  * <p>
  * 分块来源有两种：
  * <ul>
@@ -48,8 +48,8 @@ public class KnowledgeChunk {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    /** 1536 维向量嵌入，用于余弦相似度搜索 */
-    @Column(columnDefinition = "VECTOR(1536)")
+    /** 768 维向量嵌入，用于余弦相似度搜索 */
+    @Column(columnDefinition = "VECTOR(768)")
     private String embedding;
 
     /** 元数据（JSON 格式，如错误信息等） */

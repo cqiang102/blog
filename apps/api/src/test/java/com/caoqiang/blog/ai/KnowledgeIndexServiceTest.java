@@ -80,7 +80,7 @@ class KnowledgeIndexServiceTest {
         KnowledgeDoc doc = new KnowledgeDoc("测试文档", KnowledgeSourceType.MANUAL, null, "测试内容", true);
 
         when(knowledgeDocRepository.findById(docId)).thenReturn(Optional.of(doc));
-        when(embeddingModel.embed(any(String.class))).thenReturn(new float[1536]);
+        when(embeddingModel.embed(any(String.class))).thenReturn(new float[768]);
 
         knowledgeIndexService.indexDocument(docId);
 
