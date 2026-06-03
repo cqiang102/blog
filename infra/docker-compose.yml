@@ -8,8 +8,6 @@ services:
       POSTGRES_DB: blog
       POSTGRES_USER: blog
       POSTGRES_PASSWORD: blog
-    ports:
-      - "5432:5432"
     volumes:
       - blog-postgres-data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -22,8 +20,6 @@ services:
   redis:
     image: redis:7.4-alpine
     container_name: blog-redis
-    ports:
-      - "6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - blog-redis-data:/data
@@ -34,12 +30,53 @@ services:
     environment:
       MINIO_ROOT_USER: blog_minio
       MINIO_ROOT_PASSWORD: blog_minio_password
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     command: ["server", "/data", "--console-address", ":9001"]
     volumes:
       - blog-minio-data:/data
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    container_name: blog-api
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: blog
+      POSTGRES_USER: blog
+      POSTGRES_PASSWORD: blog
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: blog_minio
+      MINIO_SECRET_KEY: blog_minio_password
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-placeholder}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-in-production}
+      ADMIN_BOOTSTRAP_ENABLED: "true"
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123456}
+      ADMIN_NICKNAME: ${ADMIN_NICKNAME:-站长}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../apps/web_flutter
+      dockerfile: Dockerfile
+    container_name: blog-web
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped
 
 volumes:
   blog-postgres-data:
