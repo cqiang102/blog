@@ -13,20 +13,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.io.IOException;
+import java.util.Collections;
 
 @ExtendWith(MockitoExtension.class)
 class RateLimitFilterTest {
 
     @Mock
     private StringRedisTemplate redisTemplate;
-
-    @Mock
-    private ValueOperations<String, String> valueOperations;
 
     @Mock
     private FilterChain filterChain;
@@ -38,12 +36,11 @@ class RateLimitFilterTest {
     void setUp() {
         objectMapper = new ObjectMapper();
         rateLimitFilter = new RateLimitFilter(redisTemplate, objectMapper);
-        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
     @Test
     void allowsRequestsWithinLimit() throws ServletException, IOException {
-        when(valueOperations.increment(anyString())).thenReturn(1L);
+        when(redisTemplate.execute(any(DefaultRedisScript.class), anyList(), anyString())).thenReturn(1L);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("GET");
@@ -59,7 +56,7 @@ class RateLimitFilterTest {
 
     @Test
     void blocksRequestsOverLimit() throws ServletException, IOException {
-        when(valueOperations.increment(anyString())).thenReturn(61L);
+        when(redisTemplate.execute(any(DefaultRedisScript.class), anyList(), anyString())).thenReturn(61L);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("GET");
@@ -101,7 +98,7 @@ class RateLimitFilterTest {
 
     @Test
     void usesStricterLimitForLoginEndpoint() throws ServletException, IOException {
-        when(valueOperations.increment(anyString())).thenReturn(1L);
+        when(redisTemplate.execute(any(DefaultRedisScript.class), anyList(), anyString())).thenReturn(1L);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
@@ -116,7 +113,7 @@ class RateLimitFilterTest {
 
     @Test
     void usesStricterLimitForRegisterEndpoint() throws ServletException, IOException {
-        when(valueOperations.increment(anyString())).thenReturn(1L);
+        when(redisTemplate.execute(any(DefaultRedisScript.class), anyList(), anyString())).thenReturn(1L);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");

@@ -5,6 +5,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * AI 聊天会话 Repository。
@@ -31,6 +33,23 @@ public interface AiChatSessionRepository extends JpaRepository<AiChatSession, UU
      * @return 按更新时间倒序排列的会话列表
      */
     List<AiChatSession> findTop20ByUserIdOrderByUpdatedAtDesc(UUID userId);
+
+    /**
+     * 获取指定用户最近更新的 20 个会话及其消息数（避免 N+1 查询）。
+     *
+     * @param userId 用户 ID
+     * @return 包含会话和消息数的 Object 数组列表，每个数组 [0]=AiChatSession, [1]=Long(messageCount)
+     */
+    @Query("""
+            SELECT s, COUNT(m) 
+            FROM AiChatSession s 
+            LEFT JOIN AiChatMessage m ON m.session.id = s.id 
+            WHERE s.user.id = :userId 
+            GROUP BY s 
+            ORDER BY s.updatedAt DESC 
+            LIMIT 20
+            """)
+    List<Object[]> findTop20WithMessageCount(@Param("userId") UUID userId);
 
     /**
      * 获取指定用户最近更新的一个会话。

@@ -2,6 +2,7 @@ package com.caoqiang.blog.interaction;
 
 import com.caoqiang.blog.auth.AuthenticatedUser;
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.IpUtils;
 import com.caoqiang.blog.common.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -164,33 +165,8 @@ public class InteractionController {
             @PathVariable UUID contentId,
             HttpServletRequest request
     ) {
-        String clientIp = getClientIp(request);
+        String clientIp = IpUtils.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
         return ApiResponse.ok(interactionService.recordView(currentUser, contentId, clientIp, userAgent));
-    }
-
-    /**
-     * 获取客户端真实 IP 地址
-     * <p>
-     * 依次尝试从 X-Forwarded-For、X-Real-IP 头获取，
-     * 如果都没有则使用 request.getRemoteAddr()。
-     * </p>
-     *
-     * @param request HTTP 请求
-     * @return 客户端 IP 地址
-     */
-    private String getClientIp(HttpServletRequest request) {
-        // 优先从代理头获取真实 IP
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip != null && !ip.isEmpty()) {
-            // X-Forwarded-For 可能包含多个 IP，取第一个（最原始的客户端 IP）
-            return ip.split(",")[0].trim();
-        }
-        ip = request.getHeader("X-Real-IP");
-        if (ip != null && !ip.isEmpty()) {
-            return ip;
-        }
-        // 降级使用直接连接的 IP
-        return request.getRemoteAddr();
     }
 }

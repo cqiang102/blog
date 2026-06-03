@@ -3,12 +3,15 @@ package com.caoqiang.blog.content;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.domain.Specification;
 
 /**
  * 内容数据访问接口。
@@ -59,6 +62,13 @@ public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpec
     @Override
     @EntityGraph(attributePaths = {"tags", "coverMedia"})
     Optional<Content> findById(UUID id);
+
+    /**
+     * 基于 Specification 的分页查询，预加载 tags 和 coverMedia 避免 N+1。
+     */
+    @Override
+    @EntityGraph(attributePaths = {"tags", "coverMedia"})
+    Page<Content> findAll(Specification<Content> spec, Pageable pageable);
 
     /**
      * 检查 slug 是否已存在。

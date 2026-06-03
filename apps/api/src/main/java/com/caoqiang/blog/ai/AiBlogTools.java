@@ -129,6 +129,16 @@ public class AiBlogTools {
             List<Object[]> similarChunks = knowledgeChunkRepository.findSimilarChunks(embeddingStr, 5);
 
             if (!similarChunks.isEmpty()) {
+                // 收集所有 contentId，批量查询
+                List<UUID> contentIds = similarChunks.stream()
+                        .map(chunk -> chunk[2] != null ? (UUID) chunk[2] : null)
+                        .filter(java.util.Objects::nonNull)
+                        .distinct()
+                        .toList();
+
+                Map<UUID, Content> contentMap = contentRepository.findAllById(contentIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(Content::getId, c -> c));
+
                 List<Map<String, Object>> results = new ArrayList<>();
                 for (Object[] chunk : similarChunks) {
                     UUID contentId = chunk[2] != null ? (UUID) chunk[2] : null;
@@ -139,12 +149,11 @@ public class AiBlogTools {
                     result.put("content", content);
                     result.put("score", score);
 
-                    // 如果有 contentId，获取文章标题
-                    if (contentId != null) {
-                        contentRepository.findById(contentId).ifPresent(c -> {
-                            result.put("contentId", contentId.toString());
-                            result.put("title", c.getTitle());
-                        });
+                    // 从批量查询结果中获取文章标题
+                    if (contentId != null && contentMap.containsKey(contentId)) {
+                        Content c = contentMap.get(contentId);
+                        result.put("contentId", contentId.toString());
+                        result.put("title", c.getTitle());
                     }
 
                     results.add(result);

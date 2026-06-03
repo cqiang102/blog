@@ -3,6 +3,8 @@ package com.caoqiang.blog.ai;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -27,6 +29,15 @@ public interface AiChatMessageRepository extends JpaRepository<AiChatMessage, UU
      * @return 消息列表
      */
     List<AiChatMessage> findBySessionIdOrderByCreatedAtAsc(UUID sessionId);
+
+    /**
+     * 分页获取指定会话的消息，按创建时间正序排列。
+     *
+     * @param sessionId 会话 ID
+     * @param pageable  分页参数
+     * @return 分页消息列表
+     */
+    Page<AiChatMessage> findBySessionIdOrderByCreatedAtAsc(UUID sessionId, Pageable pageable);
 
     /**
      * 获取指定会话的最后一条消息。

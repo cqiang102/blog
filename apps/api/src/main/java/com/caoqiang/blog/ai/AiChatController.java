@@ -81,7 +81,7 @@ public class AiChatController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID sessionId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size
+            @RequestParam(defaultValue = "20") int size
     ) {
         return ApiResponse.ok(aiChatService.sessionMessages(currentUser, sessionId, page, size));
     }

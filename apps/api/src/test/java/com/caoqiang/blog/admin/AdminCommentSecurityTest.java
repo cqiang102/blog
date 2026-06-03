@@ -19,6 +19,7 @@ import com.caoqiang.blog.interaction.LikeRepository;
 import com.caoqiang.blog.interaction.ViewRecordRepository;
 import com.caoqiang.blog.user.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.redisson.api.RedissonClient;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,6 +84,9 @@ class AdminCommentSecurityTest {
 
     @MockitoBean
     private ChatClient chatClient;
+
+    @MockitoBean
+    private RedissonClient redissonClient;
 
     @Test
     void userCannotAccessAdminComments() throws Exception {

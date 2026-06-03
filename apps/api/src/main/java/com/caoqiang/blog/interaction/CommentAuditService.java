@@ -56,7 +56,7 @@ public class CommentAuditService {
      *
      * @param commentId 要审核的评论 ID
      */
-    @Async
+    @Async("commentAuditExecutor")
     public void audit(UUID commentId) {
         try {
             commentRepository.findById(commentId).ifPresent(comment -> {

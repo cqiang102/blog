@@ -11,10 +11,17 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -39,6 +46,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Service
 public class AiChatService {
 
+    private static final Logger log = LoggerFactory.getLogger(AiChatService.class);
+
     /** 单个会话允许的最大消息数 */
     private static final int MAX_MESSAGES_PER_SESSION = 40;
     /** Redis 中每日配额缓存的 key 前缀 */
@@ -52,6 +61,7 @@ public class AiChatService {
     private final AiDailyQuotaRepository quotaRepository;
     private final ChatClient chatClient;
     private final StringRedisTemplate redisTemplate;
+    private final Executor aiStreamExecutor;
 
     public AiChatService(
             BlogProperties blogProperties,
@@ -61,7 +71,8 @@ public class AiChatService {
             AiChatMessageRepository messageRepository,
             AiDailyQuotaRepository quotaRepository,
             ChatClient chatClient,
-            StringRedisTemplate redisTemplate
+            StringRedisTemplate redisTemplate,
+            @Qualifier("aiStreamExecutor") Executor aiStreamExecutor
     ) {
         this.blogProperties = blogProperties;
         this.clock = clock;
@@ -71,6 +82,7 @@ public class AiChatService {
         this.quotaRepository = quotaRepository;
         this.chatClient = chatClient;
         this.redisTemplate = redisTemplate;
+        this.aiStreamExecutor = aiStreamExecutor;
     }
 
     /**
@@ -100,13 +112,7 @@ public class AiChatService {
 
         messageRepository.save(new AiChatMessage(session, AiMessageRole.USER, request.message().trim()));
 
-        AiDailyQuota quota = quotaFor(user);
-        quota.increase();
-
-        String cacheKey = QUOTA_CACHE_PREFIX + user.getId() + ":" + LocalDate.now(clock.withZone(ZoneOffset.UTC));
-        redisTemplate.opsForValue().increment(cacheKey);
-        redisTemplate.expire(cacheKey, getSecondsUntilMidnight(), TimeUnit.SECONDS);
-
+        // 先调用 AI 生成回答
         AiUserContext.set(currentUser);
         String answer;
         try {
@@ -114,6 +120,14 @@ public class AiChatService {
         } finally {
             AiUserContext.clear();
         }
+
+        // AI 调用成功后再扣减配额
+        AiDailyQuota quota = quotaFor(user);
+        quota.increase();
+
+        String cacheKey = QUOTA_CACHE_PREFIX + user.getId() + ":" + LocalDate.now(clock.withZone(ZoneOffset.UTC));
+        redisTemplate.opsForValue().increment(cacheKey);
+        redisTemplate.expire(cacheKey, getSecondsUntilMidnight(), TimeUnit.SECONDS);
 
         messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, answer));
 
@@ -142,10 +156,7 @@ public class AiChatService {
     public SseEmitter streamChat(AuthenticatedUser currentUser, AiChatRequest request) {
         SseEmitter emitter = new SseEmitter(120_000L);
 
-        org.springframework.core.task.AsyncTaskExecutor taskExecutor =
-                new org.springframework.core.task.SimpleAsyncTaskExecutor("ai-stream-");
-
-        taskExecutor.execute(() -> {
+        aiStreamExecutor.execute(() -> {
             User user;
             try {
                 user = activeUser(currentUser);
@@ -177,17 +188,7 @@ public class AiChatService {
 
             messageRepository.save(new AiChatMessage(session, AiMessageRole.USER, request.message().trim()));
 
-            AiDailyQuota quota;
-            try {
-                quota = quotaFor(user);
-                quota.increase();
-                String cacheKey = QUOTA_CACHE_PREFIX + user.getId() + ":" + LocalDate.now(clock.withZone(ZoneOffset.UTC));
-                redisTemplate.opsForValue().increment(cacheKey);
-                redisTemplate.expire(cacheKey, getSecondsUntilMidnight(), TimeUnit.SECONDS);
-            } catch (Exception e) {
-                sendError(emitter, "配额更新失败");
-                return;
-            }
+            // 配额扣减移到 AI 调用成功后
 
             StringBuilder fullAnswer = new StringBuilder();
             AiUserContext.set(currentUser);
@@ -212,14 +213,26 @@ public class AiChatService {
                         })
                         .doOnError(e -> sendError(emitter, "AI 服务暂时不可用: " + e.getMessage()))
                         .doOnComplete(() -> {
+                            // AI 调用成功后再扣减配额
+                            try {
+                                AiDailyQuota quota = quotaFor(user);
+                                quota.increase();
+                                String cacheKey = QUOTA_CACHE_PREFIX + user.getId() + ":" + LocalDate.now(clock.withZone(ZoneOffset.UTC));
+                                redisTemplate.opsForValue().increment(cacheKey);
+                                redisTemplate.expire(cacheKey, getSecondsUntilMidnight(), TimeUnit.SECONDS);
+                            } catch (Exception e) {
+                                log.error("Failed to update quota after successful AI call", e);
+                            }
+
                             messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, fullAnswer.toString()));
                             try {
+                                int remainingQuota = Math.max(0, dailyLimit - getCachedQuotaCount(user.getId()));
                                 emitter.send(SseEmitter.event()
                                         .name("done")
                                         .data(new AiChatResponse(
                                                 session.getId(),
                                                 fullAnswer.toString(),
-                                                Math.max(0, dailyLimit - quota.getQuestionCount()),
+                                                remainingQuota,
                                                 (int) (MAX_MESSAGES_PER_SESSION - messageCount - 2)
                                         )));
                                 emitter.complete();
@@ -280,9 +293,13 @@ public class AiChatService {
     @Transactional(readOnly = true)
     public List<AiChatSessionResponse> listSessions(AuthenticatedUser currentUser) {
         User user = activeUser(currentUser);
-        List<AiChatSession> sessions = sessionRepository.findTop20ByUserIdOrderByUpdatedAtDesc(user.getId());
-        return sessions.stream()
-                .map(s -> toSessionResponse(s, (int) messageRepository.countBySessionId(s.getId())))
+        List<Object[]> results = sessionRepository.findTop20WithMessageCount(user.getId());
+        return results.stream()
+                .map(row -> {
+                    AiChatSession session = (AiChatSession) row[0];
+                    Long messageCount = (Long) row[1];
+                    return toSessionResponse(session, messageCount.intValue());
+                })
                 .toList();
     }
 
@@ -303,14 +320,13 @@ public class AiChatService {
         AiChatSession session = sessionRepository.findByIdAndUserId(sessionId, user.getId())
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "AI 会话不存在"));
 
-        List<AiChatMessage> messages = messageRepository.findBySessionIdOrderByCreatedAtAsc(session.getId());
-        int total = messages.size();
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(size, 50));
-        int from = Math.min(safePage * safeSize, total);
-        int to = Math.min(from + safeSize, total);
+        PageRequest pageRequest = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.ASC, "createdAt"));
 
-        List<AiChatMessageResponse> items = messages.subList(from, to).stream()
+        Page<AiChatMessage> messagePage = messageRepository.findBySessionIdOrderByCreatedAtAsc(session.getId(), pageRequest);
+
+        List<AiChatMessageResponse> items = messagePage.getContent().stream()
                 .map(m -> new AiChatMessageResponse(
                         m.getId(),
                         m.getRole().name(),
@@ -319,7 +335,7 @@ public class AiChatService {
                 ))
                 .toList();
 
-        return new PageResponse<>(items, safePage, safeSize, total);
+        return new PageResponse<>(items, messagePage.getNumber(), messagePage.getSize(), messagePage.getTotalElements());
     }
 
     /**

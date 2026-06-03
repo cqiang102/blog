@@ -4,6 +4,7 @@ import com.caoqiang.blog.auth.AuthenticatedUser;
 import com.caoqiang.blog.auth.Role;
 import com.caoqiang.blog.common.BusinessException;
 import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.common.PageUtils;
 import com.caoqiang.blog.content.Content;
 import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.ContentStatus;
@@ -379,11 +380,7 @@ public class InteractionService {
      * @return 分页请求对象
      */
     private PageRequest pageRequest(int page, int size) {
-        return PageRequest.of(
-                Math.max(0, page),
-                Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
-                Sort.by(Sort.Direction.DESC, "createdAt")
-        );
+        return PageUtils.of(page, size, MAX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
     /**
