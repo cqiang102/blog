@@ -1,0 +1,271 @@
+// 管理后台 - 内容管理标签页
+// 展示内容列表，支持 CRUD 操作和编辑对话框
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/api_client.dart';
+import '../../../core/api_providers.dart';
+import '../../../core/models.dart';
+import '../admin_widgets.dart';
+import '../content_editor_dialog.dart';
+
+/// 内容管理标签页
+/// 支持内容的新增、编辑、归档操作
+class AdminContentTab extends ConsumerWidget {
+  const AdminContentTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contents = ref.watch(adminContentsProvider);
+    final tagsValue = ref.watch(adminTagsProvider);
+    final tags = tagsValue.maybeWhen(
+      data: (items) => items,
+      orElse: () => const <TagItem>[],
+    );
+    final tagError = tagsValue.maybeWhen(
+      error: (error, stackTrace) => error.toString(),
+      orElse: () => null,
+    );
+
+    return contents.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error:
+          (error, stackTrace) => AdminErrorPane(
+            message: error.toString(),
+            onRetry: () => ref.invalidate(adminContentsProvider),
+          ),
+      data:
+          (page) => ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              SectionToolbar(
+                title: '内容管理',
+                actionLabel: '新增内容',
+                actionIcon: Icons.add,
+                onAction: () => _openContentEditor(context, ref, tags),
+              ),
+              if (tagError != null) ...[
+                const SizedBox(height: 12),
+                AdminInlineError(message: tagError),
+              ],
+              const SizedBox(height: 12),
+              if (page.items.isEmpty)
+                const AdminEmptyPane(message: '暂无内容')
+              else
+                for (final content in page.items) ...[
+                  _ContentAdminRow(
+                    content: content,
+                    onEdit:
+                        () => _openContentEditor(
+                          context,
+                          ref,
+                          tags,
+                          content: content,
+                        ),
+                    onArchive:
+                        content.archived
+                            ? null
+                            : () => _archiveContent(context, ref, content),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+            ],
+          ),
+    );
+  }
+
+  /// 打开内容编辑器对话框
+  /// 新增时 content 为 null，编辑时传入现有内容数据
+  Future<void> _openContentEditor(
+    BuildContext context,
+    WidgetRef ref,
+    List<TagItem> tags, {
+    AdminContentItem? content,
+  }) async {
+    final draft = await showDialog<AdminContentDraft>(
+      context: context,
+      builder: (context) => ContentEditorDialog(content: content, tags: tags),
+    );
+    if (draft == null || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      final api = ref.read(apiClientProvider);
+      if (content == null) {
+        await api.createAdminContent(accessToken: token, draft: draft);
+      } else {
+        await api.updateAdminContent(
+          accessToken: token,
+          id: content.id,
+          draft: draft,
+        );
+      }
+      ref.invalidate(adminContentsProvider);
+      ref.invalidate(adminDashboardProvider);
+      ref.invalidate(recommendationsProvider);
+      if (!context.mounted) return;
+      showAdminSnack(context, content == null ? '内容已创建' : '内容已保存');
+    } on ApiException catch (error) {
+      showAdminSnack(context, error.message);
+    } catch (error) {
+      showAdminSnack(context, error.toString());
+    }
+  }
+
+  /// 归档内容
+  /// 弹出确认对话框后调用 API 归档内容
+  Future<void> _archiveContent(
+    BuildContext context,
+    WidgetRef ref,
+    AdminContentItem content,
+  ) async {
+    final confirmed = await adminConfirm(
+      context,
+      title: '归档内容',
+      message: '确认归档「${content.title}」？',
+      action: '归档',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    try {
+      await ref
+          .read(apiClientProvider)
+          .archiveAdminContent(accessToken: token, id: content.id);
+      ref.invalidate(adminContentsProvider);
+      ref.invalidate(adminDashboardProvider);
+      ref.invalidate(recommendationsProvider);
+      if (!context.mounted) return;
+      showAdminSnack(context, '内容已归档');
+    } on ApiException catch (error) {
+      showAdminSnack(context, error.message);
+    } catch (error) {
+      showAdminSnack(context, error.toString());
+    }
+  }
+}
+
+/// 内容管理行组件
+/// 展示单条内容的封面、标题、状态、标签和操作按钮
+class _ContentAdminRow extends StatelessWidget {
+  const _ContentAdminRow({
+    required this.content,
+    required this.onEdit,
+    required this.onArchive,
+  });
+
+  final AdminContentItem content; // 内容数据
+  final VoidCallback onEdit; // 编辑回调
+  final VoidCallback? onArchive; // 归档回调（已归档时为 null）
+
+  @override
+  Widget build(BuildContext context) {
+    final publishedAt = formatAdminDate(content.publishedAt);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AdminMediaThumb(
+                  url: content.coverUrl,
+                  type: MediaAssetType.image,
+                  size: const Size(96, 64),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => context.go('/contents/${content.id}'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          content.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          content.summary.isEmpty
+                              ? content.slug
+                              : content.summary,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '编辑',
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+                IconButton(
+                  tooltip: '归档',
+                  onPressed: onArchive,
+                  icon: const Icon(Icons.archive_outlined),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                AdminStatusChip(status: content.status),
+                Chip(label: Text(content.type.label)),
+                if (content.pinned)
+                  const Chip(
+                    avatar: Icon(Icons.push_pin_outlined, size: 18),
+                    label: Text('置顶'),
+                  ),
+                Chip(
+                  avatar: const Icon(Icons.perm_media_outlined, size: 18),
+                  label: Text('${content.mediaCount} 个媒体'),
+                ),
+                if (content.coverMediaId.isNotEmpty)
+                  const Chip(
+                    avatar: Icon(Icons.image_outlined, size: 18),
+                    label: Text('有封面'),
+                  ),
+                for (final tag in content.tags) Chip(label: Text(tag.name)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                AdminMetaText(
+                  icon: Icons.favorite_outline,
+                  text: '${content.likeCount}',
+                ),
+                AdminMetaText(
+                  icon: Icons.visibility_outlined,
+                  text: '${content.viewCount}',
+                ),
+                AdminMetaText(
+                  icon: Icons.comment_outlined,
+                  text: '${content.commentCount}',
+                ),
+                AdminMetaText(icon: Icons.schedule_outlined, text: publishedAt),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

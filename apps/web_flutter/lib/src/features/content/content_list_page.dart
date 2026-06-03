@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
 import '../../core/models.dart';
 

@@ -21,31 +21,24 @@ class ProfilePage extends ConsumerWidget {
     return DefaultTabController(
       length: 4,
       child: Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(112),
-          child: Column(
-            children: [
-              AppBar(
-                title: const Text('个人中心'),
-                actions: [
-                  IconButton(
-                    tooltip: '退出登录',
-                    onPressed:
-                        auth.isBusy
-                            ? null
-                            : () => ref.read(authControllerProvider).logout(),
-                    icon: const Icon(Icons.logout),
-                  ),
-                ],
-              ),
-              const TabBar(
-                tabs: [
-                  Tab(icon: Icon(Icons.person), text: '资料'),
-                  Tab(icon: Icon(Icons.comment), text: '评论'),
-                  Tab(icon: Icon(Icons.favorite), text: '点赞'),
-                  Tab(icon: Icon(Icons.history), text: '浏览'),
-                ],
-              ),
+        appBar: AppBar(
+          title: const Text('个人中心'),
+          actions: [
+            IconButton(
+              tooltip: '退出登录',
+              onPressed:
+                  auth.isBusy
+                      ? null
+                      : () => ref.read(authControllerProvider).logout(),
+              icon: const Icon(Icons.logout),
+            ),
+          ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.person), text: '资料'),
+              Tab(icon: Icon(Icons.comment), text: '评论'),
+              Tab(icon: Icon(Icons.favorite), text: '点赞'),
+              Tab(icon: Icon(Icons.history), text: '浏览'),
             ],
           ),
         ),
