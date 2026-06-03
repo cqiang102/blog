@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: blog
       POSTGRES_USER: blog
       POSTGRES_PASSWORD: blog
+    ports:
+      - "5432:5432"
     volumes:
       - blog-postgres-data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -21,6 +23,8 @@ services:
     image: redis:7.4-alpine
     container_name: blog-redis
     command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
     volumes:
       - blog-redis-data:/data
 
@@ -31,6 +35,9 @@ services:
       MINIO_ROOT_USER: blog_minio
       MINIO_ROOT_PASSWORD: blog_minio_password
     command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      - "9000:9000"
+      - "9001:9001"
     volumes:
       - blog-minio-data:/data
 
