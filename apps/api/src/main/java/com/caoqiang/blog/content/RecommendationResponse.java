@@ -1,5 +1,6 @@
 package com.caoqiang.blog.content;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -20,5 +21,5 @@ public record RecommendationResponse(
         List<ContentSummaryResponse> latest,
         /** 最热内容列表（按点赞数排序） */
         List<ContentSummaryResponse> mostLiked
-) {
+) implements Serializable {
 }

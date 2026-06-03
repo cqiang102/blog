@@ -1,5 +1,6 @@
 package com.caoqiang.blog.content;
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -31,5 +32,5 @@ public record ContentSummaryResponse(
         Instant publishedAt,
         /** 关联标签名称列表 */
         List<String> tags
-) {
+) implements Serializable {
 }
