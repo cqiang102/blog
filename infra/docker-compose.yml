@@ -11,7 +11,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - blog-postgres-data:/var/lib/postgresql/data
+      - blog-postgres-data:/var/lib/postgresql
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U blog -d blog"]
@@ -22,7 +22,7 @@ services:
   redis:
     image: redis:7.4-alpine
     container_name: blog-redis
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-blog_redis}"]
     ports:
       - "6379:6379"
     volumes:
