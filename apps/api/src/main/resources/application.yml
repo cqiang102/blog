@@ -9,7 +9,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD:#{null}}
       timeout: 2000ms
   cache:
     type: redis
@@ -38,8 +38,7 @@ spring:
       api-key: ${OPENAI_API_KEY:sk-local-placeholder}
       base-url: ${OPENAI_BASE_URL:https://api.openai.com}
       chat:
-        options:
-          model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
+        model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
       embedding:
         enabled: false
     ollama:
