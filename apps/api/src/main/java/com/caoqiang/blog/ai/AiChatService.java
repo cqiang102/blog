@@ -200,14 +200,16 @@ public class AiChatService {
                         .stream()
                         .chatResponse()
                         .doOnNext(response -> {
-                            String token = response.getResult().getOutput().getText();
-                            if (token != null && !token.isEmpty()) {
-                                fullAnswer.append(token);
-                                try {
-                                    emitter.send(SseEmitter.event()
-                                            .name("token")
-                                            .data(token));
-                                } catch (Exception ignored) {
+                            if (response.getResult() != null && response.getResult().getOutput() != null) {
+                                String token = response.getResult().getOutput().getText();
+                                if (token != null && !token.isEmpty()) {
+                                    fullAnswer.append(token);
+                                    try {
+                                        emitter.send(SseEmitter.event()
+                                                .name("token")
+                                                .data(token));
+                                    } catch (Exception ignored) {
+                                    }
                                 }
                             }
                         })
