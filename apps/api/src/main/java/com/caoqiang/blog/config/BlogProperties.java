@@ -149,11 +149,11 @@ public class BlogProperties {
      * 对象存储（MinIO）配置。
      */
     public static class Storage {
-        private String endpoint;                                  // MinIO 服务端点 URL
+        private String endpoint;                                  // MinIO 内部服务端点 URL（API 服务器访问用）
+        private String publicEndpoint;                            // MinIO 公开端点 URL（浏览器访问用，用于预签名 URL）
         private String accessKey;                                 // 访问密钥 ID
         private String secretKey;                                 // 访问密钥 Secret
         private String bucket;                                    // 存储桶名称
-        private String publicBaseUrl = "http://localhost:8080";   // 文件公开访问基础 URL
         private long maxUploadBytes = 52_428_800;                 // 单文件上传大小上限，默认 50MB
 
         public String getEndpoint() {
@@ -162,6 +162,14 @@ public class BlogProperties {
 
         public void setEndpoint(String endpoint) {
             this.endpoint = endpoint;
+        }
+
+        public String getPublicEndpoint() {
+            return publicEndpoint;
+        }
+
+        public void setPublicEndpoint(String publicEndpoint) {
+            this.publicEndpoint = publicEndpoint;
         }
 
         public String getAccessKey() {
@@ -186,14 +194,6 @@ public class BlogProperties {
 
         public void setBucket(String bucket) {
             this.bucket = bucket;
-        }
-
-        public String getPublicBaseUrl() {
-            return publicBaseUrl;
-        }
-
-        public void setPublicBaseUrl(String publicBaseUrl) {
-            this.publicBaseUrl = publicBaseUrl;
         }
 
         public long getMaxUploadBytes() {

@@ -50,8 +50,8 @@ blog:
     refresh-token-days: ${JWT_REFRESH_TOKEN_DAYS:30}
   storage:
     endpoint: ${MINIO_ENDPOINT}
+    public-endpoint: ${MINIO_PUBLIC_ENDPOINT}
     access-key: ${MINIO_ACCESS_KEY}
     secret-key: ${MINIO_SECRET_KEY}
     bucket: ${MINIO_BUCKET:blog-media}
-    public-base-url: ${API_PUBLIC_BASE_URL}
     max-upload-bytes: ${MEDIA_MAX_UPLOAD_BYTES:52428800}

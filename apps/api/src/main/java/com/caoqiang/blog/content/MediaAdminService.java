@@ -8,8 +8,11 @@ import io.minio.GetObjectArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.RemoveObjectArgs;
+import io.minio.http.Method;
 import java.io.InputStream;
+import java.net.URI;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -151,8 +154,21 @@ public class MediaAdminService {
                 null
         );
         // 上传完成后设置公开访问 URL
-        mediaAsset.setPublicUrl(publicUrl(mediaAsset.getId()));
+        mediaAsset.setPublicUrl(publicUrl(mediaAsset));
         return AdminMediaResponse.from(mediaAssetRepository.save(mediaAsset));
+    }
+
+    /**
+     * 获取媒体资源的预签名 URL。
+     *
+     * @param id 媒体资源 UUID
+     * @return 预签名 URL
+     */
+    @Transactional(readOnly = true)
+    public String getPresignedUrl(UUID id) {
+        MediaAsset mediaAsset = mediaAssetRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "媒体资源不存在"));
+        return publicUrl(mediaAsset);
     }
 
     /**
@@ -392,15 +408,37 @@ public class MediaAdminService {
     }
 
     /**
-     * 生成媒体资源的公开访问 URL。
+     * 生成媒体资源的预签名公开访问 URL。
+     * <p>
+     * 使用 MinIO 预签名机制生成带签名的临时 URL，浏览器可直接访问无需经过 API 服务器。
+     * 如果配置了 {@code blog.storage.publicEndpoint}，会将 URL 中的内部地址替换为公开地址。
      *
-     * @param id 媒体资源 UUID
-     * @return 公开 URL
+     * @param mediaAsset 媒体资源实体
+     * @return 预签名公开 URL
      */
-    private String publicUrl(UUID id) {
-        String baseUrl = blogProperties.getStorage().getPublicBaseUrl();
-        String cleanBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        return cleanBaseUrl + "/api/v1/media-assets/" + id + "/file";
+    private String publicUrl(MediaAsset mediaAsset) {
+        if (EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
+            return mediaAsset.getPublicUrl();
+        }
+        try {
+            String url = minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .method(Method.GET)
+                            .bucket(mediaAsset.getBucket())
+                            .object(mediaAsset.getObjectKey())
+                            .expiry(7 * 24 * 3600) // 7 天有效
+                            .build());
+            String publicEndpoint = blogProperties.getStorage().getPublicEndpoint();
+            if (StringUtils.hasText(publicEndpoint)) {
+                URI internal = URI.create(url);
+                URI pub = URI.create(publicEndpoint);
+                url = new URI(pub.getScheme(), pub.getAuthority(), internal.getPath(),
+                        internal.getQuery(), internal.getFragment()).toString();
+            }
+            return url;
+        } catch (Exception e) {
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "生成文件访问链接失败");
+        }
     }
 
     /**
