@@ -2,9 +2,9 @@
 /// 全局状态管理，提供 API 客户端、认证控制器和各业务数据 Provider
 library;
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart' show ChangeNotifierProvider;
-import 'package:http/http.dart' as http;
 
 import 'api_client.dart';
 import 'auth_controller.dart';
@@ -12,9 +12,9 @@ import 'models.dart';
 
 /// API 客户端 Provider
 final apiClientProvider = Provider<BlogApiClient>((ref) {
-  final httpClient = http.Client();
-  ref.onDispose(httpClient.close); // 销毁时关闭 HTTP 客户端
-  return BlogApiClient(httpClient: httpClient);
+  final dio = Dio();
+  ref.onDispose(dio.close); // 销毁时关闭 Dio 实例
+  return BlogApiClient(dio: dio);
 });
 
 /// 认证控制器 Provider

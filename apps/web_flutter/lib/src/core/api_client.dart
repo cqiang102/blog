@@ -1,11 +1,11 @@
 /// API 客户端单例
-/// 封装所有 HTTP 请求，支持 401 自动刷新令牌、SSE 流式请求
+/// 基于 Dio 封装所有 HTTP 请求，支持 401 自动刷新令牌、SSE 流式请求
 library;
 
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 
 import 'models.dart';
 
@@ -35,14 +35,17 @@ class ApiException implements Exception {
 }
 
 /// 博客 API 客户端
-/// 封装所有 HTTP 请求，支持 401 自动刷新令牌、SSE 流式请求
+/// 基于 Dio 封装所有 HTTP 请求，支持 401 自动刷新令牌、SSE 流式请求
 class BlogApiClient {
   BlogApiClient({
-    required http.Client httpClient,
+    required Dio dio,
     this.baseUrl = apiBaseUrl,
-  }) : _httpClient = httpClient;
+  }) : _dio = dio {
+    _dio.options.baseUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
+    _dio.options.headers = {'Accept': 'application/json'};
+  }
 
-  final http.Client _httpClient; // HTTP 客户端
+  final Dio _dio; // Dio 实例
   final String baseUrl; // API 基础 URL
 
   /// 401 时的回调，用于刷新令牌
@@ -73,22 +76,23 @@ class BlogApiClient {
         if (query.query.trim().isNotEmpty) 'query': query.query.trim(),
         if (query.tag != null) 'tag': query.tag,
         if (query.type != null) 'type': query.type!.apiValue,
-        if (query.startDate != null) 'from': query.startDate!.toUtc().toIso8601String(),
-        if (query.endDate != null) 'to': query.endDate!.toUtc().toIso8601String(),
+        if (query.startDate != null)
+          'from': query.startDate!.toUtc().toIso8601String(),
+        if (query.endDate != null)
+          'to': query.endDate!.toUtc().toIso8601String(),
         'page': query.page.toString(),
         'size': query.size.toString(),
       },
     );
     final json = (data as Map).cast<String, dynamic>();
     return PageResult<BlogContent>(
-      items:
-          (json['items'] as List? ?? const [])
-              .whereType<Map>()
-              .map(
-                (item) =>
-                    BlogContent.fromSummaryJson(item.cast<String, dynamic>()),
-              )
-              .toList(),
+      items: (json['items'] as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (item) =>
+                BlogContent.fromSummaryJson(item.cast<String, dynamic>()),
+          )
+          .toList(),
       page: (json['page'] as num?)?.toInt() ?? 0,
       size: (json['size'] as num?)?.toInt() ?? 10,
       total: (json['total'] as num?)?.toInt() ?? 0,
@@ -382,6 +386,7 @@ class BlogApiClient {
   }
 
   /// 发送 AI 聊天消息（SSE 流式）
+  /// 使用 Dio 的 ResponseType.stream 获取原始字节流，手动解析 SSE 协议
   /// [accessToken] 访问令牌
   /// [message] 消息内容
   /// [sessionId] 可选会话 ID
@@ -391,35 +396,23 @@ class BlogApiClient {
     required String message,
     String? sessionId,
   }) async* {
-    final uri = _uri('/ai/chat/stream', {});
-    final request = http.Request('POST', uri);
-    request.headers.addAll({
-      'Accept': 'text/event-stream',
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $accessToken',
-    });
-    request.body = jsonEncode({'sessionId': sessionId, 'message': message});
+    final response = await _dio.post<ResponseBody>(
+      '/ai/chat/stream',
+      data: {'sessionId': sessionId, 'message': message},
+      options: Options(
+        headers: {
+          'Accept': 'text/event-stream',
+          'Authorization': 'Bearer $accessToken',
+        },
+        responseType: ResponseType.stream,
+      ),
+    );
 
-    final response = await _httpClient.send(request);
-    if (response.statusCode >= 400) {
-      final body = await response.stream.bytesToString();
-      try {
-        final decoded = jsonDecode(body);
-        if (decoded is Map) {
-          throw ApiException(
-            decoded['message']?.toString() ?? '请求失败',
-            statusCode: response.statusCode,
-          );
-        }
-      } catch (e) {
-        if (e is ApiException) rethrow;
-      }
-      throw ApiException('请求失败', statusCode: response.statusCode);
-    }
+    final stream = response.data!.stream;
 
     String buffer = '';
-    await for (final chunk in response.stream.transform(utf8.decoder)) {
-      buffer += chunk;
+    await for (final chunk in stream) {
+      buffer += utf8.decode(chunk);
       while (true) {
         final eventEnd = buffer.indexOf('\n\n');
         if (eventEnd < 0) break;
@@ -988,6 +981,7 @@ class BlogApiClient {
   }
 
   /// 上传管理后台媒体文件
+  /// 使用 Dio 的 FormData 实现 multipart 上传
   /// [accessToken] 访问令牌
   /// [bytes] 文件字节
   /// [filename] 文件名
@@ -1001,16 +995,17 @@ class BlogApiClient {
     required MediaAssetType type,
     String contentId = '',
   }) async {
-    final data = await _sendMultipart(
+    final formData = FormData.fromMap({
+      if (contentId.isNotEmpty) 'contentId': contentId,
+      'type': type.apiValue,
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+
+    final data = await _send(
+      'POST',
       '/admin/media-assets/upload',
       accessToken: accessToken,
-      fields: {
-        if (contentId.isNotEmpty) 'contentId': contentId,
-        'type': type.apiValue,
-      },
-      fileField: 'file',
-      filename: filename,
-      bytes: bytes,
+      formData: formData,
     );
     return AdminMediaItem.fromJson((data as Map).cast<String, dynamic>());
   }
@@ -1064,7 +1059,7 @@ class BlogApiClient {
   /// 发送 GET 请求
   Future<Object?> _get(
     String path, {
-    Map<String, String?> queryParameters = const {},
+    Map<String, dynamic> queryParameters = const {},
     String? accessToken,
   }) {
     return _send(
@@ -1099,105 +1094,73 @@ class BlogApiClient {
   }
 
   /// 发送 HTTP 请求的核心方法
-  /// 支持 401 自动刷新令牌
+  /// 支持 401 自动刷新令牌，使用 Dio 拦截器模式
   Future<Object?> _send(
     String method,
     String path, {
-    Map<String, String?> queryParameters = const {},
+    Map<String, dynamic> queryParameters = const {},
     String? accessToken,
     Map<String, Object?>? body,
+    FormData? formData,
   }) async {
-    final uri = _uri(path, queryParameters);
     final headers = <String, String>{
-      'Accept': 'application/json',
-      if (body != null) 'Content-Type': 'application/json',
       if (accessToken != null) 'Authorization': 'Bearer $accessToken',
     };
 
-    var response = switch (method) {
-      'POST' => await _httpClient.post(
-        uri,
-        headers: headers,
-        body: body == null ? null : jsonEncode(body),
-      ),
-      'PUT' => await _httpClient.put(
-        uri,
-        headers: headers,
-        body: jsonEncode(body),
-      ),
-      'DELETE' => await _httpClient.delete(uri, headers: headers),
-      _ => await _httpClient.get(uri, headers: headers),
-    };
+    try {
+      final response = await _dio.request<Object?>(
+        path,
+        data: formData ?? (body != null ? jsonEncode(body) : null),
+        queryParameters: queryParameters,
+        options: Options(
+          method: method,
+          headers: headers,
+          contentType: body != null || formData != null
+              ? 'application/json'
+              : null,
+        ),
+      );
 
-    if (response.statusCode == 401 && accessToken != null && onUnauthorized != null) {
-      final newToken = await onUnauthorized!();
-      if (newToken != null) {
-        headers['Authorization'] = 'Bearer $newToken';
-        response = switch (method) {
-          'POST' => await _httpClient.post(
-            uri,
-            headers: headers,
-            body: body == null ? null : jsonEncode(body),
-          ),
-          'PUT' => await _httpClient.put(
-            uri,
-            headers: headers,
-            body: jsonEncode(body),
-          ),
-          'DELETE' => await _httpClient.delete(uri, headers: headers),
-          _ => await _httpClient.get(uri, headers: headers),
-        };
+      return _extractData(response);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 &&
+          accessToken != null &&
+          onUnauthorized != null) {
+        final newToken = await onUnauthorized!();
+        if (newToken != null) {
+          headers['Authorization'] = 'Bearer $newToken';
+          final retryResponse = await _dio.request<Object?>(
+            path,
+            data: formData ?? (body != null ? jsonEncode(body) : null),
+            queryParameters: queryParameters,
+            options: Options(
+              method: method,
+              headers: headers,
+              contentType: body != null || formData != null
+                  ? 'application/json'
+                  : null,
+            ),
+          );
+          return _extractData(retryResponse);
+        }
       }
+      rethrow;
     }
+  }
 
-    final decoded =
-        response.body.isEmpty ? <String, Object?>{} : jsonDecode(response.body);
+  /// 从 Dio 响应中提取业务数据
+  Object? _extractData(Response<Object?> response) {
+    final decoded = response.data;
     if (decoded is! Map) {
-      throw ApiException('后端响应格式不正确', statusCode: response.statusCode);
-    }
-
-    final envelope = decoded.cast<String, dynamic>();
-    final success = envelope['success'] == true;
-    if (response.statusCode >= 400 || !success) {
       throw ApiException(
-        envelope['message']?.toString() ?? '请求失败',
+        '后端响应格式不正确',
         statusCode: response.statusCode,
       );
     }
 
-    return envelope['data'];
-  }
-
-  /// 发送 Multipart 请求（文件上传）
-  Future<Object?> _sendMultipart(
-    String path, {
-    required String accessToken,
-    required Map<String, String> fields,
-    required String fileField,
-    required String filename,
-    required Uint8List bytes,
-  }) async {
-    final request = http.MultipartRequest('POST', _uri(path, const {}));
-    request.headers.addAll({
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $accessToken',
-    });
-    request.fields.addAll(fields);
-    request.files.add(
-      http.MultipartFile.fromBytes(fileField, bytes, filename: filename),
-    );
-
-    final streamedResponse = await _httpClient.send(request);
-    final response = await http.Response.fromStream(streamedResponse);
-    final decoded =
-        response.body.isEmpty ? <String, Object?>{} : jsonDecode(response.body);
-    if (decoded is! Map) {
-      throw ApiException('后端响应格式不正确', statusCode: response.statusCode);
-    }
-
     final envelope = decoded.cast<String, dynamic>();
     final success = envelope['success'] == true;
-    if (response.statusCode >= 400 || !success) {
+    if (!success) {
       throw ApiException(
         envelope['message']?.toString() ?? '请求失败',
         statusCode: response.statusCode,
@@ -1214,27 +1177,13 @@ class BlogApiClient {
   ) {
     final json = (data as Map).cast<String, dynamic>();
     return PageResult<T>(
-      items:
-          (json['items'] as List? ?? const [])
-              .whereType<Map>()
-              .map((item) => mapper(item.cast<String, dynamic>()))
-              .toList(),
+      items: (json['items'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => mapper(item.cast<String, dynamic>()))
+          .toList(),
       page: (json['page'] as num?)?.toInt() ?? 0,
       size: (json['size'] as num?)?.toInt() ?? 10,
       total: (json['total'] as num?)?.toInt() ?? 0,
     );
-  }
-
-  /// 构建请求 URI
-  Uri _uri(String path, Map<String, String?> queryParameters) {
-    final base = Uri.parse(baseUrl.endsWith('/') ? baseUrl : '$baseUrl/');
-    final cleanPath = path.startsWith('/') ? path.substring(1) : path;
-    final query = Map.fromEntries(
-      queryParameters.entries.where(
-        (entry) => entry.value != null && entry.value!.isNotEmpty,
-      ),
-    );
-    final resolved = base.resolve(cleanPath);
-    return query.isEmpty ? resolved : resolved.replace(queryParameters: query);
   }
 }
