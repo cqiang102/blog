@@ -4,6 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.dromara.x.file.storage.spring.EnableFileStorage;
 
 /**
  * 博客 API 应用入口类。
@@ -20,6 +21,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 @ConfigurationPropertiesScan
 @EnableAsync
+@EnableFileStorage
 public class BlogApiApplication {
 
     /**

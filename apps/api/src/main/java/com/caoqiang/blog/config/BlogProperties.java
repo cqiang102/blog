@@ -23,7 +23,6 @@ public class BlogProperties {
     private final Ai ai = new Ai();
     private final Admin admin = new Admin();
     private final Security security = new Security();
-    private final Storage storage = new Storage();
 
     public Ai getAi() {
         return ai;
@@ -35,10 +34,6 @@ public class BlogProperties {
 
     public Security getSecurity() {
         return security;
-    }
-
-    public Storage getStorage() {
-        return storage;
     }
 
     /**
@@ -142,66 +137,6 @@ public class BlogProperties {
 
         public void setRefreshTokenDays(int refreshTokenDays) {
             this.refreshTokenDays = refreshTokenDays;
-        }
-    }
-
-    /**
-     * 对象存储（MinIO）配置。
-     */
-    public static class Storage {
-        private String endpoint;                                  // MinIO 内部服务端点 URL（API 服务器访问用）
-        private String publicEndpoint;                            // MinIO 公开端点 URL（浏览器访问用，用于预签名 URL）
-        private String accessKey;                                 // 访问密钥 ID
-        private String secretKey;                                 // 访问密钥 Secret
-        private String bucket;                                    // 存储桶名称
-        private long maxUploadBytes = 52_428_800;                 // 单文件上传大小上限，默认 50MB
-
-        public String getEndpoint() {
-            return endpoint;
-        }
-
-        public void setEndpoint(String endpoint) {
-            this.endpoint = endpoint;
-        }
-
-        public String getPublicEndpoint() {
-            return publicEndpoint;
-        }
-
-        public void setPublicEndpoint(String publicEndpoint) {
-            this.publicEndpoint = publicEndpoint;
-        }
-
-        public String getAccessKey() {
-            return accessKey;
-        }
-
-        public void setAccessKey(String accessKey) {
-            this.accessKey = accessKey;
-        }
-
-        public String getSecretKey() {
-            return secretKey;
-        }
-
-        public void setSecretKey(String secretKey) {
-            this.secretKey = secretKey;
-        }
-
-        public String getBucket() {
-            return bucket;
-        }
-
-        public void setBucket(String bucket) {
-            this.bucket = bucket;
-        }
-
-        public long getMaxUploadBytes() {
-            return maxUploadBytes;
-        }
-
-        public void setMaxUploadBytes(long maxUploadBytes) {
-            this.maxUploadBytes = maxUploadBytes;
         }
     }
 }

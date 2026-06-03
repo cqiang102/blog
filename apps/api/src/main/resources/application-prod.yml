@@ -48,10 +48,16 @@ blog:
     jwt-secret: ${JWT_SECRET}
     access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:30}
     refresh-token-days: ${JWT_REFRESH_TOKEN_DAYS:30}
-  storage:
-    endpoint: ${MINIO_ENDPOINT}
-    public-endpoint: ${MINIO_PUBLIC_ENDPOINT}
-    access-key: ${MINIO_ACCESS_KEY}
-    secret-key: ${MINIO_SECRET_KEY}
-    bucket: ${MINIO_BUCKET:blog-media}
-    max-upload-bytes: ${MEDIA_MAX_UPLOAD_BYTES:52428800}
+
+dromara:
+  x-file-storage:
+    default-platform: minio-1
+    minio:
+      - platform: minio-1
+        enable-storage: true
+        access-key: ${MINIO_ACCESS_KEY}
+        secret-key: ${MINIO_SECRET_KEY}
+        end-point: ${MINIO_ENDPOINT}
+        bucket-name: ${MINIO_BUCKET:blog-media}
+        domain: ${MINIO_PUBLIC_ENDPOINT}/
+        base-path: uploads/
