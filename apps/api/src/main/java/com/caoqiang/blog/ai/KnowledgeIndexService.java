@@ -1,9 +1,12 @@
 package com.caoqiang.blog.ai;
 
+import com.caoqiang.blog.common.VectorUtils;
 import com.caoqiang.blog.content.Content;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class KnowledgeIndexService {
+
+    private static final Logger log = LoggerFactory.getLogger(KnowledgeIndexService.class);
 
     /** 文本分块目标大小（字符数） */
     private static final int CHUNK_SIZE = 500;
@@ -69,7 +74,7 @@ public class KnowledgeIndexService {
 
             try {
                 float[] embedding = embeddingModel.embed(chunkContent);
-                chunk.setEmbedding(vectorToString(embedding));
+                chunk.setEmbedding(VectorUtils.toPgVectorString(embedding));
             } catch (Exception e) {
                 // Embedding 生成失败时仍然保存文本，但不包含向量
                 chunk.setMetadata("{\"error\": \"embedding generation failed\"}");
@@ -116,7 +121,7 @@ public class KnowledgeIndexService {
 
             try {
                 float[] embedding = embeddingModel.embed(chunkContent);
-                chunk.setEmbedding(vectorToString(embedding));
+                chunk.setEmbedding(VectorUtils.toPgVectorString(embedding));
             } catch (Exception e) {
                 chunk.setMetadata("{\"error\": \"embedding generation failed\"}");
             }
@@ -148,7 +153,7 @@ public class KnowledgeIndexService {
                     indexDocument(doc.getId());
                 } catch (Exception e) {
                     // 记录错误但继续处理其他文档
-                    System.err.println("Failed to index document " + doc.getId() + ": " + e.getMessage());
+                    log.error("Failed to index document {}: {}", doc.getId(), e.getMessage(), e);
                 }
             }
         }
@@ -240,14 +245,4 @@ public class KnowledgeIndexService {
         return text.substring(text.length() - CHUNK_OVERLAP);
     }
 
-    /** 将 float 数组转换为 PostgreSQL vector 类型的字符串格式。 */
-    private String vectorToString(float[] embedding) {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < embedding.length; i++) {
-            if (i > 0) sb.append(",");
-            sb.append(embedding[i]);
-        }
-        sb.append("]");
-        return sb.toString();
-    }
 }

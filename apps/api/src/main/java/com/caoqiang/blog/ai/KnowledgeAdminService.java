@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -23,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class KnowledgeAdminService {
+
+    private static final Logger log = LoggerFactory.getLogger(KnowledgeAdminService.class);
 
     /** 分页查询最大每页大小 */
     private static final int MAX_PAGE_SIZE = 100;
@@ -98,7 +102,7 @@ public class KnowledgeAdminService {
                 knowledgeIndexService.indexDocument(saved.getId());
             } catch (Exception e) {
                 // 索引失败不影响文档保存
-                System.err.println("Failed to index new document: " + e.getMessage());
+                log.error("Failed to index new document: {}", e.getMessage(), e);
             }
         }
 
@@ -127,7 +131,7 @@ public class KnowledgeAdminService {
             try {
                 knowledgeIndexService.indexDocument(id);
             } catch (Exception e) {
-                System.err.println("Failed to reindex document: " + e.getMessage());
+                log.error("Failed to reindex document: {}", e.getMessage(), e);
             }
         }
 

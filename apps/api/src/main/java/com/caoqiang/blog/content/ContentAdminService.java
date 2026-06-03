@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -35,6 +37,8 @@ import org.springframework.util.StringUtils;
  */
 @Service
 public class ContentAdminService {
+
+    private static final Logger log = LoggerFactory.getLogger(ContentAdminService.class);
 
     /** 最大每页条数 */
     private static final int MAX_PAGE_SIZE = 50;
@@ -128,7 +132,7 @@ public class ContentAdminService {
             try {
                 knowledgeIndexService.indexContent(saved);
             } catch (Exception e) {
-                System.err.println("Failed to index content " + saved.getId() + ": " + e.getMessage());
+                log.error("Failed to index content {}: {}", saved.getId(), e.getMessage(), e);
             }
         }
 
@@ -177,14 +181,14 @@ public class ContentAdminService {
             try {
                 knowledgeIndexService.indexContent(content);
             } catch (Exception e) {
-                System.err.println("Failed to reindex content " + content.getId() + ": " + e.getMessage());
+                log.error("Failed to reindex content {}: {}", content.getId(), e.getMessage(), e);
             }
         } else {
             // 非发布状态删除索引
             try {
                 knowledgeIndexService.deleteContentIndex(content.getId());
             } catch (Exception e) {
-                System.err.println("Failed to delete content index " + content.getId() + ": " + e.getMessage());
+                log.error("Failed to delete content index {}: {}", content.getId(), e.getMessage(), e);
             }
         }
 
@@ -211,7 +215,7 @@ public class ContentAdminService {
         try {
             knowledgeIndexService.deleteContentIndex(content.getId());
         } catch (Exception e) {
-            System.err.println("Failed to delete content index " + content.getId() + ": " + e.getMessage());
+            log.error("Failed to delete content index {}: {}", content.getId(), e.getMessage(), e);
         }
     }
 

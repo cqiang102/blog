@@ -1,11 +1,13 @@
 package com.caoqiang.blog.interaction;
 
+import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * AI 异步评论审查服务
@@ -35,16 +37,20 @@ public class CommentAuditService {
     private final CommentRepository commentRepository;
     /** Spring AI 聊天客户端，用于调用 AI 模型 */
     private final ChatClient chatClient;
+    /** Jackson JSON 解析器 */
+    private final ObjectMapper objectMapper;
 
     /**
      * 构造函数，注入依赖
      *
      * @param commentRepository 评论仓储
      * @param chatClient        Spring AI 聊天客户端
+     * @param objectMapper      Jackson JSON 解析器
      */
-    public CommentAuditService(CommentRepository commentRepository, ChatClient chatClient) {
+    public CommentAuditService(CommentRepository commentRepository, ChatClient chatClient, ObjectMapper objectMapper) {
         this.commentRepository = commentRepository;
         this.chatClient = chatClient;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -73,34 +79,19 @@ public class CommentAuditService {
                 String parsedStatus = "PASS";
                 String parsedReason = "";
                 if (result != null) {
-                    String trimmed = result.trim();
-                    // 解析 status 字段
-                    int statusIdx = trimmed.indexOf("\"status\"");
-                    if (statusIdx >= 0) {
-                        int colonIdx = trimmed.indexOf(':', statusIdx);
-                        if (colonIdx >= 0) {
-                            String afterColon = trimmed.substring(colonIdx + 1).trim();
-                            if (afterColon.startsWith("\"")) {
-                                int endQuote = afterColon.indexOf('"', 1);
-                                if (endQuote > 0) {
-                                    parsedStatus = afterColon.substring(1, endQuote).toUpperCase();
-                                }
-                            }
+                    try {
+                        String json = extractJson(result.trim());
+                        Map<String, Object> auditResult = objectMapper.readValue(json, Map.class);
+                        Object statusObj = auditResult.get("status");
+                        Object reasonObj = auditResult.get("reason");
+                        if (statusObj != null) {
+                            parsedStatus = statusObj.toString().toUpperCase();
                         }
-                    }
-                    // 解析 reason 字段
-                    int reasonIdx = trimmed.indexOf("\"reason\"");
-                    if (reasonIdx >= 0) {
-                        int colonIdx = trimmed.indexOf(':', reasonIdx);
-                        if (colonIdx >= 0) {
-                            String afterColon = trimmed.substring(colonIdx + 1).trim();
-                            if (afterColon.startsWith("\"")) {
-                                int endQuote = afterColon.indexOf('"', 1);
-                                if (endQuote > 0) {
-                                    parsedReason = afterColon.substring(1, endQuote);
-                                }
-                            }
+                        if (reasonObj != null) {
+                            parsedReason = reasonObj.toString();
                         }
+                    } catch (Exception parseError) {
+                        log.warn("Failed to parse audit result JSON: {}", result, parseError);
                     }
                 }
 
@@ -113,5 +104,22 @@ public class CommentAuditService {
             // 审核失败不影响评论功能，只记录日志
             log.error("Comment audit failed for {}: {}", commentId, e.getMessage());
         }
+    }
+
+    /**
+     * 从 AI 响应中提取 JSON 字符串。
+     * <p>
+     * AI 可能在 JSON 前后添加额外文本，此方法尝试提取第一个 JSON 对象。
+     *
+     * @param text AI 响应文本
+     * @return JSON 字符串
+     */
+    private String extractJson(String text) {
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            return text.substring(start, end + 1);
+        }
+        return text;
     }
 }

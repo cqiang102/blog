@@ -41,7 +41,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
-    private final Map<String, RateLimitConfig> rules;
+    private final Map<String, RateLimitRule> rules;
 
     /**
      * Lua 脚本：原子性 INCR + EXPIRE。
@@ -74,12 +74,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
      * key 格式为 "HTTP方法:路径模式"，路径中的 {@code *} 为通配符，匹配任意非斜杠字符。
      */
     private void initDefaultRules() {
-        rules.put("POST:/api/v1/auth/login", new RateLimitConfig(5, 60));
-        rules.put("POST:/api/v1/auth/register", new RateLimitConfig(3, 60));
-        rules.put("POST:/api/v1/contents/*/views", new RateLimitConfig(10, 60));
-        rules.put("POST:/api/v1/ai/chat", new RateLimitConfig(10, 60));
-        rules.put("POST:/api/v1/ai/chat/stream", new RateLimitConfig(10, 60));
-        rules.put("default", new RateLimitConfig(60, 60));
+        rules.put("POST:/api/v1/auth/login", new RateLimitRule(5, 60));
+        rules.put("POST:/api/v1/auth/register", new RateLimitRule(3, 60));
+        rules.put("POST:/api/v1/contents/*/views", new RateLimitRule(10, 60));
+        rules.put("POST:/api/v1/ai/chat", new RateLimitRule(10, 60));
+        rules.put("POST:/api/v1/ai/chat/stream", new RateLimitRule(10, 60));
+        rules.put("default", new RateLimitRule(60, 60));
     }
 
     @Override
@@ -98,7 +98,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         String clientIp = IpUtils.getClientIp(request);
         String matchedPattern = matchPath(method, path);
-        RateLimitConfig config = rules.getOrDefault(matchedPattern, rules.get("default"));
+        RateLimitRule config = rules.getOrDefault(matchedPattern, rules.get("default"));
 
         String key = "rate:" + matchedPattern.replace("*", "_") + ":" + clientIp;
 
@@ -169,6 +169,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
      * @param maxRequests   窗口期内允许的最大请求数
      * @param windowSeconds 窗口时长（秒）
      */
-    public record RateLimitConfig(int maxRequests, int windowSeconds) {
+    public record RateLimitRule(int maxRequests, int windowSeconds) {
     }
 }

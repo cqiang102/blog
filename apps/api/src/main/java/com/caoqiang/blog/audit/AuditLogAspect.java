@@ -8,7 +8,8 @@ import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -30,6 +31,8 @@ import org.springframework.stereotype.Component;
 @Aspect
 @Component
 public class AuditLogAspect {
+
+    private static final Logger log = LoggerFactory.getLogger(AuditLogAspect.class);
 
     /** 审计日志服务 */
     private final AuditLogService auditLogService;
@@ -79,7 +82,7 @@ public class AuditLogAspect {
             auditLogService.log(actor, action, resourceType, resourceId);
         } catch (Exception e) {
             // 日志记录失败不应影响正常业务
-            System.err.println("Failed to log audit: " + e.getMessage());
+            log.error("Failed to log audit: {}", e.getMessage(), e);
         }
     }
 

@@ -3,6 +3,7 @@ package com.caoqiang.blog.ai;
 import com.caoqiang.blog.auth.AuthenticatedUser;
 import com.caoqiang.blog.common.BusinessException;
 import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.common.VectorUtils;
 import com.caoqiang.blog.content.Content;
 import com.caoqiang.blog.content.ContentDetailResponse;
 import com.caoqiang.blog.content.ContentRepository;
@@ -125,7 +126,7 @@ public class AiBlogTools {
     ) {
         try {
             float[] queryEmbedding = embeddingModel.embed(query);
-            String embeddingStr = vectorToString(queryEmbedding);
+            String embeddingStr = VectorUtils.toPgVectorString(queryEmbedding);
             List<Object[]> similarChunks = knowledgeChunkRepository.findSimilarChunks(embeddingStr, 5);
 
             if (!similarChunks.isEmpty()) {
@@ -272,14 +273,4 @@ public class AiBlogTools {
         }
     }
 
-    /** 将 float 数组转换为 PostgreSQL vector 类型的字符串格式 "[1.0,2.0,3.0]"。 */
-    private String vectorToString(float[] embedding) {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < embedding.length; i++) {
-            if (i > 0) sb.append(",");
-            sb.append(embedding[i]);
-        }
-        sb.append("]");
-        return sb.toString();
-    }
 }
