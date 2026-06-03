@@ -3,18 +3,20 @@ package com.caoqiang.blog.config;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
  * Redisson 配置类。
  * <p>
  * 提供 Redisson 客户端 Bean，用于分布式锁、限流等高级 Redis 功能。
+ * 仅在 Redis 启用时生效（spring.data.redis.enabled=true）。
  *
  * @author caoqiang
  */
 @Configuration
+@ConditionalOnProperty(name = "spring.data.redis.enabled", havingValue = "true", matchIfMissing = true)
 public class RedissonConfig {
 
     /**

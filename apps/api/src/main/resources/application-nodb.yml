@@ -8,6 +8,7 @@ spring:
       - org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
       - org.springframework.boot.data.redis.autoconfigure.RedisAutoConfiguration
       - org.springframework.ai.chat.memory.repository.jdbc.autoconfigure.JdbcChatMemoryRepositoryAutoConfiguration
+      - org.redisson.spring.starter.RedissonAutoConfigurationV2
   flyway:
     enabled: false
   ai:
