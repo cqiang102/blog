@@ -14,6 +14,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
+/**
+ * 每日 AI 配额实体。
+ * <p>
+ * 对应数据库表 {@code ai_daily_quotas}，记录用户每天的 AI 提问次数。
+ * 每个用户每天一条记录，通过 {@link #increase()} 递增提问计数。
+ * 配额限制逻辑在 {@link AiChatService} 中结合 Redis 缓存实现。
+ */
 @Entity
 @Table(name = "ai_daily_quotas")
 public class AiDailyQuota {
@@ -22,13 +29,16 @@ public class AiDailyQuota {
     @Column(nullable = false, updatable = false)
     private UUID id = UUID.randomUUID();
 
+    /** 所属用户（懒加载） */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    /** 配额日期（UTC） */
     @Column(name = "quota_date", nullable = false)
     private LocalDate quotaDate;
 
+    /** 当日已提问次数 */
     @Column(name = "question_count", nullable = false)
     private int questionCount;
 
@@ -62,6 +72,7 @@ public class AiDailyQuota {
         updatedAt = Instant.now();
     }
 
+    /** 将当日提问次数加 1。 */
     public void increase() {
         questionCount += 1;
     }

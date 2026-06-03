@@ -1,3 +1,6 @@
+// 管理后台模块
+// 包含 12 个管理标签页：概览、内容、媒体、朋友、标签、评论、点赞、浏览、用户、AI、知识库、日志
+// 支持 CRUD 操作和各种筛选条件
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,13 +11,15 @@ import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
 import '../../core/models.dart';
 
+/// 管理后台主页 Widget
+/// 需要 ADMIN 角色才能访问，包含 12 个管理标签页
 class AdminPage extends ConsumerWidget {
   const AdminPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authControllerProvider);
-    final role = auth.user?.role.toUpperCase();
+    final auth = ref.watch(authControllerProvider); // 获取认证状态
+    final role = auth.user?.role.toUpperCase(); // 用户角色（大写）
 
     if (!auth.isLoaded) {
       return Scaffold(
@@ -90,6 +95,8 @@ class AdminPage extends ConsumerWidget {
     );
   }
 
+  /// 刷新所有管理数据
+  /// 使所有管理相关的 Provider 失效，触发重新加载
   void _refresh(WidgetRef ref) {
     ref.invalidate(adminDashboardProvider);
     ref.invalidate(adminContentsProvider);
@@ -106,6 +113,8 @@ class AdminPage extends ConsumerWidget {
   }
 }
 
+/// 概览标签页
+/// 展示管理指标网格和管理模块入口
 class _DashboardTab extends ConsumerWidget {
   const _DashboardTab();
 
@@ -143,10 +152,12 @@ class _DashboardTab extends ConsumerWidget {
   }
 }
 
+/// 指标网格组件
+/// 响应式展示管理指标（如内容数、用户数等）
 class _MetricGrid extends StatelessWidget {
   const _MetricGrid({required this.metrics});
 
-  final List<AdminMetric> metrics;
+  final List<AdminMetric> metrics; // 指标列表
 
   @override
   Widget build(BuildContext context) {
@@ -197,9 +208,12 @@ class _MetricGrid extends StatelessWidget {
   }
 }
 
+/// 模块网格组件
+/// 展示管理模块入口卡片（内容管理、标签管理等）
 class _ModuleGrid extends StatelessWidget {
   const _ModuleGrid();
 
+  /// 管理模块列表（名称和图标）
   static const _modules = [
     ('内容管理', Icons.article_outlined),
     ('标签管理', Icons.sell_outlined),
@@ -240,6 +254,8 @@ class _ModuleGrid extends StatelessWidget {
   }
 }
 
+/// 内容管理标签页
+/// 支持内容的新增、编辑、归档操作
 class _ContentAdminTab extends ConsumerWidget {
   const _ContentAdminTab();
 
@@ -303,6 +319,8 @@ class _ContentAdminTab extends ConsumerWidget {
     );
   }
 
+  /// 打开内容编辑器对话框
+  /// 新增时 content 为 null，编辑时传入现有内容数据
   Future<void> _openContentEditor(
     BuildContext context,
     WidgetRef ref,
@@ -341,6 +359,8 @@ class _ContentAdminTab extends ConsumerWidget {
     }
   }
 
+  /// 归档内容
+  /// 弹出确认对话框后调用 API 归档内容
   Future<void> _archiveContent(
     BuildContext context,
     WidgetRef ref,
@@ -374,6 +394,8 @@ class _ContentAdminTab extends ConsumerWidget {
   }
 }
 
+/// 内容管理行组件
+/// 展示单条内容的封面、标题、状态、标签和操作按钮
 class _ContentAdminRow extends StatelessWidget {
   const _ContentAdminRow({
     required this.content,
@@ -381,9 +403,9 @@ class _ContentAdminRow extends StatelessWidget {
     required this.onArchive,
   });
 
-  final AdminContentItem content;
-  final VoidCallback onEdit;
-  final VoidCallback? onArchive;
+  final AdminContentItem content; // 内容数据
+  final VoidCallback onEdit; // 编辑回调
+  final VoidCallback? onArchive; // 归档回调（已归档时为 null）
 
   @override
   Widget build(BuildContext context) {
@@ -492,6 +514,8 @@ class _ContentAdminRow extends StatelessWidget {
   }
 }
 
+/// 媒体管理标签页
+/// 支持媒体文件的上传、编辑、设为封面、删除操作
 class _MediaAdminTab extends ConsumerWidget {
   const _MediaAdminTab();
 
@@ -560,6 +584,8 @@ class _MediaAdminTab extends ConsumerWidget {
     );
   }
 
+  /// 选择文件并上传
+  /// 打开文件选择器，选择文件后弹出上传对话框，提交到服务器
   Future<void> _pickAndUpload(
     BuildContext context,
     WidgetRef ref,
@@ -612,6 +638,8 @@ class _MediaAdminTab extends ConsumerWidget {
     }
   }
 
+  /// 打开媒体编辑器对话框
+  /// 新增时 media 为 null，编辑时传入现有媒体数据
   Future<void> _openMediaEditor(
     BuildContext context,
     WidgetRef ref,
@@ -649,6 +677,8 @@ class _MediaAdminTab extends ConsumerWidget {
     }
   }
 
+  /// 设置内容封面
+  /// 将指定媒体设为关联内容的封面图
   Future<void> _setCover(
     BuildContext context,
     WidgetRef ref,
@@ -675,6 +705,8 @@ class _MediaAdminTab extends ConsumerWidget {
     }
   }
 
+  /// 删除媒体
+  /// 弹出确认对话框后调用 API 删除媒体文件
   Future<void> _deleteMedia(
     BuildContext context,
     WidgetRef ref,
@@ -705,6 +737,8 @@ class _MediaAdminTab extends ConsumerWidget {
     }
   }
 
+  /// 刷新媒体相关状态
+  /// 使媒体、内容、仪表盘和推荐 Provider 失效
   void _refreshMediaState(WidgetRef ref) {
     ref.invalidate(adminMediaProvider);
     ref.invalidate(adminContentsProvider);
@@ -713,6 +747,8 @@ class _MediaAdminTab extends ConsumerWidget {
   }
 }
 
+/// 媒体管理行组件
+/// 展示单条媒体的缩略图、名称、URL、类型和操作按钮
 class _MediaAdminRow extends StatelessWidget {
   const _MediaAdminRow({
     required this.media,
@@ -721,10 +757,10 @@ class _MediaAdminRow extends StatelessWidget {
     required this.onDelete,
   });
 
-  final AdminMediaItem media;
-  final VoidCallback onEdit;
-  final VoidCallback? onSetCover;
-  final VoidCallback onDelete;
+  final AdminMediaItem media; // 媒体数据
+  final VoidCallback onEdit; // 编辑回调
+  final VoidCallback? onSetCover; // 设为封面回调
+  final VoidCallback onDelete; // 删除回调
 
   @override
   Widget build(BuildContext context) {
@@ -822,6 +858,8 @@ class _MediaAdminRow extends StatelessWidget {
   }
 }
 
+/// 朋友管理标签页
+/// 支持友链的新增、编辑、删除操作
 class _FriendAdminTab extends ConsumerWidget {
   const _FriendAdminTab();
 
@@ -864,6 +902,8 @@ class _FriendAdminTab extends ConsumerWidget {
     );
   }
 
+  /// 打开友链编辑器对话框
+  /// 新增时 friend 为 null，编辑时传入现有友链数据
   Future<void> _openFriendEditor(
     BuildContext context,
     WidgetRef ref, {
@@ -899,6 +939,8 @@ class _FriendAdminTab extends ConsumerWidget {
     }
   }
 
+  /// 删除友链
+  /// 弹出确认对话框后调用 API 删除友链
   Future<void> _deleteFriend(
     BuildContext context,
     WidgetRef ref,
@@ -929,6 +971,7 @@ class _FriendAdminTab extends ConsumerWidget {
     }
   }
 
+  /// 刷新友链相关状态
   void _refreshFriendState(WidgetRef ref) {
     ref.invalidate(adminFriendsProvider);
     ref.invalidate(friendsProvider);
@@ -936,6 +979,8 @@ class _FriendAdminTab extends ConsumerWidget {
   }
 }
 
+/// 友链管理行组件
+/// 展示单条友链的头像、名称、简介、可见性和操作按钮
 class _FriendAdminRow extends StatelessWidget {
   const _FriendAdminRow({
     required this.friend,
@@ -943,9 +988,9 @@ class _FriendAdminRow extends StatelessWidget {
     required this.onDelete,
   });
 
-  final FriendLink friend;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final FriendLink friend; // 友链数据
+  final VoidCallback onEdit; // 编辑回调
+  final VoidCallback onDelete; // 删除回调
 
   @override
   Widget build(BuildContext context) {
@@ -1024,10 +1069,12 @@ class _FriendAdminRow extends StatelessWidget {
   }
 }
 
+/// 友链头像组件
+/// 显示友链头像，无头像时显示名称首字符
 class _FriendAvatar extends StatelessWidget {
   const _FriendAvatar({required this.friend});
 
-  final FriendLink friend;
+  final FriendLink friend; // 友链数据
 
   @override
   Widget build(BuildContext context) {
@@ -1044,6 +1091,8 @@ class _FriendAvatar extends StatelessWidget {
   }
 }
 
+/// 标签管理标签页
+/// 支持标签的新增、编辑、删除操作
 class _TagAdminTab extends ConsumerWidget {
   const _TagAdminTab();
 
@@ -1109,6 +1158,8 @@ class _TagAdminTab extends ConsumerWidget {
     );
   }
 
+  /// 打开标签编辑器对话框
+  /// 新增时 tag 为 null，编辑时传入现有标签数据
   Future<void> _openTagEditor(
     BuildContext context,
     WidgetRef ref, {
@@ -1141,6 +1192,8 @@ class _TagAdminTab extends ConsumerWidget {
     }
   }
 
+  /// 删除标签
+  /// 弹出确认对话框后调用 API 删除标签
   Future<void> _deleteTag(
     BuildContext context,
     WidgetRef ref,
@@ -1173,6 +1226,8 @@ class _TagAdminTab extends ConsumerWidget {
   }
 }
 
+/// 评论管理标签页
+/// 支持评论的筛选、删除、恢复操作
 class _CommentAdminTab extends ConsumerStatefulWidget {
   const _CommentAdminTab();
 
@@ -1180,11 +1235,13 @@ class _CommentAdminTab extends ConsumerStatefulWidget {
   ConsumerState<_CommentAdminTab> createState() => _CommentAdminTabState();
 }
 
+/// 评论管理标签页状态管理
+/// 管理评论筛选条件和 CRUD 操作
 class _CommentAdminTabState extends ConsumerState<_CommentAdminTab> {
-  final _contentIdController = TextEditingController();
-  final _userIdController = TextEditingController();
-  AdminCommentStatus? _status;
-  AdminCommentQuery _query = const AdminCommentQuery();
+  final _contentIdController = TextEditingController(); // 内容 ID 筛选框
+  final _userIdController = TextEditingController(); // 用户 ID 筛选框
+  AdminCommentStatus? _status; // 评论状态筛选
+  AdminCommentQuery _query = const AdminCommentQuery(); // 当前查询条件
 
   @override
   void dispose() {
@@ -1341,6 +1398,7 @@ class _CommentAdminTabState extends ConsumerState<_CommentAdminTab> {
   }
 }
 
+/// 评论筛选组件
 class _CommentFilters extends StatelessWidget {
   const _CommentFilters({
     required this.status,
@@ -1351,12 +1409,12 @@ class _CommentFilters extends StatelessWidget {
     required this.onClear,
   });
 
-  final AdminCommentStatus? status;
-  final TextEditingController contentIdController;
-  final TextEditingController userIdController;
-  final ValueChanged<AdminCommentStatus?> onStatusChanged;
-  final VoidCallback onApply;
-  final VoidCallback onClear;
+  final AdminCommentStatus? status; // 评论状态筛选
+  final TextEditingController contentIdController; // 内容 ID 控制器
+  final TextEditingController userIdController; // 用户 ID 控制器
+  final ValueChanged<AdminCommentStatus?> onStatusChanged; // 状态变更回调
+  final VoidCallback onApply; // 应用筛选回调
+  final VoidCallback onClear; // 清空筛选回调
 
   @override
   Widget build(BuildContext context) {
@@ -1413,6 +1471,8 @@ class _CommentFilters extends StatelessWidget {
   }
 }
 
+/// 评论管理行组件
+/// 展示单条评论的内容标题、评论正文、用户信息和操作按钮
 class _CommentAdminRow extends StatelessWidget {
   const _CommentAdminRow({
     required this.comment,
@@ -1420,9 +1480,9 @@ class _CommentAdminRow extends StatelessWidget {
     required this.onRestore,
   });
 
-  final AdminCommentItem comment;
-  final VoidCallback? onDelete;
-  final VoidCallback? onRestore;
+  final AdminCommentItem comment; // 评论数据
+  final VoidCallback? onDelete; // 删除回调（已删除时为 null）
+  final VoidCallback? onRestore; // 恢复回调（未删除时为 null）
 
   @override
   Widget build(BuildContext context) {
@@ -1496,6 +1556,8 @@ class _CommentAdminRow extends StatelessWidget {
   }
 }
 
+/// 点赞管理标签页
+/// 支持点赞记录的筛选和删除
 class _LikeAdminTab extends ConsumerStatefulWidget {
   const _LikeAdminTab();
 
@@ -1503,10 +1565,11 @@ class _LikeAdminTab extends ConsumerStatefulWidget {
   ConsumerState<_LikeAdminTab> createState() => _LikeAdminTabState();
 }
 
+/// 点赞管理标签页状态管理
 class _LikeAdminTabState extends ConsumerState<_LikeAdminTab> {
-  final _contentIdController = TextEditingController();
-  final _userIdController = TextEditingController();
-  AdminRecordQuery _query = const AdminRecordQuery();
+  final _contentIdController = TextEditingController(); // 内容 ID 筛选框
+  final _userIdController = TextEditingController(); // 用户 ID 筛选框
+  AdminRecordQuery _query = const AdminRecordQuery(); // 当前查询条件
 
   @override
   void dispose() {
@@ -1616,6 +1679,8 @@ class _LikeAdminTabState extends ConsumerState<_LikeAdminTab> {
   }
 }
 
+/// 浏览记录管理标签页
+/// 支持浏览记录的筛选和删除
 class _ViewAdminTab extends ConsumerStatefulWidget {
   const _ViewAdminTab();
 
@@ -1623,10 +1688,11 @@ class _ViewAdminTab extends ConsumerStatefulWidget {
   ConsumerState<_ViewAdminTab> createState() => _ViewAdminTabState();
 }
 
+/// 浏览记录管理标签页状态管理
 class _ViewAdminTabState extends ConsumerState<_ViewAdminTab> {
-  final _contentIdController = TextEditingController();
-  final _userIdController = TextEditingController();
-  AdminRecordQuery _query = const AdminRecordQuery();
+  final _contentIdController = TextEditingController(); // 内容 ID 筛选框
+  final _userIdController = TextEditingController(); // 用户 ID 筛选框
+  AdminRecordQuery _query = const AdminRecordQuery(); // 当前查询条件
 
   @override
   void dispose() {
@@ -1738,6 +1804,8 @@ class _ViewAdminTabState extends ConsumerState<_ViewAdminTab> {
   }
 }
 
+/// 记录筛选组件
+/// 点赞和浏览记录共用的筛选 UI（内容 ID + 用户 ID）
 class _RecordFilters extends StatelessWidget {
   const _RecordFilters({
     required this.contentIdController,
@@ -1746,10 +1814,10 @@ class _RecordFilters extends StatelessWidget {
     required this.onClear,
   });
 
-  final TextEditingController contentIdController;
-  final TextEditingController userIdController;
-  final VoidCallback onApply;
-  final VoidCallback onClear;
+  final TextEditingController contentIdController; // 内容 ID 控制器
+  final TextEditingController userIdController; // 用户 ID 控制器
+  final VoidCallback onApply; // 应用筛选回调
+  final VoidCallback onClear; // 清空筛选回调
 
   @override
   Widget build(BuildContext context) {
@@ -1787,11 +1855,13 @@ class _RecordFilters extends StatelessWidget {
   }
 }
 
+/// 点赞管理行组件
+/// 展示单条点赞记录的内容标题、用户信息和删除按钮
 class _LikeAdminRow extends StatelessWidget {
   const _LikeAdminRow({required this.like, required this.onDelete});
 
-  final AdminLikeItem like;
-  final VoidCallback onDelete;
+  final AdminLikeItem like; // 点赞数据
+  final VoidCallback onDelete; // 删除回调
 
   @override
   Widget build(BuildContext context) {
@@ -1848,11 +1918,13 @@ class _LikeAdminRow extends StatelessWidget {
   }
 }
 
+/// 浏览记录管理行组件
+/// 展示单条浏览记录的内容标题、用户信息、User-Agent 和删除按钮
 class _ViewAdminRow extends StatelessWidget {
   const _ViewAdminRow({required this.view, required this.onDelete});
 
-  final AdminViewRecordItem view;
-  final VoidCallback onDelete;
+  final AdminViewRecordItem view; // 浏览记录数据
+  final VoidCallback onDelete; // 删除回调
 
   @override
   Widget build(BuildContext context) {
@@ -1922,6 +1994,8 @@ class _ViewAdminRow extends StatelessWidget {
   }
 }
 
+/// 用户管理标签页
+/// 支持用户的筛选、编辑和禁用操作
 class _UserAdminTab extends ConsumerStatefulWidget {
   const _UserAdminTab();
 
@@ -1929,11 +2003,12 @@ class _UserAdminTab extends ConsumerStatefulWidget {
   ConsumerState<_UserAdminTab> createState() => _UserAdminTabState();
 }
 
+/// 用户管理标签页状态管理
 class _UserAdminTabState extends ConsumerState<_UserAdminTab> {
-  final _queryController = TextEditingController();
-  AdminUserRole? _role;
-  AdminUserStatus? _status;
-  AdminUserQuery _query = const AdminUserQuery();
+  final _queryController = TextEditingController(); // 搜索关键词输入框
+  AdminUserRole? _role; // 角色筛选
+  AdminUserStatus? _status; // 状态筛选
+  AdminUserQuery _query = const AdminUserQuery(); // 当前查询条件
 
   @override
   void dispose() {
@@ -2074,6 +2149,7 @@ class _UserAdminTabState extends ConsumerState<_UserAdminTab> {
   }
 }
 
+/// 用户筛选组件
 class _UserFilters extends StatelessWidget {
   const _UserFilters({
     required this.queryController,
@@ -2085,13 +2161,13 @@ class _UserFilters extends StatelessWidget {
     required this.onClear,
   });
 
-  final TextEditingController queryController;
-  final AdminUserRole? role;
-  final AdminUserStatus? status;
-  final ValueChanged<AdminUserRole?> onRoleChanged;
-  final ValueChanged<AdminUserStatus?> onStatusChanged;
-  final VoidCallback onApply;
-  final VoidCallback onClear;
+  final TextEditingController queryController; // 搜索关键词控制器
+  final AdminUserRole? role; // 角色筛选
+  final AdminUserStatus? status; // 状态筛选
+  final ValueChanged<AdminUserRole?> onRoleChanged; // 角色变更回调
+  final ValueChanged<AdminUserStatus?> onStatusChanged; // 状态变更回调
+  final VoidCallback onApply; // 应用筛选回调
+  final VoidCallback onClear; // 清空筛选回调
 
   @override
   Widget build(BuildContext context) {
@@ -2154,6 +2230,8 @@ class _UserFilters extends StatelessWidget {
   }
 }
 
+/// 用户管理行组件
+/// 展示单条用户的头像、昵称、邮箱、角色、状态和操作按钮
 class _UserAdminRow extends StatelessWidget {
   const _UserAdminRow({
     required this.user,
@@ -2162,10 +2240,10 @@ class _UserAdminRow extends StatelessWidget {
     required this.onDisable,
   });
 
-  final AdminUserItem user;
-  final bool isCurrentUser;
-  final VoidCallback onEdit;
-  final VoidCallback? onDisable;
+  final AdminUserItem user; // 用户数据
+  final bool isCurrentUser; // 是否为当前登录用户
+  final VoidCallback onEdit; // 编辑回调
+  final VoidCallback? onDisable; // 禁用回调（当前用户或已禁用时为 null）
 
   @override
   Widget build(BuildContext context) {
@@ -2248,10 +2326,12 @@ class _UserAdminRow extends StatelessWidget {
   }
 }
 
+/// 管理后台用户头像组件
+/// 显示用户头像，无头像时显示昵称首字符
 class _AdminUserAvatar extends StatelessWidget {
   const _AdminUserAvatar({required this.user});
 
-  final AdminUserItem user;
+  final AdminUserItem user; // 用户数据
 
   @override
   Widget build(BuildContext context) {
@@ -2269,6 +2349,8 @@ class _AdminUserAvatar extends StatelessWidget {
   }
 }
 
+/// AI 聊天记录管理标签页
+/// 支持 AI 会话的查看、删除和筛选
 class _AiChatAdminTab extends ConsumerStatefulWidget {
   const _AiChatAdminTab();
 
@@ -2276,10 +2358,11 @@ class _AiChatAdminTab extends ConsumerStatefulWidget {
   ConsumerState<_AiChatAdminTab> createState() => _AiChatAdminTabState();
 }
 
+/// AI 聊天记录管理标签页状态管理
 class _AiChatAdminTabState extends ConsumerState<_AiChatAdminTab> {
-  final _queryController = TextEditingController();
-  final _userIdController = TextEditingController();
-  AdminAiChatQuery _query = const AdminAiChatQuery();
+  final _queryController = TextEditingController(); // 搜索关键词输入框
+  final _userIdController = TextEditingController(); // 用户 ID 筛选框
+  AdminAiChatQuery _query = const AdminAiChatQuery(); // 当前查询条件
 
   @override
   void dispose() {
@@ -2416,6 +2499,7 @@ class _AiChatAdminTabState extends ConsumerState<_AiChatAdminTab> {
   }
 }
 
+/// AI 聊天筛选组件
 class _AiChatFilters extends StatelessWidget {
   const _AiChatFilters({
     required this.queryController,
@@ -2424,10 +2508,10 @@ class _AiChatFilters extends StatelessWidget {
     required this.onClear,
   });
 
-  final TextEditingController queryController;
-  final TextEditingController userIdController;
-  final VoidCallback onApply;
-  final VoidCallback onClear;
+  final TextEditingController queryController; // 搜索关键词控制器
+  final TextEditingController userIdController; // 用户 ID 控制器
+  final VoidCallback onApply; // 应用筛选回调
+  final VoidCallback onClear; // 清空筛选回调
 
   @override
   Widget build(BuildContext context) {
@@ -2465,6 +2549,8 @@ class _AiChatFilters extends StatelessWidget {
   }
 }
 
+/// AI 聊天管理行组件
+/// 展示单条 AI 会话的标题、最后消息、用户和操作按钮
 class _AiChatAdminRow extends StatelessWidget {
   const _AiChatAdminRow({
     required this.session,
@@ -2472,9 +2558,9 @@ class _AiChatAdminRow extends StatelessWidget {
     required this.onDelete,
   });
 
-  final AdminAiChatSessionItem session;
-  final VoidCallback onOpen;
-  final VoidCallback onDelete;
+  final AdminAiChatSessionItem session; // 会话数据
+  final VoidCallback onOpen; // 查看详情回调
+  final VoidCallback onDelete; // 删除回调
 
   @override
   Widget build(BuildContext context) {
@@ -2552,10 +2638,12 @@ class _AiChatAdminRow extends StatelessWidget {
   }
 }
 
+/// AI 聊天详情对话框
+/// 展示 AI 会话的完整消息列表
 class _AiChatDetailDialog extends StatelessWidget {
   const _AiChatDetailDialog({required this.detail});
 
-  final AdminAiChatDetail detail;
+  final AdminAiChatDetail detail; // 会话详情数据
 
   @override
   Widget build(BuildContext context) {
@@ -2626,10 +2714,12 @@ class _AiChatDetailDialog extends StatelessWidget {
   }
 }
 
+/// AI 聊天消息行组件
+/// 根据消息角色（用户/助手/工具/系统）显示不同背景色
 class _AiChatMessageRow extends StatelessWidget {
   const _AiChatMessageRow({required this.message});
 
-  final AdminAiChatMessageItem message;
+  final AdminAiChatMessageItem message; // 消息数据
 
   @override
   Widget build(BuildContext context) {
@@ -2681,10 +2771,11 @@ class _AiChatMessageRow extends StatelessWidget {
   }
 }
 
+/// AI 消息角色标签组件
 class _AiRoleChip extends StatelessWidget {
   const _AiRoleChip({required this.role});
 
-  final AiChatMessageRole role;
+  final AiChatMessageRole role; // 消息角色
 
   @override
   Widget build(BuildContext context) {
@@ -2699,6 +2790,8 @@ class _AiRoleChip extends StatelessWidget {
   }
 }
 
+/// 知识库管理标签页
+/// 支持知识库文档的新增、编辑、删除和筛选
 class _KnowledgeAdminTab extends ConsumerStatefulWidget {
   const _KnowledgeAdminTab();
 
@@ -2706,10 +2799,11 @@ class _KnowledgeAdminTab extends ConsumerStatefulWidget {
   ConsumerState<_KnowledgeAdminTab> createState() => _KnowledgeAdminTabState();
 }
 
+/// 知识库管理标签页状态管理
 class _KnowledgeAdminTabState extends ConsumerState<_KnowledgeAdminTab> {
-  final _queryController = TextEditingController();
-  bool? _enabled;
-  AdminKnowledgeDocQuery _query = const AdminKnowledgeDocQuery();
+  final _queryController = TextEditingController(); // 搜索关键词输入框
+  bool? _enabled; // 启用状态筛选
+  AdminKnowledgeDocQuery _query = const AdminKnowledgeDocQuery(); // 当前查询条件
 
   @override
   void dispose() {
@@ -2865,6 +2959,7 @@ class _KnowledgeAdminTabState extends ConsumerState<_KnowledgeAdminTab> {
   }
 }
 
+/// 知识库筛选组件
 class _KnowledgeFilters extends StatelessWidget {
   const _KnowledgeFilters({
     required this.queryController,
@@ -2874,11 +2969,11 @@ class _KnowledgeFilters extends StatelessWidget {
     required this.onClear,
   });
 
-  final TextEditingController queryController;
-  final bool? enabled;
-  final ValueChanged<bool?> onEnabledChanged;
-  final VoidCallback onApply;
-  final VoidCallback onClear;
+  final TextEditingController queryController; // 搜索关键词控制器
+  final bool? enabled; // 启用状态
+  final ValueChanged<bool?> onEnabledChanged; // 状态变更回调
+  final VoidCallback onApply; // 应用筛选回调
+  final VoidCallback onClear; // 清空筛选回调
 
   @override
   Widget build(BuildContext context) {
@@ -2922,6 +3017,8 @@ class _KnowledgeFilters extends StatelessWidget {
   }
 }
 
+/// 知识库文档行组件
+/// 展示单条知识库文档的标题、正文预览、来源类型和操作按钮
 class _KnowledgeDocRow extends StatelessWidget {
   const _KnowledgeDocRow({
     required this.doc,
@@ -2929,9 +3026,9 @@ class _KnowledgeDocRow extends StatelessWidget {
     required this.onDelete,
   });
 
-  final AdminKnowledgeDocItem doc;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final AdminKnowledgeDocItem doc; // 文档数据
+  final VoidCallback onEdit; // 编辑回调
+  final VoidCallback onDelete; // 删除回调
 
   @override
   Widget build(BuildContext context) {
@@ -2999,10 +3096,12 @@ class _KnowledgeDocRow extends StatelessWidget {
   }
 }
 
+/// 知识库编辑器对话框
+/// 支持新增和编辑知识库文档，包含标题、来源类型、来源引用、正文和启用状态
 class _KnowledgeEditorDialog extends StatefulWidget {
   const _KnowledgeEditorDialog({required this.doc});
 
-  final AdminKnowledgeDocItem? doc;
+  final AdminKnowledgeDocItem? doc; // 待编辑文档（null 表示新增）
 
   @override
   State<_KnowledgeEditorDialog> createState() => _KnowledgeEditorDialogState();
@@ -3137,10 +3236,11 @@ class _KnowledgeEditorDialogState extends State<_KnowledgeEditorDialog> {
   }
 }
 
+/// 知识库来源类型标签组件
 class _KnowledgeSourceChip extends StatelessWidget {
   const _KnowledgeSourceChip({required this.sourceType});
 
-  final KnowledgeSourceType sourceType;
+  final KnowledgeSourceType sourceType; // 来源类型
 
   @override
   Widget build(BuildContext context) {
@@ -3155,10 +3255,11 @@ class _KnowledgeSourceChip extends StatelessWidget {
   }
 }
 
+/// 知识库启用状态标签组件
 class _KnowledgeEnabledChip extends StatelessWidget {
   const _KnowledgeEnabledChip({required this.enabled});
 
-  final bool enabled;
+  final bool enabled; // 是否启用
 
   @override
   Widget build(BuildContext context) {
@@ -3171,6 +3272,8 @@ class _KnowledgeEnabledChip extends StatelessWidget {
   }
 }
 
+/// 区域工具栏组件
+/// 显示区域标题和操作按钮（支持主/副两个按钮）
 class _SectionToolbar extends StatelessWidget {
   const _SectionToolbar({
     required this.title,
@@ -3182,13 +3285,13 @@ class _SectionToolbar extends StatelessWidget {
     this.onSecondaryAction,
   });
 
-  final String title;
-  final String actionLabel;
-  final IconData actionIcon;
-  final VoidCallback onAction;
-  final String? secondaryLabel;
-  final IconData? secondaryIcon;
-  final VoidCallback? onSecondaryAction;
+  final String title; // 区域标题
+  final String actionLabel; // 主按钮文本
+  final IconData actionIcon; // 主按钮图标
+  final VoidCallback onAction; // 主按钮点击回调
+  final String? secondaryLabel; // 副按钮文本
+  final IconData? secondaryIcon; // 副按钮图标
+  final VoidCallback? onSecondaryAction; // 副按钮点击回调
 
   @override
   Widget build(BuildContext context) {
@@ -3225,26 +3328,29 @@ class _SectionToolbar extends StatelessWidget {
   }
 }
 
+/// 内容编辑器对话框
+/// 支持新增和编辑内容，包含标题、Slug、类型、状态、置顶、摘要、正文和标签
 class _ContentEditorDialog extends StatefulWidget {
   const _ContentEditorDialog({required this.content, required this.tags});
 
-  final AdminContentItem? content;
-  final List<TagItem> tags;
+  final AdminContentItem? content; // 待编辑内容（null 表示新增）
+  final List<TagItem> tags; // 可选标签列表
 
   @override
   State<_ContentEditorDialog> createState() => _ContentEditorDialogState();
 }
 
+/// 内容编辑器对话框状态管理
 class _ContentEditorDialogState extends State<_ContentEditorDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _slugController = TextEditingController();
-  final _summaryController = TextEditingController();
-  final _bodyController = TextEditingController();
-  late ContentType _type;
-  late ContentStatus _status;
-  late bool _pinned;
-  late Set<String> _tagSlugs;
+  final _formKey = GlobalKey<FormState>(); // 表单 Key
+  final _titleController = TextEditingController(); // 标题输入框
+  final _slugController = TextEditingController(); // Slug 输入框
+  final _summaryController = TextEditingController(); // 摘要输入框
+  final _bodyController = TextEditingController(); // Markdown 正文输入框
+  late ContentType _type; // 内容类型
+  late ContentStatus _status; // 内容状态
+  late bool _pinned; // 是否置顶
+  late Set<String> _tagSlugs; // 已选标签 Slug 集合
 
   @override
   void initState() {
@@ -3433,13 +3539,16 @@ class _ContentEditorDialogState extends State<_ContentEditorDialog> {
   }
 }
 
+/// 上传媒体草稿数据
 class _UploadMediaDraft {
   const _UploadMediaDraft({required this.contentId, required this.type});
 
-  final String contentId;
-  final MediaAssetType type;
+  final String contentId; // 绑定的内容 ID
+  final MediaAssetType type; // 媒体类型
 }
 
+/// 上传媒体对话框
+/// 选择文件后弹出，用于指定媒体类型和绑定内容
 class _UploadMediaDialog extends StatefulWidget {
   const _UploadMediaDialog({
     required this.filename,
@@ -3447,9 +3556,9 @@ class _UploadMediaDialog extends StatefulWidget {
     required this.contents,
   });
 
-  final String filename;
-  final MediaAssetType inferredType;
-  final List<AdminContentItem> contents;
+  final String filename; // 文件名
+  final MediaAssetType inferredType; // 根据文件名推断的媒体类型
+  final List<AdminContentItem> contents; // 可绑定的内容列表
 
   @override
   State<_UploadMediaDialog> createState() => _UploadMediaDialogState();
@@ -3537,11 +3646,13 @@ class _UploadMediaDialogState extends State<_UploadMediaDialog> {
   }
 }
 
+/// 媒体编辑器对话框
+/// 支持新增和编辑媒体资源，包含 URL、文件名、MIME 类型和尺寸信息
 class _MediaEditorDialog extends StatefulWidget {
   const _MediaEditorDialog({required this.media, required this.contents});
 
-  final AdminMediaItem? media;
-  final List<AdminContentItem> contents;
+  final AdminMediaItem? media; // 待编辑媒体（null 表示新增）
+  final List<AdminContentItem> contents; // 可绑定的内容列表
 
   @override
   State<_MediaEditorDialog> createState() => _MediaEditorDialogState();
@@ -3720,11 +3831,13 @@ class _MediaEditorDialogState extends State<_MediaEditorDialog> {
   }
 }
 
+/// 数字输入框组件
+/// 带数字验证的文本输入框
 class _NumberField extends StatelessWidget {
   const _NumberField({required this.controller, required this.label});
 
-  final TextEditingController controller;
-  final String label;
+  final TextEditingController controller; // 输入框控制器
+  final String label; // 标签文本
 
   @override
   Widget build(BuildContext context) {
@@ -3744,10 +3857,12 @@ class _NumberField extends StatelessWidget {
   }
 }
 
+/// 友链编辑器对话框
+/// 支持新增和编辑友链，包含名称、站点 URL、头像、简介、排序和可见性
 class _FriendEditorDialog extends StatefulWidget {
   const _FriendEditorDialog({required this.friend});
 
-  final FriendLink? friend;
+  final FriendLink? friend; // 待编辑友链（null 表示新增）
 
   @override
   State<_FriendEditorDialog> createState() => _FriendEditorDialogState();
@@ -3907,10 +4022,12 @@ class _FriendEditorDialogState extends State<_FriendEditorDialog> {
   }
 }
 
+/// 用户编辑器对话框
+/// 编辑用户信息，包含邮箱、昵称、头像、简介、博客地址、角色和状态
 class _UserEditorDialog extends StatefulWidget {
   const _UserEditorDialog({required this.user});
 
-  final AdminUserItem user;
+  final AdminUserItem user; // 待编辑用户
 
   @override
   State<_UserEditorDialog> createState() => _UserEditorDialogState();
@@ -4091,10 +4208,12 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
   }
 }
 
+/// 标签编辑器对话框
+/// 支持新增和编辑标签，包含名称、Slug 和描述
 class _TagEditorDialog extends StatefulWidget {
   const _TagEditorDialog({required this.tag});
 
-  final TagItem? tag;
+  final TagItem? tag; // 待编辑标签（null 表示新增）
 
   @override
   State<_TagEditorDialog> createState() => _TagEditorDialogState();
@@ -4187,6 +4306,8 @@ class _TagEditorDialogState extends State<_TagEditorDialog> {
   }
 }
 
+/// 审计日志管理标签页
+/// 展示系统操作日志，支持按操作类型和资源类型筛选
 class _AuditLogAdminTab extends ConsumerStatefulWidget {
   const _AuditLogAdminTab();
 
@@ -4194,12 +4315,15 @@ class _AuditLogAdminTab extends ConsumerStatefulWidget {
   ConsumerState<_AuditLogAdminTab> createState() => _AuditLogAdminTabState();
 }
 
+/// 审计日志管理标签页状态管理
 class _AuditLogAdminTabState extends ConsumerState<_AuditLogAdminTab> {
-  String? _action;
-  String? _resourceType;
-  AuditLogQuery _query = const AuditLogQuery();
+  String? _action; // 操作类型筛选
+  String? _resourceType; // 资源类型筛选
+  AuditLogQuery _query = const AuditLogQuery(); // 当前查询条件
 
+  /// 可选操作类型
   static const _actions = ['CREATE', 'UPDATE', 'DELETE', 'READ'];
+  /// 可选资源类型
   static const _resourceTypes = [
     'CONTENT',
     'TAG',
@@ -4313,10 +4437,12 @@ class _AuditLogAdminTabState extends ConsumerState<_AuditLogAdminTab> {
   }
 }
 
+/// 审计日志行组件
+/// 展示单条日志的操作类型、资源类型、操作者和详情
 class _AuditLogRow extends StatelessWidget {
   const _AuditLogRow({required this.log});
 
-  final AuditLogItem log;
+  final AuditLogItem log; // 日志数据
 
   @override
   Widget build(BuildContext context) {
@@ -4394,10 +4520,12 @@ class _AuditLogRow extends StatelessWidget {
   }
 }
 
+/// 内容状态标签组件
+/// 根据状态显示不同颜色的标签
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.status});
 
-  final ContentStatus status;
+  final ContentStatus status; // 内容状态
 
   @override
   Widget build(BuildContext context) {
@@ -4411,10 +4539,11 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
+/// 评论状态标签组件
 class _CommentStatusChip extends StatelessWidget {
   const _CommentStatusChip({required this.status});
 
-  final AdminCommentStatus status;
+  final AdminCommentStatus status; // 评论状态
 
   @override
   Widget build(BuildContext context) {
@@ -4427,10 +4556,11 @@ class _CommentStatusChip extends StatelessWidget {
   }
 }
 
+/// 用户角色标签组件
 class _UserRoleChip extends StatelessWidget {
   const _UserRoleChip({required this.role});
 
-  final AdminUserRole role;
+  final AdminUserRole role; // 用户角色
 
   @override
   Widget build(BuildContext context) {
@@ -4443,10 +4573,11 @@ class _UserRoleChip extends StatelessWidget {
   }
 }
 
+/// 用户状态标签组件
 class _UserStatusChip extends StatelessWidget {
   const _UserStatusChip({required this.status});
 
-  final AdminUserStatus status;
+  final AdminUserStatus status; // 用户状态
 
   @override
   Widget build(BuildContext context) {
@@ -4459,11 +4590,13 @@ class _UserStatusChip extends StatelessWidget {
   }
 }
 
+/// 元数据文本组件
+/// 显示图标 + 文本的元数据信息
 class _MetaText extends StatelessWidget {
   const _MetaText({required this.icon, required this.text});
 
-  final IconData icon;
-  final String text;
+  final IconData icon; // 图标
+  final String text; // 文本
 
   @override
   Widget build(BuildContext context) {
@@ -4474,6 +4607,8 @@ class _MetaText extends StatelessWidget {
   }
 }
 
+/// 媒体缩略图组件
+/// 根据媒体类型显示缩略图或占位图标
 class _MediaThumb extends StatelessWidget {
   const _MediaThumb({
     required this.url,
@@ -4481,9 +4616,9 @@ class _MediaThumb extends StatelessWidget {
     required this.size,
   });
 
-  final String url;
-  final MediaAssetType type;
-  final Size size;
+  final String url; // 媒体 URL
+  final MediaAssetType type; // 媒体类型
+  final Size size; // 缩略图尺寸
 
   @override
   Widget build(BuildContext context) {
@@ -4521,10 +4656,12 @@ class _MediaThumb extends StatelessWidget {
   }
 }
 
+/// 内联错误组件
+/// 在列表中显示错误信息的卡片
 class _InlineError extends StatelessWidget {
   const _InlineError({required this.message});
 
-  final String message;
+  final String message; // 错误信息
 
   @override
   Widget build(BuildContext context) {
@@ -4546,11 +4683,13 @@ class _InlineError extends StatelessWidget {
   }
 }
 
+/// 错误面板组件
+/// 居中显示错误信息和重试按钮
 class _ErrorPane extends StatelessWidget {
   const _ErrorPane({required this.message, required this.onRetry});
 
-  final String message;
-  final VoidCallback onRetry;
+  final String message; // 错误信息
+  final VoidCallback onRetry; // 重试回调
 
   @override
   Widget build(BuildContext context) {
@@ -4574,10 +4713,12 @@ class _ErrorPane extends StatelessWidget {
   }
 }
 
+/// 空面板组件
+/// 数据为空时显示的提示信息
 class _EmptyPane extends StatelessWidget {
   const _EmptyPane({required this.message});
 
-  final String message;
+  final String message; // 提示信息
 
   @override
   Widget build(BuildContext context) {
@@ -4588,6 +4729,8 @@ class _EmptyPane extends StatelessWidget {
   }
 }
 
+/// 确认对话框
+/// 通用的确认操作对话框，返回用户是否确认
 Future<bool> _confirm(
   BuildContext context, {
   required String title,
@@ -4615,11 +4758,14 @@ Future<bool> _confirm(
   return confirmed == true;
 }
 
+/// 显示 SnackBar 提示
 void _showSnack(BuildContext context, String message) {
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
+/// 格式化日期
+/// 时间戳为 0 时返回"未发布"，否则返回 yyyy-MM-dd HH:mm 格式
 String _formatDate(DateTime date) {
   if (date.millisecondsSinceEpoch == 0) {
     return '未发布';
@@ -4627,6 +4773,8 @@ String _formatDate(DateTime date) {
   return DateFormat('yyyy-MM-dd HH:mm').format(date);
 }
 
+/// 格式化字节数
+/// 自动转换为 B/KB/MB/GB 单位
 String _formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';
   final kb = bytes / 1024;
@@ -4636,12 +4784,16 @@ String _formatBytes(int bytes) {
   return '${(mb / 1024).toStringAsFixed(1)} GB';
 }
 
+/// 解析可空整数
+/// 空字符串返回 null，非空时尝试解析为 int
 int? _parseNullableInt(String value) {
   final text = value.trim();
   if (text.isEmpty) return null;
   return int.tryParse(text);
 }
 
+/// 根据文件名推断媒体类型
+/// 视频：mp4/webm/mov；图片：jpg/jpeg/png/gif/webp；其他：file
 MediaAssetType _inferMediaType(String filename) {
   final lower = filename.toLowerCase();
   if (lower.endsWith('.mp4') ||

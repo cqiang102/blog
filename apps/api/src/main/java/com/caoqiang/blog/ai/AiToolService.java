@@ -13,6 +13,13 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
+/**
+ * AI 工具执行服务。
+ * <p>
+ * 封装博客内容操作和用户交互功能，供 AI 调用工具时使用。
+ * 与 {@link AiBlogTools} 不同，本服务以编程方式调用，不依赖 {@code @Tool} 注解。
+ * 所有方法返回统一格式的 Map，包含 success 状态字段。
+ */
 @Service
 public class AiToolService {
 
@@ -24,6 +31,13 @@ public class AiToolService {
         this.interactionService = interactionService;
     }
 
+    /**
+     * 搜索博客文章。
+     *
+     * @param query 搜索关键词
+     * @param limit 返回结果数量上限（最大 10）
+     * @return 包含 success、results、total 的 Map
+     */
     public Map<String, Object> searchContent(String query, int limit) {
         PageResponse<ContentSummaryResponse> results = contentService.list(
                 query, null, null, null, null, 0, Math.min(limit, 10)
@@ -41,6 +55,12 @@ public class AiToolService {
         );
     }
 
+    /**
+     * 获取博客文章详情。
+     *
+     * @param contentId 文章的 UUID
+     * @return 包含 success 和文章详情的 Map，失败时返回 error 信息
+     */
     public Map<String, Object> getContentDetail(UUID contentId) {
         try {
             ContentDetailResponse detail = contentService.detail(contentId, null);
@@ -65,6 +85,13 @@ public class AiToolService {
         }
     }
 
+    /**
+     * 对博客文章点赞。
+     *
+     * @param currentUser 当前登录用户
+     * @param contentId   文章的 UUID
+     * @return 包含 success、liked、likeCount 的 Map
+     */
     public Map<String, Object> likeContent(AuthenticatedUser currentUser, UUID contentId) {
         try {
             LikeStateResponse result = interactionService.like(currentUser, contentId);
@@ -81,6 +108,13 @@ public class AiToolService {
         }
     }
 
+    /**
+     * 取消对博客文章的点赞。
+     *
+     * @param currentUser 当前登录用户
+     * @param contentId   文章的 UUID
+     * @return 包含 success、liked、likeCount 的 Map
+     */
     public Map<String, Object> unlikeContent(AuthenticatedUser currentUser, UUID contentId) {
         try {
             LikeStateResponse result = interactionService.unlike(currentUser, contentId);
@@ -97,6 +131,14 @@ public class AiToolService {
         }
     }
 
+    /**
+     * 对博客文章发表评论。
+     *
+     * @param currentUser 当前登录用户
+     * @param contentId   文章的 UUID
+     * @param body        评论内容
+     * @return 包含 success、commentId、body 的 Map
+     */
     public Map<String, Object> commentContent(AuthenticatedUser currentUser, UUID contentId, String body) {
         try {
             CommentResponse result = interactionService.comment(currentUser, contentId, new CommentRequest(body));
@@ -113,6 +155,13 @@ public class AiToolService {
         }
     }
 
+    /**
+     * 删除自己的评论。
+     *
+     * @param currentUser 当前登录用户
+     * @param commentId   评论的 UUID
+     * @return 包含 success、deleted 的 Map
+     */
     public Map<String, Object> deleteComment(AuthenticatedUser currentUser, UUID commentId) {
         try {
             interactionService.deleteComment(currentUser, commentId);

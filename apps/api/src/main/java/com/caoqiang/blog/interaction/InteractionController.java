@@ -17,16 +17,49 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 互动 REST 控制器
+ * <p>
+ * 负责处理博客内容的互动功能，包括评论、点赞和浏览记录。
+ * 位于 API 层，接收前端请求并委托给 {@link InteractionService} 处理业务逻辑。
+ * </p>
+ * <p>
+ * 主要功能：
+ * <ul>
+ *   <li>评论的增删查</li>
+ *   <li>内容的点赞/取消点赞</li>
+ *   <li>浏览记录的创建</li>
+ * </ul>
+ * </p>
+ */
 @RestController
 @RequestMapping("/api/v1")
 public class InteractionController {
 
+    /** 互动核心服务，处理评论、点赞、浏览记录的业务逻辑 */
     private final InteractionService interactionService;
 
+    /**
+     * 构造函数，注入互动服务
+     *
+     * @param interactionService 互动核心服务
+     */
     public InteractionController(InteractionService interactionService) {
         this.interactionService = interactionService;
     }
 
+    /**
+     * 获取指定内容的评论列表（分页）
+     * <p>
+     * 支持匿名访问，如果用户已登录则返回该用户对评论的点赞状态。
+     * </p>
+     *
+     * @param currentUser 当前登录用户（可为 null，表示匿名用户）
+     * @param contentId   内容 ID
+     * @param page        页码，从 0 开始
+     * @param size        每页大小，默认 20
+     * @return 包含评论列表的分页响应
+     */
     @GetMapping("/contents/{contentId}/comments")
     public ApiResponse<PageResponse<CommentResponse>> comments(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -38,6 +71,17 @@ public class InteractionController {
         return ApiResponse.ok(interactionService.comments(contentId, page, size, userId));
     }
 
+    /**
+     * 发表评论
+     * <p>
+     * 需要用户登录。评论会进入审核流程（可能由 AI 进行内容审查）。
+     * </p>
+     *
+     * @param currentUser 当前登录用户
+     * @param contentId   内容 ID
+     * @param request     评论请求体，包含评论内容和可选的父评论 ID
+     * @return 创建的评论信息
+     */
     @PostMapping("/contents/{contentId}/comments")
     public ApiResponse<CommentResponse> comment(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -47,6 +91,16 @@ public class InteractionController {
         return ApiResponse.ok(interactionService.comment(currentUser, contentId, request));
     }
 
+    /**
+     * 删除评论
+     * <p>
+     * 只能删除自己的评论。删除后返回确认信息。
+     * </p>
+     *
+     * @param currentUser 当前登录用户
+     * @param commentId   要删除的评论 ID
+     * @return 包含删除状态和评论 ID 的响应
+     */
     @DeleteMapping("/comments/{commentId}")
     public ApiResponse<Map<String, Object>> deleteComment(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -56,6 +110,16 @@ public class InteractionController {
         return ApiResponse.ok(Map.of("deleted", true, "commentId", commentId));
     }
 
+    /**
+     * 点赞内容
+     * <p>
+     * 需要用户登录。如果已经点赞则不会重复点赞。
+     * </p>
+     *
+     * @param currentUser 当前登录用户
+     * @param contentId   内容 ID
+     * @return 点赞状态响应，包含是否已点赞和总点赞数
+     */
     @PostMapping("/contents/{contentId}/likes")
     public ApiResponse<LikeStateResponse> like(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -64,6 +128,16 @@ public class InteractionController {
         return ApiResponse.ok(interactionService.like(currentUser, contentId));
     }
 
+    /**
+     * 取消点赞内容
+     * <p>
+     * 需要用户登录。如果未点赞则不会执行操作。
+     * </p>
+     *
+     * @param currentUser 当前登录用户
+     * @param contentId   内容 ID
+     * @return 点赞状态响应，包含是否已点赞和总点赞数
+     */
     @DeleteMapping("/contents/{contentId}/likes")
     public ApiResponse<LikeStateResponse> unlike(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -72,6 +146,18 @@ public class InteractionController {
         return ApiResponse.ok(interactionService.unlike(currentUser, contentId));
     }
 
+    /**
+     * 记录内容浏览
+     * <p>
+     * 支持匿名浏览记录，通过 IP 和 User-Agent 进行 SHA-256 匿名去重，
+     * 防止同一用户短时间内重复计数。
+     * </p>
+     *
+     * @param currentUser 当前登录用户（可为 null）
+     * @param contentId   内容 ID
+     * @param request     HTTP 请求，用于获取客户端 IP 和 User-Agent
+     * @return 浏览状态响应，包含是否为新浏览和总浏览数
+     */
     @PostMapping("/contents/{contentId}/views")
     public ApiResponse<ViewStateResponse> recordView(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -83,15 +169,28 @@ public class InteractionController {
         return ApiResponse.ok(interactionService.recordView(currentUser, contentId, clientIp, userAgent));
     }
 
+    /**
+     * 获取客户端真实 IP 地址
+     * <p>
+     * 依次尝试从 X-Forwarded-For、X-Real-IP 头获取，
+     * 如果都没有则使用 request.getRemoteAddr()。
+     * </p>
+     *
+     * @param request HTTP 请求
+     * @return 客户端 IP 地址
+     */
     private String getClientIp(HttpServletRequest request) {
+        // 优先从代理头获取真实 IP
         String ip = request.getHeader("X-Forwarded-For");
         if (ip != null && !ip.isEmpty()) {
+            // X-Forwarded-For 可能包含多个 IP，取第一个（最原始的客户端 IP）
             return ip.split(",")[0].trim();
         }
         ip = request.getHeader("X-Real-IP");
         if (ip != null && !ip.isEmpty()) {
             return ip;
         }
+        // 降级使用直接连接的 IP
         return request.getRemoteAddr();
     }
 }

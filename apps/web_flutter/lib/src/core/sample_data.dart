@@ -1,5 +1,10 @@
+/// 开发用模拟数据
+/// 提供离线开发时使用的示例内容、友链和管理后台指标
+library;
+
 import 'models.dart';
 
+/// 示例内容列表
 final sampleContents = <BlogContent>[
   BlogContent(
     id: '00000000-0000-0000-0000-000000000001',
@@ -9,7 +14,7 @@ final sampleContents = <BlogContent>[
     coverUrl:
         'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1200&q=80',
     tags: ['Flutter', 'Spring Boot', 'AI'],
-    pinned: true,
+    pinned: true, // 置顶
     likeCount: 42,
     viewCount: 2048,
     publishedAt: DateTime(2026, 6, 1),
@@ -63,6 +68,7 @@ final route = GoRoute(path: '/contents/:id');
   ),
 ];
 
+/// 示例友情链接列表
 final sampleFriends = <FriendLink>[
   const FriendLink(
     id: '10000000-0000-0000-0000-000000000001',
@@ -90,6 +96,7 @@ final sampleFriends = <FriendLink>[
   ),
 ];
 
+/// 示例管理后台指标数据
 final adminMetrics = <AdminMetric>[
   const AdminMetric('内容', '3'),
   const AdminMetric('媒体', '5'),

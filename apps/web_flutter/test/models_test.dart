@@ -1,7 +1,11 @@
+// 模型解析单元测试
+// 验证 ContentType、ContentListQuery、PageResult、AuditLogItem、AuditLogQuery 等模型的正确性
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_blog_web/src/core/models.dart';
 
 void main() {
+  /// ContentType 测试组
+  /// 验证标签文本、API 值和解析逻辑
   group('ContentType', () {
     test('label returns correct text', () {
       expect(ContentType.text.label, '文本');
@@ -25,6 +29,8 @@ void main() {
     });
   });
 
+  /// ContentListQuery 测试组
+  /// 验证默认值和相等性判断
   group('ContentListQuery', () {
     test('creates with default values', () {
       const query = ContentListQuery();
@@ -45,6 +51,8 @@ void main() {
     });
   });
 
+  /// PageResult 测试组
+  /// 验证分页结果的创建和字段值
   group('PageResult', () {
     test('creates correctly', () {
       const result = PageResult<String>(
@@ -61,6 +69,8 @@ void main() {
     });
   });
 
+  /// AuditLogItem 测试组
+  /// 验证审计日志的 JSON 解析，包括完整字段和空字段处理
   group('AuditLogItem', () {
     test('fromJson parses correctly', () {
       final json = {
@@ -100,6 +110,8 @@ void main() {
     });
   });
 
+  /// AuditLogQuery 测试组
+  /// 验证审计日志查询的默认值和相等性判断
   group('AuditLogQuery', () {
     test('creates with default values', () {
       const query = AuditLogQuery();

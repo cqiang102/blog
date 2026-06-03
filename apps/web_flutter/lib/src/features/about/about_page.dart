@@ -1,3 +1,5 @@
+// AI 聊天页模块
+// 支持 SSE 流式响应、会话管理、配额显示和 40 条消息限制
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,8 @@ import '../../core/api_providers.dart';
 import '../../core/auth_controller.dart';
 import '../../core/models.dart';
 
+/// AI 聊天页 Widget
+/// 提供与 AI 助手的对话界面，支持流式响应和会话切换
 class AboutPage extends ConsumerStatefulWidget {
   const AboutPage({super.key});
 
@@ -16,15 +20,17 @@ class AboutPage extends ConsumerStatefulWidget {
   ConsumerState<AboutPage> createState() => _AboutPageState();
 }
 
+/// AI 聊天页状态管理
+/// 管理聊天消息、会话 ID、配额和 SSE 流式响应
 class _AboutPageState extends ConsumerState<AboutPage> {
-  final _controller = TextEditingController();
-  final _messages = <_ChatMessage>[];
-  String? _sessionId;
-  int? _remaining;
-  int _remainingMessages = 40;
-  bool _sending = false;
-  bool _loadingHistory = false;
-  bool _sessionLimitReached = false;
+  final _controller = TextEditingController(); // 输入框控制器
+  final _messages = <_ChatMessage>[]; // 聊天消息列表
+  String? _sessionId; // 当前会话 ID
+  int? _remaining; // 今日剩余提问次数
+  int _remainingMessages = 40; // 当前会话剩余消息数（上限 40 条）
+  bool _sending = false; // 是否正在发送消息
+  bool _loadingHistory = false; // 是否正在加载历史消息
+  bool _sessionLimitReached = false; // 当前会话是否达到消息上限
 
   @override
   void initState() {
@@ -38,6 +44,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     super.dispose();
   }
 
+  /// 加载最近的会话
+  /// 获取用户的会话列表，自动加载最新会话的历史消息
   Future<void> _loadLatestSession() async {
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
@@ -54,6 +62,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     }
   }
 
+  /// 加载会话历史消息
+  /// 清空当前消息列表，从 API 获取指定会话的历史消息
   Future<void> _loadHistory(String sessionId) async {
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
@@ -81,6 +91,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     }
   }
 
+  /// 创建新会话
+  /// 调用 API 创建新的 AI 会话，重置消息列表和配额
   Future<void> _createNewSession() async {
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
@@ -187,6 +199,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     );
   }
 
+  /// 构建头部区域
+  /// 显示 AI 助手标题、配额信息和操作按钮（历史会话/新建/刷新）
   Widget _buildHeader(AuthController auth, int remaining) {
     return ListTile(
       leading: const Icon(Icons.smart_toy),
@@ -221,6 +235,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     );
   }
 
+  /// 构建输入栏
+  /// 包含文本输入框和发送按钮，根据登录状态和配额控制可用性
   Widget _buildInputBar(AuthController auth, int remaining) {
     final canSend = auth.isAuthenticated &&
         !_sending &&
@@ -261,6 +277,9 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     );
   }
 
+  /// 发送消息
+  /// 通过 SSE 流式发送消息，实时更新 AI 回复内容
+  /// 处理 token（逐字输出）、done（完成）和 error（错误）事件
   Future<void> _send() async {
     final auth = ref.read(authControllerProvider);
     final token = auth.accessToken;
@@ -332,6 +351,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     }
   }
 
+  /// 显示会话列表
+  /// 以底部弹出面板展示历史会话列表，支持切换和新建
   Future<void> _showSessionList() async {
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
@@ -369,6 +390,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
   }
 }
 
+/// 会话列表弹出面板
+/// 展示历史会话列表，支持选择会话和创建新会话
 class _SessionListSheet extends StatelessWidget {
   const _SessionListSheet({
     required this.sessions,
@@ -377,10 +400,10 @@ class _SessionListSheet extends StatelessWidget {
     required this.onCreateNew,
   });
 
-  final List<AiSessionItem> sessions;
-  final String? currentSessionId;
-  final ValueChanged<AiSessionItem> onSelect;
-  final VoidCallback onCreateNew;
+  final List<AiSessionItem> sessions; // 会话列表
+  final String? currentSessionId; // 当前会话 ID
+  final ValueChanged<AiSessionItem> onSelect; // 选择会话回调
+  final VoidCallback onCreateNew; // 创建新会话回调
 
   @override
   Widget build(BuildContext context) {
@@ -446,11 +469,13 @@ class _SessionListSheet extends StatelessWidget {
   }
 }
 
+/// 聊天气泡组件
+/// 区分用户消息（右侧蓝色）和 AI 消息（左侧白色），支持流式输出动画
 class _ChatBubble extends StatelessWidget {
   const _ChatBubble({required this.message, this.isStreaming = false});
 
-  final _ChatMessage message;
-  final bool isStreaming;
+  final _ChatMessage message; // 消息数据
+  final bool isStreaming; // 是否正在流式输出
 
   @override
   Widget build(BuildContext context) {
@@ -487,9 +512,11 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
+/// 聊天消息数据模型
+/// [mine] 标识是否为用户消息，[text] 为消息内容
 class _ChatMessage {
   const _ChatMessage(this.mine, this.text);
 
-  final bool mine;
-  final String text;
+  final bool mine; // 是否为用户发送的消息
+  final String text; // 消息文本内容
 }

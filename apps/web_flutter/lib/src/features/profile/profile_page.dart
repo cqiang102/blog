@@ -1,3 +1,5 @@
+// 个人中心模块
+// 支持资料编辑、修改密码、查看评论/点赞/浏览活动记录
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,12 +9,14 @@ import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
 import '../../core/models.dart';
 
+/// 个人中心 Widget
+/// 使用 TabBar 展示资料、评论、点赞、浏览四个标签页
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authControllerProvider);
+    final auth = ref.watch(authControllerProvider); // 获取认证状态
 
     return DefaultTabController(
       length: 4,
@@ -58,6 +62,8 @@ class ProfilePage extends ConsumerWidget {
   }
 }
 
+/// 个人资料表单组件
+/// 编辑用户昵称、简介、博客地址、头像 URL、邮箱，以及修改密码
 class _ProfileForm extends ConsumerStatefulWidget {
   const _ProfileForm();
 
@@ -65,17 +71,19 @@ class _ProfileForm extends ConsumerStatefulWidget {
   ConsumerState<_ProfileForm> createState() => _ProfileFormState();
 }
 
+/// 个人资料表单状态管理
+/// 管理表单控制器、数据填充和提交逻辑
 class _ProfileFormState extends ConsumerState<_ProfileForm> {
-  final _nicknameController = TextEditingController();
-  final _bioController = TextEditingController();
-  final _blogUrlController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _avatarUrlController = TextEditingController();
-  final _oldPasswordController = TextEditingController();
-  final _newPasswordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  String? _seededUserId;
-  bool _changingPassword = false;
+  final _nicknameController = TextEditingController(); // 昵称输入框
+  final _bioController = TextEditingController(); // 简介输入框
+  final _blogUrlController = TextEditingController(); // 博客地址输入框
+  final _emailController = TextEditingController(); // 邮箱输入框
+  final _avatarUrlController = TextEditingController(); // 头像 URL 输入框
+  final _oldPasswordController = TextEditingController(); // 当前密码输入框
+  final _newPasswordController = TextEditingController(); // 新密码输入框
+  final _confirmPasswordController = TextEditingController(); // 确认新密码输入框
+  String? _seededUserId; // 已填充数据的用户 ID（防止重复填充）
+  bool _changingPassword = false; // 是否正在修改密码
 
   @override
   void dispose() {
@@ -200,6 +208,8 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     );
   }
 
+  /// 填充用户数据到表单
+  /// 将用户资料填充到各输入框，仅首次调用生效
   void _seed(UserProfile user) {
     _seededUserId = user.id;
     _nicknameController.text = user.nickname;
@@ -209,6 +219,8 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     _avatarUrlController.text = user.avatarUrl ?? '';
   }
 
+  /// 保存个人资料
+  /// 收集表单数据调用 API 更新用户资料
   Future<void> _save() async {
     try {
       await ref
@@ -231,6 +243,8 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     }
   }
 
+  /// 修改密码
+  /// 校验输入后调用 API 修改密码，成功后清空密码框
   Future<void> _changePassword() async {
     final oldPassword = _oldPasswordController.text;
     final newPassword = _newPasswordController.text;
@@ -287,24 +301,28 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
   }
 }
 
+/// 活动记录列表组件
+/// 展示用户的评论/点赞/浏览记录，支持无限滚动分页和删除
 class _RecordList extends ConsumerStatefulWidget {
   const _RecordList({required this.type, required this.label});
 
-  final String type;
-  final String label;
+  final String type; // 记录类型：comments/likes/views
+  final String label; // 显示标签
 
   @override
   ConsumerState<_RecordList> createState() => _RecordListState();
 }
 
+/// 活动记录列表状态管理
+/// 管理分页加载、滚动监听和删除操作
 class _RecordListState extends ConsumerState<_RecordList> {
-  final _scrollController = ScrollController();
-  final List<UserActivity> _items = [];
-  int _currentPage = 0;
-  int _total = 0;
-  bool _isLoading = false;
-  bool _hasMore = true;
-  String? _error;
+  final _scrollController = ScrollController(); // 滚动控制器
+  final List<UserActivity> _items = []; // 已加载的记录列表
+  int _currentPage = 0; // 当前页码
+  int _total = 0; // 总记录数
+  bool _isLoading = false; // 是否正在加载
+  bool _hasMore = true; // 是否还有更多数据
+  String? _error; // 错误信息
 
   @override
   void initState() {
@@ -319,6 +337,8 @@ class _RecordListState extends ConsumerState<_RecordList> {
     super.dispose();
   }
 
+  /// 滚动监听回调
+  /// 滚动到底部附近时触发加载更多
   void _onScroll() {
     if (_scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 200 &&
@@ -328,6 +348,8 @@ class _RecordListState extends ConsumerState<_RecordList> {
     }
   }
 
+  /// 加载更多记录
+  /// 使用当前类型和页码请求 API，追加数据到列表
   Future<void> _loadMore() async {
     if (_isLoading) return;
     setState(() {
@@ -366,6 +388,7 @@ class _RecordListState extends ConsumerState<_RecordList> {
     }
   }
 
+  /// 重置列表并重新加载
   void _resetAndLoad() {
     setState(() {
       _items.clear();
@@ -435,6 +458,8 @@ class _RecordListState extends ConsumerState<_RecordList> {
     );
   }
 
+  /// 删除活动记录
+  /// 调用 API 删除指定记录，成功后从列表中移除
   Future<void> _delete(UserActivity item) async {
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;

@@ -21,10 +21,27 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+/**
+ * AI 聊天核心服务。
+ * <p>
+ * 职责：管理用户的 AI 对话会话、消息持久化、每日配额控制，以及同步/流式两种对话模式。
+ * 在架构中位于 Controller 与 Spring AI ChatClient 之间，是 AI 聊天功能的业务中枢。
+ * <p>
+ * 关键特性：
+ * <ul>
+ *   <li>会话管理：自动创建或复用会话，限制单会话最大消息数（{@value #MAX_MESSAGES_PER_SESSION}）</li>
+ *   <li>配额控制：基于 Redis 缓存 + 数据库双重保障的每日提问次数限制</li>
+ *   <li>同步对话：通过 {@link #chat} 一次性返回完整回答</li>
+ *   <li>流式对话：通过 {@link #streamChat} 使用 SSE 逐 token 推送回答</li>
+ *   <li>工具调用上下文：通过 {@link AiUserContext} 将当前用户传递给 AI 工具层</li>
+ * </ul>
+ */
 @Service
 public class AiChatService {
 
+    /** 单个会话允许的最大消息数 */
     private static final int MAX_MESSAGES_PER_SESSION = 40;
+    /** Redis 中每日配额缓存的 key 前缀 */
     private static final String QUOTA_CACHE_PREFIX = "ai:quota:";
 
     private final BlogProperties blogProperties;
@@ -56,6 +73,15 @@ public class AiChatService {
         this.redisTemplate = redisTemplate;
     }
 
+    /**
+     * 同步对话接口。发送用户消息并一次性返回完整 AI 回答。
+     * <p>
+     * 处理流程：校验配额 → 解析会话 → 保存用户消息 → 更新配额 → 调用 AI 生成回答 → 保存助手消息。
+     *
+     * @param currentUser 当前登录用户
+     * @param request     聊天请求，包含消息内容和可选的会话 ID
+     * @return 包含会话 ID、回答文本、剩余提问次数、剩余消息数的响应
+     */
     @Transactional
     public AiChatResponse chat(AuthenticatedUser currentUser, AiChatRequest request) {
         User user = activeUser(currentUser);
@@ -99,6 +125,20 @@ public class AiChatService {
         );
     }
 
+    /**
+     * 流式对话接口。通过 SSE（Server-Sent Events）逐 token 推送 AI 回答。
+     * <p>
+     * 在异步线程中执行 AI 调用，通过 SseEmitter 向客户端推送事件：
+     * <ul>
+     *   <li>{@code token} 事件：每个 token 片段</li>
+     *   <li>{@code done} 事件：流结束时携带完整响应</li>
+     *   <li>{@code error} 事件：发生错误时的错误信息</li>
+     * </ul>
+     *
+     * @param currentUser 当前登录用户
+     * @param request     聊天请求，包含消息内容和可选的会话 ID
+     * @return SSE 发射器，客户端通过此对象接收流式数据
+     */
     public SseEmitter streamChat(AuthenticatedUser currentUser, AiChatRequest request) {
         SseEmitter emitter = new SseEmitter(120_000L);
 
@@ -197,6 +237,12 @@ public class AiChatService {
         return emitter;
     }
 
+    /**
+     * 查询当前用户的每日 AI 配额使用情况。
+     *
+     * @param currentUser 当前登录用户
+     * @return 包含今日日期、每日限额、已使用次数的配额信息
+     */
     @Transactional(readOnly = true)
     public AiQuotaResponse quota(AuthenticatedUser currentUser) {
         User user = activeUser(currentUser);
@@ -207,6 +253,13 @@ public class AiChatService {
         return new AiQuotaResponse(today, blogProperties.getAi().getDailyQuestionLimit(), used);
     }
 
+    /**
+     * 创建新的 AI 聊天会话。
+     *
+     * @param currentUser 当前登录用户
+     * @param request     创建会话请求，可选包含标题（默认为"新会话"，最大 40 字符）
+     * @return 新创建的会话信息
+     */
     @Transactional
     public AiChatSessionResponse createSession(AuthenticatedUser currentUser, AiCreateSessionRequest request) {
         User user = activeUser(currentUser);
@@ -218,6 +271,12 @@ public class AiChatService {
         return toSessionResponse(session, 0);
     }
 
+    /**
+     * 获取当前用户最近的 20 个 AI 聊天会话列表。
+     *
+     * @param currentUser 当前登录用户
+     * @return 按更新时间倒序排列的会话列表，包含每个会话的消息数
+     */
     @Transactional(readOnly = true)
     public List<AiChatSessionResponse> listSessions(AuthenticatedUser currentUser) {
         User user = activeUser(currentUser);
@@ -227,6 +286,15 @@ public class AiChatService {
                 .toList();
     }
 
+    /**
+     * 分页获取指定会话的消息列表。
+     *
+     * @param currentUser 当前登录用户
+     * @param sessionId   会话 ID
+     * @param page        页码（从 0 开始）
+     * @param size        每页大小（最大 50）
+     * @return 分页消息列表，按创建时间正序排列
+     */
     @Transactional(readOnly = true)
     public PageResponse<AiChatMessageResponse> sessionMessages(
             AuthenticatedUser currentUser, UUID sessionId, int page, int size
@@ -254,6 +322,13 @@ public class AiChatService {
         return new PageResponse<>(items, safePage, safeSize, total);
     }
 
+    /**
+     * 解析会话：如果提供了 sessionId 则查找对应会话，否则复用用户最近的会话或自动创建新会话。
+     *
+     * @param user      当前用户
+     * @param sessionId 可选的会话 ID
+     * @return 解析后的会话实体
+     */
     private AiChatSession resolveSession(User user, UUID sessionId) {
         if (sessionId != null) {
             return sessionRepository.findByIdAndUserId(sessionId, user.getId())
@@ -263,6 +338,13 @@ public class AiChatService {
                 .orElseGet(() -> sessionRepository.save(new AiChatSession(user, "新会话")));
     }
 
+    /**
+     * 调用 Spring AI ChatClient 生成同步回答。
+     *
+     * @param userMessage    用户消息内容
+     * @param conversationId 会话 ID，用于 ChatMemory 维护上下文
+     * @return AI 生成的回答文本
+     */
     private String generateAnswer(String userMessage, String conversationId) {
         try {
             return chatClient.prompt()
@@ -275,12 +357,24 @@ public class AiChatService {
         }
     }
 
+    /**
+     * 获取或创建用户今日的配额记录。
+     *
+     * @param user 当前用户
+     * @return 今日的配额实体
+     */
     private AiDailyQuota quotaFor(User user) {
         LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
         return quotaRepository.findByUserIdAndQuotaDate(user.getId(), today)
                 .orElseGet(() -> quotaRepository.save(new AiDailyQuota(user, today)));
     }
 
+    /**
+     * 获取用户今日已使用的提问次数（优先从 Redis 缓存读取，缓存未命中时回源数据库）。
+     *
+     * @param userId 用户 ID
+     * @return 今日已使用次数
+     */
     private int getCachedQuotaCount(UUID userId) {
         String cacheKey = QUOTA_CACHE_PREFIX + userId + ":" + LocalDate.now(clock.withZone(ZoneOffset.UTC));
         String cached = redisTemplate.opsForValue().get(cacheKey);
@@ -298,6 +392,11 @@ public class AiChatService {
         return count;
     }
 
+    /**
+     * 计算距离 UTC 午夜的秒数，用于设置 Redis 缓存过期时间。
+     *
+     * @return 距离午夜的秒数
+     */
     private long getSecondsUntilMidnight() {
         LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
         return java.time.Duration.between(
@@ -306,12 +405,21 @@ public class AiChatService {
         ).getSeconds();
     }
 
+    /**
+     * 根据认证信息获取活跃用户实体，若用户不存在或已禁用则抛出异常。
+     *
+     * @param currentUser 当前认证用户
+     * @return 用户实体
+     */
     private User activeUser(AuthenticatedUser currentUser) {
         return userRepository.findById(currentUser.id())
                 .filter(User::isActive)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "登录状态无效"));
     }
 
+    /**
+     * 将会话实体转换为响应 DTO。
+     */
     private AiChatSessionResponse toSessionResponse(AiChatSession session, int messageCount) {
         return new AiChatSessionResponse(
                 session.getId(),
@@ -322,6 +430,9 @@ public class AiChatService {
         );
     }
 
+    /**
+     * 通过 SSE 向客户端发送错误事件并完成发射器。
+     */
     private void sendError(SseEmitter emitter, String message) {
         try {
             emitter.send(SseEmitter.event().name("error").data(message));

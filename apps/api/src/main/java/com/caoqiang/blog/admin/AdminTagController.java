@@ -17,31 +17,70 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 管理端标签 CRUD 控制器
+ * <p>
+ * 提供管理员对内容标签的完整 CRUD 操作，包括：
+ * <ul>
+ *   <li>标签列表查询</li>
+ *   <li>创建新标签</li>
+ *   <li>更新标签信息</li>
+ *   <li>删除标签</li>
+ * </ul>
+ * <p>
+ * 所有端点均需管理员身份认证。
+ * 基础路径: {@code /api/v1/admin/tags}
+ */
 @RestController
 @RequestMapping("/api/v1/admin/tags")
 public class AdminTagController {
 
+    /** 标签管理服务 */
     private final TagAdminService tagAdminService;
 
     public AdminTagController(TagAdminService tagAdminService) {
         this.tagAdminService = tagAdminService;
     }
 
+    /**
+     * 获取标签列表
+     *
+     * @return 标签响应列表
+     */
     @GetMapping
     public ApiResponse<List<TagResponse>> list() {
         return ApiResponse.ok(tagAdminService.list());
     }
 
+    /**
+     * 创建新标签
+     *
+     * @param request 标签请求体
+     * @return 创建后的标签响应 DTO
+     */
     @PostMapping
     public ApiResponse<TagResponse> create(@Valid @RequestBody TagRequest request) {
         return ApiResponse.ok(tagAdminService.create(request));
     }
 
+    /**
+     * 更新标签信息
+     *
+     * @param id      标签 ID
+     * @param request 标签请求体
+     * @return 更新后的标签响应 DTO
+     */
     @PutMapping("/{id}")
     public ApiResponse<TagResponse> update(@PathVariable UUID id, @Valid @RequestBody TagRequest request) {
         return ApiResponse.ok(tagAdminService.update(id, request));
     }
 
+    /**
+     * 删除标签
+     *
+     * @param id 标签 ID
+     * @return 操作结果，包含 {@code deleted: true} 和标签 ID
+     */
     @DeleteMapping("/{id}")
     public ApiResponse<Map<String, Object>> delete(@PathVariable UUID id) {
         tagAdminService.delete(id);

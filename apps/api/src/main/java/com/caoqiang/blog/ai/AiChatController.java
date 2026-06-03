@@ -17,6 +17,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+/**
+ * AI 聊天 REST 控制器。
+ * <p>
+ * 提供 AI 对话相关的 HTTP 接口，包括同步聊天、流式聊天（SSE）、配额查询、会话管理和消息历史。
+ * 所有接口均需要用户认证，路径前缀为 {@code /api/v1/ai}。
+ */
 @RestController
 @RequestMapping("/api/v1/ai")
 public class AiChatController {
@@ -27,6 +33,7 @@ public class AiChatController {
         this.aiChatService = aiChatService;
     }
 
+    /** 同步 AI 聊天接口，一次性返回完整回答。 */
     @PostMapping("/chat")
     public ApiResponse<AiChatResponse> chat(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -35,6 +42,7 @@ public class AiChatController {
         return ApiResponse.ok(aiChatService.chat(currentUser, request));
     }
 
+    /** 流式 AI 聊天接口，通过 SSE 逐 token 推送回答。 */
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamChat(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -43,11 +51,13 @@ public class AiChatController {
         return aiChatService.streamChat(currentUser, request);
     }
 
+    /** 查询当前用户的每日 AI 配额使用情况。 */
     @GetMapping("/quota")
     public ApiResponse<AiQuotaResponse> quota(@AuthenticationPrincipal AuthenticatedUser currentUser) {
         return ApiResponse.ok(aiChatService.quota(currentUser));
     }
 
+    /** 创建新的 AI 聊天会话。 */
     @PostMapping("/sessions")
     public ApiResponse<AiChatSessionResponse> createSession(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -57,6 +67,7 @@ public class AiChatController {
                 request != null ? request : new AiCreateSessionRequest(null)));
     }
 
+    /** 获取当前用户的 AI 聊天会话列表。 */
     @GetMapping("/sessions")
     public ApiResponse<List<AiChatSessionResponse>> listSessions(
             @AuthenticationPrincipal AuthenticatedUser currentUser
@@ -64,6 +75,7 @@ public class AiChatController {
         return ApiResponse.ok(aiChatService.listSessions(currentUser));
     }
 
+    /** 分页获取指定会话的消息历史。 */
     @GetMapping("/sessions/{sessionId}/messages")
     public ApiResponse<PageResponse<AiChatMessageResponse>> sessionMessages(
             @AuthenticationPrincipal AuthenticatedUser currentUser,

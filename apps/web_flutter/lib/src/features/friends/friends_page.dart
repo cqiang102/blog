@@ -1,3 +1,5 @@
+// 友链页模块
+// 展示友链网格，包含头像、名称、简介，点击跳转外部链接
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -5,12 +7,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api_providers.dart';
 import '../../core/models.dart';
 
+/// 友链页 Widget
+/// 从 API 加载友链列表，以响应式网格展示
 class FriendsPage extends ConsumerWidget {
   const FriendsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final friends = ref.watch(friendsProvider);
+    final friends = ref.watch(friendsProvider); // 获取友链数据
 
     return CustomScrollView(
       slivers: [
@@ -55,10 +59,12 @@ class FriendsPage extends ConsumerWidget {
   }
 }
 
+/// 友链卡片组件
+/// 展示单个友链的头像、名称、简介，点击在新窗口打开链接
 class _FriendCard extends StatelessWidget {
   const _FriendCard({required this.friend});
 
-  final FriendLink friend;
+  final FriendLink friend; // 友链数据
 
   @override
   Widget build(BuildContext context) {
@@ -115,11 +121,13 @@ class _FriendCard extends StatelessWidget {
   }
 }
 
+/// 友链错误组件
+/// 加载友链失败时显示错误信息和重试按钮
 class _FriendsError extends StatelessWidget {
   const _FriendsError({required this.message, required this.onRetry});
 
-  final String message;
-  final VoidCallback onRetry;
+  final String message; // 错误信息
+  final VoidCallback onRetry; // 重试回调
 
   @override
   Widget build(BuildContext context) {

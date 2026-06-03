@@ -1,3 +1,5 @@
+// 认证页模块
+// 支持登录/注册切换和 GitHub OAuth 登录
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
 
+/// 认证页 Widget
+/// 提供邮箱密码登录/注册和 GitHub OAuth 登录功能
 class AuthPage extends ConsumerStatefulWidget {
   const AuthPage({super.key});
 
@@ -13,11 +17,13 @@ class AuthPage extends ConsumerStatefulWidget {
   ConsumerState<AuthPage> createState() => _AuthPageState();
 }
 
+/// 认证页状态管理
+/// 管理登录/注册表单、模式切换和 OAuth 跳转
 class _AuthPageState extends ConsumerState<AuthPage> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _nicknameController = TextEditingController();
-  bool _register = false;
+  final _emailController = TextEditingController(); // 邮箱输入框
+  final _passwordController = TextEditingController(); // 密码输入框
+  final _nicknameController = TextEditingController(); // 昵称输入框（注册时使用）
+  bool _register = false; // 是否为注册模式
 
   @override
   void dispose() {
@@ -100,6 +106,8 @@ class _AuthPageState extends ConsumerState<AuthPage> {
     );
   }
 
+  /// 提交登录/注册表单
+  /// 根据当前模式调用登录或注册 API，成功后跳转到来源页或个人中心
   Future<void> _submit() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -129,6 +137,8 @@ class _AuthPageState extends ConsumerState<AuthPage> {
     }
   }
 
+  /// 打开 GitHub OAuth 登录
+  /// 在当前窗口跳转到 GitHub 授权页面
   Future<void> _openGithubLogin() async {
     final url = Uri.parse(ref.read(apiClientProvider).githubAuthorizationUrl);
     await launchUrl(url, webOnlyWindowName: '_self');

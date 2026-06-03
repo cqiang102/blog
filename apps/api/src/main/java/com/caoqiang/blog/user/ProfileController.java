@@ -18,11 +18,27 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 个人资料 REST 控制器
+ * <p>
+ * 处理当前登录用户的个人资料相关操作，包括：
+ * <ul>
+ *   <li>获取/更新个人资料</li>
+ *   <li>修改密码</li>
+ *   <li>查看个人互动记录（评论、点赞、浏览）</li>
+ *   <li>删除个人互动记录</li>
+ * </ul>
+ * <p>
+ * 所有端点均需身份认证，通过 {@link AuthenticatedUser} 获取当前用户信息。
+ * 基础路径: {@code /api/v1/me}
+ */
 @RestController
 @RequestMapping("/api/v1/me")
 public class ProfileController {
 
+    /** 个人资料服务 */
     private final ProfileService profileService;
+    /** 互动记录服务 */
     private final InteractionService interactionService;
 
     public ProfileController(ProfileService profileService, InteractionService interactionService) {
@@ -30,11 +46,24 @@ public class ProfileController {
         this.interactionService = interactionService;
     }
 
+    /**
+     * 获取当前用户个人资料
+     *
+     * @param currentUser 当前认证用户
+     * @return 用户资料响应
+     */
     @GetMapping
     public ApiResponse<UserProfileResponse> me(@AuthenticationPrincipal AuthenticatedUser currentUser) {
         return ApiResponse.ok(profileService.me(currentUser));
     }
 
+    /**
+     * 更新当前用户个人资料
+     *
+     * @param currentUser 当前认证用户
+     * @param request     更新资料请求体
+     * @return 更新后的用户资料响应
+     */
     @PutMapping
     public ApiResponse<UserProfileResponse> update(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -43,6 +72,13 @@ public class ProfileController {
         return ApiResponse.ok(profileService.update(currentUser, request));
     }
 
+    /**
+     * 修改当前用户密码
+     *
+     * @param currentUser 当前认证用户
+     * @param request     修改密码请求体，包含旧密码和新密码
+     * @return 操作结果，包含 {@code changed: true} 表示成功
+     */
     @PutMapping("/password")
     public ApiResponse<Map<String, Object>> changePassword(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -52,6 +88,14 @@ public class ProfileController {
         return ApiResponse.ok(Map.of("changed", true));
     }
 
+    /**
+     * 获取当前用户的评论记录（分页）
+     *
+     * @param currentUser 当前认证用户
+     * @param page        页码，从 0 开始
+     * @param size        每页大小，默认 20
+     * @return 评论记录分页响应
+     */
     @GetMapping("/comments")
     public ApiResponse<PageResponse<UserActivityResponse>> comments(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -61,6 +105,14 @@ public class ProfileController {
         return ApiResponse.ok(interactionService.myComments(currentUser, page, size));
     }
 
+    /**
+     * 获取当前用户的点赞记录（分页）
+     *
+     * @param currentUser 当前认证用户
+     * @param page        页码，从 0 开始
+     * @param size        每页大小，默认 20
+     * @return 点赞记录分页响应
+     */
     @GetMapping("/likes")
     public ApiResponse<PageResponse<UserActivityResponse>> likes(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -70,6 +122,14 @@ public class ProfileController {
         return ApiResponse.ok(interactionService.myLikes(currentUser, page, size));
     }
 
+    /**
+     * 获取当前用户的浏览记录（分页）
+     *
+     * @param currentUser 当前认证用户
+     * @param page        页码，从 0 开始
+     * @param size        每页大小，默认 20
+     * @return 浏览记录分页响应
+     */
     @GetMapping("/views")
     public ApiResponse<PageResponse<UserActivityResponse>> views(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -79,6 +139,13 @@ public class ProfileController {
         return ApiResponse.ok(interactionService.myViews(currentUser, page, size));
     }
 
+    /**
+     * 删除当前用户的指定评论
+     *
+     * @param currentUser 当前认证用户
+     * @param commentId   要删除的评论 ID
+     * @return 操作结果，包含 {@code deleted: true} 和 {@code commentId}
+     */
     @DeleteMapping("/comments/{commentId}")
     public ApiResponse<Map<String, Object>> deleteMyComment(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -88,6 +155,13 @@ public class ProfileController {
         return ApiResponse.ok(Map.of("deleted", true, "commentId", commentId));
     }
 
+    /**
+     * 删除当前用户对指定内容的点赞
+     *
+     * @param currentUser 当前认证用户
+     * @param contentId   要取消点赞的内容 ID
+     * @return 操作结果，包含 {@code deleted: true} 和 {@code contentId}
+     */
     @DeleteMapping("/likes/{contentId}")
     public ApiResponse<Map<String, Object>> deleteMyLike(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
@@ -97,6 +171,13 @@ public class ProfileController {
         return ApiResponse.ok(Map.of("deleted", true, "contentId", contentId));
     }
 
+    /**
+     * 删除当前用户的指定浏览记录
+     *
+     * @param currentUser  当前认证用户
+     * @param viewRecordId 要删除的浏览记录 ID
+     * @return 操作结果，包含 {@code deleted: true} 和 {@code viewRecordId}
+     */
     @DeleteMapping("/views/{viewRecordId}")
     public ApiResponse<Map<String, Object>> deleteMyView(
             @AuthenticationPrincipal AuthenticatedUser currentUser,

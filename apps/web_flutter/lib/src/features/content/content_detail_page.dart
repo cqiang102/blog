@@ -1,3 +1,5 @@
+// 内容详情页模块
+// 支持 Markdown 渲染、视频播放、点赞、评论列表和浏览记录
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,19 +10,23 @@ import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
 import '../../core/models.dart';
 
+/// 内容详情页 Widget
+/// 展示完整内容、支持点赞/取消点赞、提交评论和查看评论列表
 class ContentDetailPage extends ConsumerStatefulWidget {
   const ContentDetailPage({required this.id, super.key});
 
-  final String id;
+  final String id; // 内容 ID
 
   @override
   ConsumerState<ContentDetailPage> createState() => _ContentDetailPageState();
 }
 
+/// 内容详情页状态管理
+/// 管理评论输入、点赞操作、浏览记录和视频播放
 class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
-  final _commentController = TextEditingController();
-  bool _viewRecorded = false;
-  bool _working = false;
+  final _commentController = TextEditingController(); // 评论输入框控制器
+  bool _viewRecorded = false; // 是否已记录浏览（防止重复记录）
+  bool _working = false; // 是否正在执行操作（点赞/评论）
 
   @override
   void dispose() {
@@ -148,6 +154,8 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     );
   }
 
+  /// 记录浏览次数（仅首次）
+  /// 首次查看详情时调用 API 记录浏览，失败不阻断阅读
   void _recordViewOnce(String? accessToken) {
     if (_viewRecorded) return;
     _viewRecorded = true;
@@ -165,6 +173,8 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     });
   }
 
+  /// 切换点赞状态
+  /// 未登录时跳转登录页，已登录则调用点赞/取消点赞 API
   Future<void> _toggleLike(BlogContent content) async {
     final auth = ref.read(authControllerProvider);
     final token = auth.accessToken;
@@ -187,6 +197,8 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     });
   }
 
+  /// 提交评论
+  /// 未登录时跳转登录页，已登录则提交评论并刷新评论列表
   Future<void> _submitComment() async {
     final auth = ref.read(authControllerProvider);
     final token = auth.accessToken;
@@ -207,6 +219,8 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     });
   }
 
+  /// 执行异步操作的通用包装器
+  /// 自动管理 _working 状态，捕获异常并显示错误提示
   Future<void> _run(Future<void> Function() action) async {
     setState(() => _working = true);
     try {
@@ -228,11 +242,13 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
   }
 }
 
+/// 评论列表组件
+/// 展示评论列表，支持删除自己的评论，被屏蔽评论显示审核提示
 class _CommentList extends ConsumerWidget {
   const _CommentList({required this.comments, required this.contentId});
 
-  final List<CommentItem> comments;
-  final String contentId;
+  final List<CommentItem> comments; // 评论列表
+  final String contentId; // 内容 ID（用于刷新评论数据）
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -282,6 +298,8 @@ class _CommentList extends ConsumerWidget {
     );
   }
 
+  /// 删除评论
+  /// 调用 API 删除评论后刷新评论列表
   Future<void> _deleteComment(
     BuildContext context,
     WidgetRef ref,
@@ -304,10 +322,12 @@ class _CommentList extends ConsumerWidget {
   }
 }
 
+/// 封面大图组件
+/// 详情页顶部的 Hero 封面图，无封面时显示占位图标
 class _HeroCover extends StatelessWidget {
   const _HeroCover({required this.content});
 
-  final BlogContent content;
+  final BlogContent content; // 内容数据
 
   @override
   Widget build(BuildContext context) {
@@ -327,10 +347,12 @@ class _HeroCover extends StatelessWidget {
   }
 }
 
+/// 内容查看器组件
+/// 根据内容类型（文本/图文/图片/视频）渲染不同的展示方式
 class _ContentViewer extends StatelessWidget {
   const _ContentViewer({required this.content});
 
-  final BlogContent content;
+  final BlogContent content; // 内容数据
 
   @override
   Widget build(BuildContext context) {
@@ -350,10 +372,12 @@ class _ContentViewer extends StatelessWidget {
   }
 }
 
+/// 图片画廊组件
+/// 响应式网格展示多张图片，支持 1-3 列自适应
 class _ImageGallery extends StatelessWidget {
   const _ImageGallery({required this.urls});
 
-  final List<String> urls;
+  final List<String> urls; // 图片 URL 列表
 
   @override
   Widget build(BuildContext context) {
@@ -389,19 +413,23 @@ class _ImageGallery extends StatelessWidget {
   }
 }
 
+/// 视频播放器组件
+/// 管理视频控制器的生命周期，支持播放/暂停和进度拖拽
 class _VideoPlayerWidget extends StatefulWidget {
   const _VideoPlayerWidget({required this.content});
 
-  final BlogContent content;
+  final BlogContent content; // 内容数据（包含视频 URL）
 
   @override
   State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
 }
 
+/// 视频播放器状态管理
+/// 负责初始化视频控制器、监听播放状态和资源释放
 class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
-  VideoPlayerController? _controller;
-  bool _isInitialized = false;
-  bool _hasError = false;
+  VideoPlayerController? _controller; // 视频播放控制器
+  bool _isInitialized = false; // 视频是否已初始化完成
+  bool _hasError = false; // 视频加载是否出错
 
   @override
   void initState() {
@@ -409,6 +437,8 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
     _initPlayer();
   }
 
+  /// 初始化视频播放器
+  /// 解析视频 URL，创建控制器并完成初始化
   Future<void> _initPlayer() async {
     final videoUrl = widget.content.mediaUrls.isNotEmpty
         ? widget.content.mediaUrls.first
@@ -476,10 +506,12 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
   }
 }
 
+/// 视频控制覆盖层
+/// 点击切换播放/暂停状态，暂停时显示播放按钮
 class _ControlsOverlay extends StatelessWidget {
   const _ControlsOverlay({required this.controller});
 
-  final VideoPlayerController controller;
+  final VideoPlayerController controller; // 视频播放控制器
 
   @override
   Widget build(BuildContext context) {
@@ -510,10 +542,12 @@ class _ControlsOverlay extends StatelessWidget {
   }
 }
 
+/// 媒体空状态组件
+/// 图片/视频加载失败或为空时显示的占位界面
 class _MediaEmpty extends StatelessWidget {
   const _MediaEmpty({required this.label});
 
-  final String label;
+  final String label; // 提示文本
 
   @override
   Widget build(BuildContext context) {

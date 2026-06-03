@@ -11,6 +11,18 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * 知识分块实体（含向量嵌入）。
+ * <p>
+ * 对应数据库表 {@code knowledge_chunks}，存储文档或博客内容经过分块和向量嵌入后的数据。
+ * 每个分块包含原始文本内容和 1536 维的向量表示，用于语义相似度搜索。
+ * <p>
+ * 分块来源有两种：
+ * <ul>
+ *   <li>知识文档：通过 {@code doc_id} 关联 {@link KnowledgeDoc}</li>
+ *   <li>博客内容：通过 {@code content_id} 关联博客内容</li>
+ * </ul>
+ */
 @Entity
 @Table(name = "knowledge_chunks")
 public class KnowledgeChunk {
@@ -19,22 +31,28 @@ public class KnowledgeChunk {
     @Column(nullable = false, updatable = false)
     private UUID id = UUID.randomUUID();
 
+    /** 关联的知识文档（可为空，博客内容分块时为 null） */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doc_id")
     private KnowledgeDoc doc;
 
+    /** 关联的博客内容 ID（可为空，知识文档分块时为 null） */
     @Column(name = "content_id")
     private UUID contentId;
 
+    /** 分块在文档中的序号（从 0 开始） */
     @Column(name = "chunk_index", nullable = false)
     private int chunkIndex;
 
+    /** 分块的文本内容 */
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    /** 1536 维向量嵌入，用于余弦相似度搜索 */
     @Column(columnDefinition = "VECTOR(1536)")
     private String embedding;
 
+    /** 元数据（JSON 格式，如错误信息等） */
     @Column(columnDefinition = "JSONB")
     private String metadata;
 

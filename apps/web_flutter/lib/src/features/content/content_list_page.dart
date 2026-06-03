@@ -1,3 +1,5 @@
+// 内容列表页模块
+// 支持无限滚动分页、关键词搜索、标签/类型/日期范围过滤
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,8 @@ import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
 import '../../core/models.dart';
 
+/// 内容列表页 Widget
+/// 有状态组件，管理搜索、过滤条件和分页加载逻辑
 class ContentListPage extends ConsumerStatefulWidget {
   const ContentListPage({super.key});
 
@@ -14,20 +18,22 @@ class ContentListPage extends ConsumerStatefulWidget {
   ConsumerState<ContentListPage> createState() => _ContentListPageState();
 }
 
+/// 内容列表页状态管理
+/// 管理搜索框、滚动控制器、过滤条件和分页数据
 class _ContentListPageState extends ConsumerState<ContentListPage> {
-  final _searchController = TextEditingController();
-  final _scrollController = ScrollController();
-  ContentType? _type;
-  String? _tag;
-  DateTime? _startDate;
-  DateTime? _endDate;
+  final _searchController = TextEditingController(); // 搜索框控制器
+  final _scrollController = ScrollController(); // 滚动控制器，用于无限滚动
+  ContentType? _type; // 内容类型过滤条件
+  String? _tag; // 标签过滤条件
+  DateTime? _startDate; // 日期范围-开始日期
+  DateTime? _endDate; // 日期范围-结束日期
 
-  final List<BlogContent> _items = [];
-  int _currentPage = 0;
-  int _total = 0;
-  bool _isLoading = false;
-  bool _hasMore = true;
-  String? _error;
+  final List<BlogContent> _items = []; // 已加载的内容列表
+  int _currentPage = 0; // 当前页码
+  int _total = 0; // 总内容数
+  bool _isLoading = false; // 是否正在加载中
+  bool _hasMore = true; // 是否还有更多数据
+  String? _error; // 错误信息
 
   @override
   void initState() {
@@ -43,6 +49,8 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
     super.dispose();
   }
 
+  /// 滚动监听回调
+  /// 当滚动到底部附近 200px 时触发加载更多
   void _onScroll() {
     if (_scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 200 &&
@@ -52,6 +60,8 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
     }
   }
 
+  /// 加载更多内容
+  /// 使用当前过滤条件和页码请求 API，追加数据到列表
   Future<void> _loadMore() async {
     if (_isLoading) return;
     setState(() {
@@ -86,6 +96,8 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
     }
   }
 
+  /// 重置列表并重新加载
+  /// 清空当前数据，重置分页状态，从第一页开始加载
   void _resetAndLoad() {
     setState(() {
       _items.clear();
@@ -159,6 +171,8 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
     );
   }
 
+  /// 构建标签过滤器
+  /// 从 API 获取标签列表，渲染为可选择的 FilterChip
   Widget _buildTagFilters() {
     final tagsAsync = ref.watch(tagsProvider);
     return tagsAsync.when(
@@ -194,6 +208,8 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
     );
   }
 
+  /// 构建日期范围过滤器
+  /// 提供开始日期和结束日期选择器，支持清除日期筛选
   Widget _buildDateFilters() {
     final dateFormat = DateFormat('yyyy-MM-dd');
     final hasDateFilter = _startDate != null || _endDate != null;
@@ -230,6 +246,9 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
     );
   }
 
+  /// 选择日期
+  /// [isStart] 为 true 选择开始日期，否则选择结束日期
+  /// 自动校验确保开始日期不晚于结束日期
   Future<void> _selectDate(bool isStart) async {
     final now = DateTime.now();
     final initialDate = isStart ? _startDate : _endDate;
@@ -261,6 +280,8 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
     }
   }
 
+  /// 构建内容列表
+  /// 根据加载状态显示加载指示器、错误面板、空状态或内容卡片列表
   Widget _buildContentList() {
     if (_items.isEmpty && _isLoading) {
       return const Padding(
@@ -301,10 +322,12 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
   }
 }
 
+/// 内容行组件
+/// 展示单条内容的缩略图、标题、摘要、类型和标签
 class _ContentRow extends StatelessWidget {
   const _ContentRow({required this.content});
 
-  final BlogContent content;
+  final BlogContent content; // 内容数据
 
   @override
   Widget build(BuildContext context) {
@@ -366,10 +389,12 @@ class _ContentRow extends StatelessWidget {
   }
 }
 
+/// 缩略图组件
+/// 加载网络图片，失败时显示占位图标
 class _Thumb extends StatelessWidget {
   const _Thumb({required this.url});
 
-  final String url;
+  final String url; // 图片 URL
 
   @override
   Widget build(BuildContext context) {
@@ -401,6 +426,8 @@ class _Thumb extends StatelessWidget {
   }
 }
 
+/// 空面板组件
+/// 搜索结果为空时显示的提示
 class _EmptyPanel extends StatelessWidget {
   const _EmptyPanel();
 
@@ -413,11 +440,13 @@ class _EmptyPanel extends StatelessWidget {
   }
 }
 
+/// 错误面板组件
+/// 加载失败时显示错误信息和重试按钮
 class _ErrorPanel extends StatelessWidget {
   const _ErrorPanel({required this.message, required this.onRetry});
 
-  final String message;
-  final VoidCallback onRetry;
+  final String message; // 错误信息
+  final VoidCallback onRetry; // 重试回调
 
   @override
   Widget build(BuildContext context) {

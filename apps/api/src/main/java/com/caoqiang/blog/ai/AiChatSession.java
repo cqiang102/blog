@@ -13,6 +13,13 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * AI 聊天会话实体。
+ * <p>
+ * 对应数据库表 {@code ai_chat_sessions}，记录用户与 AI 的一次对话会话。
+ * 每个会话关联一个用户，包含标题、创建时间和更新时间。
+ * 会话通过 {@link AiChatMessage} 存储具体的消息记录。
+ */
 @Entity
 @Table(name = "ai_chat_sessions")
 public class AiChatSession {
@@ -21,10 +28,12 @@ public class AiChatSession {
     @Column(nullable = false, updatable = false)
     private UUID id = UUID.randomUUID();
 
+    /** 所属用户（懒加载） */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    /** 会话标题，最大 160 字符 */
     @Column(length = 160)
     private String title;
 

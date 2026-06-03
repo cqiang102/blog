@@ -11,11 +11,29 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Component;
 
+/**
+ * 审计日志 AOP 切面
+ * <p>
+ * 拦截管理端控制器的所有方法调用，自动记录审计日志。
+ * <p>
+ * 主要职责：
+ * <ul>
+ *   <li>拦截 admin 包下所有控制器的方法执行</li>
+ *   <li>根据方法名自动识别操作类型（CREATE/UPDATE/DELETE/READ）</li>
+ *   <li>根据控制器类名自动识别资源类型</li>
+ *   <li>提取操作者信息和资源 ID</li>
+ *   <li>异步记录审计日志，不影响正常业务流程</li>
+ * </ul>
+ * <p>
+ * 排除 dashboard、modules、logs 等查询方法，避免日志冗余。
+ */
 @Aspect
 @Component
 public class AuditLogAspect {
 
+    /** 审计日志服务 */
     private final AuditLogService auditLogService;
+    /** 用户数据访问层，用于获取操作者信息 */
     private final UserRepository userRepository;
 
     public AuditLogAspect(AuditLogService auditLogService, UserRepository userRepository) {
@@ -23,27 +41,41 @@ public class AuditLogAspect {
         this.userRepository = userRepository;
     }
 
+    /**
+     * 记录管理端操作审计日志
+     * <p>
+     * 在管理端控制器方法成功返回后执行，记录操作信息。
+     *
+     * @param joinPoint 方法连接点
+     * @param result    方法返回结果
+     */
     @AfterReturning(pointcut = "execution(* com.caoqiang.blog.admin.*Controller.*(..))", returning = "result")
     public void logAdminAction(JoinPoint joinPoint, Object result) {
         try {
             MethodSignature signature = (MethodSignature) joinPoint.getSignature();
             String methodName = signature.getName();
 
+            // 排除查询类方法，避免日志冗余
             if (methodName.equals("dashboard") || methodName.equals("modules") || methodName.equals("logs")) {
                 return;
             }
 
+            // 获取类名、操作类型和资源类型
             String className = signature.getDeclaringType().getSimpleName();
             String action = determineAction(methodName);
             String resourceType = determineResourceType(className);
 
+            // 获取当前操作用户
             AuthenticatedUser currentUser = findCurrentUser(joinPoint);
             if (currentUser == null) return;
 
+            // 获取用户实体
             User actor = userRepository.findById(currentUser.id()).orElse(null);
 
+            // 提取资源 ID
             UUID resourceId = extractResourceId(joinPoint);
 
+            // 记录审计日志
             auditLogService.log(actor, action, resourceType, resourceId);
         } catch (Exception e) {
             // 日志记录失败不应影响正常业务
@@ -51,6 +83,21 @@ public class AuditLogAspect {
         }
     }
 
+    /**
+     * 根据方法名确定操作类型
+     * <p>
+     * 根据方法名前缀自动识别操作类型：
+     * <ul>
+     *   <li>create/add -> CREATE</li>
+     *   <li>update/edit/set/change -> UPDATE</li>
+     *   <li>delete/remove -> DELETE</li>
+     *   <li>get/list/detail -> READ</li>
+     *   <li>其他 -> 方法名大写</li>
+     * </ul>
+     *
+     * @param methodName 方法名
+     * @return 操作类型字符串
+     */
     private String determineAction(String methodName) {
         if (methodName.startsWith("create") || methodName.startsWith("add")) return "CREATE";
         if (methodName.startsWith("update") || methodName.startsWith("edit")) return "UPDATE";
@@ -60,11 +107,26 @@ public class AuditLogAspect {
         return methodName.toUpperCase();
     }
 
+    /**
+     * 根据控制器类名确定资源类型
+     * <p>
+     * 移除 "Admin" 和 "Controller" 后缀，转换为大写。
+     * 例如：AdminContentController -> CONTENT
+     *
+     * @param className 控制器类名
+     * @return 资源类型字符串
+     */
     private String determineResourceType(String className) {
         String name = className.replace("Admin", "").replace("Controller", "");
         return name.toUpperCase();
     }
 
+    /**
+     * 从方法参数中查找当前认证用户
+     *
+     * @param joinPoint 方法连接点
+     * @return 当前认证用户，如果未找到返回 null
+     */
     private AuthenticatedUser findCurrentUser(JoinPoint joinPoint) {
         Object[] args = joinPoint.getArgs();
         for (Object arg : args) {
@@ -75,12 +137,22 @@ public class AuditLogAspect {
         return null;
     }
 
+    /**
+     * 从方法参数中提取资源 ID
+     * <p>
+     * 查找 UUID 类型参数或可解析为 UUID 的字符串参数。
+     *
+     * @param joinPoint 方法连接点
+     * @return 资源 ID，如果未找到返回 null
+     */
     private UUID extractResourceId(JoinPoint joinPoint) {
         Object[] args = joinPoint.getArgs();
         for (Object arg : args) {
+            // 直接查找 UUID 类型参数
             if (arg instanceof UUID) {
                 return (UUID) arg;
             }
+            // 尝试将字符串解析为 UUID
             if (arg instanceof String) {
                 try {
                     return UUID.fromString((String) arg);
