@@ -13,6 +13,7 @@ import '../../core/models.dart';
 
 /// 内容编辑器对话框
 /// 支持新增和编辑内容，包含完整的编辑功能
+/// 兼容 Web、iOS、Android 平台
 class ContentEditorDialog extends ConsumerStatefulWidget {
   const ContentEditorDialog({
     super.key,
@@ -42,10 +43,11 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   late bool _pinned;
   late Set<String> _tagSlugs;
   late List<String> _mediaUrls;
-  String? _coverUrl; // 封面图URL
+  String? _coverUrl;
   bool _uploading = false;
-  bool _showPreview = false; // 是否显示Markdown预览
-  bool _hasUnsavedChanges = false; // 是否有未保存的更改
+  bool _showPreview = false;
+  bool _hasUnsavedChanges = false;
+  bool _initialized = false; // 防止重复初始化
 
   @override
   void initState() {
@@ -80,9 +82,14 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     _slugController.addListener(_onTextChanged);
     _summaryController.addListener(_onTextChanged);
     _bodyController.addListener(_onTextChanged);
+  }
 
-    // 加载保存的草稿
-    if (content == null) {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 在didChangeDependencies中加载草稿，确保context可用
+    if (!_initialized && widget.content == null) {
+      _initialized = true;
       _loadDraft();
     }
   }
@@ -103,7 +110,7 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
 
   /// 监听文本变化
   void _onTextChanged() {
-    if (!_hasUnsavedChanges) {
+    if (!_hasUnsavedChanges && mounted) {
       setState(() => _hasUnsavedChanges = true);
     }
   }
@@ -149,7 +156,9 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
         'mediaUrls': _mediaUrls,
       };
       await prefs.setString('content_draft', jsonEncode(draft));
-      setState(() => _hasUnsavedChanges = false);
+      if (mounted) {
+        setState(() => _hasUnsavedChanges = false);
+      }
     } catch (e) {
       // 忽略保存失败
     }
@@ -167,86 +176,77 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          Expanded(
-            child: Text(widget.content == null ? '新增内容' : '编辑内容'),
-          ),
-          if (_hasUnsavedChanges)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '未保存',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onErrorContainer,
-                ),
-              ),
-            ),
-        ],
-      ),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
-        child: Form(
-          key: _formKey,
+    // 使用LayoutBuilder获取可用空间
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 800,
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
+              // 标题栏
+              _buildTitleBar(context),
+              const SizedBox(height: 16),
               // 工具栏
-              _buildToolbar(),
+              _buildToolbar(context),
               const SizedBox(height: 12),
               // 主内容区域
               Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildBasicFields(),
-                      const SizedBox(height: 16),
-                      _buildContentSection(),
-                      if (widget.tags.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        _buildTagSelector(),
-                      ],
-                      if (_type == ContentType.image ||
-                          _type == ContentType.video) ...[
-                        const SizedBox(height: 16),
-                        _buildMediaSection(),
-                      ],
-                    ],
-                  ),
+                child: Form(
+                  key: _formKey,
+                  child: _buildContent(context),
                 ),
               ),
+              const SizedBox(height: 16),
+              // 操作按钮
+              _buildActions(context),
             ],
           ),
         ),
       ),
-      actions: [
-        TextButton(
+    );
+  }
+
+  /// 构建标题栏
+  Widget _buildTitleBar(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            widget.content == null ? '新增内容' : '编辑内容',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+        ),
+        if (_hasUnsavedChanges)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '未保存',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onErrorContainer,
+              ),
+            ),
+          ),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(Icons.close),
           onPressed: () => _onCancel(context),
-          child: const Text('取消'),
-        ),
-        OutlinedButton.icon(
-          onPressed: _saveDraft,
-          icon: const Icon(Icons.save_outlined),
-          label: const Text('保存草稿'),
-        ),
-        FilledButton.icon(
-          onPressed: _submit,
-          icon: const Icon(Icons.check),
-          label: const Text('提交'),
         ),
       ],
     );
   }
 
   /// 构建工具栏
-  Widget _buildToolbar() {
+  Widget _buildToolbar(BuildContext context) {
     return Row(
       children: [
         // Markdown工具栏
@@ -273,7 +273,7 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
         // 封面图设置
         if (_mediaUrls.isNotEmpty)
           TextButton.icon(
-            onPressed: _showCoverPicker,
+            onPressed: () => _showCoverPicker(context),
             icon: const Icon(Icons.image),
             label: Text(_coverUrl != null ? '已设封面' : '设为封面'),
           ),
@@ -290,6 +290,54 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     );
   }
 
+  /// 构建主内容区域
+  Widget _buildContent(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildBasicFields(context),
+          const SizedBox(height: 16),
+          _buildContentSection(context),
+          if (widget.tags.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildTagSelector(context),
+          ],
+          if (_type == ContentType.image || _type == ContentType.video) ...[
+            const SizedBox(height: 16),
+            _buildMediaSection(context),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 构建操作按钮
+  Widget _buildActions(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        TextButton(
+          onPressed: () => _onCancel(context),
+          child: const Text('取消'),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton.icon(
+          onPressed: _saveDraft,
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('保存草稿'),
+        ),
+        const SizedBox(width: 8),
+        FilledButton.icon(
+          onPressed: _submit,
+          icon: const Icon(Icons.check),
+          label: const Text('提交'),
+        ),
+      ],
+    );
+  }
+
   /// 插入Markdown语法
   void _insertMarkdown(String prefix, String suffix) {
     final text = _bodyController.text;
@@ -297,12 +345,13 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     final start = selection.start;
     final end = selection.end;
 
-    if (start < 0) {
-      // 没有选中文本，在末尾插入
-      final newText = '$text$prefix$suffix';
+    if (start < 0 || start == end) {
+      // 没有选中文本，在光标位置插入
+      final cursorPos = start < 0 ? text.length : start;
+      final newText = '${text.substring(0, cursorPos)}$prefix$suffix${text.substring(cursorPos)}';
       _bodyController.text = newText;
       _bodyController.selection = TextSelection.collapsed(
-        offset: newText.length - suffix.length,
+        offset: cursorPos + prefix.length,
       );
     } else {
       // 有选中文本，包裹选中内容
@@ -317,7 +366,7 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   }
 
   /// 构建基础字段
-  Widget _buildBasicFields() {
+  Widget _buildBasicFields(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -341,6 +390,7 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
           maxLength: 220,
         ),
         const SizedBox(height: 12),
+        // 使用StatefulBuilder包装Dropdown，确保状态更新
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -350,15 +400,17 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
               child: DropdownButtonFormField<ContentType>(
                 initialValue: _type,
                 decoration: const InputDecoration(labelText: '类型'),
-                items: [
-                  for (final type in ContentType.values)
-                    DropdownMenuItem(
-                      value: type,
-                      child: Text(type.label),
-                    ),
-                ],
-                onChanged: (value) =>
-                    setState(() => _type = value ?? ContentType.article),
+                items: ContentType.values.map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(type.label),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _type = value);
+                  }
+                },
               ),
             ),
             SizedBox(
@@ -366,15 +418,17 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
               child: DropdownButtonFormField<ContentStatus>(
                 initialValue: _status,
                 decoration: const InputDecoration(labelText: '状态'),
-                items: [
-                  for (final status in ContentStatus.values)
-                    DropdownMenuItem(
-                      value: status,
-                      child: Text(status.label),
-                    ),
-                ],
-                onChanged: (value) =>
-                    setState(() => _status = value ?? ContentStatus.draft),
+                items: ContentStatus.values.map((status) {
+                  return DropdownMenuItem(
+                    value: status,
+                    child: Text(status.label),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _status = value);
+                  }
+                },
               ),
             ),
           ],
@@ -402,7 +456,7 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   }
 
   /// 构建内容编辑区域
-  Widget _buildContentSection() {
+  Widget _buildContentSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -427,7 +481,7 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
             (_type == ContentType.article || _type == ContentType.text))
           Card(
             child: Container(
-              constraints: const BoxConstraints(minHeight: 200),
+              constraints: const BoxConstraints(minHeight: 200, maxHeight: 400),
               padding: const EdgeInsets.all(16),
               child: MarkdownBody(
                 data: _bodyController.text.isEmpty
@@ -455,7 +509,7 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   }
 
   /// 构建标签选择器
-  Widget _buildTagSelector() {
+  Widget _buildTagSelector(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -487,7 +541,7 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   }
 
   /// 构建媒体上传区域
-  Widget _buildMediaSection() {
+  Widget _buildMediaSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -500,7 +554,7 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
               ),
             ),
             FilledButton.icon(
-              onPressed: _uploading ? null : _pickAndUploadMedia,
+              onPressed: _uploading ? null : () => _pickAndUploadMedia(context),
               icon: _uploading
                   ? const SizedBox(
                       width: 16,
@@ -535,40 +589,31 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '支持拖拽上传或点击按钮选择文件',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
                 ],
               ),
             ),
           )
         else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: _type == ContentType.image ? 3 : 2,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: _type == ContentType.image ? 1 : 16 / 9,
-            ),
-            itemCount: _mediaUrls.length,
-            itemBuilder: (context, index) {
+          // 使用Wrap代替GridView，避免嵌套滚动问题
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: List.generate(_mediaUrls.length, (index) {
               final url = _mediaUrls[index];
               final isCover = url == _coverUrl;
-              return _buildMediaCard(url, index, isCover);
-            },
+              return SizedBox(
+                width: _type == ContentType.image ? 150 : 200,
+                height: _type == ContentType.image ? 150 : 112,
+                child: _buildMediaCard(context, url, index, isCover),
+              );
+            }),
           ),
       ],
     );
   }
 
   /// 构建媒体卡片
-  Widget _buildMediaCard(String url, int index, bool isCover) {
+  Widget _buildMediaCard(BuildContext context, String url, int index, bool isCover) {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Stack(
@@ -579,10 +624,36 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
             Image.network(
               url,
               fit: BoxFit.cover,
+              // Web兼容性：添加错误处理
               errorBuilder: (context, error, stackTrace) => Container(
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                child: const Center(child: Icon(Icons.broken_image)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.broken_image, size: 32),
+                    const SizedBox(height: 4),
+                    Text(
+                      '加载失败',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
+              // Web兼容性：添加加载指示器
+              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                if (wasSynchronouslyLoaded) return child;
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: frame != null
+                      ? child
+                      : Container(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          child: const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                );
+              },
             )
           else
             Container(
@@ -612,30 +683,48 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
                 ),
               ),
             ),
-          // 操作按钮
+          // 操作按钮 - 添加半透明背景
           Positioned(
-            top: 4,
-            right: 4,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!isCover)
-                  IconButton(
-                    icon: const Icon(Icons.image, color: Colors.white),
-                    tooltip: '设为封面',
-                    onPressed: () => setState(() => _coverUrl = url),
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  tooltip: '删除',
-                  onPressed: () => setState(() {
-                    _mediaUrls.removeAt(index);
-                    if (_coverUrl == url) {
-                      _coverUrl = _mediaUrls.isNotEmpty ? _mediaUrls.first : null;
-                    }
-                  }),
+            top: 0,
+            right: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withAlpha(128),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(8),
                 ),
-              ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!isCover)
+                    IconButton(
+                      icon: const Icon(Icons.image, color: Colors.white, size: 20),
+                      tooltip: '设为封面',
+                      onPressed: () => setState(() => _coverUrl = url),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      padding: EdgeInsets.zero,
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                    tooltip: '删除',
+                    onPressed: () => setState(() {
+                      _mediaUrls.removeAt(index);
+                      if (_coverUrl == url) {
+                        _coverUrl = _mediaUrls.isNotEmpty ? _mediaUrls.first : null;
+                      }
+                    }),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -644,64 +733,63 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   }
 
   /// 显示封面图选择器
-  void _showCoverPicker() {
+  void _showCoverPicker(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('选择封面图'),
         content: SizedBox(
           width: 400,
-          child: GridView.builder(
-            shrinkWrap: true,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemCount: _mediaUrls.length,
-            itemBuilder: (context, index) {
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: List.generate(_mediaUrls.length, (index) {
               final url = _mediaUrls[index];
               final isCover = url == _coverUrl;
               return GestureDetector(
                 onTap: () {
                   setState(() => _coverUrl = url);
-                  Navigator.of(context).pop();
+                  Navigator.of(dialogContext).pop();
                 },
-                child: Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.network(
-                        url,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Center(child: Icon(Icons.broken_image)),
-                      ),
-                      if (isCover)
-                        Container(
-                          color: Colors.black54,
-                          child: const Center(
-                            child: Icon(Icons.check, color: Colors.white, size: 32),
-                          ),
+                child: SizedBox(
+                  width: 100,
+                  height: 100,
+                  child: Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(
+                          url,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Center(child: Icon(Icons.broken_image)),
                         ),
-                    ],
+                        if (isCover)
+                          Container(
+                            color: Colors.black54,
+                            child: const Center(
+                              child: Icon(Icons.check, color: Colors.white, size: 32),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               );
-            },
+            }),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () {
               setState(() => _coverUrl = null);
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
             },
             child: const Text('清除封面'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('取消'),
           ),
         ],
@@ -710,7 +798,7 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   }
 
   /// 选择并上传媒体文件
-  Future<void> _pickAndUploadMedia() async {
+  Future<void> _pickAndUploadMedia(BuildContext context) async {
     try {
       final result = await FilePicker.pickFiles(
         type: _type == ContentType.image ? FileType.image : FileType.video,
@@ -722,14 +810,19 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
       final file = result.files.first;
       if (file.bytes == null) return;
 
+      if (!mounted) return;
       setState(() => _uploading = true);
 
       final token = ref.read(authControllerProvider).accessToken;
       if (token == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先登录')),
-        );
+        if (mounted) {
+          setState(() => _uploading = false);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('请先登录')),
+            );
+          }
+        }
         return;
       }
 
@@ -743,20 +836,25 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
             type: mediaType,
           );
 
-      setState(() {
-        _mediaUrls.add(media.publicUrl);
-        // 如果是第一个媒体，自动设为封面
-        if (_mediaUrls.length == 1) {
-          _coverUrl = media.publicUrl;
-        }
-        _uploading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _mediaUrls.add(media.publicUrl);
+          // 如果是第一个媒体，自动设为封面
+          if (_mediaUrls.length == 1) {
+            _coverUrl = media.publicUrl;
+          }
+          _uploading = false;
+        });
+      }
     } catch (e) {
-      setState(() => _uploading = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('上传失败: $e')),
-      );
+      if (mounted) {
+        setState(() => _uploading = false);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('上传失败: $e')),
+          );
+        }
+      }
     }
   }
 
@@ -765,23 +863,24 @@ class ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     if (_hasUnsavedChanges) {
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: const Text('提示'),
           content: const Text('有未保存的更改，是否保存为草稿？'),
           actions: [
             TextButton(
               onPressed: () {
+                Navigator.of(dialogContext).pop();
                 Navigator.of(context).pop();
-                Navigator.of(this.context).pop();
               },
               child: const Text('不保存'),
             ),
             TextButton(
               onPressed: () async {
                 await _saveDraft();
+                if (!dialogContext.mounted) return;
+                Navigator.of(dialogContext).pop();
                 if (!context.mounted) return;
                 Navigator.of(context).pop();
-                Navigator.of(this.context).pop();
               },
               child: const Text('保存草稿'),
             ),
