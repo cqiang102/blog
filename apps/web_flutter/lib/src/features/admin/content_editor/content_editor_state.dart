@@ -72,7 +72,7 @@ class ContentEditorState {
       return const ContentEditorState(
         title: '',
         slug: '',
-        type: ContentType.article,
+        type: ContentType.markdown,
         status: ContentStatus.draft,
         summary: '',
         bodyMarkdown: '',
@@ -146,7 +146,8 @@ class ContentEditorState {
   bool get isMediaType => type == ContentType.image || type == ContentType.video;
 
   /// 是否为可预览类型
-  bool get isPreviewable => type == ContentType.article || type == ContentType.text;
+  /// 是否为可预览类型（Markdown 类型）
+  bool get isPreviewable => type == ContentType.markdown;
 
   /// 复制并修改状态
   ContentEditorState copyWith({

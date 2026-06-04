@@ -317,7 +317,7 @@ class _ContentViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (content.type) {
-      ContentType.text || ContentType.article => Card(
+      ContentType.markdown => Card(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: MarkdownBody(

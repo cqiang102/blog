@@ -9,7 +9,7 @@ final sampleContents = <BlogContent>[
   BlogContent(
     id: '00000000-0000-0000-0000-000000000001',
     title: '置顶：我的博客启动计划',
-    type: ContentType.article,
+    type: ContentType.markdown,
     summary: '从工程骨架、内容管理到 AI 助手，把个人博客做成一个长期可维护的小产品。',
     coverUrl:
         'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1200&q=80',

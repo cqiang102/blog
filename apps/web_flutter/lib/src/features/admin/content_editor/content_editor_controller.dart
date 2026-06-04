@@ -26,7 +26,7 @@ class ContentEditorController extends Notifier<ContentEditorState> {
     return const ContentEditorState(
       title: '',
       slug: '',
-      type: ContentType.article,
+      type: ContentType.markdown,
       status: ContentStatus.draft,
       summary: '',
       bodyMarkdown: '',

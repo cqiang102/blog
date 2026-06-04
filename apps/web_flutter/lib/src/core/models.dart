@@ -4,20 +4,18 @@ library;
 
 /// 内容类型枚举
 enum ContentType {
-  /// 纯文本
-  text,
-  /// 图文
-  article,
+  /// Markdown 内容（合并了原来的 text 和 article）
+  markdown,
   /// 图片
   image,
   /// 视频
   video;
 
   /// 转换为 API 使用的字符串值
+  /// 新创建的内容统一使用 ARTICLE
   String get apiValue {
     return switch (this) {
-      ContentType.text => 'TEXT',
-      ContentType.article => 'ARTICLE',
+      ContentType.markdown => 'ARTICLE',
       ContentType.image => 'IMAGE',
       ContentType.video => 'VIDEO',
     };
@@ -26,22 +24,19 @@ enum ContentType {
   /// 获取中文显示标签
   String get label {
     return switch (this) {
-      ContentType.text => '文本',
-      ContentType.article => '图文',
+      ContentType.markdown => '文章',
       ContentType.image => '图片',
       ContentType.video => '视频',
     };
   }
 
   /// 从 API 字符串值转换为枚举
-  /// [value] API 返回的字符串值
-  /// 返回值：对应的 ContentType 枚举
+   /// TEXT 和 ARTICLE 都映射为 markdown
   static ContentType fromApi(String? value) {
     return switch (value?.toUpperCase()) {
-      'TEXT' => ContentType.text,
       'IMAGE' => ContentType.image,
       'VIDEO' => ContentType.video,
-      _ => ContentType.article,
+      _ => ContentType.markdown, // TEXT、ARTICLE 或其他值都映射为 markdown
     };
   }
 }
