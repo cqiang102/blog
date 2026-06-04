@@ -8,8 +8,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>个人博客</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* Loading 动画样式 */
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #F7FAF8;
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid #E0E7E3;
+      border-top: 4px solid #1F6F64;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loading-text {
+      margin-top: 16px;
+      color: #16201D;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* 隐藏 Flutter 加载后的 loading */
+    .loading-container.hide {
+      display: none;
+    }
+  </style>
 </head>
 <body>
+  <div id="loading" class="loading-container">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">加载中...</div>
+  </div>
+
+  <script>
+    // Flutter 加载完成后隐藏 loading
+    window.addEventListener('flutter-first-frame', function () {
+      var loading = document.getElementById('loading');
+      if (loading) {
+        loading.classList.add('hide');
+      }
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

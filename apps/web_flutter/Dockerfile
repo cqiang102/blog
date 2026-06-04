@@ -6,7 +6,10 @@ COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
 
 COPY . .
-RUN flutter build web --release --dart-define=API_BASE_URL=/api/v1
+RUN flutter build web --release \
+    --web-renderer canvaskit \
+    --tree-shake-icons \
+    --dart-define=API_BASE_URL=/api/v1
 
 FROM nginx:alpine
 

@@ -27,6 +27,22 @@ ThemeData buildAppTheme() {
     useMaterial3: true, // 启用 Material 3
     colorScheme: scheme,
     scaffoldBackgroundColor: surface, // 脚手架背景色
+
+    // 使用系统字体，避免加载额外字体文件
+    fontFamily: 'Roboto',
+    fontFamilyFallback: const [
+      'system-ui',
+      '-apple-system',
+      'BlinkMacSystemFont',
+      'Segoe UI',
+      'Helvetica Neue',
+      'Arial',
+      'Noto Sans',
+      'sans-serif',
+      'Apple Color Emoji',
+      'Segoe UI Emoji',
+    ],
+
     appBarTheme: const AppBarTheme(
       centerTitle: false, // 标题不居中
       elevation: 0, // 无阴影
