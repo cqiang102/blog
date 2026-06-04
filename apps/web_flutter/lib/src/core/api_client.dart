@@ -411,28 +411,38 @@ class BlogApiClient {
     final stream = response.data!.stream;
 
     String buffer = '';
-    await for (final chunk in stream) {
-      buffer += utf8.decode(chunk);
-      while (true) {
-        final eventEnd = buffer.indexOf('\n\n');
-        if (eventEnd < 0) break;
+    try {
+      await for (final chunk in stream) {
+        buffer += utf8.decode(chunk);
+        while (true) {
+          final eventEnd = buffer.indexOf('\n\n');
+          if (eventEnd < 0) break;
 
-        final eventBlock = buffer.substring(0, eventEnd);
-        buffer = buffer.substring(eventEnd + 2);
+          final eventBlock = buffer.substring(0, eventEnd);
+          buffer = buffer.substring(eventEnd + 2);
 
-        String eventType = 'message';
-        final dataLines = <String>[];
-        for (final line in eventBlock.split('\n')) {
-          if (line.startsWith('event:')) {
-            eventType = line.substring(6).trim();
-          } else if (line.startsWith('data:')) {
-            dataLines.add(line.substring(5).trim());
+          String eventType = 'message';
+          final dataLines = <String>[];
+          for (final line in eventBlock.split('\n')) {
+            if (line.startsWith('event:')) {
+              eventType = line.substring(6).trim();
+            } else if (line.startsWith('data:')) {
+              dataLines.add(line.substring(5).trim());
+            }
+          }
+          if (dataLines.isNotEmpty) {
+            yield SseEvent(eventType, dataLines.join('\n'));
           }
         }
-        if (dataLines.isNotEmpty) {
-          yield SseEvent(eventType, dataLines.join('\n'));
-        }
       }
+    } on DioException catch (e) {
+      // SSE 流结束时 Dio 可能抛出连接错误，忽略已完成的流
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.unknown) {
+        // 流已正常处理完毕，忽略连接关闭错误
+        return;
+      }
+      rethrow;
     }
   }
 
