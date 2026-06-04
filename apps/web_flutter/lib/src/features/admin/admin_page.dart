@@ -12,12 +12,14 @@ import 'tabs/dashboard_tab.dart';
 import 'tabs/friend_admin_tab.dart';
 import 'tabs/interaction_admin_tab.dart';
 import 'tabs/knowledge_admin_tab.dart';
-import 'tabs/media_admin_tab.dart';
+
 import 'tabs/tag_admin_tab.dart';
 import 'tabs/user_admin_tab.dart';
 
 /// 管理后台主页 Widget
-/// 需要 ADMIN 角色才能访问，包含 12 个管理标签页
+/// 根据用户角色显示不同的管理标签页
+/// ADMIN: 所有 11 个标签页
+/// USER: 仅概览、内容、评论、点赞、浏览 5 个标签页
 class AdminPage extends ConsumerWidget {
   const AdminPage({super.key});
 
@@ -33,7 +35,7 @@ class AdminPage extends ConsumerWidget {
       );
     }
 
-    if (role != 'ADMIN') {
+    if (role != 'ADMIN' && role != 'USER') {
       return Scaffold(
         appBar: AppBar(title: const Text('管理员中心')),
         body: const Center(
@@ -50,11 +52,91 @@ class AdminPage extends ConsumerWidget {
       );
     }
 
+    final isAdmin = role == 'ADMIN';
+
+    // 根据角色过滤标签页
+    final tabs = <_AdminTab>[
+      const _AdminTab(
+        icon: Icon(Icons.space_dashboard_outlined),
+        selectedIcon: Icon(Icons.space_dashboard),
+        label: '概览',
+        builder: AdminDashboardTab(),
+      ),
+      const _AdminTab(
+        icon: Icon(Icons.article_outlined),
+        selectedIcon: Icon(Icons.article),
+        label: '内容',
+        builder: AdminContentTab(),
+      ),
+
+      const _AdminTab(
+        icon: Icon(Icons.mode_comment_outlined),
+        selectedIcon: Icon(Icons.mode_comment),
+        label: '评论',
+        builder: AdminCommentTab(),
+      ),
+      const _AdminTab(
+        icon: Icon(Icons.favorite_border),
+        selectedIcon: Icon(Icons.favorite),
+        label: '点赞',
+        builder: AdminLikeTab(),
+      ),
+      const _AdminTab(
+        icon: Icon(Icons.history_outlined),
+        selectedIcon: Icon(Icons.history),
+        label: '浏览',
+        builder: AdminViewTab(),
+      ),
+      // 以下标签页仅 ADMIN 可见
+      if (isAdmin)
+        const _AdminTab(
+          icon: Icon(Icons.people_outline),
+          selectedIcon: Icon(Icons.people),
+          label: '朋友',
+          builder: AdminFriendTab(),
+        ),
+      if (isAdmin)
+        const _AdminTab(
+          icon: Icon(Icons.sell_outlined),
+          selectedIcon: Icon(Icons.sell),
+          label: '标签',
+          builder: AdminTagTab(),
+        ),
+      if (isAdmin)
+        const _AdminTab(
+          icon: Icon(Icons.manage_accounts_outlined),
+          selectedIcon: Icon(Icons.manage_accounts),
+          label: '用户',
+          builder: AdminUserTab(),
+        ),
+      if (isAdmin)
+        const _AdminTab(
+          icon: Icon(Icons.smart_toy_outlined),
+          selectedIcon: Icon(Icons.smart_toy),
+          label: 'AI',
+          builder: AdminAiChatTab(),
+        ),
+      if (isAdmin)
+        const _AdminTab(
+          icon: Icon(Icons.library_books_outlined),
+          selectedIcon: Icon(Icons.library_books),
+          label: '知识库',
+          builder: AdminKnowledgeTab(),
+        ),
+      if (isAdmin)
+        const _AdminTab(
+          icon: Icon(Icons.shield_outlined),
+          selectedIcon: Icon(Icons.shield),
+          label: '日志',
+          builder: AdminAuditLogTab(),
+        ),
+    ];
+
     return DefaultTabController(
-      length: 12,
+      length: tabs.length,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('管理员中心'),
+          title: Text(isAdmin ? '管理员中心' : '内容管理'),
           actions: [
             IconButton(
               tooltip: '刷新',
@@ -62,39 +144,13 @@ class AdminPage extends ConsumerWidget {
               icon: const Icon(Icons.refresh),
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             isScrollable: true,
-            tabs: [
-              Tab(icon: Icon(Icons.space_dashboard_outlined), text: '概览'),
-              Tab(icon: Icon(Icons.article_outlined), text: '内容'),
-              Tab(icon: Icon(Icons.perm_media_outlined), text: '媒体'),
-              Tab(icon: Icon(Icons.people_outline), text: '朋友'),
-              Tab(icon: Icon(Icons.sell_outlined), text: '标签'),
-              Tab(icon: Icon(Icons.mode_comment_outlined), text: '评论'),
-              Tab(icon: Icon(Icons.favorite_border), text: '点赞'),
-              Tab(icon: Icon(Icons.history_outlined), text: '浏览'),
-              Tab(icon: Icon(Icons.manage_accounts_outlined), text: '用户'),
-              Tab(icon: Icon(Icons.smart_toy_outlined), text: 'AI'),
-              Tab(icon: Icon(Icons.library_books_outlined), text: '知识库'),
-              Tab(icon: Icon(Icons.shield_outlined), text: '日志'),
-            ],
+            tabs: [for (final tab in tabs) Tab(icon: tab.icon, text: tab.label)],
           ),
         ),
-        body: const TabBarView(
-          children: [
-            AdminDashboardTab(),
-            AdminContentTab(),
-            AdminMediaTab(),
-            AdminFriendTab(),
-            AdminTagTab(),
-            AdminCommentTab(),
-            AdminLikeTab(),
-            AdminViewTab(),
-            AdminUserTab(),
-            AdminAiChatTab(),
-            AdminKnowledgeTab(),
-            AdminAuditLogTab(),
-          ],
+        body: TabBarView(
+          children: [for (final tab in tabs) tab.builder],
         ),
       ),
     );
@@ -105,7 +161,7 @@ class AdminPage extends ConsumerWidget {
   void _refresh(WidgetRef ref) {
     ref.invalidate(adminDashboardProvider);
     ref.invalidate(adminContentsProvider);
-    ref.invalidate(adminMediaProvider);
+
     ref.invalidate(adminFriendsProvider);
     ref.invalidate(adminTagsProvider);
     ref.invalidate(adminCommentsProvider);
@@ -116,4 +172,19 @@ class AdminPage extends ConsumerWidget {
     ref.invalidate(adminKnowledgeDocsProvider);
     ref.invalidate(adminAuditLogsProvider);
   }
+}
+
+/// 管理标签页数据模型
+class _AdminTab {
+  const _AdminTab({
+    required this.icon,
+    required this.label,
+    required this.builder,
+    this.selectedIcon,
+  });
+
+  final Widget icon;
+  final Widget? selectedIcon;
+  final String label;
+  final Widget builder;
 }
