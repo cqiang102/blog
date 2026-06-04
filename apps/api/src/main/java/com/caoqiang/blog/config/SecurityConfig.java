@@ -76,7 +76,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/api/v1/meta",
-                                "/api/v1/auth/**"
+                                "/api/v1/auth/**",
+                                "/error"
                         ).permitAll()
                         // 公开内容接口：文章、友链的 GET 请求
                         .requestMatchers(HttpMethod.GET, "/api/v1/contents/**", "/api/v1/friends/**").permitAll()
