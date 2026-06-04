@@ -8,7 +8,7 @@ import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
 import '../../../core/models.dart';
 import '../admin_widgets.dart';
-import '../content_editor_dialog.dart';
+import '../content_editor/content_editor.dart';
 
 /// 内容管理标签页
 /// 支持内容的新增、编辑、归档操作
@@ -83,11 +83,11 @@ class AdminContentTab extends ConsumerWidget {
     List<TagItem> tags, {
     AdminContentItem? content,
   }) async {
-    final draft = await showDialog<AdminContentDraft>(
+    final result = await showDialog<ContentEditorSubmitResult>(
       context: context,
       builder: (context) => ContentEditorDialog(content: content, tags: tags),
     );
-    if (draft == null || !context.mounted) return;
+    if (result == null || !context.mounted) return;
 
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
@@ -95,22 +95,25 @@ class AdminContentTab extends ConsumerWidget {
     try {
       final api = ref.read(apiClientProvider);
       if (content == null) {
-        await api.createAdminContent(accessToken: token, draft: draft);
+        await api.createAdminContent(accessToken: token, draft: result.draft);
       } else {
         await api.updateAdminContent(
           accessToken: token,
           id: content.id,
-          draft: draft,
+          draft: result.draft,
         );
       }
+      result.onSuccess();
       ref.invalidate(adminContentsProvider);
       ref.invalidate(adminDashboardProvider);
       ref.invalidate(recommendationsProvider);
       if (!context.mounted) return;
       showAdminSnack(context, content == null ? '内容已创建' : '内容已保存');
     } on ApiException catch (error) {
+      result.onFailure();
       showAdminSnack(context, error.message);
     } catch (error) {
+      result.onFailure();
       showAdminSnack(context, error.toString());
     }
   }
