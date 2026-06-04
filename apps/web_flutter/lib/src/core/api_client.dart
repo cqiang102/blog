@@ -8,20 +8,14 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import 'models.dart';
+import 'sse/sse_client.dart';
+import 'sse/sse_event.dart';
 
 /// API 基础 URL，通过编译时常量配置
 const apiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: 'http://localhost:8080/api/v1',
 );
-
-/// SSE 事件模型
-class SseEvent {
-  const SseEvent(this.type, this.data);
-
-  final String type; // 事件类型
-  final String data; // 事件数据
-}
 
 /// API 异常类
 class ApiException implements Exception {
@@ -396,53 +390,18 @@ class BlogApiClient {
     required String message,
     String? sessionId,
   }) async* {
-    final response = await _dio.post<ResponseBody>(
-      '/ai/chat/stream',
-      data: {'sessionId': sessionId, 'message': message},
-      options: Options(
-        headers: {
-          'Accept': 'text/event-stream',
-          'Authorization': 'Bearer $accessToken',
-        },
-        responseType: ResponseType.stream,
-      ),
+    // 使用平台特定的 SSE 客户端
+    final events = await postSse(
+      dio: _dio,
+      path: '/ai/chat/stream',
+      body: {'sessionId': sessionId, 'message': message},
+      accessToken: accessToken,
+      onEvent: (_) {}, // 回调模式，这里不使用
     );
 
-    final stream = response.data!.stream;
-
-    String buffer = '';
-    try {
-      await for (final chunk in stream) {
-        buffer += utf8.decode(chunk);
-        while (true) {
-          final eventEnd = buffer.indexOf('\n\n');
-          if (eventEnd < 0) break;
-
-          final eventBlock = buffer.substring(0, eventEnd);
-          buffer = buffer.substring(eventEnd + 2);
-
-          String eventType = 'message';
-          final dataLines = <String>[];
-          for (final line in eventBlock.split('\n')) {
-            if (line.startsWith('event:')) {
-              eventType = line.substring(6).trim();
-            } else if (line.startsWith('data:')) {
-              dataLines.add(line.substring(5).trim());
-            }
-          }
-          if (dataLines.isNotEmpty) {
-            yield SseEvent(eventType, dataLines.join('\n'));
-          }
-        }
-      }
-    } on DioException catch (e) {
-      // SSE 流结束时 Dio 可能抛出连接错误，忽略已完成的流
-      if (e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.unknown) {
-        // 流已正常处理完毕，忽略连接关闭错误
-        return;
-      }
-      rethrow;
+    // 将事件列表转换为 Stream
+    for (final event in events) {
+      yield event;
     }
   }
 
