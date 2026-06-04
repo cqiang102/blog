@@ -1,6 +1,35 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../../../core/models.dart';
+
+/// 编辑器编辑模式
+enum EditorEditMode {
+  /// 纯文本编辑
+  source,
+
+  /// 分屏模式：左侧编辑，右侧预览
+  split,
+
+  /// 纯预览模式
+  preview;
+
+  String get label {
+    return switch (this) {
+      EditorEditMode.source => '源码',
+      EditorEditMode.split => '分屏',
+      EditorEditMode.preview => '预览',
+    };
+  }
+
+  IconData get icon {
+    return switch (this) {
+      EditorEditMode.source => Icons.code,
+      EditorEditMode.split => Icons.vertical_split,
+      EditorEditMode.preview => Icons.preview,
+    };
+  }
+}
 
 /// 内容编辑器状态
 @immutable
@@ -19,7 +48,7 @@ class ContentEditorState {
     this.isUploading = false,
     this.isSubmitting = false,
     this.hasUnsavedChanges = false,
-    this.showPreview = false,
+    this.editMode = EditorEditMode.source,
   });
 
   final String title;
@@ -35,7 +64,7 @@ class ContentEditorState {
   final bool isUploading;
   final bool isSubmitting;
   final bool hasUnsavedChanges;
-  final bool showPreview;
+  final EditorEditMode editMode;
 
   /// 从现有内容创建初始状态
   factory ContentEditorState.fromContent(AdminContentItem? content) {
@@ -135,7 +164,7 @@ class ContentEditorState {
     bool? isUploading,
     bool? isSubmitting,
     bool? hasUnsavedChanges,
-    bool? showPreview,
+    EditorEditMode? editMode,
   }) {
     return ContentEditorState(
       title: title ?? this.title,
@@ -151,7 +180,7 @@ class ContentEditorState {
       isUploading: isUploading ?? this.isUploading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
-      showPreview: showPreview ?? this.showPreview,
+      editMode: editMode ?? this.editMode,
     );
   }
 
@@ -172,7 +201,7 @@ class ContentEditorState {
         other.isUploading == isUploading &&
         other.isSubmitting == isSubmitting &&
         other.hasUnsavedChanges == hasUnsavedChanges &&
-        other.showPreview == showPreview;
+        other.editMode == editMode;
   }
 
   @override
@@ -191,7 +220,7 @@ class ContentEditorState {
       isUploading,
       isSubmitting,
       hasUnsavedChanges,
-      showPreview,
+      editMode,
     );
   }
 }

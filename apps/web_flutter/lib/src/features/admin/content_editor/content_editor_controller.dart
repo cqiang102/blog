@@ -173,9 +173,18 @@ class ContentEditorController extends Notifier<ContentEditorState> {
     );
   }
 
-  /// 切换预览
-  void togglePreview() {
-    state = state.copyWith(showPreview: !state.showPreview);
+  /// 切换编辑模式：源码 -> 分屏 -> 预览 -> 源码
+  void cycleEditMode() {
+    final modes = EditorEditMode.values;
+    final nextIndex = (state.editMode.index + 1) % modes.length;
+    state = state.copyWith(editMode: modes[nextIndex]);
+  }
+
+  /// 设置编辑模式
+  void setEditMode(EditorEditMode mode) {
+    if (state.editMode != mode) {
+      state = state.copyWith(editMode: mode);
+    }
   }
 
   /// 上传媒体文件

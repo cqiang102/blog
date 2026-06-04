@@ -7,6 +7,7 @@ import 'content_editor.dart';
 
 /// 内容编辑器对话框
 /// 支持新增和编辑内容，包含完整的编辑功能
+/// 支持三种编辑模式：源码、分屏、预览
 /// 兼容 Web、iOS、Android 平台
 class ContentEditorDialog extends ConsumerStatefulWidget {
   const ContentEditorDialog({
@@ -107,7 +108,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     return Dialog(
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 800,
+          maxWidth: state.editMode == EditorEditMode.split ? 1200 : 800,
           maxHeight: MediaQuery.of(context).size.height * 0.85,
         ),
         child: Padding(
@@ -117,8 +118,10 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
             children: [
               _buildTitleBar(context, state),
               const SizedBox(height: 16),
-              _buildToolbar(context, state),
-              const SizedBox(height: 12),
+              if (state.isPreviewable) ...[
+                _buildToolbar(context, state),
+                const SizedBox(height: 12),
+              ],
               Expanded(
                 child: Form(
                   key: _formKey,
@@ -170,23 +173,12 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
 
   /// 构建工具栏
   Widget _buildToolbar(BuildContext context, ContentEditorState state) {
-    return Row(
-      children: [
-        if (state.isPreviewable) ...[
-          MarkdownToolbar(
-            onInsert: _insertMarkdown,
-            onTogglePreview: () => _getController().togglePreview(),
-            showPreview: state.showPreview,
-          ),
-        ],
-        const Spacer(),
-        if (state.mediaUrls.isNotEmpty)
-          TextButton.icon(
-            onPressed: () => _showCoverPicker(context, state),
-            icon: const Icon(Icons.image),
-            label: Text(state.coverUrl != null ? '已设封面' : '设为封面'),
-          ),
-      ],
+    return MarkdownToolbar(
+      onInsert: _insertMarkdown,
+      editMode: state.editMode,
+      onSetEditMode: (mode) => _getController().setEditMode(mode),
+      onInsertImage: _showImagePicker,
+      mediaUrls: state.mediaUrls,
     );
   }
 
@@ -345,54 +337,155 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
 
   /// 构建内容编辑区域
   Widget _buildContentSection(BuildContext context, ContentEditorState state) {
+    if (!state.isPreviewable) {
+      // 非可预览类型（图片/视频），只显示简单输入框
+      return _buildMarkdownEditor();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Text(
-              '正文内容',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const Spacer(),
-            if (state.isPreviewable)
-              Text(
-                state.showPreview ? '预览模式' : '编辑模式',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-          ],
+        Text(
+          '正文内容',
+          style: Theme.of(context).textTheme.titleSmall,
         ),
         const SizedBox(height: 8),
-        if (state.showPreview && state.isPreviewable)
-          Card(
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 200, maxHeight: 400),
-              padding: const EdgeInsets.all(16),
-              child: MarkdownBody(
-                data: state.bodyMarkdown.isEmpty
-                    ? '*暂无内容*'
-                    : state.bodyMarkdown,
-                selectable: true,
-              ),
-            ),
-          )
-        else
-          TextFormField(
-            controller: _bodyController,
-            focusNode: _bodyFocusNode,
-            decoration: const InputDecoration(
-              labelText: 'Markdown 内容',
-              hintText: '支持Markdown语法，使用工具栏快速插入',
-              alignLabelWithHint: true,
-            ),
-            minLines: 8,
-            maxLines: 20,
-            keyboardType: TextInputType.multiline,
-            onChanged: (value) => _getController().updateBody(value),
-          ),
+        _buildEditorByMode(context, state),
       ],
+    );
+  }
+
+  /// 根据编辑模式构建编辑器
+  Widget _buildEditorByMode(BuildContext context, ContentEditorState state) {
+    switch (state.editMode) {
+      case EditorEditMode.source:
+        return _buildMarkdownEditor();
+      case EditorEditMode.split:
+        return _buildSplitEditor();
+      case EditorEditMode.preview:
+        return _buildPreviewOnly();
+    }
+  }
+
+  /// 源码模式：纯文本编辑
+  Widget _buildMarkdownEditor() {
+    return TextFormField(
+      controller: _bodyController,
+      focusNode: _bodyFocusNode,
+      decoration: const InputDecoration(
+        labelText: 'Markdown 内容',
+        hintText: '支持Markdown语法，使用工具栏快速插入',
+        alignLabelWithHint: true,
+      ),
+      minLines: 8,
+      maxLines: 20,
+      keyboardType: TextInputType.multiline,
+      onChanged: (value) => _getController().updateBody(value),
+    );
+  }
+
+  /// 分屏模式：左侧编辑，右侧预览
+  Widget _buildSplitEditor() {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 300, maxHeight: 500),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          // 左侧：Markdown 编辑
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    '编辑',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ),
+                Expanded(
+                  child: TextFormField(
+                    controller: _bodyController,
+                    focusNode: _bodyFocusNode,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.all(12),
+                      hintText: '输入 Markdown 内容...',
+                    ),
+                    maxLines: null,
+                    expands: true,
+                    keyboardType: TextInputType.multiline,
+                    onChanged: (value) => _getController().updateBody(value),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 分隔线
+          const VerticalDivider(width: 1),
+          // 右侧：实时预览
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    '预览',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(12),
+                    child: MarkdownBody(
+                      data: _bodyController.text.isEmpty
+                          ? '*暂无内容*'
+                          : _bodyController.text,
+                      selectable: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 预览模式：只显示预览
+  Widget _buildPreviewOnly() {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 200, maxHeight: 400),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: MarkdownBody(
+          data: _bodyController.text.isEmpty
+              ? '*暂无内容*'
+              : _bodyController.text,
+          selectable: true,
+        ),
+      ),
     );
   }
 
@@ -451,6 +544,46 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     _getController().updateBody(_bodyController.text);
   }
 
+  /// 显示图片选择器
+  Future<void> _showImagePicker() async {
+    final state = _getState();
+
+    // 如果有已上传的媒体，显示选择对话框
+    if (state.mediaUrls.isNotEmpty) {
+      final url = await showDialog<String>(
+        context: context,
+        builder: (context) => _ImagePickerDialog(
+          mediaUrls: state.mediaUrls,
+          onUploadNew: () async {
+            Navigator.of(context).pop();
+            await _uploadMedia();
+            // 上传后重新显示选择器
+            if (mounted) {
+              _showImagePicker();
+            }
+          },
+        ),
+      );
+
+      if (url != null && mounted) {
+        _insertMarkdown('![图片]($url)', '');
+      }
+    } else {
+      // 没有已上传的媒体，直接上传
+      await _uploadMedia();
+      // 上传后自动插入
+      if (mounted) {
+        final updatedState = _getState();
+        if (updatedState.mediaUrls.isNotEmpty) {
+          _insertMarkdown(
+            '![图片](${updatedState.mediaUrls.last})',
+            '',
+          );
+        }
+      }
+    }
+  }
+
   /// 上传媒体文件
   Future<void> _uploadMedia() async {
     final controller = _getController();
@@ -460,22 +593,6 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error)),
       );
-    }
-  }
-
-  /// 显示封面选择器
-  Future<void> _showCoverPicker(
-    BuildContext context,
-    ContentEditorState state,
-  ) async {
-    final result = await CoverPickerDialog.show(
-      context,
-      mediaUrls: state.mediaUrls,
-      currentCoverUrl: state.coverUrl,
-    );
-
-    if (result != null) {
-      _getController().setCover(result.isEmpty ? null : result);
     }
   }
 
@@ -580,5 +697,73 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     } else if (mounted) {
       controller.onSubmitFailure();
     }
+  }
+}
+
+/// 图片选择对话框
+class _ImagePickerDialog extends StatelessWidget {
+  const _ImagePickerDialog({
+    required this.mediaUrls,
+    required this.onUploadNew,
+  });
+
+  final List<String> mediaUrls;
+  final VoidCallback onUploadNew;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('选择图片'),
+      content: SizedBox(
+        width: 500,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '已上传的图片',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            Flexible(
+              child: GridView.builder(
+                shrinkWrap: true,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: mediaUrls.length,
+                itemBuilder: (context, index) {
+                  final url = mediaUrls[index];
+                  return GestureDetector(
+                    onTap: () => Navigator.of(context).pop(url),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Center(child: Icon(Icons.broken_image)),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: onUploadNew,
+          child: const Text('上传新图片'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+      ],
+    );
   }
 }
