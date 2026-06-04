@@ -2,6 +2,7 @@
 // 支持 SSE 流式响应、会话管理、配额显示和 40 条消息限制
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -25,6 +26,7 @@ class AboutPage extends ConsumerStatefulWidget {
 class _AboutPageState extends ConsumerState<AboutPage> {
   final _controller = TextEditingController(); // 输入框控制器
   final _messages = <_ChatMessage>[]; // 聊天消息列表
+  final _scrollController = ScrollController(); // 滚动控制器
   String? _sessionId; // 当前会话 ID
   int? _remaining; // 今日剩余提问次数
   int _remainingMessages = 40; // 当前会话剩余消息数（上限 40 条）
@@ -41,7 +43,18 @@ class _AboutPageState extends ConsumerState<AboutPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   /// 加载最近的会话
@@ -84,6 +97,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
         _remainingMessages = 40 - page.total;
         _sessionLimitReached = _remainingMessages <= 0;
       });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     } on ApiException {
       // Session might not exist yet
     } finally {
@@ -121,7 +135,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       data: (value) => value.remaining,
       orElse: () => null,
     );
-    final remaining = _remaining ?? quotaRemaining ?? 10;
+    final remaining = _remaining ?? quotaRemaining;
 
     return CustomScrollView(
       slivers: [
@@ -157,6 +171,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
                                     ),
                                   )
                                 : ListView.builder(
+                                    controller: _scrollController,
                                     padding: const EdgeInsets.all(16),
                                     itemCount: _messages.length,
                                     itemBuilder: (context, index) =>
@@ -200,14 +215,16 @@ class _AboutPageState extends ConsumerState<AboutPage> {
   }
 
   /// 构建头部区域
-  /// 显示 AI 助手标题、配额信息和操作按钮（历史会话/新建/刷新）
-  Widget _buildHeader(AuthController auth, int remaining) {
+  /// 显示 AI 助手标题、配额信息和操作按钮（历史会话/新建）
+  Widget _buildHeader(AuthController auth, int? remaining) {
     return ListTile(
       leading: const Icon(Icons.smart_toy),
       title: const Text('AI 助手'),
       subtitle: Text(
         auth.isAuthenticated
-            ? '今日剩余 $remaining 次 · 会话剩余 $_remainingMessages 条'
+            ? remaining != null
+                ? '今日剩余 $remaining 次 · 会话剩余 $_remainingMessages 条'
+                : '正在加载配额...'
             : '登录后每天可以提问 10 次',
       ),
       trailing: auth.isAuthenticated
@@ -224,11 +241,6 @@ class _AboutPageState extends ConsumerState<AboutPage> {
                   onPressed: _createNewSession,
                   icon: const Icon(Icons.add_comment),
                 ),
-                IconButton(
-                  tooltip: '刷新额度',
-                  onPressed: () => ref.invalidate(aiQuotaProvider),
-                  icon: const Icon(Icons.refresh),
-                ),
               ],
             )
           : null,
@@ -237,10 +249,10 @@ class _AboutPageState extends ConsumerState<AboutPage> {
 
   /// 构建输入栏
   /// 包含文本输入框和发送按钮，根据登录状态和配额控制可用性
-  Widget _buildInputBar(AuthController auth, int remaining) {
+  Widget _buildInputBar(AuthController auth, int? remaining) {
     final canSend = auth.isAuthenticated &&
         !_sending &&
-        remaining > 0 &&
+        (remaining == null || remaining > 0) &&
         !_sessionLimitReached;
 
     return Padding(
@@ -255,16 +267,18 @@ class _AboutPageState extends ConsumerState<AboutPage> {
               decoration: InputDecoration(
                 hintText: !auth.isAuthenticated
                     ? '登录后和 AI 助手对话'
-                    : _sessionLimitReached
-                        ? '请新建会话后继续'
-                        : '问问我的经历、文章或项目',
+                    : remaining != null && remaining <= 0
+                        ? '今日提问次数已用完'
+                        : _sessionLimitReached
+                            ? '请新建会话后继续'
+                            : '问问我的经历、文章或项目',
               ),
             ),
           ),
           const SizedBox(width: 8),
           IconButton.filled(
             tooltip: auth.isAuthenticated ? '发送' : '登录',
-            onPressed: _sending ? null : _send,
+            onPressed: canSend ? _send : null,
             icon: _sending
                 ? const SizedBox.square(
                     dimension: 18,
@@ -282,7 +296,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
   /// 处理 token（逐字输出）、done（完成）和 error（错误）事件
   Future<void> _send() async {
     final auth = ref.read(authControllerProvider);
-    final token = auth.accessToken;
+    final token = await auth.getValidAccessToken();
+    if (!mounted) return;
     if (token == null) {
       context.go('/login?from=/about');
       return;
@@ -297,6 +312,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       _messages.add(_ChatMessage(false, ''));
       _controller.clear();
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
     try {
       final stream = ref.read(apiClientProvider).sendAiMessageStream(
@@ -312,6 +328,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
             final last = _messages.last;
             _messages[_messages.length - 1] = _ChatMessage(false, last.text + event.data);
           });
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
         } else if (event.type == 'done') {
           final reply = AiChatReply.fromJson(
             (jsonDecode(event.data) as Map).cast<String, dynamic>(),
@@ -324,8 +341,12 @@ class _AboutPageState extends ConsumerState<AboutPage> {
           });
           ref.invalidate(aiQuotaProvider);
         } else if (event.type == 'error') {
+          final errorMsg = event.data;
+          if (errorMsg.contains('提问次数') || errorMsg.contains('配额')) {
+            setState(() => _remaining = 0);
+          }
           setState(() {
-            _messages[_messages.length - 1] = _ChatMessage(false, '错误：${event.data}');
+            _messages[_messages.length - 1] = _ChatMessage(false, '错误：$errorMsg');
           });
         }
       }
@@ -471,6 +492,7 @@ class _SessionListSheet extends StatelessWidget {
 
 /// 聊天气泡组件
 /// 区分用户消息（右侧蓝色）和 AI 消息（左侧白色），支持流式输出动画
+/// AI 消息支持 Markdown 渲染
 class _ChatBubble extends StatelessWidget {
   const _ChatBubble({required this.message, this.isStreaming = false});
 
@@ -499,14 +521,29 @@ class _ChatBubble extends StatelessWidget {
                 height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : Text(
-                '${message.text}${isStreaming ? '▍' : ''}',
-                style: TextStyle(
-                  color: message.mine
-                      ? Colors.white
-                      : Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
+            : message.mine
+                ? Text(
+                    message.text,
+                    style: const TextStyle(color: Colors.white),
+                  )
+                : MarkdownBody(
+                    data: '${message.text}${isStreaming ? '▍' : ''}',
+                    selectable: true,
+                    styleSheet: MarkdownStyleSheet(
+                      p: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      code: TextStyle(
+                        backgroundColor: Colors.grey.shade100,
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                      ),
+                      codeblockDecoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
       ),
     );
   }

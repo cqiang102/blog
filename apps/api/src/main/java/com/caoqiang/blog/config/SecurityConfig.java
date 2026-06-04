@@ -3,10 +3,17 @@ package com.caoqiang.blog.config;
 import com.caoqiang.blog.auth.GithubOAuth2UserService;
 import com.caoqiang.blog.auth.JwtAuthenticationFilter;
 import com.caoqiang.blog.auth.OAuth2LoginSuccessHandler;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.time.Clock;
+import java.util.Map;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -14,6 +21,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -68,6 +76,9 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable) // REST API 无状态，无需 CSRF 保护
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(SecurityConfig::handleAuthenticationFailure)
+                )
                 .authorizeHttpRequests(authorize -> authorize
                         // 公开接口：健康检查、API 文档、认证接口
                         .requestMatchers(
@@ -125,5 +136,23 @@ public class SecurityConfig {
     @Bean
     Clock clock() {
         return Clock.systemUTC();
+    }
+
+    private static void handleAuthenticationFailure(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AuthenticationException authException
+    ) throws IOException {
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().write(
+                new ObjectMapper().writeValueAsString(
+                        Map.of(
+                                "success", false,
+                                "code", 401,
+                                "message", "未登录或登录已过期"
+                        )
+                )
+        );
     }
 }

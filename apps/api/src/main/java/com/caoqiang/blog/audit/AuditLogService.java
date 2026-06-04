@@ -106,6 +106,9 @@ public class AuditLogService {
      */
     private Specification<AuditLog> filters(String action, String resourceType, UUID actorUserId) {
         return (root, query, criteriaBuilder) -> {
+            // 使用 JOIN FETCH 加载 actor 关系，避免 LAZY 加载问题
+            root.fetch("actor", jakarta.persistence.criteria.JoinType.LEFT);
+            
             List<Predicate> predicates = new ArrayList<>();
             // 操作类型模糊匹配
             if (action != null && !action.isBlank()) {

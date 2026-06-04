@@ -29,6 +29,20 @@ spring:
     multipart:
       max-file-size: ${MEDIA_MAX_UPLOAD_SIZE:50MB}
       max-request-size: ${MEDIA_MAX_UPLOAD_SIZE:50MB}
+  mail:
+    host: ${MAIL_HOST:smtp.qq.com}
+    port: ${MAIL_PORT:465}
+    username: ${MAIL_USERNAME:your-qq-email@qq.com}
+    password: ${MAIL_PASSWORD:your-smtp-authorization-code}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          ssl:
+            enable: true
+          auth: true
+          connectiontimeout: 5000
+          timeout: 5000
   security:
     oauth2:
       client:
@@ -74,6 +88,8 @@ management:
         enabled: true
 
 blog:
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
   ai:
     daily-question-limit: ${AI_DAILY_QUESTION_LIMIT:10}
   security:

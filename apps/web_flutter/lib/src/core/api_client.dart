@@ -2,6 +2,7 @@
 /// 基于 Dio 封装所有 HTTP 请求，支持 401 自动刷新令牌、SSE 流式请求
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -45,12 +46,38 @@ class BlogApiClient {
   /// 401 时的回调，用于刷新令牌
   Future<String?> Function()? onUnauthorized;
 
-  /// 获取 GitHub OAuth 授权 URL
-  String get githubAuthorizationUrl {
-    final apiUri = Uri.parse(baseUrl);
-    return apiUri
-        .replace(path: '/oauth2/authorization/github', query: '')
-        .toString();
+  /// 获取 GitHub 绑定授权 URL（已登录用户绑定用）
+  /// [accessToken] 当前用户的 JWT
+  /// 返回值：GitHub 授权 URL（state 中携带绑定令牌）
+  Future<String> fetchGithubBindUrl(String accessToken) async {
+    final data = await _get('/auth/github/bind', accessToken: accessToken);
+    return (data as Map<String, dynamic>)['url'] as String;
+  }
+
+  /// 获取 OAuth 提供者信息
+  /// 返回值：包含 githubLoginUrl 等信息
+  Future<Map<String, dynamic>> fetchProviders() async {
+    final data = await _get('/auth/providers');
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  /// GitHub OAuth 回调：用授权码换取 JWT 令牌
+  /// [code] GitHub 授权码
+  /// [state] 可选绑定令牌
+  /// 返回值：认证会话（含 accessToken、refreshToken、user）
+  Future<AuthSession> githubOAuthCallback({
+    required String code,
+    String? state,
+  }) async {
+    final data = await _send(
+      'POST',
+      '/auth/github/callback',
+      queryParameters: {
+        'code': code,
+        if (state != null) 'state': state,
+      },
+    );
+    return AuthSession.fromJson((data as Map).cast<String, dynamic>());
   }
 
   /// 获取首页推荐内容
@@ -141,17 +168,25 @@ class BlogApiClient {
   /// [email] 邮箱
   /// [password] 密码
   /// [nickname] 昵称
+  /// [code] 邮箱验证码
   /// 返回值：认证会话
   Future<AuthSession> register({
     required String email,
     required String password,
     required String nickname,
+    required String code,
   }) async {
     final data = await _post(
       '/auth/register',
-      body: {'email': email, 'password': password, 'nickname': nickname},
+      body: {'email': email, 'password': password, 'nickname': nickname, 'code': code},
     );
     return AuthSession.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  /// 发送邮箱验证码
+  /// [email] 邮箱地址
+  Future<void> sendVerificationCode(String email) async {
+    await _post('/auth/send-code', body: {'email': email});
   }
 
   /// 刷新访问令牌
@@ -201,6 +236,54 @@ class BlogApiClient {
       },
     );
     return UserProfile.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  /// 上传用户头像
+  /// 使用 Dio 的 FormData 实现 multipart 上传
+  /// [accessToken] 访问令牌
+  /// [bytes] 文件字节
+  /// [filename] 文件名
+  /// 返回值：更新后的用户资料（包含新的头像 URL）
+  Future<String> uploadAvatar({
+    required String accessToken,
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+
+    final data = await _send(
+      'POST',
+      '/me/avatar',
+      accessToken: accessToken,
+      formData: formData,
+    );
+    final userProfile = UserProfile.fromJson((data as Map).cast<String, dynamic>());
+    return userProfile.avatarUrl ?? '';
+  }
+
+  /// 获取当前用户绑定的 OAuth 账户列表
+  /// [accessToken] 访问令牌
+  /// 返回值：OAuth 账户列表
+  Future<List<OAuthAccountInfo>> fetchOAuthAccounts({
+    required String accessToken,
+  }) async {
+    final data = await _get('/me/oauth-accounts', accessToken: accessToken);
+    return (data as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => OAuthAccountInfo.fromJson(item.cast<String, dynamic>()))
+        .toList();
+  }
+
+  /// 解绑指定的 OAuth 账户
+  /// [accessToken] 访问令牌
+  /// [provider] OAuth 提供者名称（如 github）
+  Future<void> unbindOAuthAccount({
+    required String accessToken,
+    required String provider,
+  }) async {
+    await _delete('/me/oauth-accounts/$provider', accessToken: accessToken);
   }
 
   /// 获取内容评论列表
@@ -338,6 +421,20 @@ class BlogApiClient {
     );
   }
 
+  /// 设置密码（用于 OAuth 用户首次设置密码）
+  /// [accessToken] 访问令牌
+  /// [newPassword] 新密码
+  Future<void> setPassword({
+    required String accessToken,
+    required String newPassword,
+  }) async {
+    await _post(
+      '/me/password',
+      accessToken: accessToken,
+      body: {'newPassword': newPassword},
+    );
+  }
+
   /// 获取管理后台审计日志
   /// [accessToken] 访问令牌
   /// [query] 查询参数
@@ -389,19 +486,62 @@ class BlogApiClient {
     required String accessToken,
     required String message,
     String? sessionId,
-  }) async* {
-    // 使用平台特定的 SSE 客户端
-    final events = await postSse(
-      dio: _dio,
-      path: '/ai/chat/stream',
-      body: {'sessionId': sessionId, 'message': message},
+  }) {
+    final controller = StreamController<SseEvent>();
+
+    _postSseWithRetry(
       accessToken: accessToken,
-      onEvent: (_) {}, // 回调模式，这里不使用
+      message: message,
+      sessionId: sessionId,
+      controller: controller,
     );
 
-    // 将事件列表转换为 Stream
-    for (final event in events) {
-      yield event;
+    return controller.stream;
+  }
+
+  Future<void> _postSseWithRetry({
+    required String accessToken,
+    required String message,
+    required String? sessionId,
+    required StreamController<SseEvent> controller,
+  }) async {
+    try {
+      await postSse(
+        dio: _dio,
+        path: '/ai/chat/stream',
+        body: {'sessionId': sessionId, 'message': message},
+        accessToken: accessToken,
+        onEvent: (event) {
+          if (!controller.isClosed) controller.add(event);
+        },
+      );
+      if (!controller.isClosed) controller.close();
+    } on Exception catch (e) {
+      if (e.toString().contains('401') && onUnauthorized != null) {
+        // 等待一小段时间，让可能正在进行的刷新完成
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        final newToken = await onUnauthorized!();
+        if (newToken != null && !controller.isClosed) {
+          try {
+            await postSse(
+              dio: _dio,
+              path: '/ai/chat/stream',
+              body: {'sessionId': sessionId, 'message': message},
+              accessToken: newToken,
+              onEvent: (event) {
+                if (!controller.isClosed) controller.add(event);
+              },
+            );
+            if (!controller.isClosed) controller.close();
+          } on Exception catch (retryError) {
+            if (!controller.isClosed) controller.addError(retryError);
+            controller.close();
+          }
+          return;
+        }
+      }
+      if (!controller.isClosed) controller.addError(e);
+      controller.close();
     }
   }
 
@@ -1084,9 +1224,10 @@ class BlogApiClient {
         options: Options(
           method: method,
           headers: headers,
-          contentType: body != null || formData != null
-              ? 'application/json'
-              : null,
+          // formData 时让 Dio 自动设置 multipart content type
+          contentType: formData != null
+              ? null
+              : (body != null ? 'application/json' : null),
         ),
       );
 
@@ -1105,12 +1246,22 @@ class BlogApiClient {
             options: Options(
               method: method,
               headers: headers,
-              contentType: body != null || formData != null
-                  ? 'application/json'
-                  : null,
+              contentType: formData != null
+                  ? null
+                  : (body != null ? 'application/json' : null),
             ),
           );
           return _extractData(retryResponse);
+        }
+      }
+      // 处理业务错误响应（4xx/5xx 可能包含业务错误消息）
+      if (e.response?.data is Map) {
+        final envelope = (e.response!.data as Map).cast<String, dynamic>();
+        if (envelope['success'] == false) {
+          throw ApiException(
+            envelope['message']?.toString() ?? '请求失败',
+            statusCode: e.response?.statusCode,
+          );
         }
       }
       rethrow;

@@ -1,5 +1,7 @@
 package com.caoqiang.blog.ai;
 
+import com.caoqiang.blog.common.PgJsonbType;
+import com.caoqiang.blog.common.PgVectorType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -10,6 +12,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.annotations.Type;
 
 /**
  * 知识分块实体（含向量嵌入）。
@@ -49,10 +52,12 @@ public class KnowledgeChunk {
     private String content;
 
     /** 768 维向量嵌入，用于余弦相似度搜索 */
+    @Type(PgVectorType.class)
     @Column(columnDefinition = "VECTOR(768)")
     private String embedding;
 
     /** 元数据（JSON 格式，如错误信息等） */
+    @Type(PgJsonbType.class)
     @Column(columnDefinition = "JSONB")
     private String metadata;
 

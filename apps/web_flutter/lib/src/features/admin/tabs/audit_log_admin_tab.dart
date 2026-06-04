@@ -24,6 +24,13 @@ class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab> {
 
   /// 可选操作类型
   static const _actions = ['CREATE', 'UPDATE', 'DELETE', 'READ'];
+  /// 操作类型中文映射
+  static const _actionLabels = {
+    'CREATE': '创建',
+    'UPDATE': '更新',
+    'DELETE': '删除',
+    'READ': '查看',
+  };
   /// 可选资源类型
   static const _resourceTypes = [
     'CONTENT',
@@ -37,6 +44,19 @@ class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab> {
     'KNOWLEDGE',
     'AI_CHAT',
   ];
+  /// 资源类型中文映射
+  static const _resourceTypeLabels = {
+    'CONTENT': '内容',
+    'TAG': '标签',
+    'MEDIA': '媒体',
+    'COMMENT': '评论',
+    'LIKE': '点赞',
+    'VIEW': '浏览',
+    'FRIEND': '友链',
+    'USER': '用户',
+    'KNOWLEDGE': '知识库',
+    'AI_CHAT': 'AI对话',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +94,7 @@ class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab> {
                       items: [
                         const DropdownMenuItem(value: null, child: Text('全部')),
                         for (final a in _actions)
-                          DropdownMenuItem(value: a, child: Text(a)),
+                          DropdownMenuItem(value: a, child: Text(_actionLabels[a] ?? a)),
                       ],
                       onChanged: (value) => setState(() => _action = value),
                     ),
@@ -87,7 +107,7 @@ class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab> {
                       items: [
                         const DropdownMenuItem(value: null, child: Text('全部')),
                         for (final r in _resourceTypes)
-                          DropdownMenuItem(value: r, child: Text(r)),
+                          DropdownMenuItem(value: r, child: Text(_resourceTypeLabels[r] ?? r)),
                       ],
                       onChanged:
                           (value) => setState(() => _resourceType = value),
@@ -145,6 +165,29 @@ class _AuditLogRow extends StatelessWidget {
 
   final AuditLogItem log; // 日志数据
 
+  /// 操作类型中文映射
+  static const _actionLabels = {
+    'CREATE': '创建',
+    'UPDATE': '更新',
+    'DELETE': '删除',
+    'READ': '查看',
+  };
+
+  /// 资源类型中文映射
+  static const _resourceTypeLabels = {
+    'CONTENT': '内容',
+    'TAG': '标签',
+    'MEDIA': '媒体',
+    'COMMENT': '评论',
+    'LIKE': '点赞',
+    'VIEW': '浏览',
+    'FRIEND': '友链',
+    'USER': '用户',
+    'KNOWLEDGE': '知识库',
+    'AI_CHAT': 'AI对话',
+    'INTERACTIONRECORD': '互动记录',
+  };
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -155,6 +198,9 @@ class _AuditLogRow extends StatelessWidget {
       _ => scheme.secondaryContainer,
     };
 
+    final actionLabel = _actionLabels[log.action] ?? log.action;
+    final resourceLabel = _resourceTypeLabels[log.resourceType] ?? log.resourceType;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -164,13 +210,13 @@ class _AuditLogRow extends StatelessWidget {
             Row(
               children: [
                 Chip(
-                  label: Text(log.action),
+                  label: Text(actionLabel),
                   backgroundColor: actionColor,
                   visualDensity: VisualDensity.compact,
                 ),
                 const SizedBox(width: 8),
                 Chip(
-                  label: Text(log.resourceType),
+                  label: Text(resourceLabel),
                   visualDensity: VisualDensity.compact,
                 ),
                 const Spacer(),

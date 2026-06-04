@@ -22,11 +22,11 @@ class ContentDetailPage extends ConsumerStatefulWidget {
 }
 
 /// 内容详情页状态管理
-/// 管理评论输入、点赞操作、浏览记录和视频播放
+/// 管理评论输入、浏览记录和视频播放
 class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
   final _commentController = TextEditingController(); // 评论输入框控制器
   bool _viewRecorded = false; // 是否已记录浏览（防止重复记录）
-  bool _working = false; // 是否正在执行操作（点赞/评论）
+  bool _submitting = false; // 是否正在提交评论
 
   @override
   void dispose() {
@@ -97,15 +97,7 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
                   const SizedBox(height: 32),
                   Row(
                     children: [
-                      FilledButton.icon(
-                        onPressed: _working ? null : () => _toggleLike(content),
-                        icon: Icon(
-                          content.likedByCurrentUser
-                              ? Icons.favorite
-                              : Icons.favorite_outline,
-                        ),
-                        label: Text('点赞 ${content.likeCount}'),
-                      ),
+                      _LikeButton(contentId: widget.id, content: content),
                       const SizedBox(width: 12),
                       OutlinedButton.icon(
                         onPressed: null,
@@ -128,7 +120,7 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: FilledButton.icon(
-                      onPressed: _working ? null : _submitComment,
+                      onPressed: _submitting ? null : _submitComment,
                       icon: const Icon(Icons.send),
                       label: const Text('发布评论'),
                     ),
@@ -173,30 +165,6 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     });
   }
 
-  /// 切换点赞状态
-  /// 未登录时跳转登录页，已登录则调用点赞/取消点赞 API
-  Future<void> _toggleLike(BlogContent content) async {
-    final auth = ref.read(authControllerProvider);
-    final token = auth.accessToken;
-    if (token == null) {
-      context.go('/login?from=/contents/${widget.id}');
-      return;
-    }
-
-    await _run(() async {
-      if (content.likedByCurrentUser) {
-        await ref
-            .read(apiClientProvider)
-            .unlikeContent(accessToken: token, contentId: widget.id);
-      } else {
-        await ref
-            .read(apiClientProvider)
-            .likeContent(accessToken: token, contentId: widget.id);
-      }
-      ref.invalidate(contentDetailProvider(widget.id));
-    });
-  }
-
   /// 提交评论
   /// 未登录时跳转登录页，已登录则提交评论并刷新评论列表
   Future<void> _submitComment() async {
@@ -209,28 +177,20 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     final body = _commentController.text.trim();
     if (body.isEmpty) return;
 
-    await _run(() async {
+    setState(() => _submitting = true);
+    try {
       await ref
           .read(apiClientProvider)
           .createComment(accessToken: token, contentId: widget.id, body: body);
       _commentController.clear();
       ref.invalidate(commentsProvider(widget.id));
       ref.invalidate(contentDetailProvider(widget.id));
-    });
-  }
-
-  /// 执行异步操作的通用包装器
-  /// 自动管理 _working 状态，捕获异常并显示错误提示
-  Future<void> _run(Future<void> Function() action) async {
-    setState(() => _working = true);
-    try {
-      await action();
     } on ApiException catch (error) {
       _showError(error.message);
     } catch (error) {
       _showError(error.toString());
     } finally {
-      if (mounted) setState(() => _working = false);
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -561,5 +521,69 @@ class _MediaEmpty extends StatelessWidget {
         child: Center(child: Text(label)),
       ),
     );
+  }
+}
+
+/// 点赞按钮组件
+/// 独立管理点赞状态，避免点赞操作导致整个页面重建
+class _LikeButton extends ConsumerStatefulWidget {
+  const _LikeButton({required this.contentId, required this.content});
+
+  final String contentId;
+  final BlogContent content;
+
+  @override
+  ConsumerState<_LikeButton> createState() => _LikeButtonState();
+}
+
+class _LikeButtonState extends ConsumerState<_LikeButton> {
+  bool _liking = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: _liking ? null : _toggleLike,
+      icon: Icon(
+        widget.content.likedByCurrentUser
+            ? Icons.favorite
+            : Icons.favorite_outline,
+      ),
+      label: Text('点赞 ${widget.content.likeCount}'),
+    );
+  }
+
+  Future<void> _toggleLike() async {
+    final auth = ref.read(authControllerProvider);
+    final token = auth.accessToken;
+    if (token == null) {
+      context.go('/login?from=/contents/${widget.contentId}');
+      return;
+    }
+
+    setState(() => _liking = true);
+    try {
+      if (widget.content.likedByCurrentUser) {
+        await ref
+            .read(apiClientProvider)
+            .unlikeContent(accessToken: token, contentId: widget.contentId);
+      } else {
+        await ref
+            .read(apiClientProvider)
+            .likeContent(accessToken: token, contentId: widget.contentId);
+      }
+      ref.invalidate(contentDetailProvider(widget.contentId));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) setState(() => _liking = false);
+    }
   }
 }

@@ -36,6 +36,8 @@ public record RegisterRequest(
         /** 用户密码，必填，长度必须在 8-80 之间 */
         @NotBlank @Size(min = 8, max = 80) String password,
         /** 用户昵称，必填，长度不超过 80 */
-        @NotBlank @Size(max = 80) String nickname
+        @NotBlank @Size(max = 80) String nickname,
+        /** 邮箱验证码，必填，6 位数字 */
+        @NotBlank @Size(min = 6, max = 6) String code
 ) {
 }

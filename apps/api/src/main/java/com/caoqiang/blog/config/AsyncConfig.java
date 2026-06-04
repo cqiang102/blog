@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.security.concurrent.DelegatingSecurityContextExecutor;
 
 /**
  * 异步任务配置类。
@@ -22,6 +23,8 @@ public class AsyncConfig {
      * AI 流式对话专用线程池。
      * <p>
      * 用于 SSE 流式响应场景，控制并发数避免资源耗尽。
+     * 使用 {@link DelegatingSecurityContextExecutor} 包装，确保安全上下文传播到异步线程，
+     * 避免异步分派时 {@code AuthorizationFilter} 因缺少安全上下文而拒绝访问。
      */
     @Bean("aiStreamExecutor")
     public Executor aiStreamExecutor() {
@@ -32,7 +35,7 @@ public class AsyncConfig {
         executor.setThreadNamePrefix("ai-stream-");
         executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
-        return executor;
+        return new DelegatingSecurityContextExecutor(executor);
     }
 
     /**

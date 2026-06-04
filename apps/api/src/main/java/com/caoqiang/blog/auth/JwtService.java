@@ -160,6 +160,58 @@ public class JwtService {
     }
 
     /**
+     * 创建 OAuth 绑定令牌
+     * 生成包含用户 ID 的短期签名令牌，用于 OAuth2 绑定流程的 state 参数。
+     *
+     * @param userId 用户 ID
+     * @return 绑定令牌字符串
+     */
+    public String createBindingToken(UUID userId) {
+        Instant issuedAt = clock.instant();
+        Instant expiresAt = issuedAt.plusSeconds(300); // 5 分钟有效
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("sub", userId.toString());
+        payload.put("typ", "oauth-bind");
+        payload.put("iat", issuedAt.getEpochSecond());
+        payload.put("exp", expiresAt.getEpochSecond());
+
+        String signingInput = BASE64_URL_ENCODER.encodeToString(
+                "{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8)
+        ) + "." + encodeJson(payload);
+        return signingInput + "." + sign(signingInput);
+    }
+
+    /**
+     * 解析 OAuth 绑定令牌
+     * 验证签名和有效期，提取用户 ID。
+     *
+     * @param token 绑定令牌字符串
+     * @return 用户 ID，如果令牌无效则返回 null
+     */
+    public UUID parseBindingToken(String token) {
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length != 3) return null;
+
+            String signingInput = parts[0] + "." + parts[1];
+            byte[] expectedSignature = signBytes(signingInput);
+            byte[] actualSignature = BASE64_URL_DECODER.decode(parts[2]);
+            if (!MessageDigest.isEqual(expectedSignature, actualSignature)) return null;
+
+            JsonNode payload = objectMapper.readTree(BASE64_URL_DECODER.decode(parts[1]));
+            if (!"oauth-bind".equals(payload.path("typ").asText())) return null;
+
+            Instant expiresAt = Instant.ofEpochSecond(payload.path("exp").asLong());
+            if (!expiresAt.isAfter(clock.instant())) return null;
+
+            return UUID.fromString(payload.path("sub").asText());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
      * 将 Map 编码为 Base64URL 字符串
      *
      * @param value 要编码的 Map

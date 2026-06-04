@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -37,6 +39,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class AiBlogTools {
+
+    private static final Logger log = LoggerFactory.getLogger(AiBlogTools.class);
 
     private final ContentService contentService;
     private final ContentRepository contentRepository;
@@ -161,7 +165,8 @@ public class AiBlogTools {
                 }
                 return results;
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.warn("向量搜索失败，回退到文本搜索: {}", e.getMessage());
         }
 
         // 向量搜索失败时，回退到文本搜索

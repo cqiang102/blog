@@ -10,6 +10,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -61,6 +62,7 @@ public class AiChatService {
     private final AiChatMessageRepository messageRepository;
     private final AiDailyQuotaRepository quotaRepository;
     private final ChatClient chatClient;
+    private final KnowledgeSearchService knowledgeSearchService;
     private final StringRedisTemplate redisTemplate;
     private final Executor aiStreamExecutor;
 
@@ -72,6 +74,7 @@ public class AiChatService {
             AiChatMessageRepository messageRepository,
             AiDailyQuotaRepository quotaRepository,
             ChatClient chatClient,
+            KnowledgeSearchService knowledgeSearchService,
             StringRedisTemplate redisTemplate,
             @Qualifier("aiStreamExecutor") Executor aiStreamExecutor
     ) {
@@ -82,6 +85,7 @@ public class AiChatService {
         this.messageRepository = messageRepository;
         this.quotaRepository = quotaRepository;
         this.chatClient = chatClient;
+        this.knowledgeSearchService = knowledgeSearchService;
         this.redisTemplate = redisTemplate;
         this.aiStreamExecutor = aiStreamExecutor;
     }
@@ -125,10 +129,10 @@ public class AiChatService {
         // AI 调用成功后再扣减配额
         AiDailyQuota quota = quotaFor(user);
         quota.increase();
+        quotaRepository.save(quota);
 
         String cacheKey = QUOTA_CACHE_PREFIX + user.getId() + ":" + LocalDate.now(clock.withZone(ZoneOffset.UTC));
-        redisTemplate.opsForValue().increment(cacheKey);
-        redisTemplate.expire(cacheKey, getSecondsUntilMidnight(), TimeUnit.SECONDS);
+        redisTemplate.delete(cacheKey);
 
         messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, answer));
 
@@ -155,13 +159,14 @@ public class AiChatService {
      * @return SSE 发射器，客户端通过此对象接收流式数据
      */
     public SseEmitter streamChat(AuthenticatedUser currentUser, AiChatRequest request) {
-        SseEmitter emitter = new SseEmitter(120_000L);
+        SseEmitter emitter = new SseEmitter(0L);
 
         aiStreamExecutor.execute(() -> {
             User user;
             try {
                 user = activeUser(currentUser);
             } catch (Exception e) {
+                log.warn("streamChat 认证失败: {}", e.getMessage());
                 sendError(emitter, "登录状态无效");
                 return;
             }
@@ -169,6 +174,7 @@ public class AiChatService {
             int dailyLimit = blogProperties.getAi().getDailyQuestionLimit();
             int currentCount = getCachedQuotaCount(user.getId());
             if (currentCount >= dailyLimit) {
+                log.warn("streamChat 配额用完: userId={}, used={}/{}", user.getId(), currentCount, dailyLimit);
                 sendError(emitter, "今日 AI 提问次数已用完");
                 return;
             }
@@ -177,87 +183,103 @@ public class AiChatService {
             try {
                 session = resolveSession(user, request.sessionId());
             } catch (Exception e) {
+                log.warn("streamChat 会话解析失败: userId={}, error={}", user.getId(), e.getMessage());
                 sendError(emitter, "会话不存在");
                 return;
             }
 
             long messageCount = messageRepository.countBySessionId(session.getId());
             if (messageCount >= MAX_MESSAGES_PER_SESSION) {
+                log.warn("streamChat 会话消息数达上限: sessionId={}, count={}", session.getId(), messageCount);
                 sendError(emitter, "该会话消息数已达上限，请创建新会话");
                 return;
             }
 
             messageRepository.save(new AiChatMessage(session, AiMessageRole.USER, request.message().trim()));
+            log.info("streamChat 开始: userId={}, sessionId={}, message={}", user.getId(), session.getId(), request.message());
 
-            // 配额扣减移到 AI 调用成功后
+            // 向量搜索相关知识作为上下文
+            String knowledgeContext = buildKnowledgeContext(request.message());
 
             StringBuilder fullAnswer = new StringBuilder();
             AiUserContext.set(currentUser);
             try {
                 String conversationId = session.getId().toString();
+                String userMessage = knowledgeContext.isEmpty()
+                        ? request.message()
+                        : request.message() + "\n\n[相关知识库内容]\n" + knowledgeContext;
                 chatClient.prompt()
-                        .user(request.message())
+                        .user(userMessage)
+                        // TODO: 等 Spring AI 修复 toolCallId bug 后启用工具调用
+                        // .toolCallbacks(ToolCallbacks.from(aiBlogTools))
                         .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                         .stream()
                         .chatResponse()
-                        .doOnNext(response -> {
-                            if (response.getResult() != null && response.getResult().getOutput() != null) {
-                                String token = response.getResult().getOutput().getText();
-                                if (token != null && !token.isEmpty()) {
-                                    fullAnswer.append(token);
+                        .publishOn(Schedulers.boundedElastic())
+                        .subscribe(
+                                response -> {
+                                    if (response.getResult() != null && response.getResult().getOutput() != null) {
+                                        String token = response.getResult().getOutput().getText();
+                                        if (token != null && !token.isEmpty()) {
+                                            fullAnswer.append(token);
+                                            try {
+                                                emitter.send(SseEmitter.event()
+                                                        .name("token")
+                                                        .data(token));
+                                            } catch (Exception ignored) {
+                                            }
+                                        }
+                                    }
+                                },
+                                error -> {
+                                    log.error("streamChat AI 流式调用失败: userId={}, sessionId={}, error={}",
+                                            user.getId(), session.getId(), error.getMessage(), error);
+                                    sendError(emitter, "AI 服务暂时不可用: " + error.getMessage());
+                                    AiUserContext.clear();
+                                },
+                                () -> {
+                                    log.info("streamChat 完成: userId={}, sessionId={}, answerLen={}",
+                                            user.getId(), session.getId(), fullAnswer.length());
                                     try {
+                                        AiDailyQuota quota = quotaFor(user);
+                                        quota.increase();
+                                        quotaRepository.save(quota);
+                                        String cacheKey = QUOTA_CACHE_PREFIX + user.getId() + ":" + LocalDate.now(clock.withZone(ZoneOffset.UTC));
+                                        redisTemplate.delete(cacheKey);
+                                    } catch (Exception e) {
+                                        log.error("Failed to update quota after successful AI call", e);
+                                    }
+
+                                    try {
+                                        messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, fullAnswer.toString()));
+                                    } catch (Exception e) {
+                                        log.error("Failed to save AI chat message", e);
+                                    }
+
+                                    try {
+                                        int remainingQuota = Math.max(0, dailyLimit - getCachedQuotaCount(user.getId()));
                                         emitter.send(SseEmitter.event()
-                                                .name("token")
-                                                .data(token));
-                                    } catch (Exception ignored) {
+                                                .name("done")
+                                                .data(new AiChatResponse(
+                                                        session.getId(),
+                                                        fullAnswer.toString(),
+                                                        remainingQuota,
+                                                        (int) (MAX_MESSAGES_PER_SESSION - messageCount - 2)
+                                                )));
+                                    } catch (Exception e) {
+                                        log.error("Failed to send done event", e);
+                                    } finally {
+                                        try {
+                                            emitter.complete();
+                                        } catch (Exception ignored) {
+                                        }
+                                        AiUserContext.clear();
                                     }
                                 }
-                            }
-                        })
-                        .doOnError(e -> sendError(emitter, "AI 服务暂时不可用: " + e.getMessage()))
-                        .publishOn(Schedulers.boundedElastic())
-                        .doOnComplete(() -> {
-                            // AI 调用成功后再扣减配额
-                            try {
-                                AiDailyQuota quota = quotaFor(user);
-                                quota.increase();
-                                String cacheKey = QUOTA_CACHE_PREFIX + user.getId() + ":" + LocalDate.now(clock.withZone(ZoneOffset.UTC));
-                                redisTemplate.opsForValue().increment(cacheKey);
-                                redisTemplate.expire(cacheKey, getSecondsUntilMidnight(), TimeUnit.SECONDS);
-                            } catch (Exception e) {
-                                log.error("Failed to update quota after successful AI call", e);
-                            }
-
-                            try {
-                                messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, fullAnswer.toString()));
-                            } catch (Exception e) {
-                                log.error("Failed to save AI chat message", e);
-                            }
-
-                            // 确保总是发送 done 事件并关闭 emitter
-                            try {
-                                int remainingQuota = Math.max(0, dailyLimit - getCachedQuotaCount(user.getId()));
-                                emitter.send(SseEmitter.event()
-                                        .name("done")
-                                        .data(new AiChatResponse(
-                                                session.getId(),
-                                                fullAnswer.toString(),
-                                                remainingQuota,
-                                                (int) (MAX_MESSAGES_PER_SESSION - messageCount - 2)
-                                        )));
-                            } catch (Exception e) {
-                                log.error("Failed to send done event", e);
-                            } finally {
-                                try {
-                                    emitter.complete();
-                                } catch (Exception ignored) {
-                                }
-                            }
-                        })
-                        .subscribe();
+                        );
             } catch (Exception e) {
+                log.error("streamChat 异常: userId={}, error={}", user.getId(), e.getMessage(), e);
                 sendError(emitter, "AI 服务暂时不可用: " + e.getMessage());
-            } finally {
                 AiUserContext.clear();
             }
         });
@@ -274,11 +296,9 @@ public class AiChatService {
     @Transactional(readOnly = true)
     public AiQuotaResponse quota(AuthenticatedUser currentUser) {
         User user = activeUser(currentUser);
-        LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
-        int used = quotaRepository.findByUserIdAndQuotaDate(user.getId(), today)
-                .map(AiDailyQuota::getQuestionCount)
-                .orElse(0);
-        return new AiQuotaResponse(today, blogProperties.getAi().getDailyQuestionLimit(), used);
+        int used = getCachedQuotaCount(user.getId());
+        int dailyLimit = blogProperties.getAi().getDailyQuestionLimit();
+        return new AiQuotaResponse(LocalDate.now(clock.withZone(ZoneOffset.UTC)), dailyLimit, used);
     }
 
     /**
@@ -380,11 +400,42 @@ public class AiChatService {
         try {
             return chatClient.prompt()
                     .user(userMessage)
+                    // TODO: 等 Spring AI 修复 toolCallId bug 后启用工具调用
+                    // .toolCallbacks(ToolCallbacks.from(aiBlogTools))
                     .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                     .call()
                     .content();
         } catch (Exception e) {
             return "抱歉，AI 服务暂时不可用。错误信息: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 构建知识库上下文。
+     * 搜索向量数据库，将相关内容格式化为上下文字符串。
+     *
+     * @param query 用户消息
+     * @return 格式化的知识上下文，无结果时返回空字符串
+     */
+    private String buildKnowledgeContext(String query) {
+        try {
+            List<Map<String, Object>> results = knowledgeSearchService.search(query);
+            log.info("知识库搜索: query={}, results={}", query, results.size());
+            if (results.isEmpty()) {
+                return "";
+            }
+            StringBuilder sb = new StringBuilder();
+            for (Map<String, Object> result : results) {
+                String title = (String) result.get("title");
+                String content = (String) result.get("content");
+                if (title != null && content != null) {
+                    sb.append("- ").append(title).append(": ").append(content).append("\n");
+                }
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            log.warn("知识库搜索失败: {}", e.getMessage());
+            return "";
         }
     }
 

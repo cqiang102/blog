@@ -14,10 +14,12 @@ import org.springframework.context.annotation.Configuration;
  * 负责构建博客 AI 助手的核心组件：
  * <ul>
  *     <li>会话记忆（{@link ChatMemory}）— 基于滑动窗口保留最近 20 条消息，防止上下文过长</li>
- *     <li>对话客户端（{@link ChatClient}）— 配置系统提示词和记忆顾问，支持博客内容搜索、问答、互动操作</li>
+ *     <li>对话客户端（{@link ChatClient}）— 配置系统提示词和记忆顾问</li>
  * </ul>
  * <p>
  * 记忆通过 {@link ChatMemoryRepository} 持久化，支持跨请求恢复对话上下文。
+ * <p>
+ * 工具（{@code @Tool}）在每次请求时通过 {@code .tools()} 注册，避免循环依赖。
  *
  * @author caoqiang
  */
@@ -38,8 +40,6 @@ public class AiConfig {
 
     /**
      * 创建基于消息窗口的会话记忆。
-     * <p>
-     * 使用滑动窗口策略，仅保留最近 {@code maxMessages} 条消息，自动淘汰早期消息以控制 Token 消耗。
      *
      * @param chatMemoryRepository 会话记忆持久化仓库
      * @return 限制为 20 条消息窗口的 ChatMemory 实例
@@ -55,7 +55,7 @@ public class AiConfig {
     /**
      * 创建 AI 对话客户端。
      * <p>
-     * 配置默认系统提示词，并附加 {@link MessageChatMemoryAdvisor} 以自动注入会话上下文。
+     * 仅配置系统提示词和记忆顾问，工具在请求时动态注册。
      *
      * @param builder    Spring AI 自动配置的 ChatClient 构建器
      * @param chatMemory 会话记忆实例

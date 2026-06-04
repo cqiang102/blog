@@ -1,4 +1,4 @@
-package com.cn.aiztb.app.service.ai;
+package com.caoqiang.blog.config;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -8,12 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.openai.client.OpenAIClientAsync;
-import com.openai.core.JsonValue;
-import com.openai.core.http.AsyncStreamResponse;
-import com.openai.models.chat.completions.ChatCompletionChunk;
-import com.openai.models.chat.completions.ChatCompletionCreateParams;
-import com.openai.models.completions.CompletionUsage;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -35,7 +30,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
-import lombok.extern.slf4j.Slf4j;
+import com.openai.client.OpenAIClientAsync;
+import com.openai.core.JsonValue;
+import com.openai.core.http.AsyncStreamResponse;
+import com.openai.models.chat.completions.ChatCompletionChunk;
+import com.openai.models.chat.completions.ChatCompletionCreateParams;
+import com.openai.models.completions.CompletionUsage;
+
 import reactor.core.publisher.Flux;
 
 /**
@@ -46,8 +47,8 @@ import reactor.core.publisher.Flux;
  */
 @Primary
 @Component
-@Slf4j
 public class OpenAiChatModelStreamDecorator implements ChatModel {
+    private static final Logger log = LoggerFactory.getLogger(OpenAiChatModelStreamDecorator.class);
 
 
     private final OpenAiChatModel delegate;
@@ -70,7 +71,7 @@ public class OpenAiChatModelStreamDecorator implements ChatModel {
     }
 
     @Override
-    public Flux<ChatResponse> stream(Prompt prompt) {
+    public @NonNull Flux<ChatResponse> stream(@NonNull Prompt prompt) {
         if (streamService.supportsDirectStream(prompt)) {
             log.debug("Using OpenAI SDK no-tools direct stream");
             return streamService.streamChatResponse(prompt);

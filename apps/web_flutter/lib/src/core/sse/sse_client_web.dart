@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:js_interop';
 
 import 'package:dio/dio.dart';
 import 'package:web/web.dart' as web;

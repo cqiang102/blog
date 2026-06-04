@@ -7,8 +7,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolderStrategy;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -48,6 +52,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     /** 用户仓库，用于查找用户信息 */
     private final UserRepository userRepository;
+    /** 安全上下文策略 */
+    private final SecurityContextHolderStrategy securityContextHolderStrategy =
+            SecurityContextHolder.getContextHolderStrategy();
+    /** 安全上下文仓库，用于将安全上下文保存到请求属性，支持异步分派 */
+    private final SecurityContextRepository securityContextRepository =
+            new RequestAttributeSecurityContextRepository();
 
     /**
      * 构造函数，注入依赖
@@ -79,8 +89,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 从请求头提取 Bearer 令牌
         String token = bearerToken(request);
         // 如果令牌存在且当前无认证信息，尝试认证
-        if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            authenticate(request, token);
+        if (token != null && securityContextHolderStrategy.getContext().getAuthentication() == null) {
+            authenticate(request, response, token);
         }
 
         // 继续过滤链
@@ -89,12 +99,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /**
      * 尝试认证用户
-     * 解析 JWT 令牌，验证用户有效性，设置认证信息到安全上下文。
+     * 解析 JWT 令牌，验证用户有效性，设置认证信息到安全上下文，
+     * 并保存到请求属性以支持异步分派（如 SseEmitter.complete() 触发的分派）。
      *
      * @param request HTTP 请求
      * @param token   JWT 令牌
      */
-    private void authenticate(HttpServletRequest request, String token) {
+    private void authenticate(HttpServletRequest request, HttpServletResponse response, String token) {
         try {
             // 解析 JWT 令牌，提取用户声明
             JwtClaims claims = jwtService.parseAccessToken(token);
@@ -109,12 +120,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 new UsernamePasswordAuthenticationToken(principal, null, principal.authorities());
                         // 设置请求详细信息
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                        // 将认证信息设置到安全上下文
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                        // 创建安全上下文并设置认证信息
+                        SecurityContext context = securityContextHolderStrategy.createEmptyContext();
+                        context.setAuthentication(authentication);
+                        securityContextHolderStrategy.setContext(context);
+                        // 保存到请求属性，确保异步分派时能恢复安全上下文
+                        securityContextRepository.saveContext(context, request, response);
                     });
         } catch (RuntimeException ignored) {
             // 认证失败时清除安全上下文
-            SecurityContextHolder.clearContext();
+            securityContextHolderStrategy.clearContext();
         }
     }
 
@@ -126,11 +141,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      */
     private String bearerToken(HttpServletRequest request) {
         String authorization = request.getHeader("Authorization");
-        // 检查 Authorization 头部是否存在且以 Bearer 开头
         if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
             return null;
         }
-        // 提取令牌部分（去掉 Bearer 前缀）
         String token = authorization.substring(BEARER_PREFIX.length()).trim();
         return token.isEmpty() ? null : token;
     }

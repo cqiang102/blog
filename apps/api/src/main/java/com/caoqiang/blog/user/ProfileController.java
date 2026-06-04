@@ -1,22 +1,27 @@
 package com.caoqiang.blog.user;
 
 import com.caoqiang.blog.auth.AuthenticatedUser;
+import com.caoqiang.blog.auth.OAuthProvider;
 import com.caoqiang.blog.common.ApiResponse;
 import com.caoqiang.blog.common.PageResponse;
 import com.caoqiang.blog.interaction.InteractionService;
 import com.caoqiang.blog.interaction.UserActivityResponse;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 个人资料 REST 控制器
@@ -73,6 +78,53 @@ public class ProfileController {
     }
 
     /**
+     * 上传并更新用户头像
+     * <p>
+     * 接收 multipart/form-data 格式的图片文件，上传到对象存储后更新用户头像 URL。
+     *
+     * @param currentUser 当前认证用户
+     * @param file        上传的图片文件，字段名 "file"
+     * @return 更新后的用户资料响应，包含新的头像 URL
+     */
+    @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<UserProfileResponse> uploadAvatar(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @RequestParam("file") MultipartFile file
+    ) {
+        return ApiResponse.ok(profileService.uploadAndUpdateAvatar(currentUser, file));
+    }
+
+    /**
+     * 获取当前用户绑定的 OAuth 账户列表
+     *
+     * @param currentUser 当前认证用户
+     * @return OAuth 账户列表
+     */
+    @GetMapping("/oauth-accounts")
+    public ApiResponse<List<OAuthAccountResponse>> oauthAccounts(
+            @AuthenticationPrincipal AuthenticatedUser currentUser
+    ) {
+        return ApiResponse.ok(profileService.getOAuthAccounts(currentUser));
+    }
+
+    /**
+     * 解绑指定的 OAuth 账户
+     *
+     * @param currentUser 当前认证用户
+     * @param provider    要解绑的 OAuth 提供者（如 github）
+     * @return 操作结果
+     */
+    @DeleteMapping("/oauth-accounts/{provider}")
+    public ApiResponse<Map<String, Object>> unbindOAuth(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable String provider
+    ) {
+        OAuthProvider oauthProvider = OAuthProvider.valueOf(provider.toUpperCase());
+        profileService.unbindOAuthAccount(currentUser, oauthProvider);
+        return ApiResponse.ok(Map.of("unbind", true, "provider", provider));
+    }
+
+    /**
      * 修改当前用户密码
      *
      * @param currentUser 当前认证用户
@@ -86,6 +138,22 @@ public class ProfileController {
     ) {
         profileService.changePassword(currentUser, request);
         return ApiResponse.ok(Map.of("changed", true));
+    }
+
+    /**
+     * 设置密码（用于 OAuth 用户首次设置密码）
+     *
+     * @param currentUser 当前认证用户
+     * @param request     设置密码请求体，仅包含新密码
+     * @return 操作结果，包含 {@code set: true} 表示成功
+     */
+    @PostMapping("/password")
+    public ApiResponse<Map<String, Object>> setPassword(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @Valid @RequestBody SetPasswordRequest request
+    ) {
+        profileService.setPassword(currentUser, request);
+        return ApiResponse.ok(Map.of("set", true));
     }
 
     /**

@@ -15,6 +15,7 @@ import '../features/content/content_list_page.dart';
 import '../features/friends/friends_page.dart';
 import '../features/home/home_page.dart';
 import '../features/profile/profile_page.dart';
+import '../features/auth/oauth_callback_page.dart';
 
 /// 路由 Provider
 /// 创建并配置 GoRouter 实例，包含认证守卫
@@ -29,6 +30,8 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final location = state.uri.path;
       final isLogin = location == '/login';
+      // OAuth 回调路由不做拦截
+      if (location.startsWith('/login/oauth2/')) return null;
       // 受保护的路由：个人中心和管理后台
       final isProtected =
           location.startsWith('/profile') || location.startsWith('/admin');
@@ -39,6 +42,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           path: '/login',
           queryParameters: {'from': location}, // 记录来源页面
         ).toString();
+      }
+      // 非 ADMIN 角色访问管理后台 -> 跳转首页
+      if (location.startsWith('/admin') && auth.user?.role != 'ADMIN') {
+        return '/';
       }
       // 已登录访问登录页 -> 跳转来源页或个人中心
       if (isLogin && auth.isAuthenticated) {
@@ -83,6 +90,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      // GitHub OAuth 回调路由（不使用 Shell 布局）
+      GoRoute(
+        path: '/login/oauth2/code/github',
+        builder: (context, state) => OAuthCallbackPage(
+          code: state.uri.queryParameters['code'],
+          state: state.uri.queryParameters['state'],
+          token: state.uri.queryParameters['token'],
+          refresh: state.uri.queryParameters['refresh'],
+          expires: state.uri.queryParameters['expires'],
+        ),
+      ),
     ],
   );
 });
@@ -97,12 +115,30 @@ class BlogShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path; // 当前路由路径
-    final selectedIndex = _selectedIndex(location); // 当前选中索引
     final auth = ref.watch(authControllerProvider);
     final nickname = auth.user?.nickname.trim();
     // 头像文字：取昵称首字符，默认 'C'
     final avatarText =
         nickname == null || nickname.isEmpty ? 'C' : nickname.characters.first;
+
+    // 根据登录状态和角色过滤导航目的地
+    final destinations = _destinations.where((item) {
+      // "我的" 需要登录才能显示
+      if (item.path == '/profile' && !auth.isAuthenticated) {
+        return false;
+      }
+      // "管理" 需要登录且为 ADMIN 角色才能显示
+      if (item.path == '/admin') {
+        if (!auth.isAuthenticated || auth.user?.role != 'ADMIN') {
+          return false;
+        }
+      }
+      // "登录" 只在未登录时显示
+      if (item.path == '/login' && auth.isAuthenticated) {
+        return false;
+      }
+      return true;
+    }).toList();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -114,20 +150,25 @@ class BlogShell extends ConsumerWidget {
             body: Row(
               children: [
                 NavigationRail(
-                  selectedIndex: selectedIndex,
+                  selectedIndex: _getSelectedIndex(destinations, location),
                   onDestinationSelected:
-                      (index) => context.go(_destinations[index].path),
+                      (index) => context.go(destinations[index].path),
                   labelType: NavigationRailLabelType.all,
                   leading: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: CircleAvatar(
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
-                      child: Text(avatarText), // 头像首字母
+                      backgroundImage: auth.user?.avatarUrl != null
+                          ? NetworkImage(auth.user!.avatarUrl!)
+                          : null,
+                      child: auth.user?.avatarUrl == null
+                          ? Text(avatarText)
+                          : null,
                     ),
                   ),
                   destinations: [
-                    for (final item in _destinations)
+                    for (final item in destinations)
                       NavigationRailDestination(
                         icon: Icon(item.icon),
                         selectedIcon: Icon(item.selectedIcon),
@@ -143,14 +184,17 @@ class BlogShell extends ConsumerWidget {
         }
 
         // 窄屏布局：底部 NavigationBar（只显示前 5 个导航项）
+        final navItems = destinations.take(5).toList();
         return Scaffold(
           body: child,
           bottomNavigationBar: NavigationBar(
-            selectedIndex: selectedIndex > 4 ? 0 : selectedIndex,
+            selectedIndex: _getSelectedIndex(navItems, location) > navItems.length - 1
+                ? 0
+                : _getSelectedIndex(navItems, location),
             onDestinationSelected:
-                (index) => context.go(_destinations[index].path),
+                (index) => context.go(navItems[index].path),
             destinations: [
-              for (final item in _destinations.take(5))
+              for (final item in navItems)
                 NavigationDestination(
                   icon: Icon(item.icon),
                   selectedIcon: Icon(item.selectedIcon),
@@ -164,16 +208,15 @@ class BlogShell extends ConsumerWidget {
   }
 
   /// 根据路由路径返回选中的导航索引
+  /// [destinations] 当前显示的导航目的地列表
   /// [location] 当前路由路径
   /// 返回值：导航项索引
-  int _selectedIndex(String location) {
-    if (location.startsWith('/contents')) return 1;
-    if (location.startsWith('/friends')) return 2;
-    if (location.startsWith('/about')) return 3;
-    if (location.startsWith('/profile')) return 4;
-    if (location.startsWith('/admin')) return 5;
-    if (location.startsWith('/login')) return 6;
-    return 0; // 默认首页
+  int _getSelectedIndex(List<_Destination> destinations, String location) {
+    for (int i = 0; i < destinations.length; i++) {
+      if (destinations[i].path == '/' && location == '/') return i;
+      if (destinations[i].path != '/' && location.startsWith(destinations[i].path)) return i;
+    }
+    return 0; // 默认第一个
   }
 }
 

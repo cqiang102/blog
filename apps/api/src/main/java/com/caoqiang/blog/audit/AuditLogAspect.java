@@ -10,6 +10,8 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 /**
@@ -58,8 +60,11 @@ public class AuditLogAspect {
             MethodSignature signature = (MethodSignature) joinPoint.getSignature();
             String methodName = signature.getName();
 
+            log.info("审计日志切面触发: 方法={}.{}", signature.getDeclaringType().getSimpleName(), methodName);
+
             // 排除查询类方法，避免日志冗余
             if (methodName.equals("dashboard") || methodName.equals("modules") || methodName.equals("logs")) {
+                log.info("排除查询类方法: {}", methodName);
                 return;
             }
 
@@ -70,16 +75,29 @@ public class AuditLogAspect {
 
             // 获取当前操作用户
             AuthenticatedUser currentUser = findCurrentUser(joinPoint);
-            if (currentUser == null) return;
+            if (currentUser == null) {
+                log.warn("无法获取当前用户，跳过审计日志记录。方法: {}.{}", 
+                        signature.getDeclaringType().getSimpleName(), methodName);
+                return;
+            }
+
+            log.info("获取到当前用户: id={}, nickname={}", currentUser.id(), currentUser.nickname());
 
             // 获取用户实体
             User actor = userRepository.findById(currentUser.id()).orElse(null);
+            if (actor == null) {
+                log.warn("未找到用户实体: id={}", currentUser.id());
+            }
 
             // 提取资源 ID
             UUID resourceId = extractResourceId(joinPoint);
 
+            log.info("记录审计日志: actor={}, action={}, resourceType={}, resourceId={}", 
+                    actor != null ? actor.getNickname() : "null", action, resourceType, resourceId);
+
             // 记录审计日志
             auditLogService.log(actor, action, resourceType, resourceId);
+            log.info("审计日志记录成功");
         } catch (Exception e) {
             // 日志记录失败不应影响正常业务
             log.error("Failed to log audit: {}", e.getMessage(), e);
@@ -125,18 +143,32 @@ public class AuditLogAspect {
     }
 
     /**
-     * 从方法参数中查找当前认证用户
+     * 获取当前认证用户
+     * <p>
+     * 首先从方法参数中查找，如果没有则从 SecurityContextHolder 中获取。
      *
      * @param joinPoint 方法连接点
      * @return 当前认证用户，如果未找到返回 null
      */
     private AuthenticatedUser findCurrentUser(JoinPoint joinPoint) {
+        // 首先从方法参数中查找
         Object[] args = joinPoint.getArgs();
         for (Object arg : args) {
             if (arg instanceof AuthenticatedUser) {
                 return (AuthenticatedUser) arg;
             }
         }
+
+        // 如果方法参数中没有，从 SecurityContextHolder 中获取
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof AuthenticatedUser) {
+                return (AuthenticatedUser) authentication.getPrincipal();
+            }
+        } catch (Exception e) {
+            log.debug("从 SecurityContextHolder 获取用户失败: {}", e.getMessage());
+        }
+
         return null;
     }
 

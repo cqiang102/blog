@@ -38,29 +38,34 @@ public class AuthService {
     private final JwtService jwtService;
     /** 刷新令牌服务，用于管理刷新令牌生命周期 */
     private final RefreshTokenService refreshTokenService;
+    /** 验证码服务，用于注册时校验邮箱验证码 */
+    private final VerificationService verificationService;
     /** 时钟，用于获取当前时间，便于测试 */
     private final Clock clock;
 
     /**
      * 构造函数，注入所有依赖
      *
-     * @param userRepository      用户仓库
-     * @param passwordEncoder     密码编码器
-     * @param jwtService          JWT 服务
-     * @param refreshTokenService 刷新令牌服务
-     * @param clock               时钟实例
+     * @param userRepository        用户仓库
+     * @param passwordEncoder       密码编码器
+     * @param jwtService            JWT 服务
+     * @param refreshTokenService   刷新令牌服务
+     * @param verificationService   验证码服务
+     * @param clock                 时钟实例
      */
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             RefreshTokenService refreshTokenService,
+            VerificationService verificationService,
             Clock clock
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
+        this.verificationService = verificationService;
         this.clock = clock;
     }
 
@@ -68,14 +73,18 @@ public class AuthService {
      * 用户注册
      * 创建新用户账户，验证邮箱唯一性，生成并返回认证令牌。
      *
-     * @param request 注册请求，包含邮箱、密码和昵称
+     * @param request 注册请求，包含邮箱、密码、昵称和验证码
      * @return 包含访问令牌、刷新令牌和用户信息的认证令牌响应
-     * @throws BusinessException 如果邮箱已注册（HTTP 409 CONFLICT）
+     * @throws BusinessException 如果邮箱已注册（HTTP 409 CONFLICT）或验证码无效
      */
     @Transactional
     public AuthTokenResponse register(RegisterRequest request) {
         // 规范化邮箱地址（转小写、去除空白）
         String email = EmailNormalizer.normalize(request.email());
+
+        // 校验验证码
+        verificationService.verify(email, request.code());
+
         // 检查邮箱是否已被注册
         if (userRepository.existsByEmail(email)) {
             throw new BusinessException(HttpStatus.CONFLICT, "邮箱已注册");

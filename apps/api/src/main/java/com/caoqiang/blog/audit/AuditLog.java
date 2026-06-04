@@ -12,6 +12,8 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import org.hibernate.annotations.Type;
+import com.caoqiang.blog.common.PgJsonbType;
 
 /**
  * 审计日志实体
@@ -58,6 +60,7 @@ public class AuditLog {
 
     /** 操作详情，JSON 格式 */
     @Column(columnDefinition = "JSONB")
+    @Type(PgJsonbType.class)
     private String detail;
 
     /** 创建时间，不可更新 */

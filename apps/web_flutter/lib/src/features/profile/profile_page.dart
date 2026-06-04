@@ -1,9 +1,11 @@
 // 个人中心模块
-// 支持资料编辑、修改密码、查看评论/点赞/浏览活动记录
+// 支持资料编辑、修改密码、查看评论/点赞/浏览活动记录、OAuth 账号绑定
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
@@ -56,7 +58,7 @@ class ProfilePage extends ConsumerWidget {
 }
 
 /// 个人资料表单组件
-/// 编辑用户昵称、简介、博客地址、头像 URL、邮箱，以及修改密码
+/// 编辑用户昵称、简介、博客地址、头像上传、邮箱，以及修改密码
 class _ProfileForm extends ConsumerStatefulWidget {
   const _ProfileForm();
 
@@ -71,12 +73,15 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
   final _bioController = TextEditingController(); // 简介输入框
   final _blogUrlController = TextEditingController(); // 博客地址输入框
   final _emailController = TextEditingController(); // 邮箱输入框
-  final _avatarUrlController = TextEditingController(); // 头像 URL 输入框
   final _oldPasswordController = TextEditingController(); // 当前密码输入框
   final _newPasswordController = TextEditingController(); // 新密码输入框
   final _confirmPasswordController = TextEditingController(); // 确认新密码输入框
   String? _seededUserId; // 已填充数据的用户 ID（防止重复填充）
   bool _changingPassword = false; // 是否正在修改密码
+  bool _uploadingAvatar = false; // 是否正在上传头像
+  String? _avatarUrl; // 当前头像 URL（本地状态，上传后立即更新）
+  List<OAuthAccountInfo> _oauthAccounts = []; // 已绑定的 OAuth 账户
+  bool _loadingOAuth = false; // 是否正在加载 OAuth 账户
 
   @override
   void dispose() {
@@ -84,7 +89,6 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     _bioController.dispose();
     _blogUrlController.dispose();
     _emailController.dispose();
-    _avatarUrlController.dispose();
     _oldPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
@@ -99,19 +103,57 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       _seed(user);
     }
 
+    // 使用本地头像 URL 或用户头像 URL
+    final avatarUrl = _avatarUrl ?? user?.avatarUrl;
+
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        CircleAvatar(
-          radius: 44,
-          backgroundImage:
-              user?.avatarUrl == null ? null : NetworkImage(user!.avatarUrl!),
-          child:
-              user?.avatarUrl == null
-                  ? const Icon(Icons.person, size: 44)
-                  : null,
+        // 头像显示和上传按钮
+        Center(
+          child: Stack(
+            children: [
+              CircleAvatar(
+                radius: 44,
+                backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                child: avatarUrl == null
+                    ? const Icon(Icons.person, size: 44)
+                    : null,
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Material(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  shape: const CircleBorder(),
+                  elevation: 2,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _uploadingAvatar ? null : _pickAndUploadAvatar,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: _uploadingAvatar
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.camera_alt, size: 20),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton(
+            onPressed: _uploadingAvatar ? null : _pickAndUploadAvatar,
+            child: const Text('更换头像'),
+          ),
+        ),
+        const SizedBox(height: 12),
         TextField(
           controller: _nicknameController,
           decoration: const InputDecoration(labelText: '昵称'),
@@ -126,11 +168,6 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
         TextField(
           controller: _blogUrlController,
           decoration: const InputDecoration(labelText: '博客地址'),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _avatarUrlController,
-          decoration: const InputDecoration(labelText: '头像 URL'),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -156,22 +193,25 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
         const Divider(),
         const SizedBox(height: 16),
         Text(
-          '修改密码',
+          user?.hasPassword == true ? '修改密码' : '设置密码',
           style: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 16),
-        TextField(
-          controller: _oldPasswordController,
-          decoration: const InputDecoration(labelText: '当前密码'),
-          obscureText: true,
-        ),
-        const SizedBox(height: 12),
+        if (user?.hasPassword == true) ...[
+          // 已设置密码：显示修改密码表单
+          TextField(
+            controller: _oldPasswordController,
+            decoration: const InputDecoration(labelText: '当前密码'),
+            obscureText: true,
+          ),
+          const SizedBox(height: 12),
+        ],
         TextField(
           controller: _newPasswordController,
-          decoration: const InputDecoration(
-            labelText: '新密码',
+          decoration: InputDecoration(
+            labelText: user?.hasPassword == true ? '新密码' : '密码',
             hintText: '至少6个字符',
           ),
           obscureText: true,
@@ -186,7 +226,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
         Align(
           alignment: Alignment.centerLeft,
           child: OutlinedButton.icon(
-            onPressed: _changingPassword ? null : _changePassword,
+            onPressed: _changingPassword
+                ? null
+                : (user?.hasPassword == true ? _changePassword : _setPassword),
             icon:
                 _changingPassword
                     ? const SizedBox.square(
@@ -194,9 +236,21 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                     : const Icon(Icons.lock_outline),
-            label: const Text('修改密码'),
+            label: Text(user?.hasPassword == true ? '修改密码' : '设置密码'),
           ),
         ),
+        const SizedBox(height: 32),
+        const Divider(),
+        const SizedBox(height: 16),
+        // 账号绑定区域
+        Text(
+          '账号绑定',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 12),
+        _buildOAuthSection(context),
       ],
     );
   }
@@ -209,7 +263,168 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     _bioController.text = user.bio ?? '';
     _blogUrlController.text = user.blogUrl ?? '';
     _emailController.text = user.email;
-    _avatarUrlController.text = user.avatarUrl ?? '';
+    _avatarUrl = user.avatarUrl;
+    _loadOAuthAccounts();
+  }
+
+  /// 加载 OAuth 账户绑定列表
+  Future<void> _loadOAuthAccounts() async {
+    if (_loadingOAuth) return;
+    setState(() => _loadingOAuth = true);
+    try {
+      final token = ref.read(authControllerProvider).accessToken;
+      if (token == null) return;
+      final accounts = await ref.read(apiClientProvider).fetchOAuthAccounts(
+        accessToken: token,
+      );
+      if (mounted) {
+        setState(() {
+          _oauthAccounts = accounts;
+          _loadingOAuth = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingOAuth = false);
+    }
+  }
+
+  /// 构建 OAuth 账号绑定区域
+  Widget _buildOAuthSection(BuildContext context) {
+    final hasGithub = _oauthAccounts.any((a) => a.provider == 'GITHUB');
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.code),
+            title: const Text('GitHub'),
+            subtitle: Text(
+              hasGithub
+                  ? '已绑定: ${_oauthAccounts.firstWhere((a) => a.provider == 'GITHUB').providerUsername}'
+                  : '未绑定',
+            ),
+            trailing: hasGithub
+                ? TextButton(
+                    onPressed: () => _unbindOAuth('github'),
+                    child: const Text('解绑'),
+                  )
+                : TextButton(
+                    onPressed: _bindGithub,
+                    child: const Text('绑定'),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 绑定 GitHub 账号
+  Future<void> _bindGithub() async {
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+    try {
+      final githubUrl = await ref.read(apiClientProvider).fetchGithubBindUrl(token);
+      await launchUrl(Uri.parse(githubUrl), webOnlyWindowName: '_self');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('获取绑定地址失败: $e')),
+        );
+      }
+    }
+  }
+
+  /// 解绑 OAuth 账号
+  Future<void> _unbindOAuth(String provider) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认解绑'),
+        content: Text('确定要解绑 ${provider.toUpperCase()} 账号吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final token = ref.read(authControllerProvider).accessToken;
+      if (token == null) return;
+      await ref.read(apiClientProvider).unbindOAuthAccount(
+        accessToken: token,
+        provider: provider,
+      );
+      _loadOAuthAccounts();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已解绑')));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _showError(error.message);
+    } catch (error) {
+      if (!mounted) return;
+      _showError(error.toString());
+    }
+  }
+
+  /// 选择并上传头像
+  /// 使用文件选择器选择图片，上传到服务器后更新头像 URL
+  Future<void> _pickAndUploadAvatar() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      if (file.bytes == null) return;
+
+      setState(() => _uploadingAvatar = true);
+
+      final token = await ref.read(authControllerProvider).getValidAccessToken();
+      if (token == null) {
+        if (!mounted) return;
+        context.go('/login?from=/profile');
+        return;
+      }
+
+      final newAvatarUrl = await ref.read(apiClientProvider).uploadAvatar(
+        accessToken: token,
+        bytes: file.bytes!,
+        filename: file.name,
+      );
+
+      setState(() {
+        _avatarUrl = newAvatarUrl;
+        _uploadingAvatar = false;
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('头像已更新')),
+      );
+    } on ApiException catch (error) {
+      setState(() => _uploadingAvatar = false);
+      if (!mounted) return;
+      _showError(error.message);
+    } catch (error) {
+      setState(() => _uploadingAvatar = false);
+      if (!mounted) return;
+      _showError(error.toString());
+    }
   }
 
   /// 保存个人资料
@@ -223,7 +438,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
             nickname: _nicknameController.text.trim(),
             bio: _bioController.text.trim(),
             blogUrl: _blogUrlController.text.trim(),
-            avatarUrl: _avatarUrlController.text.trim(),
+            avatarUrl: _avatarUrl,
           );
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -275,6 +490,52 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('密码已修改')));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _showError(error.message);
+    } catch (error) {
+      if (!mounted) return;
+      _showError(error.toString());
+    } finally {
+      if (mounted) setState(() => _changingPassword = false);
+    }
+  }
+
+  /// 设置密码（用于 OAuth 用户首次设置密码）
+  /// 校验输入后调用 API 设置密码，成功后清空密码框并刷新用户信息
+  Future<void> _setPassword() async {
+    final newPassword = _newPasswordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (newPassword.length < 6) {
+      _showError('新密码至少6个字符');
+      return;
+    }
+    if (newPassword != confirmPassword) {
+      _showError('两次输入的密码不一致');
+      return;
+    }
+
+    final token = ref.read(authControllerProvider).accessToken;
+    if (token == null) return;
+
+    setState(() => _changingPassword = true);
+    try {
+      await ref
+          .read(apiClientProvider)
+          .setPassword(
+            accessToken: token,
+            newPassword: newPassword,
+          );
+      if (!mounted) return;
+      _newPasswordController.clear();
+      _confirmPasswordController.clear();
+      // 刷新用户信息以更新 hasPassword 状态
+      await ref.read(authControllerProvider).loadUser();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('密码已设置')));
     } on ApiException catch (error) {
       if (!mounted) return;
       _showError(error.message);

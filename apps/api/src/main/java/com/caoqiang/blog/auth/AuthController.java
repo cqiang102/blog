@@ -4,6 +4,7 @@ import com.caoqiang.blog.common.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,14 +32,35 @@ public class AuthController {
 
     /** 认证服务，处理具体的认证业务逻辑 */
     private final AuthService authService;
+    /** 验证码服务，处理邮箱验证码的发送和校验 */
+    private final VerificationService verificationService;
+    /** GitHub OAuth 客户端 ID */
+    private final String clientId;
+    /** 前端基础地址 */
+    private final String frontendBaseUrl;
+
+    public AuthController(
+            AuthService authService,
+            VerificationService verificationService,
+            @Value("${spring.security.oauth2.client.registration.github.client-id:}") String clientId,
+            @Value("${blog.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
+        this.authService = authService;
+        this.verificationService = verificationService;
+        this.clientId = clientId;
+        this.frontendBaseUrl = frontendBaseUrl;
+    }
 
     /**
-     * 构造函数，注入认证服务
+     * 发送邮箱验证码
+     * 向指定邮箱发送 6 位数字验证码，有效期 5 分钟，60 秒内不可重复发送。
      *
-     * @param authService 认证服务实例
+     * @param request 包含邮箱地址的请求
+     * @return 操作成功的 API 响应
      */
-    public AuthController(AuthService authService) {
-        this.authService = authService;
+    @PostMapping("/send-code")
+    public ApiResponse<Void> sendCode(@Valid @RequestBody SendCodeRequest request) {
+        verificationService.sendCode(EmailNormalizer.normalize(request.email()));
+        return ApiResponse.ok(null);
     }
 
     /**
@@ -85,10 +107,15 @@ public class AuthController {
      */
     @GetMapping("/providers")
     public ApiResponse<Map<String, Object>> providers() {
+        String callbackUrl = frontendBaseUrl + "/login/oauth2/code/github";
+        String githubLoginUrl = "https://github.com/login/oauth/authorize"
+                + "?client_id=" + clientId
+                + "&redirect_uri=" + callbackUrl
+                + "&scope=read:user,user:email";
         return ApiResponse.ok(Map.of(
                 "enabled", List.of(OAuthProvider.GITHUB),
                 "reserved", List.of(OAuthProvider.QQ),
-                "githubAuthorizationUrl", "/oauth2/authorization/github"
+                "githubLoginUrl", githubLoginUrl
         ));
     }
 }
