@@ -17,7 +17,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -27,6 +26,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import reactor.core.scheduler.Schedulers;
 
 /**
  * AI 聊天核心服务。
@@ -214,6 +215,7 @@ public class AiChatService {
                             }
                         })
                         .doOnError(e -> sendError(emitter, "AI 服务暂时不可用: " + e.getMessage()))
+                        .publishOn(Schedulers.boundedElastic())
                         .doOnComplete(() -> {
                             // AI 调用成功后再扣减配额
                             try {
@@ -323,7 +325,7 @@ public class AiChatService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "AI 会话不存在"));
 
         int safePage = Math.max(0, page);
-        int safeSize = Math.max(1, Math.min(size, 50));
+        int safeSize = Math.clamp(size, 1, 50);
         PageRequest pageRequest = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.ASC, "createdAt"));
 
         Page<AiChatMessage> messagePage = messageRepository.findBySessionIdOrderByCreatedAtAsc(session.getId(), pageRequest);
