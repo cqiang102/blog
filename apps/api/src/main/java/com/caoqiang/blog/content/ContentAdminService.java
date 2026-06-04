@@ -131,6 +131,7 @@ public class ContentAdminService {
         Content saved = contentRepository.save(content);
 
         // 处理媒体资源
+        MediaAsset firstMediaAsset = null;
         if (request.mediaUrls() != null && !request.mediaUrls().isEmpty()) {
             for (String url : request.mediaUrls()) {
                 if (StringUtils.hasText(url)) {
@@ -147,9 +148,25 @@ public class ContentAdminService {
                             null,
                             null
                     );
-                    mediaAssetRepository.save(mediaAsset);
+                    MediaAsset savedMedia = mediaAssetRepository.save(mediaAsset);
+                    if (firstMediaAsset == null) {
+                        firstMediaAsset = savedMedia;
+                    }
                 }
             }
+        }
+
+        // 设置封面
+        if (StringUtils.hasText(request.coverUrl()) && firstMediaAsset != null) {
+            // 查找匹配的媒体资源作为封面
+            MediaAsset coverMedia = saved.getMediaAssets().stream()
+                    .filter(ma -> request.coverUrl().equals(ma.getPublicUrl()))
+                    .findFirst()
+                    .orElse(firstMediaAsset);
+            saved.setCoverMedia(coverMedia);
+        } else if (firstMediaAsset != null) {
+            // 默认使用第一个媒体作为封面
+            saved.setCoverMedia(firstMediaAsset);
         }
 
         // 发布状态的内容自动索引到向量数据库
@@ -210,6 +227,7 @@ public class ContentAdminService {
             mediaAssetRepository.deleteAll(oldMediaAssets);
 
             // 添加新的媒体资源
+            MediaAsset firstMediaAsset = null;
             for (String url : request.mediaUrls()) {
                 if (StringUtils.hasText(url)) {
                     MediaAsset mediaAsset = new MediaAsset(
@@ -225,8 +243,26 @@ public class ContentAdminService {
                             null,
                             null
                     );
-                    mediaAssetRepository.save(mediaAsset);
+                    MediaAsset savedMedia = mediaAssetRepository.save(mediaAsset);
+                    if (firstMediaAsset == null) {
+                        firstMediaAsset = savedMedia;
+                    }
                 }
+            }
+
+            // 设置封面
+            if (StringUtils.hasText(request.coverUrl())) {
+                // 查找匹配的媒体资源作为封面
+                MediaAsset coverMedia = content.getMediaAssets().stream()
+                        .filter(ma -> request.coverUrl().equals(ma.getPublicUrl()))
+                        .findFirst()
+                        .orElse(firstMediaAsset);
+                content.setCoverMedia(coverMedia);
+            } else if (firstMediaAsset != null) {
+                // 默认使用第一个媒体作为封面
+                content.setCoverMedia(firstMediaAsset);
+            } else {
+                content.setCoverMedia(null);
             }
         }
 

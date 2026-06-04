@@ -1624,6 +1624,7 @@ class AdminContentDraft {
     required this.pinned,
     required this.tagSlugs,
     this.mediaUrls = const [],
+    this.coverUrl,
   });
 
   final String title; // 标题
@@ -1635,6 +1636,7 @@ class AdminContentDraft {
   final bool pinned; // 是否置顶
   final List<String> tagSlugs; // 标签 slug 列表
   final List<String> mediaUrls; // 媒体 URL 列表
+  final String? coverUrl; // 封面 URL
 
   /// 从 AdminContentItem 创建草稿
   factory AdminContentDraft.fromItem(AdminContentItem item) {
@@ -1648,6 +1650,7 @@ class AdminContentDraft {
       pinned: item.pinned,
       tagSlugs: item.tags.map((tag) => tag.slug).toList(),
       mediaUrls: item.mediaUrls,
+      coverUrl: item.coverUrl,
     );
   }
 
@@ -1663,6 +1666,7 @@ class AdminContentDraft {
       'pinned': pinned,
       'tagSlugs': tagSlugs,
       'mediaUrls': mediaUrls,
+      if (coverUrl != null) 'coverUrl': coverUrl,
     };
   }
 }

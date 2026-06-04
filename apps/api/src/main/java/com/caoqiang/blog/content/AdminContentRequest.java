@@ -40,6 +40,8 @@ public record AdminContentRequest(
         /** 关联标签的 slug 列表 */
         List<String> tagSlugs,
         /** 媒体资源 URL 列表 */
-        List<String> mediaUrls
+        List<String> mediaUrls,
+        /** 封面图 URL */
+        String coverUrl
 ) {
 }
