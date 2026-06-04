@@ -564,6 +564,7 @@ class UserProfile {
     this.avatarUrl,
     this.bio,
     this.blogUrl,
+    this.hasPassword = false,
   });
 
   final String id; // 用户 ID
@@ -573,6 +574,7 @@ class UserProfile {
   final String? avatarUrl; // 头像 URL
   final String? bio; // 个人简介
   final String? blogUrl; // 博客链接
+  final bool hasPassword; // 是否已设置密码
 
   /// 从 JSON 创建实例
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -584,6 +586,7 @@ class UserProfile {
       avatarUrl: _nullableString(json['avatarUrl']),
       bio: _nullableString(json['bio']),
       blogUrl: _nullableString(json['blogUrl']),
+      hasPassword: json['hasPassword'] == true,
     );
   }
 
@@ -1220,6 +1223,27 @@ class AuthSession {
   }
 }
 
+/// OAuth 账户绑定信息模型
+class OAuthAccountInfo {
+  const OAuthAccountInfo({
+    required this.provider,
+    required this.providerUsername,
+    required this.createdAt,
+  });
+
+  final String provider; // OAuth 提供者名称（如 GITHUB）
+  final String providerUsername; // 第三方平台用户名
+  final DateTime createdAt; // 绑定时间
+
+  factory OAuthAccountInfo.fromJson(Map<String, dynamic> json) {
+    return OAuthAccountInfo(
+      provider: _string(json['provider']),
+      providerUsername: _string(json['providerUsername']),
+      createdAt: _date(json['createdAt']),
+    );
+  }
+}
+
 /// 友情链接模型
 class FriendLink {
   const FriendLink({
@@ -1421,6 +1445,7 @@ class AdminContentItem {
     required this.coverMediaId,
     required this.coverUrl,
     required this.mediaCount,
+    required this.mediaUrls,
     required this.likeCount,
     required this.viewCount,
     required this.commentCount,
@@ -1439,6 +1464,7 @@ class AdminContentItem {
   final String coverMediaId; // 封面媒体 ID
   final String coverUrl; // 封面 URL
   final int mediaCount; // 媒体数量
+  final List<String> mediaUrls; // 媒体 URL 列表
   final int likeCount; // 点赞数
   final int viewCount; // 浏览数
   final int commentCount; // 评论数
@@ -1462,6 +1488,7 @@ class AdminContentItem {
       coverMediaId: _string(json['coverMediaId']),
       coverUrl: _string(json['coverUrl']),
       mediaCount: _int(json['mediaCount']),
+      mediaUrls: _stringList(json['mediaUrls']),
       likeCount: _int(json['likeCount']),
       viewCount: _int(json['viewCount']),
       commentCount: _int(json['commentCount']),
@@ -1596,6 +1623,7 @@ class AdminContentDraft {
     required this.bodyMarkdown,
     required this.pinned,
     required this.tagSlugs,
+    this.mediaUrls = const [],
   });
 
   final String title; // 标题
@@ -1606,6 +1634,7 @@ class AdminContentDraft {
   final String bodyMarkdown; // Markdown 内容
   final bool pinned; // 是否置顶
   final List<String> tagSlugs; // 标签 slug 列表
+  final List<String> mediaUrls; // 媒体 URL 列表
 
   /// 从 AdminContentItem 创建草稿
   factory AdminContentDraft.fromItem(AdminContentItem item) {
@@ -1618,6 +1647,7 @@ class AdminContentDraft {
       bodyMarkdown: item.bodyMarkdown,
       pinned: item.pinned,
       tagSlugs: item.tags.map((tag) => tag.slug).toList(),
+      mediaUrls: item.mediaUrls,
     );
   }
 
@@ -1632,6 +1662,7 @@ class AdminContentDraft {
       'bodyMarkdown': bodyMarkdown.trim(),
       'pinned': pinned,
       'tagSlugs': tagSlugs,
+      'mediaUrls': mediaUrls,
     };
   }
 }

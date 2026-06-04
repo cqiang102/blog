@@ -35,6 +35,8 @@ public record AdminContentResponse(
         String coverUrl,
         /** 关联媒体资源数量 */
         int mediaCount,
+        /** 媒体资源 URL 列表 */
+        List<String> mediaUrls,
         /** 点赞数 */
         long likeCount,
         /** 浏览数 */
@@ -66,6 +68,10 @@ public record AdminContentResponse(
                 content.getCoverMedia() == null ? null : content.getCoverMedia().getId(),
                 coverUrl(content),
                 content.getMediaAssets().size(),
+                content.getMediaAssets().stream()
+                        .map(MediaAsset::getPublicUrl)
+                        .filter(url -> url != null && !url.isEmpty())
+                        .toList(),
                 content.getLikeCount(),
                 content.getViewCount(),
                 content.getCommentCount(),

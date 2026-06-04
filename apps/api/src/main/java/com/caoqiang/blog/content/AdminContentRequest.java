@@ -38,6 +38,8 @@ public record AdminContentRequest(
         /** 发布时间（可选，发布状态时未指定则默认当前时间） */
         Instant publishedAt,
         /** 关联标签的 slug 列表 */
-        List<String> tagSlugs
+        List<String> tagSlugs,
+        /** 媒体资源 URL 列表 */
+        List<String> mediaUrls
 ) {
 }

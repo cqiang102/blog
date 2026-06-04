@@ -45,6 +45,7 @@ public class ContentAdminService {
 
     private final ContentRepository contentRepository;
     private final TagRepository tagRepository;
+    private final MediaAssetRepository mediaAssetRepository;
 
     /** AI 知识库索引服务，用于内容发布后同步向量数据库 */
     private final KnowledgeIndexService knowledgeIndexService;
@@ -52,10 +53,12 @@ public class ContentAdminService {
     public ContentAdminService(
             ContentRepository contentRepository,
             TagRepository tagRepository,
+            MediaAssetRepository mediaAssetRepository,
             KnowledgeIndexService knowledgeIndexService
     ) {
         this.contentRepository = contentRepository;
         this.tagRepository = tagRepository;
+        this.mediaAssetRepository = mediaAssetRepository;
         this.knowledgeIndexService = knowledgeIndexService;
     }
 
@@ -127,6 +130,28 @@ public class ContentAdminService {
         );
         Content saved = contentRepository.save(content);
 
+        // 处理媒体资源
+        if (request.mediaUrls() != null && !request.mediaUrls().isEmpty()) {
+            for (String url : request.mediaUrls()) {
+                if (StringUtils.hasText(url)) {
+                    MediaAsset mediaAsset = new MediaAsset(
+                            saved,
+                            request.type() == ContentType.VIDEO ? MediaAssetType.VIDEO : MediaAssetType.IMAGE,
+                            "external",
+                            "external/" + UUID.randomUUID(),
+                            url.trim(),
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null
+                    );
+                    mediaAssetRepository.save(mediaAsset);
+                }
+            }
+        }
+
         // 发布状态的内容自动索引到向量数据库
         if (saved.getStatus() == ContentStatus.PUBLISHED) {
             try {
@@ -175,6 +200,35 @@ public class ContentAdminService {
                 publishedAt(request),
                 tags(request.tagSlugs())
         );
+
+        // 处理媒体资源：删除旧的外链媒体，添加新的
+        if (request.mediaUrls() != null) {
+            // 删除旧的外链媒体
+            List<MediaAsset> oldMediaAssets = content.getMediaAssets().stream()
+                    .filter(ma -> "external".equals(ma.getBucket()))
+                    .toList();
+            mediaAssetRepository.deleteAll(oldMediaAssets);
+
+            // 添加新的媒体资源
+            for (String url : request.mediaUrls()) {
+                if (StringUtils.hasText(url)) {
+                    MediaAsset mediaAsset = new MediaAsset(
+                            content,
+                            request.type() == ContentType.VIDEO ? MediaAssetType.VIDEO : MediaAssetType.IMAGE,
+                            "external",
+                            "external/" + UUID.randomUUID(),
+                            url.trim(),
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null
+                    );
+                    mediaAssetRepository.save(mediaAsset);
+                }
+            }
+        }
 
         // 发布状态的内容更新后重新索引
         if (content.getStatus() == ContentStatus.PUBLISHED) {
