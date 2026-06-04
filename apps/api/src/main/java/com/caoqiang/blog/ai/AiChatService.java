@@ -228,7 +228,13 @@ public class AiChatService {
                                 log.error("Failed to update quota after successful AI call", e);
                             }
 
-                            messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, fullAnswer.toString()));
+                            try {
+                                messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, fullAnswer.toString()));
+                            } catch (Exception e) {
+                                log.error("Failed to save AI chat message", e);
+                            }
+
+                            // 确保总是发送 done 事件并关闭 emitter
                             try {
                                 int remainingQuota = Math.max(0, dailyLimit - getCachedQuotaCount(user.getId()));
                                 emitter.send(SseEmitter.event()
@@ -239,8 +245,13 @@ public class AiChatService {
                                                 remainingQuota,
                                                 (int) (MAX_MESSAGES_PER_SESSION - messageCount - 2)
                                         )));
-                                emitter.complete();
-                            } catch (Exception ignored) {
+                            } catch (Exception e) {
+                                log.error("Failed to send done event", e);
+                            } finally {
+                                try {
+                                    emitter.complete();
+                                } catch (Exception ignored) {
+                                }
                             }
                         })
                         .subscribe();
