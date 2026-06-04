@@ -188,13 +188,29 @@ class ContentEditorController extends Notifier<ContentEditorState> {
   }
 
   /// 上传媒体文件
-  Future<String?> uploadMedia() async {
+  /// [forceImage] 为 true 时强制选择图片（用于 Markdown 插入图片）
+  Future<String?> uploadMedia({bool forceImage = false}) async {
     try {
       state = state.copyWith(isUploading: true);
 
+      // 根据情况决定文件类型过滤
+      // 1. 强制图片模式（插入图片按钮）
+      // 2. 图片类型内容
+      // 3. 视频类型内容
+      final FileType fileType;
+      if (forceImage || state.type == ContentType.image) {
+        fileType = FileType.image;
+      } else if (state.type == ContentType.video) {
+        fileType = FileType.video;
+      } else {
+        // article/text 类型，允许选择图片
+        fileType = FileType.image;
+      }
+
       final result = await FilePicker.pickFiles(
-        type: state.type == ContentType.image ? FileType.image : FileType.video,
+        type: fileType,
         withData: true,
+        allowMultiple: false,
       );
 
       if (result == null || result.files.isEmpty) {
@@ -214,9 +230,8 @@ class ContentEditorController extends Notifier<ContentEditorState> {
         return '请先登录';
       }
 
-      final mediaType = state.type == ContentType.image
-          ? MediaAssetType.image
-          : MediaAssetType.video;
+      // 根据文件扩展名判断媒体类型
+      final mediaType = _inferMediaType(file.name);
 
       final media = await ref.read(apiClientProvider).uploadAdminMedia(
             accessToken: token,
@@ -238,6 +253,17 @@ class ContentEditorController extends Notifier<ContentEditorState> {
       state = state.copyWith(isUploading: false);
       return _getErrorMessage(e);
     }
+  }
+
+  /// 根据文件名推断媒体类型
+  MediaAssetType _inferMediaType(String filename) {
+    final lower = filename.toLowerCase();
+    if (lower.endsWith('.mp4') ||
+        lower.endsWith('.webm') ||
+        lower.endsWith('.mov')) {
+      return MediaAssetType.video;
+    }
+    return MediaAssetType.image;
   }
 
   /// 删除媒体

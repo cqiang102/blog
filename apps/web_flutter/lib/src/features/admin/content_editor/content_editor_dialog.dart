@@ -556,7 +556,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
           mediaUrls: state.mediaUrls,
           onUploadNew: () async {
             Navigator.of(context).pop();
-            await _uploadMedia();
+            await _uploadMedia(forceImage: true);
             // 上传后重新显示选择器
             if (mounted) {
               _showImagePicker();
@@ -570,7 +570,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
       }
     } else {
       // 没有已上传的媒体，直接上传
-      await _uploadMedia();
+      await _uploadMedia(forceImage: true);
       // 上传后自动插入
       if (mounted) {
         final updatedState = _getState();
@@ -585,9 +585,10 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   }
 
   /// 上传媒体文件
-  Future<void> _uploadMedia() async {
+  /// [forceImage] 为 true 时强制选择图片（用于 Markdown 插入图片）
+  Future<void> _uploadMedia({bool forceImage = false}) async {
     final controller = _getController();
-    final error = await controller.uploadMedia();
+    final error = await controller.uploadMedia(forceImage: forceImage);
 
     if (error != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
