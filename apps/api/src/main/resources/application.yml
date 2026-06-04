@@ -43,7 +43,7 @@ spring:
       chat:
         model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
         options:
-          max-tokens: ${OPENAI_MAX_TOKENS:4096}
+          max-tokens: ${OPENAI_MAX_TOKENS:131072}
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       embedding:
