@@ -31,12 +31,12 @@ enum ContentType {
   }
 
   /// 从 API 字符串值转换为枚举
-   /// TEXT 和 ARTICLE 都映射为 markdown
   static ContentType fromApi(String? value) {
     return switch (value?.toUpperCase()) {
+      'ARTICLE' => ContentType.markdown,
       'IMAGE' => ContentType.image,
       'VIDEO' => ContentType.video,
-      _ => ContentType.markdown, // TEXT、ARTICLE 或其他值都映射为 markdown
+      _ => ContentType.markdown,
     };
   }
 }
