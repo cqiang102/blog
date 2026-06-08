@@ -12,7 +12,7 @@ import com.caoqiang.blog.friend.FriendRepository;
 import com.caoqiang.blog.interaction.repository.CommentRepository;
 import com.caoqiang.blog.interaction.repository.LikeRepository;
 import com.caoqiang.blog.interaction.repository.ViewRecordRepository;
-import com.caoqiang.blog.user.UserRepository;
+import com.caoqiang.blog.user.repository.UserRepository;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;

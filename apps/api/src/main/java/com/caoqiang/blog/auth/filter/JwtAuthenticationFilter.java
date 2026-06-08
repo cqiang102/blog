@@ -7,7 +7,7 @@ import com.caoqiang.blog.auth.service.JwtService;
 import com.caoqiang.blog.auth.service.RefreshTokenService;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.user.UserRepository;
+import com.caoqiang.blog.user.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

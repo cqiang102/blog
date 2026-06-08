@@ -15,7 +15,7 @@ import com.caoqiang.blog.content.entity.Content;
 import com.caoqiang.blog.content.repository.ContentRepository;
 import com.caoqiang.blog.content.entity.ContentStatus;
 import com.caoqiang.blog.content.entity.ContentType;
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;

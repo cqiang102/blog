@@ -4,7 +4,7 @@ import com.caoqiang.blog.auth.entity.RefreshToken;
 import com.caoqiang.blog.auth.repository.RefreshTokenRepository;
 
 import com.caoqiang.blog.config.BlogProperties;
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;

@@ -1,4 +1,4 @@
-package com.caoqiang.blog.user;
+package com.caoqiang.blog.user.entity;
 
 import com.caoqiang.blog.shared.model.Role;
 import jakarta.persistence.Column;

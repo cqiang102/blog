@@ -1,4 +1,4 @@
-package com.caoqiang.blog.user;
+package com.caoqiang.blog.user.entity;
 
 /**
  * 用户状态枚举

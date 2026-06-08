@@ -1,4 +1,7 @@
-package com.caoqiang.blog.user;
+package com.caoqiang.blog.user.dto;
+
+import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.user.entity.UserStatus;
 
 import com.caoqiang.blog.auth.entity.OAuthAccount;
 import java.time.Instant;

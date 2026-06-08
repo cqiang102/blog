@@ -3,8 +3,8 @@ package com.caoqiang.blog.auth.init;
 import com.caoqiang.blog.auth.service.EmailNormalizer;
 
 import com.caoqiang.blog.config.BlogProperties;
-import com.caoqiang.blog.user.User;
-import com.caoqiang.blog.user.UserRepository;
+import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.user.repository.UserRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;

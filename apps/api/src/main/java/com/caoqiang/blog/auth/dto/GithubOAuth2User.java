@@ -1,6 +1,6 @@
 package com.caoqiang.blog.auth.dto;
 
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import java.util.Collection;
 import java.util.Map;
 import org.springframework.security.core.GrantedAuthority;

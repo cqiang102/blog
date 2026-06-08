@@ -1,6 +1,6 @@
 package com.caoqiang.blog.auth.entity;
 
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

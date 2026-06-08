@@ -13,7 +13,7 @@ import com.caoqiang.blog.ai.chat.repository.AiChatSessionRepository;
 import com.caoqiang.blog.ai.chat.repository.AiChatMessageRepository;
 import com.caoqiang.blog.ai.chat.service.AiChatAdminService;
 import com.caoqiang.blog.shared.exception.BusinessException;
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

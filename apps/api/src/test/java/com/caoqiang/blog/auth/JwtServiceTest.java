@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;

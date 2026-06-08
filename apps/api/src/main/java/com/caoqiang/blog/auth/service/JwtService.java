@@ -4,7 +4,7 @@ import com.caoqiang.blog.auth.dto.JwtClaims;
 
 import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;

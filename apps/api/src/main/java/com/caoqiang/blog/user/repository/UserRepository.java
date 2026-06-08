@@ -1,4 +1,7 @@
-package com.caoqiang.blog.user;
+package com.caoqiang.blog.user.repository;
+
+import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.user.entity.UserStatus;
 
 import java.util.Optional;
 import java.util.UUID;

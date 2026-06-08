@@ -15,9 +15,9 @@ import com.caoqiang.blog.auth.repository.RefreshTokenRepository;
 import com.caoqiang.blog.auth.repository.VerificationCodeRepository;
 
 import com.caoqiang.blog.shared.exception.BusinessException;
-import com.caoqiang.blog.user.User;
-import com.caoqiang.blog.user.UserProfileResponse;
-import com.caoqiang.blog.user.UserRepository;
+import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.user.dto.UserProfileResponse;
+import com.caoqiang.blog.user.repository.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;

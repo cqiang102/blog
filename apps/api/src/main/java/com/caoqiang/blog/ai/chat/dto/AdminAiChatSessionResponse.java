@@ -2,7 +2,7 @@ package com.caoqiang.blog.ai.chat.dto;
 
 import com.caoqiang.blog.ai.chat.entity.AiChatMessage;
 import com.caoqiang.blog.ai.chat.entity.AiChatSession;
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import java.time.Instant;
 import java.util.UUID;
 

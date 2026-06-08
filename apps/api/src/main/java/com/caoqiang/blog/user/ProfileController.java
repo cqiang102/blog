@@ -1,5 +1,15 @@
 package com.caoqiang.blog.user;
 
+import com.caoqiang.blog.user.dto.ChangePasswordRequest;
+import com.caoqiang.blog.user.dto.OAuthAccountResponse;
+import com.caoqiang.blog.user.dto.SetPasswordRequest;
+import com.caoqiang.blog.user.dto.UpdateProfileRequest;
+import com.caoqiang.blog.user.dto.UserProfileResponse;
+import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.user.entity.UserStatus;
+import com.caoqiang.blog.user.repository.UserRepository;
+import com.caoqiang.blog.user.service.ProfileService;
+
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.auth.enums.OAuthProvider;
 import com.caoqiang.blog.shared.response.ApiResponse;

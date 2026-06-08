@@ -1,4 +1,15 @@
-package com.caoqiang.blog.user;
+package com.caoqiang.blog.user.service;
+
+import com.caoqiang.blog.user.dto.AdminUserRequest;
+import com.caoqiang.blog.user.dto.AdminUserResponse;
+import com.caoqiang.blog.user.dto.ChangePasswordRequest;
+import com.caoqiang.blog.user.dto.OAuthAccountResponse;
+import com.caoqiang.blog.user.dto.SetPasswordRequest;
+import com.caoqiang.blog.user.dto.UpdateProfileRequest;
+import com.caoqiang.blog.user.dto.UserProfileResponse;
+import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.user.entity.UserStatus;
+import com.caoqiang.blog.user.repository.UserRepository;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.auth.service.EmailNormalizer;

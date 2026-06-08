@@ -1,7 +1,7 @@
 package com.caoqiang.blog.audit;
 
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;

@@ -2,7 +2,7 @@ package com.caoqiang.blog.auth.entity;
 
 import com.caoqiang.blog.auth.enums.OAuthProvider;
 
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

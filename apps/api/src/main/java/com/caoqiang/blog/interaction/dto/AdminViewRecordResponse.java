@@ -5,7 +5,7 @@ import com.caoqiang.blog.interaction.entity.CommentStatus;
 import com.caoqiang.blog.interaction.entity.Like;
 import com.caoqiang.blog.interaction.entity.ViewRecord;
 
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import java.time.Instant;
 import java.util.UUID;
 

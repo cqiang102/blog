@@ -5,7 +5,7 @@ import com.caoqiang.blog.auth.dto.AuthTokenResponse;
 import com.caoqiang.blog.auth.service.JwtService;
 import com.caoqiang.blog.auth.service.RefreshTokenService;
 
-import com.caoqiang.blog.user.User;
+import com.caoqiang.blog.user.entity.User;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

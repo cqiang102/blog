@@ -1,6 +1,6 @@
 package com.caoqiang.blog.auth.dto;
 
-import com.caoqiang.blog.user.UserProfileResponse;
+import com.caoqiang.blog.user.dto.UserProfileResponse;
 import java.time.Instant;
 
 /**

@@ -1,8 +1,8 @@
 package com.caoqiang.blog.audit;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.user.User;
-import com.caoqiang.blog.user.UserRepository;
+import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.user.repository.UserRepository;
 import java.util.UUID;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
