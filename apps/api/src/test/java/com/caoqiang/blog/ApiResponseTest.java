@@ -1,6 +1,6 @@
 package com.caoqiang.blog;
 
-import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.shared.response.ApiResponse;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

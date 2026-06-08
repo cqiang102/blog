@@ -10,7 +10,6 @@ import 'package:intl/intl.dart';
 import '../../core/api_providers.dart';
 import '../../core/constants.dart';
 import '../../core/models.dart';
-import '../../core/pagination_state.dart';
 import '../../core/theme.dart';
 
 /// 内容列表页 Widget
@@ -23,9 +22,14 @@ class ContentListPage extends ConsumerStatefulWidget {
 }
 
 /// 内容列表页状态管理
-class _ContentListPageState extends ConsumerState<ContentListPage> {
+/// 添加 AutomaticKeepAliveClientMixin 保持页面状态，避免切换标签时重建
+class _ContentListPageState extends ConsumerState<ContentListPage>
+    with AutomaticKeepAliveClientMixin {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -78,6 +82,7 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final filter = ref.watch(contentFilterProvider);
     final pagination = ref.watch(contentPaginationProvider(filter.toQuery()));
 
@@ -85,101 +90,105 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
       controller: _scrollController,
       slivers: [
         const SliverAppBar(title: Text('全部内容')),
-        SliverPadding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          sliver: SliverList.list(
-            children: [
-              // 搜索框
-              _SearchBar(
-                controller: _searchController,
-                onSearch: () {
-                  ref
-                      .read(contentFilterProvider.notifier)
-                      .updateQuery(_searchController.text.trim());
-                  _resetAndLoad();
-                },
-              ),
-              const SizedBox(height: AppSpacing.md),
 
-              // 类型过滤器
-              _TypeFilter(
-                selectedType: filter.type,
-                onTypeChanged: (type) {
-                  ref.read(contentFilterProvider.notifier).updateType(type);
-                  _resetAndLoad();
-                },
-              ),
-              const SizedBox(height: AppSpacing.sm + 4),
-
-              // 标签过滤器
-              _TagFilter(
-                selectedTag: filter.tag,
-                onTagChanged: (tag) {
-                  ref.read(contentFilterProvider.notifier).updateTag(tag);
-                  _resetAndLoad();
-                },
-              ),
-              const SizedBox(height: AppSpacing.sm + 4),
-
-              // 日期过滤器
-              _DateFilter(
-                startDate: filter.startDate,
-                endDate: filter.endDate,
-                onStartDateChanged: (date) {
-                  ref
-                      .read(contentFilterProvider.notifier)
-                      .updateStartDate(date);
-                  _resetAndLoad();
-                },
-                onEndDateChanged: (date) {
-                  ref.read(contentFilterProvider.notifier).updateEndDate(date);
-                  _resetAndLoad();
-                },
-                onClear: () {
-                  ref.read(contentFilterProvider.notifier).clearDates();
-                  _resetAndLoad();
-                },
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              // 内容列表
-              _buildContentList(pagination),
-            ],
+        // 搜索框和过滤器（固定区域）
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              children: [
+                _SearchBar(
+                  controller: _searchController,
+                  onSearch: () {
+                    ref
+                        .read(contentFilterProvider.notifier)
+                        .updateQuery(_searchController.text.trim());
+                    _resetAndLoad();
+                  },
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _TypeFilter(
+                  selectedType: filter.type,
+                  onTypeChanged: (type) {
+                    ref.read(contentFilterProvider.notifier).updateType(type);
+                    _resetAndLoad();
+                  },
+                ),
+                const SizedBox(height: AppSpacing.sm + 4),
+                _TagFilter(
+                  selectedTag: filter.tag,
+                  onTagChanged: (tag) {
+                    ref.read(contentFilterProvider.notifier).updateTag(tag);
+                    _resetAndLoad();
+                  },
+                ),
+                const SizedBox(height: AppSpacing.sm + 4),
+                _DateFilter(
+                  startDate: filter.startDate,
+                  endDate: filter.endDate,
+                  onStartDateChanged: (date) {
+                    ref
+                        .read(contentFilterProvider.notifier)
+                        .updateStartDate(date);
+                    _resetAndLoad();
+                  },
+                  onEndDateChanged: (date) {
+                    ref.read(contentFilterProvider.notifier).updateEndDate(date);
+                    _resetAndLoad();
+                  },
+                  onClear: () {
+                    ref.read(contentFilterProvider.notifier).clearDates();
+                    _resetAndLoad();
+                  },
+                ),
+              ],
+            ),
           ),
         ),
-      ],
-    );
-  }
 
-  /// 构建内容列表
-  Widget _buildContentList(PaginationState<BlogContent> pagination) {
-    if (pagination.items.isEmpty && pagination.isLoading) {
-      return const _LoadingState();
-    }
-
-    if (pagination.error != null && pagination.items.isEmpty) {
-      return _ErrorState(
-        message: pagination.error!,
-        onRetry: _resetAndLoad,
-      );
-    }
-
-    if (pagination.items.isEmpty) {
-      return const _EmptyState();
-    }
-
-    return Column(
-      children: [
-        for (final item in pagination.items) ...[
-          _ContentRow(
-            key: ValueKey(item.id),
-            content: item,
+        // 内容列表（虚拟化渲染）
+        if (pagination.items.isEmpty && pagination.isLoading)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: _LoadingState(),
+          )
+        else if (pagination.error != null && pagination.items.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _ErrorState(
+              message: pagination.error!,
+              onRetry: _resetAndLoad,
+            ),
+          )
+        else if (pagination.items.isEmpty)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: _EmptyState(),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            sliver: SliverList.builder(
+              itemCount: pagination.items.length +
+                  (pagination.isLoading ? 1 : 0) +
+                  (!pagination.hasMore && pagination.items.isNotEmpty ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index < pagination.items.length) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm + 4),
+                    child: _ContentRow(
+                      key: ValueKey(pagination.items[index].id),
+                      content: pagination.items[index],
+                    ),
+                  );
+                } else if (pagination.isLoading) {
+                  return const _LoadingIndicator();
+                } else {
+                  return const _NoMoreContent();
+                }
+              },
+            ),
           ),
-          const SizedBox(height: AppSpacing.sm + 4),
-        ],
-        if (pagination.isLoading) const _LoadingIndicator(),
-        if (!pagination.hasMore && pagination.items.isNotEmpty)
-          const _NoMoreContent(),
       ],
     );
   }

@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.auth.AuthenticatedUser;
-import com.caoqiang.blog.auth.Role;
-import com.caoqiang.blog.common.BusinessException;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

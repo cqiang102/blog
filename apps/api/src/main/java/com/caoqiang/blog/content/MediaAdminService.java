@@ -1,7 +1,7 @@
 package com.caoqiang.blog.content;
 
-import com.caoqiang.blog.common.BusinessException;
-import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.response.PageResponse;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;

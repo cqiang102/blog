@@ -247,9 +247,9 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       if (!mounted) return;
 
       final chatState = ref.read(aiChatProvider);
-      showModalBottomSheet(
+      showDialog(
         context: context,
-        builder: (context) => _SessionListSheet(
+        builder: (context) => _SessionListDialog(
           sessions: sessions,
           currentSessionId: chatState.sessionId,
           onSelect: (session) {
@@ -259,6 +259,21 @@ class _AboutPageState extends ConsumerState<AboutPage> {
           onCreateNew: () {
             Navigator.of(context).pop();
             _createNewSession();
+          },
+          onDelete: (session) async {
+            try {
+              await ref.read(apiClientProvider).deleteAiSession(
+                    accessToken: token,
+                    sessionId: session.id,
+                  );
+              if (!mounted) return;
+              // 如果删除的是当前会话，重置聊天状态
+              if (chatState.sessionId == session.id) {
+                ref.read(aiChatProvider.notifier).reset();
+              }
+            } on ApiException catch (error) {
+              _showError(error.message);
+            }
           },
         ),
       );
@@ -506,95 +521,153 @@ class _ChatInputBar extends StatelessWidget {
 }
 
 // ============================================================================
-// 会话列表弹出面板
+// 会话列表弹窗组件
 // ============================================================================
 
-class _SessionListSheet extends StatelessWidget {
-  const _SessionListSheet({
+class _SessionListDialog extends StatefulWidget {
+  const _SessionListDialog({
     required this.sessions,
     required this.currentSessionId,
     required this.onSelect,
     required this.onCreateNew,
+    required this.onDelete,
   });
 
   final List<AiSessionItem> sessions;
   final String? currentSessionId;
   final ValueChanged<AiSessionItem> onSelect;
   final VoidCallback onCreateNew;
+  final Future<void> Function(AiSessionItem) onDelete;
+
+  @override
+  State<_SessionListDialog> createState() => _SessionListDialogState();
+}
+
+class _SessionListDialogState extends State<_SessionListDialog> {
+  late List<AiSessionItem> _sessions;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessions = List.of(widget.sessions);
+  }
+
+  Future<void> _deleteSession(AiSessionItem session) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除会话'),
+        content: Text('确定删除会话"${session.title}"吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await widget.onDelete(session);
+    if (mounted) {
+      setState(() {
+        _sessions.removeWhere((s) => s.id == session.id);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 标题栏
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              children: [
-                Text(
-                  '历史会话',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final dialogWidth = screenWidth < 480 ? screenWidth * 0.9 : 400.0;
+
+    return Dialog(
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: dialogWidth,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 标题栏
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  Text(
+                    '历史会话',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: widget.onCreateNew,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('新建会话'),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+
+            // 会话列表
+            if (_sessions.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Text(
+                  '暂无历史会话',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                 ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: onCreateNew,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('新建会话'),
+              )
+            else
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.6,
                 ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _sessions.length,
+                  itemBuilder: (context, index) {
+                    final session = _sessions[index];
+                    final isCurrent = session.id == widget.currentSessionId;
+                    final date =
+                        DateFormat('MM-dd HH:mm').format(session.updatedAt);
 
-          // 会话列表
-          if (sessions.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Text(
-                '暂无历史会话',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                    return ListTile(
+                      leading: Icon(
+                        isCurrent
+                            ? Icons.chat_bubble
+                            : Icons.chat_bubble_outline,
+                        color: isCurrent
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                      title: Text(
+                        session.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle:
+                          Text('${session.messageCount} 条消息 · $date'),
+                      selected: isCurrent,
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        onPressed: () => _deleteSession(session),
+                      ),
+                      onTap: () => widget.onSelect(session),
+                    );
+                  },
+                ),
               ),
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 400),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: sessions.length,
-                itemBuilder: (context, index) {
-                  final session = sessions[index];
-                  final isCurrent = session.id == currentSessionId;
-                  final date =
-                      DateFormat('MM-dd HH:mm').format(session.updatedAt);
-
-                  return ListTile(
-                    leading: Icon(
-                      isCurrent
-                          ? Icons.chat_bubble
-                          : Icons.chat_bubble_outline,
-                      color: isCurrent
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    title: Text(
-                      session.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text('${session.messageCount} 条消息 · $date'),
-                    selected: isCurrent,
-                    onTap: () => onSelect(session),
-                  );
-                },
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

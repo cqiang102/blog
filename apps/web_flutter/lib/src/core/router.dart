@@ -54,40 +54,56 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null; // 无需重定向
     },
     routes: [
-      ShellRoute(
-        builder: (context, state, child) => BlogShell(child: child),
-        routes: [
-          GoRoute(path: '/', builder: (context, state) => const HomePage()),
-          GoRoute(
-            path: '/contents',
-            builder: (context, state) => const ContentListPage(),
-          ),
-          GoRoute(
-            path: '/contents/:id',
-            builder:
-                (context, state) =>
-                    ContentDetailPage(id: state.pathParameters['id']!),
-          ),
-          GoRoute(
-            path: '/friends',
-            builder: (context, state) => const FriendsPage(),
-          ),
-          GoRoute(
-            path: '/about',
-            builder: (context, state) => const AboutPage(),
-          ),
-          GoRoute(
-            path: '/login',
-            builder: (context, state) => const AuthPage(),
-          ),
-          GoRoute(
-            path: '/profile',
-            builder: (context, state) => const ProfilePage(),
-          ),
-          GoRoute(
-            path: '/admin',
-            builder: (context, state) => const AdminPage(),
-          ),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            BlogShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/', builder: (context, state) => const HomePage()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/contents',
+              builder: (context, state) => const ContentListPage(),
+              routes: [
+                GoRoute(
+                  path: ':id',
+                  builder: (context, state) =>
+                      ContentDetailPage(id: state.pathParameters['id']!),
+                ),
+              ],
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/friends',
+              builder: (context, state) => const FriendsPage(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/about',
+              builder: (context, state) => const AboutPage(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/profile',
+              builder: (context, state) => const ProfilePage(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/admin',
+              builder: (context, state) => const AdminPage(),
+            ),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/login',
+              builder: (context, state) => const AuthPage(),
+            ),
+          ]),
         ],
       ),
       // GitHub OAuth 回调路由（不使用 Shell 布局）
@@ -106,43 +122,44 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 /// 响应式 Shell 布局组件
-/// 根据屏幕宽度切换 NavigationRail（宽屏）和 NavigationBar（窄屏）
+/// 使用 StatefulNavigationShell 保持页面状态，避免切换标签时销毁重建
 class BlogShell extends ConsumerWidget {
-  const BlogShell({required this.child, super.key});
+  const BlogShell({required this.navigationShell, super.key});
 
-  final Widget child; // 子路由页面内容
+  final StatefulNavigationShell navigationShell;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final location = GoRouterState.of(context).uri.path; // 当前路由路径
     final auth = ref.watch(authControllerProvider);
     final nickname = auth.user?.nickname.trim();
-    // 头像文字：取昵称首字符，默认 'C'
     final avatarText =
         nickname == null || nickname.isEmpty ? 'C' : nickname.characters.first;
 
-    // 根据登录状态和角色过滤导航目的地
-    final destinations = _destinations.where((item) {
-      // "我的" 需要登录才能显示
-      if (item.path == '/profile' && !auth.isAuthenticated) {
-        return false;
-      }
-      // "管理" 需要登录且为 ADMIN 角色才能显示
+    // 所有导航目的地配置（与 branches 顺序对应）
+    const allDestinations = _destinations;
+
+    // 根据登录状态和角色过滤可见的导航目的地
+    final visibleDestinations = allDestinations.where((item) {
+      if (item.path == '/profile' && !auth.isAuthenticated) return false;
       if (item.path == '/admin') {
         if (!auth.isAuthenticated || !(auth.user?.isAdmin ?? false)) {
           return false;
         }
       }
-      // "登录" 只在未登录时显示
-      if (item.path == '/login' && auth.isAuthenticated) {
-        return false;
-      }
+      if (item.path == '/login' && auth.isAuthenticated) return false;
       return true;
     }).toList();
 
+    // 计算当前选中的导航索引（在过滤后的列表中）
+    final currentPath = allDestinations[navigationShell.currentIndex].path;
+    int selectedIndex = visibleDestinations.indexWhere(
+      (d) => d.path == currentPath,
+    );
+    if (selectedIndex < 0) selectedIndex = 0;
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= kWideBreakpoint; // 宽屏阈值
+        final wide = constraints.maxWidth >= kWideBreakpoint;
 
         // 宽屏布局：左侧 NavigationRail
         if (wide) {
@@ -150,9 +167,9 @@ class BlogShell extends ConsumerWidget {
             body: Row(
               children: [
                 NavigationRail(
-                  selectedIndex: _getSelectedIndex(destinations, location),
-                  onDestinationSelected:
-                      (index) => context.go(destinations[index].path),
+                  selectedIndex: selectedIndex,
+                  onDestinationSelected: (index) =>
+                      _onNavigate(visibleDestinations, index),
                   labelType: NavigationRailLabelType.all,
                   leading: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -168,7 +185,7 @@ class BlogShell extends ConsumerWidget {
                     ),
                   ),
                   destinations: [
-                    for (final item in destinations)
+                    for (final item in visibleDestinations)
                       NavigationRailDestination(
                         icon: Icon(item.icon),
                         selectedIcon: Icon(item.selectedIcon),
@@ -176,23 +193,23 @@ class BlogShell extends ConsumerWidget {
                       ),
                   ],
                 ),
-                const VerticalDivider(width: 1), // 分隔线
-                Expanded(child: child), // 路由内容区域
+                const VerticalDivider(width: 1),
+                Expanded(child: navigationShell),
               ],
             ),
           );
         }
 
-        // 窄屏布局：底部 NavigationBar（只显示前 5 个导航项）
-        final navItems = destinations.take(5).toList();
+        // 窄屏布局：底部 NavigationBar
+        final navItems = visibleDestinations.take(5).toList();
+        final navSelectedIndex =
+            selectedIndex > navItems.length - 1 ? 0 : selectedIndex;
         return Scaffold(
-          body: child,
+          body: navigationShell,
           bottomNavigationBar: NavigationBar(
-            selectedIndex: _getSelectedIndex(navItems, location) > navItems.length - 1
-                ? 0
-                : _getSelectedIndex(navItems, location),
-            onDestinationSelected:
-                (index) => context.go(navItems[index].path),
+            selectedIndex: navSelectedIndex,
+            onDestinationSelected: (index) =>
+                _onNavigate(navItems, index),
             destinations: [
               for (final item in navItems)
                 NavigationDestination(
@@ -207,16 +224,14 @@ class BlogShell extends ConsumerWidget {
     );
   }
 
-  /// 根据路由路径返回选中的导航索引
-  /// [destinations] 当前显示的导航目的地列表
-  /// [location] 当前路由路径
-  /// 返回值：导航项索引
-  int _getSelectedIndex(List<_Destination> destinations, String location) {
-    for (int i = 0; i < destinations.length; i++) {
-      if (destinations[i].path == '/' && location == '/') return i;
-      if (destinations[i].path != '/' && location.startsWith(destinations[i].path)) return i;
-    }
-    return 0; // 默认第一个
+  /// 导航到指定目的地
+  void _onNavigate(List<_Destination> destinations, int index) {
+    final destination = destinations[index];
+    final branchIndex = _destinations.indexOf(destination);
+    navigationShell.goBranch(
+      branchIndex,
+      initialLocation: branchIndex == navigationShell.currentIndex,
+    );
   }
 }
 

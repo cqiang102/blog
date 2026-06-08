@@ -20,13 +20,24 @@ import 'tabs/user_admin_tab.dart';
 /// 根据用户角色显示不同的管理标签页
 /// ADMIN: 所有 11 个标签页
 /// USER: 仅概览、内容、评论、点赞、浏览 5 个标签页
-class AdminPage extends ConsumerWidget {
+/// 添加 AutomaticKeepAliveClientMixin 保持页面状态
+class AdminPage extends ConsumerStatefulWidget {
   const AdminPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authControllerProvider); // 获取认证状态
-    final isAdmin = auth.user?.isAdmin ?? false; // 是否为管理员
+  ConsumerState<AdminPage> createState() => _AdminPageState();
+}
+
+class _AdminPageState extends ConsumerState<AdminPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final auth = ref.watch(authControllerProvider);
+    final isAdmin = auth.user?.isAdmin ?? false;
 
     if (!auth.isLoaded) {
       return Scaffold(

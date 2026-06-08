@@ -18,7 +18,7 @@ class BlogApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
-      title: '个人博客',
+      title: '沐凉·日记',
       debugShowCheckedModeBanner: false,
 
       // 浅色主题

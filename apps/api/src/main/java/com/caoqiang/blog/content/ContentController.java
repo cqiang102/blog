@@ -1,8 +1,8 @@
 package com.caoqiang.blog.content;
 
-import com.caoqiang.blog.auth.AuthenticatedUser;
-import com.caoqiang.blog.common.ApiResponse;
-import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.response.ApiResponse;
+import com.caoqiang.blog.shared.response.PageResponse;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;

@@ -1,6 +1,6 @@
 package com.caoqiang.blog.auth;
 
-import com.caoqiang.blog.common.BusinessException;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.user.User;
 import com.caoqiang.blog.user.UserProfileResponse;
 import com.caoqiang.blog.user.UserRepository;

@@ -5,7 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.user.User;
 import java.util.Map;
 import java.util.UUID;

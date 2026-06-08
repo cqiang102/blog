@@ -1,10 +1,10 @@
 package com.caoqiang.blog.admin;
 
-import com.caoqiang.blog.auth.AuthenticatedUser;
-import com.caoqiang.blog.auth.Role;
-import com.caoqiang.blog.common.ApiResponse;
-import com.caoqiang.blog.common.OperationResult;
-import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.shared.response.ApiResponse;
+import com.caoqiang.blog.shared.response.OperationResult;
+import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.user.AdminUserRequest;
 import com.caoqiang.blog.user.AdminUserResponse;
 import com.caoqiang.blog.user.UserAdminService;

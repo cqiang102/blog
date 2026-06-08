@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import org.hibernate.annotations.Type;
-import com.caoqiang.blog.common.PgJsonbType;
+import com.caoqiang.blog.shared.persistence.PgJsonbType;
 
 /**
  * 审计日志实体

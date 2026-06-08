@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.caoqiang.blog.config.BlogProperties;
+import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.user.User;
 import java.time.Clock;
 import java.time.Instant;

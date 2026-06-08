@@ -5,7 +5,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.common.BusinessException;
+import com.caoqiang.blog.ai.knowledge.dto.KnowledgeDocRequest;
+import com.caoqiang.blog.ai.knowledge.dto.KnowledgeDocResponse;
+import com.caoqiang.blog.ai.knowledge.entity.KnowledgeDoc;
+import com.caoqiang.blog.ai.knowledge.entity.KnowledgeSourceType;
+import com.caoqiang.blog.ai.knowledge.repository.KnowledgeDocRepository;
+import com.caoqiang.blog.ai.knowledge.repository.KnowledgeChunkRepository;
+import com.caoqiang.blog.ai.knowledge.service.KnowledgeAdminService;
+import com.caoqiang.blog.ai.knowledge.service.KnowledgeIndexService;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

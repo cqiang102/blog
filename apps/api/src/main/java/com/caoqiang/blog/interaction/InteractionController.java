@@ -1,10 +1,10 @@
 package com.caoqiang.blog.interaction;
 
-import com.caoqiang.blog.auth.AuthenticatedUser;
-import com.caoqiang.blog.common.ApiResponse;
-import com.caoqiang.blog.common.IpUtils;
-import com.caoqiang.blog.common.OperationResult;
-import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.response.ApiResponse;
+import com.caoqiang.blog.shared.util.IpUtils;
+import com.caoqiang.blog.shared.response.OperationResult;
+import com.caoqiang.blog.shared.response.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;

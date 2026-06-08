@@ -1,8 +1,8 @@
 package com.caoqiang.blog.admin;
 
-import com.caoqiang.blog.common.ApiResponse;
-import com.caoqiang.blog.common.OperationResult;
-import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.shared.response.ApiResponse;
+import com.caoqiang.blog.shared.response.OperationResult;
+import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.content.AdminContentResponse;
 import com.caoqiang.blog.content.AdminMediaRequest;
 import com.caoqiang.blog.content.AdminMediaResponse;

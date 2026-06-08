@@ -43,39 +43,47 @@ class AdminLikeTabState extends ConsumerState<AdminLikeTab> {
             onRetry: () => ref.invalidate(adminLikesProvider(_query)),
           ),
       data:
-          (page) => ListView(
+          (page) => ListView.builder(
             padding: const EdgeInsets.all(24),
-            children: [
-              SectionToolbar(
-                title: '点赞记录',
-                actionLabel: '刷新',
-                actionIcon: Icons.refresh,
-                onAction: () => ref.invalidate(adminLikesProvider(_query)),
-              ),
-              const SizedBox(height: 12),
-              _RecordFilters(
-                contentIdController: _contentIdController,
-                userIdController: _userIdController,
-                onApply: _applyFilters,
-                onClear: _clearFilters,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '共 ${page.total} 条点赞记录',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              if (page.items.isEmpty)
-                const AdminEmptyPane(message: '暂无点赞记录')
-              else
-                for (final like in page.items) ...[
-                  _LikeAdminRow(
-                    like: like,
-                    onDelete: () => _deleteLike(context, like),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-            ],
+            itemCount: page.items.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SectionToolbar(
+                      title: '点赞记录',
+                      actionLabel: '刷新',
+                      actionIcon: Icons.refresh,
+                      onAction: () => ref.invalidate(adminLikesProvider(_query)),
+                    ),
+                    const SizedBox(height: 12),
+                    _RecordFilters(
+                      contentIdController: _contentIdController,
+                      userIdController: _userIdController,
+                      onApply: _applyFilters,
+                      onClear: _clearFilters,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '共 ${page.total} 条点赞记录',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    if (page.items.isEmpty)
+                      const AdminEmptyPane(message: '暂无点赞记录'),
+                  ],
+                );
+              }
+              final like = page.items[index - 1];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _LikeAdminRow(
+                  like: like,
+                  onDelete: () => _deleteLike(context, like),
+                ),
+              );
+            },
           ),
     );
   }
@@ -167,39 +175,47 @@ class AdminViewTabState extends ConsumerState<AdminViewTab> {
             onRetry: () => ref.invalidate(adminViewsProvider(_query)),
           ),
       data:
-          (page) => ListView(
+          (page) => ListView.builder(
             padding: const EdgeInsets.all(24),
-            children: [
-              SectionToolbar(
-                title: '浏览记录',
-                actionLabel: '刷新',
-                actionIcon: Icons.refresh,
-                onAction: () => ref.invalidate(adminViewsProvider(_query)),
-              ),
-              const SizedBox(height: 12),
-              _RecordFilters(
-                contentIdController: _contentIdController,
-                userIdController: _userIdController,
-                onApply: _applyFilters,
-                onClear: _clearFilters,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '共 ${page.total} 条浏览记录',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              if (page.items.isEmpty)
-                const AdminEmptyPane(message: '暂无浏览记录')
-              else
-                for (final view in page.items) ...[
-                  _ViewAdminRow(
-                    view: view,
-                    onDelete: () => _deleteView(context, view),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-            ],
+            itemCount: page.items.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SectionToolbar(
+                      title: '浏览记录',
+                      actionLabel: '刷新',
+                      actionIcon: Icons.refresh,
+                      onAction: () => ref.invalidate(adminViewsProvider(_query)),
+                    ),
+                    const SizedBox(height: 12),
+                    _RecordFilters(
+                      contentIdController: _contentIdController,
+                      userIdController: _userIdController,
+                      onApply: _applyFilters,
+                      onClear: _clearFilters,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '共 ${page.total} 条浏览记录',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    if (page.items.isEmpty)
+                      const AdminEmptyPane(message: '暂无浏览记录'),
+                  ],
+                );
+              }
+              final view = page.items[index - 1];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _ViewAdminRow(
+                  view: view,
+                  onDelete: () => _deleteView(context, view),
+                ),
+              );
+            },
           ),
     );
   }

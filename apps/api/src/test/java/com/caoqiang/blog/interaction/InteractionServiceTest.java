@@ -8,8 +8,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.auth.AuthenticatedUser;
-import com.caoqiang.blog.auth.Role;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.content.Content;
 import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.ContentStatus;

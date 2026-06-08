@@ -78,7 +78,21 @@ class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
   /// 重置列表并重新加载
   Future<void> resetAndLoad() async {
     state = const PaginationState(isLoading: true);
-    await loadMore();
+    try {
+      final result = await _fetchPage(0, _pageSize);
+      state = PaginationState(
+        items: result.items,
+        currentPage: 1,
+        total: result.total,
+        hasMore: result.items.length < result.total,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = PaginationState(
+        error: e.toString(),
+        isLoading: false,
+      );
+    }
   }
 
   /// 清除错误状态

@@ -1,11 +1,11 @@
 package com.caoqiang.blog.user;
 
-import com.caoqiang.blog.auth.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.auth.EmailNormalizer;
 import com.caoqiang.blog.auth.OAuthAccount;
 import com.caoqiang.blog.auth.OAuthAccountRepository;
 import com.caoqiang.blog.auth.OAuthProvider;
-import com.caoqiang.blog.common.BusinessException;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import org.dromara.x.file.storage.core.FileInfo;
 import org.dromara.x.file.storage.core.FileStorageService;
 import org.slf4j.Logger;

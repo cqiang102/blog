@@ -1,6 +1,7 @@
 package com.caoqiang.blog.auth;
 
-import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.user.User;
 import com.caoqiang.blog.user.UserProfileResponse;
 import com.caoqiang.blog.user.UserRepository;

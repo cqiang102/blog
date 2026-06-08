@@ -6,9 +6,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.auth.AuthenticatedUser;
-import com.caoqiang.blog.auth.Role;
-import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.ai.chat.dto.AiActionResult;
+import com.caoqiang.blog.ai.chat.dto.AiContentDetailResult;
+import com.caoqiang.blog.ai.chat.dto.AiSearchContentResult;
+import com.caoqiang.blog.ai.chat.service.AiToolService;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.content.ContentDetailResponse;
 import com.caoqiang.blog.content.ContentService;
 import com.caoqiang.blog.content.ContentStatus;

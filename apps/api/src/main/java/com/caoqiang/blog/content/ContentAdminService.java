@@ -1,9 +1,9 @@
 package com.caoqiang.blog.content;
 
-import com.caoqiang.blog.ai.KnowledgeIndexService;
-import com.caoqiang.blog.common.BusinessException;
-import com.caoqiang.blog.common.PageResponse;
-import com.caoqiang.blog.common.SlugUtils;
+import com.caoqiang.blog.ai.knowledge.service.KnowledgeIndexService;
+import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.response.PageResponse;
+import com.caoqiang.blog.shared.util.SlugUtils;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -220,15 +220,15 @@ public class ContentAdminService {
 
         // 处理媒体资源：删除旧的外链媒体，添加新的
         if (request.mediaUrls() != null) {
-            // 删除旧的外链媒体，使用 deleteInBatch 避免 Hibernate 一级缓存中的脏引用
-            // （deleteAll 会保留已删除实体在 persistence context 中，导致后续遍历集合时仍能看到它们）
+            // 先清除封面引用，避免 flush 时 Hibernate 检测到指向已删除实体的引用
+            content.setCoverMedia(null);
+
+            // 删除旧的外链媒体
             List<MediaAsset> oldMediaAssets = content.getMediaAssets().stream()
                     .filter(ma -> MediaAsset.EXTERNAL_BUCKET.equals(ma.getBucket()))
                     .toList();
             mediaAssetRepository.deleteAll(oldMediaAssets);
             mediaAssetRepository.flush();
-            // 清除 JPA 一级缓存中已删除实体的引用，确保后续 getMediaAssets() 不返回脏数据
-            // refresh 会重新从数据库加载最新的集合状态
             contentRepository.flush();
 
             // 添加新的媒体资源

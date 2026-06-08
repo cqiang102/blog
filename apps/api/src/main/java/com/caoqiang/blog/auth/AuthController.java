@@ -1,6 +1,6 @@
 package com.caoqiang.blog.auth;
 
-import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.shared.response.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,7 +1,7 @@
 package com.caoqiang.blog.content;
 
-import com.caoqiang.blog.common.BusinessException;
-import com.caoqiang.blog.common.SlugUtils;
+import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.util.SlugUtils;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;

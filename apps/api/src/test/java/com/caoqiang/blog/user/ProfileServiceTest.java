@@ -6,10 +6,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.auth.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.auth.OAuthAccountRepository;
-import com.caoqiang.blog.auth.Role;
-import com.caoqiang.blog.common.BusinessException;
+import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import java.time.Clock;
 import java.util.Optional;
 import java.util.UUID;

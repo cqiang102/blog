@@ -283,44 +283,47 @@ class _CommentList extends ConsumerWidget {
 
     final auth = ref.watch(authControllerProvider);
 
-    return Column(
-      children: [
-        for (final comment in comments)
-          Card(
-            key: ValueKey(comment.id),
-            child: ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.person)),
-              title: Text(comment.authorNickname),
-              subtitle: comment.blocked
-                  ? Row(
-                      children: [
-                        Icon(Icons.block, size: 14, color: Theme.of(context).colorScheme.error),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            '评论审核中，暂不可见',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                              fontStyle: FontStyle.italic,
-                            ),
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: comments.length,
+      itemBuilder: (context, index) {
+        final comment = comments[index];
+        return Card(
+          key: ValueKey(comment.id),
+          child: ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.person)),
+            title: Text(comment.authorNickname),
+            subtitle: comment.blocked
+                ? Row(
+                    children: [
+                      Icon(Icons.block, size: 14, color: Theme.of(context).colorScheme.error),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '评论审核中，暂不可见',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
-                      ],
-                    )
-                  : Text(comment.body),
-              trailing:
-                  auth.isAuthenticated && auth.user?.id == comment.authorId
-                      ? IconButton(
-                          tooltip: '删除评论',
-                          onPressed: () =>
-                              _deleteComment(context, ref, comment),
-                          icon:
-                              Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
-                        )
-                      : null,
-            ),
+                      ),
+                    ],
+                  )
+                : Text(comment.body),
+            trailing:
+                auth.isAuthenticated && auth.user?.id == comment.authorId
+                    ? IconButton(
+                        tooltip: '删除评论',
+                        onPressed: () =>
+                            _deleteComment(context, ref, comment),
+                        icon:
+                            Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+                      )
+                    : null,
           ),
-      ],
+        );
+      },
     );
   }
 
@@ -371,6 +374,7 @@ class _HeroCover extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: content.coverUrl,
       fit: BoxFit.cover,
+      memCacheWidth: 1200,
     );
   }
 }
@@ -393,7 +397,6 @@ class _ContentViewer extends StatelessWidget {
             child: MarkdownBody(
               data:
                   content.markdown.isEmpty ? content.summary : content.markdown,
-              selectable: true,
             ),
           ),
         ),
@@ -436,7 +439,11 @@ class _ImageGallery extends StatelessWidget {
           ),
           itemBuilder: (context, index) => ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: CachedNetworkImage(imageUrl: urls[index], fit: BoxFit.cover),
+            child: CachedNetworkImage(
+              imageUrl: urls[index],
+              fit: BoxFit.cover,
+              memCacheWidth: 800,
+            ),
           ),
         );
       },

@@ -1,6 +1,6 @@
 package com.caoqiang.blog.user;
 
-import com.caoqiang.blog.auth.Role;
+import com.caoqiang.blog.shared.model.Role;
 import java.util.UUID;
 
 /**

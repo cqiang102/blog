@@ -13,11 +13,22 @@ import '../../core/theme.dart';
 
 /// 首页 Widget
 /// 使用 Riverpod 管理状态，展示推荐内容（置顶轮播、最新更新、点赞最多）
-class HomePage extends ConsumerWidget {
+/// 添加 AutomaticKeepAliveClientMixin 保持页面状态，避免切换标签时重建
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
     final recommendations = ref.watch(recommendationsProvider);
     final auth = ref.watch(authControllerProvider);
 
@@ -25,7 +36,7 @@ class HomePage extends ConsumerWidget {
       slivers: [
         // AppBar
         SliverAppBar(
-          title: const Text('个人博客'),
+          title: const Text('沐凉·日记'),
           actions: [
             IconButton(
               tooltip: auth.isAuthenticated ? '个人中心' : '登录',
@@ -37,50 +48,87 @@ class HomePage extends ConsumerWidget {
         ),
 
         // 内容区域
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.sm + 4,
-            AppSpacing.lg,
-            AppSpacing.xl,
-          ),
-          sliver: recommendations.when(
-            loading: () => const SliverFillRemaining(
-              hasScrollBody: false,
-              child: _LoadingState(),
+        if (recommendations.isLoading)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: _LoadingState(),
+          )
+        else if (recommendations.hasError)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _ErrorState(
+              message: recommendations.error.toString(),
+              onRetry: () => ref.invalidate(recommendationsProvider),
             ),
-            error: (error, stackTrace) => SliverFillRemaining(
-              hasScrollBody: false,
-              child: _ErrorState(
-                message: error.toString(),
-                onRetry: () => ref.invalidate(recommendationsProvider),
+          )
+        else if (recommendations.hasValue) ...[
+          // 轮播图
+          if (recommendations.value!.pinned.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.sm + 4,
+                  AppSpacing.lg,
+                  0,
+                ),
+                child: _PinnedCarousel(contents: recommendations.value!.pinned),
               ),
             ),
-            data: (data) => SliverList.list(
-              children: [
-                // 轮播图
-                _PinnedCarousel(contents: data.pinned),
-                if (data.pinned.isNotEmpty)
-                  const SizedBox(height: AppSpacing.xl - 4),
+            const SliverToBoxAdapter(
+              child: SizedBox(height: AppSpacing.xl - 4),
+            ),
+          ],
 
-                // 最近更新
-                _SectionHeader(
-                  title: '最近更新',
-                  actionLabel: '全部内容',
-                  onAction: () => context.go('/contents'),
-                ),
-                const SizedBox(height: AppSpacing.sm + 4),
-                _ContentGrid(contents: data.latest),
-                const SizedBox(height: AppSpacing.xl - 4),
-
-                // 点赞最多
-                const _SectionHeader(title: '点赞最多'),
-                const SizedBox(height: AppSpacing.sm + 4),
-                _ContentGrid(contents: data.mostLiked),
-              ],
+          // 最近更新标题
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: _SectionHeader(
+                title: '最近更新',
+                actionLabel: '全部内容',
+                onAction: () => context.go('/contents'),
+              ),
             ),
           ),
-        ),
+          const SliverToBoxAdapter(
+            child: SizedBox(height: AppSpacing.sm + 4),
+          ),
+
+          // 最近更新网格（虚拟化）
+          if (recommendations.value!.latest.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              sliver: _ContentGrid(contents: recommendations.value!.latest),
+            ),
+
+          // 点赞最多
+          if (recommendations.value!.mostLiked.isNotEmpty) ...[
+            const SliverToBoxAdapter(
+              child: SizedBox(height: AppSpacing.xl - 4),
+            ),
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: _SectionHeader(title: '点赞最多'),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: SizedBox(height: AppSpacing.sm + 4),
+            ),
+
+            // 点赞最多网格（虚拟化）
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                0,
+                AppSpacing.lg,
+                AppSpacing.xl,
+              ),
+              sliver: _ContentGrid(contents: recommendations.value!.mostLiked),
+            ),
+          ],
+        ],
       ],
     );
   }
@@ -235,6 +283,7 @@ class _SectionHeader extends StatelessWidget {
 
 /// 内容网格组件
 /// 根据屏幕宽度自适应列数：>=1100显示3列，>=720显示2列，否则1列
+/// 使用 SliverGrid 实现虚拟化渲染，避免 shrinkWrap 性能问题
 class _ContentGrid extends StatelessWidget {
   const _ContentGrid({required this.contents});
 
@@ -243,30 +292,32 @@ class _ContentGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (contents.isEmpty) {
-      return const _EmptyState(message: '还没有发布内容');
+      return const SliverToBoxAdapter(
+        child: _EmptyState(message: '还没有发布内容'),
+      );
     }
 
-    return LayoutBuilder(
+    return SliverLayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= kDesktopBreakpoint
+        final columns = constraints.crossAxisExtent >= kDesktopBreakpoint
             ? 3
-            : constraints.maxWidth >= kTabletBreakpoint
+            : constraints.crossAxisExtent >= kTabletBreakpoint
                 ? 2
                 : 1;
 
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: contents.length,
+        return SliverGrid(
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
             crossAxisSpacing: AppSpacing.md,
             mainAxisSpacing: AppSpacing.md,
-            childAspectRatio:
-                columns == 1 ? kContentCardAspectRatioNarrow : kContentCardAspectRatioWide,
+            childAspectRatio: columns == 1
+                ? kContentCardAspectRatioNarrow
+                : kContentCardAspectRatioWide,
           ),
-          itemBuilder: (context, index) =>
-              _ContentCard(content: contents[index]),
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => _ContentCard(content: contents[index]),
+            childCount: contents.length,
+          ),
         );
       },
     );

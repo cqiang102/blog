@@ -1,6 +1,6 @@
 package com.caoqiang.blog.auth;
 
-import com.caoqiang.blog.common.BusinessException;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;

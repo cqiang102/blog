@@ -1,6 +1,6 @@
 package com.caoqiang.blog.user;
 
-import com.caoqiang.blog.auth.Role;
+import com.caoqiang.blog.shared.model.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

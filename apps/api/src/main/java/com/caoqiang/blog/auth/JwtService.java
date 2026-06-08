@@ -1,6 +1,7 @@
 package com.caoqiang.blog.auth;
 
 import com.caoqiang.blog.config.BlogProperties;
+import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.user.User;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;

@@ -1,7 +1,7 @@
 package com.caoqiang.blog.admin;
 
-import com.caoqiang.blog.common.ApiResponse;
-import com.caoqiang.blog.common.OperationResult;
+import com.caoqiang.blog.shared.response.ApiResponse;
+import com.caoqiang.blog.shared.response.OperationResult;
 import com.caoqiang.blog.friend.FriendAdminService;
 import com.caoqiang.blog.friend.FriendRequest;
 import com.caoqiang.blog.friend.FriendResponse;

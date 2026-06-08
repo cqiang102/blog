@@ -1,6 +1,6 @@
 package com.caoqiang.blog.friend;
 
-import com.caoqiang.blog.common.BusinessException;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;

@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.caoqiang.blog.auth.AuthenticatedUser;
-import com.caoqiang.blog.auth.Role;
-import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.interaction.LikeRepository;
 import java.time.Instant;
 import java.util.List;

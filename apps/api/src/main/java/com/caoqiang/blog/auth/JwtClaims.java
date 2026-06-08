@@ -1,5 +1,6 @@
 package com.caoqiang.blog.auth;
 
+import com.caoqiang.blog.shared.model.Role;
 import java.time.Instant;
 import java.util.UUID;
 

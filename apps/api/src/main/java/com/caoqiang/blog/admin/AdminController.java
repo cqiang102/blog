@@ -1,11 +1,11 @@
 package com.caoqiang.blog.admin;
 
-import com.caoqiang.blog.ai.AiChatSessionRepository;
-import com.caoqiang.blog.ai.KnowledgeDocRepository;
+import com.caoqiang.blog.ai.chat.repository.AiChatSessionRepository;
+import com.caoqiang.blog.ai.knowledge.repository.KnowledgeDocRepository;
 import com.caoqiang.blog.audit.AuditLogResponse;
 import com.caoqiang.blog.audit.AuditLogService;
-import com.caoqiang.blog.common.ApiResponse;
-import com.caoqiang.blog.common.PageResponse;
+import com.caoqiang.blog.shared.response.ApiResponse;
+import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.MediaAssetRepository;
 import com.caoqiang.blog.friend.FriendRepository;

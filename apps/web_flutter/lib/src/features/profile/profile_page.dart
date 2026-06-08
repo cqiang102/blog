@@ -17,11 +17,22 @@ import '../../core/theme.dart';
 
 /// 个人中心 Widget
 /// 使用 TabBar 展示资料、评论、点赞、浏览四个标签页
-class ProfilePage extends ConsumerWidget {
+/// 添加 AutomaticKeepAliveClientMixin 保持页面状态
+class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends ConsumerState<ProfilePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
     final auth = ref.watch(authControllerProvider);
 
     return DefaultTabController(

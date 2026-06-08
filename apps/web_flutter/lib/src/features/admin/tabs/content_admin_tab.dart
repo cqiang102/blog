@@ -12,11 +12,22 @@ import '../admin_widgets.dart';
 import '../content_editor/content_editor.dart';
 
 /// 内容管理标签页
-class AdminContentTab extends ConsumerWidget {
+/// 添加 AutomaticKeepAliveClientMixin 保持状态
+class AdminContentTab extends ConsumerStatefulWidget {
   const AdminContentTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminContentTab> createState() => _AdminContentTabState();
+}
+
+class _AdminContentTabState extends ConsumerState<AdminContentTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
     final contents = ref.watch(adminContentsProvider);
     final tagsValue = ref.watch(adminTagsProvider);
     final tags = tagsValue.maybeWhen(

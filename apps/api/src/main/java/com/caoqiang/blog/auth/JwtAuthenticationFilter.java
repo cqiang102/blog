@@ -1,5 +1,6 @@
 package com.caoqiang.blog.auth;
 
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.user.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

@@ -224,6 +224,7 @@ class AdminMediaThumb extends StatelessWidget {
         width: size.width,
         height: size.height,
         fit: BoxFit.cover,
+        memCacheWidth: size.width.toInt() * 2,
         errorWidget: (context, url, error) => placeholder,
       ),
     );

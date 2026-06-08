@@ -1,6 +1,6 @@
 package com.caoqiang.blog.friend;
 
-import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.shared.response.ApiResponse;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

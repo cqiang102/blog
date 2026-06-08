@@ -1,6 +1,6 @@
 package com.caoqiang.blog.audit;
 
-import com.caoqiang.blog.auth.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.user.User;
 import com.caoqiang.blog.user.UserRepository;
 import java.util.UUID;

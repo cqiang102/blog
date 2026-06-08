@@ -1,10 +1,10 @@
 package com.caoqiang.blog.interaction;
 
-import com.caoqiang.blog.auth.AuthenticatedUser;
-import com.caoqiang.blog.auth.Role;
-import com.caoqiang.blog.common.BusinessException;
-import com.caoqiang.blog.common.PageResponse;
-import com.caoqiang.blog.common.PageUtils;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.response.PageResponse;
+import com.caoqiang.blog.shared.util.PageUtils;
 import com.caoqiang.blog.content.Content;
 import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.ContentStatus;

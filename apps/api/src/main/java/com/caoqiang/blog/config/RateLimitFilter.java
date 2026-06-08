@@ -1,7 +1,7 @@
 package com.caoqiang.blog.config;
 
-import com.caoqiang.blog.common.ApiResponse;
-import com.caoqiang.blog.common.IpUtils;
+import com.caoqiang.blog.shared.response.ApiResponse;
+import com.caoqiang.blog.shared.util.IpUtils;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

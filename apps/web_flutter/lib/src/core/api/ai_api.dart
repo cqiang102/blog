@@ -116,6 +116,14 @@ mixin AiApi on ApiClientBase {
         .toList();
   }
 
+  /// 删除 AI 会话
+  Future<void> deleteAiSession({
+    required String accessToken,
+    required String sessionId,
+  }) async {
+    await delete('/ai/sessions/$sessionId', accessToken: accessToken);
+  }
+
   /// 获取 AI 会话消息列表
   Future<PageResult<AiMessageItem>> fetchAiSessionMessages({
     required String accessToken,

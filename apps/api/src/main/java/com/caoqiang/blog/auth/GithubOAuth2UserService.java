@@ -1,5 +1,6 @@
 package com.caoqiang.blog.auth;
 
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.user.User;
 import com.caoqiang.blog.user.UserRepository;
 import java.util.Map;
