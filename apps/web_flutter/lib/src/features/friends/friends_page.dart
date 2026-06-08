@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_providers.dart';
+import '../../core/constants.dart';
 import '../../core/models.dart';
 
 /// 友链页 Widget
@@ -42,8 +43,8 @@ class FriendsPage extends ConsumerWidget {
               sliver: SliverGrid.builder(
                 itemCount: items.length,
                 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 360,
-                  mainAxisExtent: 172,
+                  maxCrossAxisExtent: kFriendCardMaxWidth,
+                  mainAxisExtent: kFriendCardHeight,
                   mainAxisSpacing: 16,
                   crossAxisSpacing: 16,
                 ),

@@ -1,6 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/models.dart';
+import '../../../../core/theme.dart';
 
 /// 媒体资源区域
 /// 显示已上传的媒体文件，支持删除和设置封面
@@ -153,10 +155,16 @@ class _MediaCard extends StatelessWidget {
 
   Widget _buildContent(BuildContext context) {
     if (isImage) {
-      return Image.network(
-        url,
+      return CachedNetworkImage(
+        imageUrl: url,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(
+        placeholder: (context, url) => Container(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        errorWidget: (context, url, error) => Container(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -170,20 +178,7 @@ class _MediaCard extends StatelessWidget {
             ],
           ),
         ),
-        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-          if (wasSynchronouslyLoaded) return child;
-          return AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: frame != null
-                ? child
-                : Container(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-          );
-        },
+        fadeInDuration: const Duration(milliseconds: 200),
       );
     }
 
@@ -222,9 +217,9 @@ class _MediaCard extends StatelessWidget {
       top: 0,
       right: 0,
       child: Container(
-        decoration: BoxDecoration(
-          color: Colors.black.withAlpha(128),
-          borderRadius: const BorderRadius.only(
+        decoration: const BoxDecoration(
+          color: AppColors.overlayDark,
+          borderRadius: BorderRadius.only(
             bottomLeft: Radius.circular(8),
           ),
         ),
@@ -233,7 +228,7 @@ class _MediaCard extends StatelessWidget {
           children: [
             if (!isCover)
               IconButton(
-                icon: const Icon(Icons.image, color: Colors.white, size: 20),
+                icon: const Icon(Icons.image, color: AppColors.onOverlay, size: 20),
                 tooltip: '设为封面',
                 onPressed: onSetCover,
                 constraints: const BoxConstraints(
@@ -243,7 +238,7 @@ class _MediaCard extends StatelessWidget {
                 padding: EdgeInsets.zero,
               ),
             IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+              icon: Icon(Icons.delete, color: Theme.of(context).colorScheme.error, size: 20),
               tooltip: '删除',
               onPressed: onRemove,
               constraints: const BoxConstraints(

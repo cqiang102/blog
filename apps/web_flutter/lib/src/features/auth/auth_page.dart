@@ -25,7 +25,6 @@ class AuthPage extends ConsumerStatefulWidget {
 class _AuthPageState extends ConsumerState<AuthPage> {
   // SharedPreferences 存储键
   static const _savedEmailKey = 'auth.savedEmail';
-  static const _savedPasswordKey = 'auth.savedPassword';
   static const _rememberMeKey = 'auth.rememberMe';
 
   final _emailController = TextEditingController(); // 邮箱输入框
@@ -53,35 +52,31 @@ class _AuthPageState extends ConsumerState<AuthPage> {
     super.dispose();
   }
 
-  /// 从本地存储加载保存的登录信息
+  /// 从本地存储加载保存的邮箱
   Future<void> _loadSavedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     final rememberMe = prefs.getBool(_rememberMeKey) ?? false;
 
     if (rememberMe && mounted) {
       final email = prefs.getString(_savedEmailKey) ?? '';
-      final password = prefs.getString(_savedPasswordKey) ?? '';
 
       setState(() {
         _rememberMe = true;
         _emailController.text = email;
-        _passwordController.text = password;
       });
     }
   }
 
-  /// 保存或清除登录信息
+  /// 保存或清除邮箱（不存储密码，安全起见）
   Future<void> _saveCredentials() async {
     final prefs = await SharedPreferences.getInstance();
 
     if (_rememberMe) {
       await prefs.setBool(_rememberMeKey, true);
       await prefs.setString(_savedEmailKey, _emailController.text.trim());
-      await prefs.setString(_savedPasswordKey, _passwordController.text);
     } else {
       await prefs.remove(_rememberMeKey);
       await prefs.remove(_savedEmailKey);
-      await prefs.remove(_savedPasswordKey);
     }
   }
 
@@ -200,11 +195,6 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                         },
                       ),
                       const Text('记住密码'),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: _showForgotPasswordDialog,
-                        child: const Text('忘记密码？'),
-                      ),
                     ],
                   ),
                 ],
@@ -288,58 +278,6 @@ class _AuthPageState extends ConsumerState<AuthPage> {
     } catch (error) {
       _showError(error.toString());
     }
-  }
-
-  /// 显示忘记密码对话框
-  void _showForgotPasswordDialog() {
-    final resetEmailController = TextEditingController(
-      text: _emailController.text.trim(),
-    );
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('重置密码'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('请输入注册时使用的邮箱，我们将发送密码重置链接。'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: resetEmailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: '邮箱',
-                hintText: '请输入邮箱',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final email = resetEmailController.text.trim();
-              if (email.isEmpty || !email.contains('@')) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('请输入有效的邮箱')),
-                );
-                return;
-              }
-              Navigator.of(context).pop();
-              // TODO: 调用重置密码 API
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('如果该邮箱已注册，重置链接已发送')),
-              );
-            },
-            child: const Text('发送'),
-          ),
-        ],
-      ),
-    );
   }
 
   /// 打开 GitHub OAuth 登录

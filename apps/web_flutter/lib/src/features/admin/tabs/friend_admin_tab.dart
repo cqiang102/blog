@@ -6,11 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
 import '../../../core/models.dart';
+import '../../../core/theme.dart';
 import '../admin_widgets.dart';
 import '../friend_editor_dialog.dart';
 
 /// 友链管理标签页
-/// 支持友链的新增、编辑、删除操作
 class AdminFriendTab extends ConsumerWidget {
   const AdminFriendTab({super.key});
 
@@ -20,41 +20,18 @@ class AdminFriendTab extends ConsumerWidget {
 
     return friends.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, stackTrace) => AdminErrorPane(
-            message: error.toString(),
-            onRetry: () => ref.invalidate(adminFriendsProvider),
-          ),
-      data:
-          (items) => ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              SectionToolbar(
-                title: '朋友管理',
-                actionLabel: '新增朋友',
-                actionIcon: Icons.add,
-                onAction: () => _openFriendEditor(context, ref),
-              ),
-              const SizedBox(height: 12),
-              if (items.isEmpty)
-                const AdminEmptyPane(message: '暂无朋友')
-              else
-                for (final friend in items) ...[
-                  _FriendAdminRow(
-                    friend: friend,
-                    onEdit:
-                        () => _openFriendEditor(context, ref, friend: friend),
-                    onDelete: () => _deleteFriend(context, ref, friend),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-            ],
-          ),
+      error: (error, stackTrace) => AdminErrorPane(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(adminFriendsProvider),
+      ),
+      data: (items) => _FriendList(
+        items: items,
+        onOpenEditor: (friend) => _openFriendEditor(context, ref, friend: friend),
+        onDelete: (friend) => _deleteFriend(context, ref, friend),
+      ),
     );
   }
 
-  /// 打开友链编辑器对话框
-  /// 新增时 friend 为 null，编辑时传入现有友链数据
   Future<void> _openFriendEditor(
     BuildContext context,
     WidgetRef ref, {
@@ -90,13 +67,12 @@ class AdminFriendTab extends ConsumerWidget {
     }
   }
 
-  /// 删除友链
-  /// 弹出确认对话框后调用 API 删除友链
   Future<void> _deleteFriend(
     BuildContext context,
     WidgetRef ref,
     FriendLink friend,
   ) async {
+    if (!context.mounted) return;
     final confirmed = await adminConfirm(
       context,
       title: '删除朋友',
@@ -122,7 +98,6 @@ class AdminFriendTab extends ConsumerWidget {
     }
   }
 
-  /// 刷新友链相关状态
   void _refreshFriendState(WidgetRef ref) {
     ref.invalidate(adminFriendsProvider);
     ref.invalidate(friendsProvider);
@@ -130,8 +105,58 @@ class AdminFriendTab extends ConsumerWidget {
   }
 }
 
+/// 友链列表组件
+class _FriendList extends StatelessWidget {
+  const _FriendList({
+    required this.items,
+    required this.onOpenEditor,
+    required this.onDelete,
+  });
+
+  final List<FriendLink> items;
+  final ValueChanged<FriendLink?> onOpenEditor;
+  final ValueChanged<FriendLink> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      itemCount: items.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildHeader(context);
+        }
+        final friend = items[index - 1];
+        return _FriendAdminRow(
+          friend: friend,
+          onEdit: () => onOpenEditor(friend),
+          onDelete: () => onDelete(friend),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionToolbar(
+          title: '朋友管理',
+          actionLabel: '新增朋友',
+          actionIcon: Icons.add,
+          onAction: () => onOpenEditor(null),
+        ),
+        if (items.isEmpty) ...[
+          const SizedBox(height: AppSpacing.xl),
+          const AdminEmptyPane(message: '暂无朋友'),
+        ],
+        const SizedBox(height: AppSpacing.sm + 4),
+      ],
+    );
+  }
+}
+
 /// 友链管理行组件
-/// 展示单条友链的头像、名称、简介、可见性和操作按钮
 class _FriendAdminRow extends StatelessWidget {
   const _FriendAdminRow({
     required this.friend,
@@ -139,93 +164,105 @@ class _FriendAdminRow extends StatelessWidget {
     required this.onDelete,
   });
 
-  final FriendLink friend; // 友链数据
-  final VoidCallback onEdit; // 编辑回调
-  final VoidCallback onDelete; // 删除回调
+  final FriendLink friend;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _FriendAvatar(friend: friend),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        friend.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        friend.intro.isEmpty ? friend.siteUrl : friend.intro,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        friend.siteUrl,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Chip(
-                  avatar: Icon(
-                    friend.visible
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    size: 18,
-                  ),
-                  label: Text(friend.visible ? '公开' : '隐藏'),
-                ),
-                Chip(label: Text('排序 ${friend.sortOrder}')),
-                OutlinedButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('编辑'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('删除'),
-                ),
-              ],
-            ),
+            // 头部：头像 + 信息
+            _buildHeader(context),
+            const SizedBox(height: AppSpacing.sm + 4),
+
+            // 标签和操作
+            _buildActions(context),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildHeader(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FriendAvatar(friend: friend),
+        const SizedBox(width: AppSpacing.sm + 4),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                friend.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                friend.intro.isEmpty ? friend.siteUrl : friend.intro,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                friend.siteUrl,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActions(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Chip(
+          avatar: Icon(
+            friend.visible
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
+            size: 18,
+          ),
+          label: Text(friend.visible ? '公开' : '隐藏'),
+        ),
+        Chip(label: Text('排序 ${friend.sortOrder}')),
+        OutlinedButton.icon(
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          label: const Text('编辑'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onDelete,
+          icon: const Icon(Icons.delete_outline, size: 18),
+          label: const Text('删除'),
+        ),
+      ],
+    );
+  }
 }
 
 /// 友链头像组件
-/// 显示友链头像，无头像时显示名称首字符
 class _FriendAvatar extends StatelessWidget {
   const _FriendAvatar({required this.friend});
 
-  final FriendLink friend; // 友链数据
+  final FriendLink friend;
 
   @override
   Widget build(BuildContext context) {

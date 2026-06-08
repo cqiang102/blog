@@ -3,19 +3,18 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
+import '../../core/theme.dart';
 
 /// 用户编辑器对话框
-/// 编辑用户信息，包含邮箱、昵称、头像、简介、博客地址、角色和状态
 class UserEditorDialog extends StatefulWidget {
   const UserEditorDialog({super.key, required this.user});
 
-  final AdminUserItem user; // 待编辑用户
+  final AdminUserItem user;
 
   @override
   State<UserEditorDialog> createState() => UserEditorDialogState();
 }
 
-/// 用户编辑器对话框状态管理
 class UserEditorDialogState extends State<UserEditorDialog> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -62,85 +61,20 @@ class UserEditorDialogState extends State<UserEditorDialog> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(labelText: '邮箱'),
-                  maxLength: 320,
-                  validator: _validateEmail,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _nicknameController,
-                  decoration: const InputDecoration(labelText: '昵称'),
-                  maxLength: 80,
-                  validator:
-                      (value) =>
-                          value == null || value.trim().isEmpty
-                              ? '请输入昵称'
-                              : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _avatarController,
-                  decoration: const InputDecoration(labelText: '头像 URL'),
-                  validator: _validateOptionalUrl,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _blogUrlController,
-                  decoration: const InputDecoration(labelText: '博客地址'),
-                  validator: _validateOptionalUrl,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _bioController,
-                  decoration: const InputDecoration(labelText: '简介'),
-                  maxLines: 3,
-                  maxLength: 2000,
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    SizedBox(
-                      width: 220,
-                      child: DropdownButtonFormField<AdminUserRole>(
-                        initialValue: _role,
-                        decoration: const InputDecoration(labelText: '角色'),
-                        items: [
-                          for (final role in AdminUserRole.values)
-                            DropdownMenuItem(
-                              value: role,
-                              child: Text(role.label),
-                            ),
-                        ],
-                        onChanged:
-                            (value) => setState(
-                              () => _role = value ?? AdminUserRole.user,
-                            ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 220,
-                      child: DropdownButtonFormField<AdminUserStatus>(
-                        initialValue: _status,
-                        decoration: const InputDecoration(labelText: '状态'),
-                        items: [
-                          for (final status in AdminUserStatus.values)
-                            DropdownMenuItem(
-                              value: status,
-                              child: Text(status.label),
-                            ),
-                        ],
-                        onChanged:
-                            (value) => setState(
-                              () => _status = value ?? AdminUserStatus.active,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
+                // 基本信息
+                _buildBasicFields(),
+                const SizedBox(height: AppSpacing.sm + 4),
+
+                // URL 字段
+                _buildUrlFields(),
+                const SizedBox(height: AppSpacing.sm + 4),
+
+                // 简介
+                _buildBioField(),
+                const SizedBox(height: AppSpacing.sm + 4),
+
+                // 角色和状态
+                _buildRoleAndStatusFields(),
               ],
             ),
           ),
@@ -155,6 +89,99 @@ class UserEditorDialogState extends State<UserEditorDialog> {
           onPressed: _submit,
           icon: const Icon(Icons.save),
           label: const Text('保存'),
+        ),
+      ],
+    );
+  }
+
+  /// 构建基本信息字段
+  Widget _buildBasicFields() {
+    return Column(
+      children: [
+        TextFormField(
+          controller: _emailController,
+          decoration: const InputDecoration(labelText: '邮箱'),
+          maxLength: 320,
+          validator: _validateEmail,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        TextFormField(
+          controller: _nicknameController,
+          decoration: const InputDecoration(labelText: '昵称'),
+          maxLength: 80,
+          validator: (value) =>
+              value == null || value.trim().isEmpty ? '请输入昵称' : null,
+        ),
+      ],
+    );
+  }
+
+  /// 构建 URL 字段
+  Widget _buildUrlFields() {
+    return Column(
+      children: [
+        TextFormField(
+          controller: _avatarController,
+          decoration: const InputDecoration(labelText: '头像 URL'),
+          validator: _validateOptionalUrl,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        TextFormField(
+          controller: _blogUrlController,
+          decoration: const InputDecoration(labelText: '博客地址'),
+          validator: _validateOptionalUrl,
+        ),
+      ],
+    );
+  }
+
+  /// 构建简介字段
+  Widget _buildBioField() {
+    return TextFormField(
+      controller: _bioController,
+      decoration: const InputDecoration(labelText: '简介'),
+      maxLines: 3,
+      maxLength: 2000,
+    );
+  }
+
+  /// 构建角色和状态字段
+  Widget _buildRoleAndStatusFields() {
+    return Wrap(
+      spacing: AppSpacing.sm + 4,
+      runSpacing: AppSpacing.sm + 4,
+      children: [
+        SizedBox(
+          width: 220,
+          child: DropdownButtonFormField<AdminUserRole>(
+            initialValue: _role,
+            decoration: const InputDecoration(labelText: '角色'),
+            items: [
+              for (final role in AdminUserRole.values)
+                DropdownMenuItem(
+                  value: role,
+                  child: Text(role.label),
+                ),
+            ],
+            onChanged: (value) =>
+                setState(() => _role = value ?? AdminUserRole.user),
+          ),
+        ),
+        SizedBox(
+          width: 220,
+          child: DropdownButtonFormField<AdminUserStatus>(
+            initialValue: _status,
+            decoration: const InputDecoration(labelText: '状态'),
+            items: [
+              for (final status in AdminUserStatus.values)
+                DropdownMenuItem(
+                  value: status,
+                  child: Text(status.label),
+                ),
+            ],
+            onChanged: (value) =>
+                setState(() => _status = value ?? AdminUserStatus.active),
+          ),
         ),
       ],
     );

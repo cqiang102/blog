@@ -1,4 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+
+import '../../../../core/theme.dart';
 
 /// 封面图选择器对话框
 class CoverPickerDialog extends StatelessWidget {
@@ -48,17 +51,17 @@ class CoverPickerDialog extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.network(
-                        url,
+                      CachedNetworkImage(
+                        imageUrl: url,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
+                        errorWidget: (context, url, error) =>
                             const Center(child: Icon(Icons.broken_image)),
                       ),
                       if (isCover)
-                        Container(
-                          color: Colors.black54,
-                          child: const Center(
-                            child: Icon(Icons.check, color: Colors.white, size: 32),
+                        const ColoredBox(
+                          color: AppColors.overlayDark,
+                          child: Center(
+                            child: Icon(Icons.check, color: AppColors.onOverlay, size: 32),
                           ),
                         ),
                     ],

@@ -7,10 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
 import '../../../core/models.dart';
+import '../../../core/theme.dart';
 import '../admin_widgets.dart';
 
 /// 管理后台 - 评论管理标签页
-/// 展示评论列表，支持筛选和状态管理
 class AdminCommentTab extends ConsumerStatefulWidget {
   const AdminCommentTab({super.key});
 
@@ -18,13 +18,11 @@ class AdminCommentTab extends ConsumerStatefulWidget {
   ConsumerState<AdminCommentTab> createState() => AdminCommentTabState();
 }
 
-/// 评论管理标签页状态管理
-/// 管理评论筛选条件和 CRUD 操作
 class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
-  final _contentIdController = TextEditingController(); // 内容 ID 筛选框
-  final _userIdController = TextEditingController(); // 用户 ID 筛选框
-  AdminCommentStatus? _status; // 评论状态筛选
-  AdminCommentQuery _query = const AdminCommentQuery(); // 当前查询条件
+  final _contentIdController = TextEditingController();
+  final _userIdController = TextEditingController();
+  AdminCommentStatus? _status;
+  AdminCommentQuery _query = const AdminCommentQuery();
 
   @override
   void dispose() {
@@ -39,59 +37,22 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
 
     return comments.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, stackTrace) => AdminErrorPane(
-            message: error.toString(),
-            onRetry: () => ref.invalidate(adminCommentsProvider(_query)),
-          ),
-      data:
-          (page) => ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              SectionToolbar(
-                title: '评论管理',
-                actionLabel: '刷新',
-                actionIcon: Icons.refresh,
-                onAction: () => ref.invalidate(adminCommentsProvider(_query)),
-              ),
-              const SizedBox(height: 12),
-              _CommentFilters(
-                status: _status,
-                contentIdController: _contentIdController,
-                userIdController: _userIdController,
-                onStatusChanged: (value) => setState(() => _status = value),
-                onApply: _applyFilters,
-                onClear: _clearFilters,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '共 ${page.total} 条评论',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              if (page.items.isEmpty)
-                const AdminEmptyPane(message: '暂无评论')
-              else
-                for (final comment in page.items) ...[
-                  _CommentAdminRow(
-                    comment: comment,
-                    onDelete:
-                        comment.deleted
-                            ? null
-                            : () => _deleteComment(context, comment),
-                    onRestore:
-                        comment.deleted
-                            ? () => _setStatus(
-                              context,
-                              comment,
-                              AdminCommentStatus.visible,
-                            )
-                            : null,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-            ],
-          ),
+      error: (error, stackTrace) => AdminErrorPane(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(adminCommentsProvider(_query)),
+      ),
+      data: (page) => _CommentList(
+        page: page,
+        query: _query,
+        status: _status,
+        contentIdController: _contentIdController,
+        userIdController: _userIdController,
+        onStatusChanged: (value) => setState(() => _status = value),
+        onApply: _applyFilters,
+        onClear: _clearFilters,
+        onDelete: (comment) => _deleteComment(context, comment),
+        onRestore: (comment) => _setStatus(context, comment, AdminCommentStatus.visible),
+      ),
     );
   }
 
@@ -118,6 +79,7 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
     BuildContext context,
     AdminCommentItem comment,
   ) async {
+    if (!mounted) return;
     final confirmed = await adminConfirm(
       context,
       title: '删除评论',
@@ -152,9 +114,7 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
     if (token == null) return;
 
     try {
-      await ref
-          .read(apiClientProvider)
-          .updateAdminCommentStatus(
+      await ref.read(apiClientProvider).updateAdminCommentStatus(
             accessToken: token,
             id: comment.id,
             status: status,
@@ -181,6 +141,85 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
   }
 }
 
+/// 评论列表组件
+class _CommentList extends StatelessWidget {
+  const _CommentList({
+    required this.page,
+    required this.query,
+    required this.status,
+    required this.contentIdController,
+    required this.userIdController,
+    required this.onStatusChanged,
+    required this.onApply,
+    required this.onClear,
+    required this.onDelete,
+    required this.onRestore,
+  });
+
+  final PageResult<AdminCommentItem> page;
+  final AdminCommentQuery query;
+  final AdminCommentStatus? status;
+  final TextEditingController contentIdController;
+  final TextEditingController userIdController;
+  final ValueChanged<AdminCommentStatus?> onStatusChanged;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
+  final ValueChanged<AdminCommentItem> onDelete;
+  final ValueChanged<AdminCommentItem> onRestore;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      itemCount: page.items.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildHeader(context);
+        }
+        final comment = page.items[index - 1];
+        return _CommentAdminRow(
+          comment: comment,
+          onDelete: comment.deleted ? null : () => onDelete(comment),
+          onRestore: comment.deleted ? () => onRestore(comment) : null,
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionToolbar(
+          title: '评论管理',
+          actionLabel: '刷新',
+          actionIcon: Icons.refresh,
+          onAction: onApply,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        _CommentFilters(
+          status: status,
+          contentIdController: contentIdController,
+          userIdController: userIdController,
+          onStatusChanged: onStatusChanged,
+          onApply: onApply,
+          onClear: onClear,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        Text(
+          '共 ${page.total} 条评论',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        if (page.items.isEmpty) ...[
+          const SizedBox(height: AppSpacing.xl),
+          const AdminEmptyPane(message: '暂无评论'),
+        ],
+        const SizedBox(height: AppSpacing.sm + 4),
+      ],
+    );
+  }
+}
+
 /// 评论筛选组件
 class _CommentFilters extends StatelessWidget {
   const _CommentFilters({
@@ -192,18 +231,18 @@ class _CommentFilters extends StatelessWidget {
     required this.onClear,
   });
 
-  final AdminCommentStatus? status; // 评论状态筛选
-  final TextEditingController contentIdController; // 内容 ID 控制器
-  final TextEditingController userIdController; // 用户 ID 控制器
-  final ValueChanged<AdminCommentStatus?> onStatusChanged; // 状态变更回调
-  final VoidCallback onApply; // 应用筛选回调
-  final VoidCallback onClear; // 清空筛选回调
+  final AdminCommentStatus? status;
+  final TextEditingController contentIdController;
+  final TextEditingController userIdController;
+  final ValueChanged<AdminCommentStatus?> onStatusChanged;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+      spacing: AppSpacing.sm + 4,
+      runSpacing: AppSpacing.sm + 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         SizedBox(
@@ -255,7 +294,6 @@ class _CommentFilters extends StatelessWidget {
 }
 
 /// 评论管理行组件
-/// 展示单条评论的内容标题、评论正文、用户信息和操作按钮
 class _CommentAdminRow extends StatelessWidget {
   const _CommentAdminRow({
     required this.comment,
@@ -263,78 +301,95 @@ class _CommentAdminRow extends StatelessWidget {
     required this.onRestore,
   });
 
-  final AdminCommentItem comment; // 评论数据
-  final VoidCallback? onDelete; // 删除回调（已删除时为 null）
-  final VoidCallback? onRestore; // 恢复回调（未删除时为 null）
+  final AdminCommentItem comment;
+  final VoidCallback? onDelete;
+  final VoidCallback? onRestore;
 
   @override
   Widget build(BuildContext context) {
     final createdAt = formatAdminDate(comment.createdAt);
     final userLabel =
         comment.userNickname.isEmpty ? comment.userEmail : comment.userNickname;
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.mode_comment_outlined),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      InkWell(
-                        onTap:
-                            () => context.go('/contents/${comment.contentId}'),
-                        child: Text(
-                          comment.contentTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        comment.body,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                AdminCommentStatusChip(status: comment.status),
-                AdminMetaText(icon: Icons.person_outline, text: userLabel),
-                if (comment.userEmail.isNotEmpty)
-                  AdminMetaText(icon: Icons.mail_outline, text: comment.userEmail),
-                AdminMetaText(icon: Icons.schedule_outlined, text: createdAt),
-                OutlinedButton.icon(
-                  onPressed: onRestore,
-                  icon: const Icon(Icons.restore_outlined),
-                  label: const Text('恢复'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('删除'),
-                ),
-              ],
-            ),
+            // 评论内容
+            _buildContent(context),
+            const SizedBox(height: AppSpacing.sm + 4),
+
+            // 标签和操作
+            _buildActions(context, userLabel, createdAt),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.mode_comment_outlined,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: AppSpacing.sm + 4),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: () => context.go('/contents/${comment.contentId}'),
+                borderRadius: BorderRadius.circular(4),
+                child: Text(
+                  comment.contentTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                comment.body,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActions(BuildContext context, String userLabel, String createdAt) {
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        AdminCommentStatusChip(status: comment.status),
+        AdminMetaText(icon: Icons.person_outline, text: userLabel),
+        if (comment.userEmail.isNotEmpty)
+          AdminMetaText(icon: Icons.mail_outline, text: comment.userEmail),
+        AdminMetaText(icon: Icons.schedule_outlined, text: createdAt),
+        OutlinedButton.icon(
+          onPressed: onRestore,
+          icon: const Icon(Icons.restore_outlined, size: 18),
+          label: const Text('恢复'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onDelete,
+          icon: const Icon(Icons.delete_outline, size: 18),
+          label: const Text('删除'),
+        ),
+      ],
     );
   }
 }

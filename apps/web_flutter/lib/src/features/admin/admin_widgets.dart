@@ -1,8 +1,10 @@
 // 管理后台共享组件
 // 包含工具栏、状态标签、错误面板、确认对话框等通用组件
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/constants.dart';
 import '../../core/models.dart';
 
 /// 区域工具栏组件
@@ -73,7 +75,7 @@ class AdminNumberField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 148,
+      width: kAdminNumberFieldWidth,
       child: TextFormField(
         controller: controller,
         decoration: InputDecoration(labelText: label),
@@ -217,12 +219,12 @@ class AdminMediaThumb extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
-      child: Image.network(
-        url,
+      child: CachedNetworkImage(
+        imageUrl: url,
         width: size.width,
         height: size.height,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => placeholder,
+        errorWidget: (context, url, error) => placeholder,
       ),
     );
   }
@@ -309,6 +311,7 @@ Future<bool> adminConfirm(
   required String message,
   required String action,
 }) async {
+  if (!context.mounted) return false;
   final confirmed = await showDialog<bool>(
     context: context,
     builder:

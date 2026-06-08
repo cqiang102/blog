@@ -1,14 +1,16 @@
-/// Riverpod Provider 定义
-/// 全局状态管理，提供 API 客户端、认证控制器和各业务数据 Provider
-library;
+// Riverpod Provider 定义
+// 全局状态管理，提供 API 客户端、认证控制器和各业务数据 Provider
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart' show ChangeNotifierProvider;
+import 'package:flutter_riverpod/legacy.dart';
 
+import 'ai_chat_state.dart';
 import 'api_client.dart';
 import 'auth_controller.dart';
+import 'content_filter_state.dart';
 import 'models.dart';
+import 'pagination_state.dart';
 
 /// API 客户端 Provider
 final apiClientProvider = Provider<BlogApiClient>((ref) {
@@ -234,3 +236,36 @@ final adminAuditLogsProvider =
           .watch(apiClientProvider)
           .fetchAdminAuditLogs(accessToken: token, query: query);
     });
+
+/// 内容筛选状态 Provider
+final contentFilterProvider =
+    StateNotifierProvider<ContentFilterNotifier, ContentFilterState>((ref) {
+  return ContentFilterNotifier();
+});
+
+/// 内容分页状态 Provider
+/// 根据筛选条件动态创建分页状态
+final contentPaginationProvider = StateNotifierProvider.family<
+    PaginationNotifier<BlogContent>,
+    PaginationState<BlogContent>,
+    ContentListQuery>((ref, query) {
+  final api = ref.watch(apiClientProvider);
+  return PaginationNotifier<BlogContent>((page, size) {
+    final q = ContentListQuery(
+      query: query.query,
+      tag: query.tag,
+      type: query.type,
+      startDate: query.startDate,
+      endDate: query.endDate,
+      page: page,
+      size: size,
+    );
+    return api.fetchContents(q);
+  });
+});
+
+/// AI 聊天状态 Provider
+final aiChatProvider =
+    StateNotifierProvider<AiChatNotifier, AiChatState>((ref) {
+  return AiChatNotifier();
+});

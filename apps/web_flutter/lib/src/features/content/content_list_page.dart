@@ -1,15 +1,20 @@
 // 内容列表页模块
 // 支持无限滚动分页、关键词搜索、标签/类型/日期范围过滤
+// 使用 Riverpod 管理状态，替代 setState
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api_providers.dart';
+import '../../core/constants.dart';
 import '../../core/models.dart';
+import '../../core/pagination_state.dart';
+import '../../core/theme.dart';
 
 /// 内容列表页 Widget
-/// 有状态组件，管理搜索、过滤条件和分页加载逻辑
+/// 使用 Riverpod 管理筛选和分页状态
 class ContentListPage extends ConsumerStatefulWidget {
   const ContentListPage({super.key});
 
@@ -18,27 +23,18 @@ class ContentListPage extends ConsumerStatefulWidget {
 }
 
 /// 内容列表页状态管理
-/// 管理搜索框、滚动控制器、过滤条件和分页数据
 class _ContentListPageState extends ConsumerState<ContentListPage> {
-  final _searchController = TextEditingController(); // 搜索框控制器
-  final _scrollController = ScrollController(); // 滚动控制器，用于无限滚动
-  ContentType? _type; // 内容类型过滤条件
-  String? _tag; // 标签过滤条件
-  DateTime? _startDate; // 日期范围-开始日期
-  DateTime? _endDate; // 日期范围-结束日期
-
-  final List<BlogContent> _items = []; // 已加载的内容列表
-  int _currentPage = 0; // 当前页码
-  int _total = 0; // 总内容数
-  bool _isLoading = false; // 是否正在加载中
-  bool _hasMore = true; // 是否还有更多数据
-  String? _error; // 错误信息
+  final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _loadMore();
+    // 初始加载
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadInitialData();
+    });
   }
 
   @override
@@ -48,121 +44,106 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
     super.dispose();
   }
 
-  /// 滚动监听回调
-  /// 当滚动到底部附近 200px 时触发加载更多
+  /// 监听滚动事件，加载更多
   void _onScroll() {
     if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 200 &&
-        !_isLoading &&
-        _hasMore) {
+        _scrollController.position.maxScrollExtent - kScrollThreshold) {
       _loadMore();
     }
   }
 
-  /// 加载更多内容
-  /// 使用当前过滤条件和页码请求 API，追加数据到列表
-  Future<void> _loadMore() async {
-    if (_isLoading) return;
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final api = ref.read(apiClientProvider);
-      final query = ContentListQuery(
-        query: _searchController.text.trim(),
-        tag: _tag,
-        type: _type,
-        startDate: _startDate,
-        endDate: _endDate,
-        page: _currentPage,
-        size: 20,
-      );
-      final result = await api.fetchContents(query);
-      setState(() {
-        _items.addAll(result.items);
-        _total = result.total;
-        _currentPage++;
-        _hasMore = _items.length < _total;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
+  /// 加载初始数据
+  void _loadInitialData() {
+    final filter = ref.read(contentFilterProvider);
+    ref
+        .read(contentPaginationProvider(filter.toQuery()).notifier)
+        .resetAndLoad();
   }
 
-  /// 重置列表并重新加载
-  /// 清空当前数据，重置分页状态，从第一页开始加载
+  /// 加载更多数据
+  void _loadMore() {
+    final filter = ref.read(contentFilterProvider);
+    ref
+        .read(contentPaginationProvider(filter.toQuery()).notifier)
+        .loadMore();
+  }
+
+  /// 重置并重新加载
   void _resetAndLoad() {
-    setState(() {
-      _items.clear();
-      _currentPage = 0;
-      _total = 0;
-      _hasMore = true;
-      _error = null;
-    });
-    _loadMore();
+    final filter = ref.read(contentFilterProvider);
+    ref
+        .read(contentPaginationProvider(filter.toQuery()).notifier)
+        .resetAndLoad();
   }
 
   @override
   Widget build(BuildContext context) {
+    final filter = ref.watch(contentFilterProvider);
+    final pagination = ref.watch(contentPaginationProvider(filter.toQuery()));
+
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
         const SliverAppBar(title: Text('全部内容')),
         SliverPadding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           sliver: SliverList.list(
             children: [
-              TextField(
+              // 搜索框
+              _SearchBar(
                 controller: _searchController,
-                onSubmitted: (_) => _resetAndLoad(),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search),
-                  hintText: '搜索标题、摘要、正文',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      _searchController.clear();
-                      _resetAndLoad();
-                    },
-                  ),
-                ),
+                onSearch: () {
+                  ref
+                      .read(contentFilterProvider.notifier)
+                      .updateQuery(_searchController.text.trim());
+                  _resetAndLoad();
+                },
               ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ChoiceChip(
-                    label: const Text('全部类型'),
-                    selected: _type == null,
-                    onSelected: (_) {
-                      setState(() => _type = null);
-                      _resetAndLoad();
-                    },
-                  ),
-                  for (final type in ContentType.values)
-                    ChoiceChip(
-                      label: Text(type.label),
-                      selected: _type == type,
-                      onSelected: (_) {
-                        setState(() => _type = type);
-                        _resetAndLoad();
-                      },
-                    ),
-                ],
+              const SizedBox(height: AppSpacing.md),
+
+              // 类型过滤器
+              _TypeFilter(
+                selectedType: filter.type,
+                onTypeChanged: (type) {
+                  ref.read(contentFilterProvider.notifier).updateType(type);
+                  _resetAndLoad();
+                },
               ),
-              const SizedBox(height: 12),
-              _buildTagFilters(),
-              const SizedBox(height: 12),
-              _buildDateFilters(),
-              const SizedBox(height: 24),
-              _buildContentList(),
+              const SizedBox(height: AppSpacing.sm + 4),
+
+              // 标签过滤器
+              _TagFilter(
+                selectedTag: filter.tag,
+                onTagChanged: (tag) {
+                  ref.read(contentFilterProvider.notifier).updateTag(tag);
+                  _resetAndLoad();
+                },
+              ),
+              const SizedBox(height: AppSpacing.sm + 4),
+
+              // 日期过滤器
+              _DateFilter(
+                startDate: filter.startDate,
+                endDate: filter.endDate,
+                onStartDateChanged: (date) {
+                  ref
+                      .read(contentFilterProvider.notifier)
+                      .updateStartDate(date);
+                  _resetAndLoad();
+                },
+                onEndDateChanged: (date) {
+                  ref.read(contentFilterProvider.notifier).updateEndDate(date);
+                  _resetAndLoad();
+                },
+                onClear: () {
+                  ref.read(contentFilterProvider.notifier).clearDates();
+                  _resetAndLoad();
+                },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // 内容列表
+              _buildContentList(pagination),
             ],
           ),
         ),
@@ -170,10 +151,125 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
     );
   }
 
-  /// 构建标签过滤器
-  /// 从 API 获取标签列表，渲染为可选择的 FilterChip
-  Widget _buildTagFilters() {
+  /// 构建内容列表
+  Widget _buildContentList(PaginationState<BlogContent> pagination) {
+    if (pagination.items.isEmpty && pagination.isLoading) {
+      return const _LoadingState();
+    }
+
+    if (pagination.error != null && pagination.items.isEmpty) {
+      return _ErrorState(
+        message: pagination.error!,
+        onRetry: _resetAndLoad,
+      );
+    }
+
+    if (pagination.items.isEmpty) {
+      return const _EmptyState();
+    }
+
+    return Column(
+      children: [
+        for (final item in pagination.items) ...[
+          _ContentRow(
+            key: ValueKey(item.id),
+            content: item,
+          ),
+          const SizedBox(height: AppSpacing.sm + 4),
+        ],
+        if (pagination.isLoading) const _LoadingIndicator(),
+        if (!pagination.hasMore && pagination.items.isNotEmpty)
+          const _NoMoreContent(),
+      ],
+    );
+  }
+}
+
+// ============================================================================
+// 搜索栏组件
+// ============================================================================
+
+class _SearchBar extends StatelessWidget {
+  const _SearchBar({
+    required this.controller,
+    required this.onSearch,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onSearch;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      onSubmitted: (_) => onSearch(),
+      decoration: InputDecoration(
+        prefixIcon: const Icon(Icons.search),
+        hintText: '搜索标题、摘要、正文',
+        suffixIcon: IconButton(
+          icon: const Icon(Icons.clear),
+          onPressed: () {
+            controller.clear();
+            onSearch();
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// 类型过滤器组件
+// ============================================================================
+
+class _TypeFilter extends StatelessWidget {
+  const _TypeFilter({
+    required this.selectedType,
+    required this.onTypeChanged,
+  });
+
+  final ContentType? selectedType;
+  final ValueChanged<ContentType?> onTypeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: [
+        ChoiceChip(
+          label: const Text('全部类型'),
+          selected: selectedType == null,
+          onSelected: (_) => onTypeChanged(null),
+        ),
+        for (final type in ContentType.values)
+          ChoiceChip(
+            label: Text(type.label),
+            selected: selectedType == type,
+            onSelected: (_) => onTypeChanged(type),
+          ),
+      ],
+    );
+  }
+}
+
+// ============================================================================
+// 标签过滤器组件
+// ============================================================================
+
+class _TagFilter extends ConsumerWidget {
+  const _TagFilter({
+    required this.selectedTag,
+    required this.onTagChanged,
+  });
+
+  final String? selectedTag;
+  final ValueChanged<String?> onTagChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final tagsAsync = ref.watch(tagsProvider);
+
     return tagsAsync.when(
       loading: () => const SizedBox.shrink(),
       error: (error, stackTrace) => const SizedBox.shrink(),
@@ -181,79 +277,84 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
         if (tags.isEmpty) return const SizedBox.shrink();
 
         return Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
           children: [
             FilterChip(
               label: const Text('全部标签'),
-              selected: _tag == null,
-              onSelected: (_) {
-                setState(() => _tag = null);
-                _resetAndLoad();
-              },
+              selected: selectedTag == null,
+              onSelected: (_) => onTagChanged(null),
             ),
             for (final tag in tags)
               FilterChip(
                 label: Text(tag.name),
-                selected: _tag == tag.slug,
-                onSelected: (_) {
-                  setState(() => _tag = tag.slug);
-                  _resetAndLoad();
-                },
+                selected: selectedTag == tag.slug,
+                onSelected: (_) => onTagChanged(tag.slug),
               ),
           ],
         );
       },
     );
   }
+}
 
-  /// 构建日期范围过滤器
-  /// 提供开始日期和结束日期选择器，支持清除日期筛选
-  Widget _buildDateFilters() {
+// ============================================================================
+// 日期过滤器组件
+// ============================================================================
+
+class _DateFilter extends StatelessWidget {
+  const _DateFilter({
+    required this.startDate,
+    required this.endDate,
+    required this.onStartDateChanged,
+    required this.onEndDateChanged,
+    required this.onClear,
+  });
+
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final ValueChanged<DateTime?> onStartDateChanged;
+  final ValueChanged<DateTime?> onEndDateChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy-MM-dd');
-    final hasDateFilter = _startDate != null || _endDate != null;
+    final hasDateFilter = startDate != null || endDate != null;
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         ActionChip(
           avatar: const Icon(Icons.calendar_today, size: 18),
-          label: Text(_startDate != null ? dateFormat.format(_startDate!) : '开始日期'),
-          onPressed: () => _selectDate(true),
+          label: Text(startDate != null ? dateFormat.format(startDate!) : '开始日期'),
+          onPressed: () => _selectDate(context, true),
         ),
         const Text('至'),
         ActionChip(
           avatar: const Icon(Icons.calendar_today, size: 18),
-          label: Text(_endDate != null ? dateFormat.format(_endDate!) : '结束日期'),
-          onPressed: () => _selectDate(false),
+          label: Text(endDate != null ? dateFormat.format(endDate!) : '结束日期'),
+          onPressed: () => _selectDate(context, false),
         ),
         if (hasDateFilter)
           ActionChip(
             avatar: const Icon(Icons.clear, size: 18),
             label: const Text('清除日期'),
-            onPressed: () {
-              setState(() {
-                _startDate = null;
-                _endDate = null;
-              });
-              _resetAndLoad();
-            },
+            onPressed: onClear,
           ),
       ],
     );
   }
 
-  /// 选择日期
-  /// [isStart] 为 true 选择开始日期，否则选择结束日期
-  /// 自动校验确保开始日期不晚于结束日期
-  Future<void> _selectDate(bool isStart) async {
+  Future<void> _selectDate(BuildContext context, bool isStart) async {
     final now = DateTime.now();
-    final initialDate = isStart ? _startDate : _endDate;
-    final firstDate = DateTime(2020);
+    final initialDate = isStart ? startDate : endDate;
+    final firstDate = DateTime(kDateRangeStartYear);
     final lastDate = DateTime(now.year, now.month, now.day);
 
+    if (!context.mounted) return;
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate ?? now,
@@ -262,106 +363,73 @@ class _ContentListPageState extends ConsumerState<ContentListPage> {
     );
 
     if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startDate = picked;
-          if (_endDate != null && _endDate!.isBefore(_startDate!)) {
-            _endDate = null;
-          }
-        } else {
-          _endDate = picked;
-          if (_startDate != null && _startDate!.isAfter(_endDate!)) {
-            _startDate = null;
-          }
+      if (isStart) {
+        onStartDateChanged(picked);
+        if (endDate != null && endDate!.isBefore(picked)) {
+          onEndDateChanged(null);
         }
-      });
-      _resetAndLoad();
+      } else {
+        onEndDateChanged(picked);
+        if (startDate != null && startDate!.isAfter(picked)) {
+          onStartDateChanged(null);
+        }
+      }
     }
-  }
-
-  /// 构建内容列表
-  /// 根据加载状态显示加载指示器、错误面板、空状态或内容卡片列表
-  Widget _buildContentList() {
-    if (_items.isEmpty && _isLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 56),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (_error != null && _items.isEmpty) {
-      return _ErrorPanel(
-        message: _error!,
-        onRetry: _resetAndLoad,
-      );
-    }
-
-    if (_items.isEmpty) {
-      return const _EmptyPanel();
-    }
-
-    return Column(
-      children: [
-        for (final item in _items) ...[
-          _ContentRow(content: item),
-          const SizedBox(height: 12),
-        ],
-        if (_isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-        if (!_hasMore && _items.isNotEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: Text('没有更多内容了')),
-          ),
-      ],
-    );
   }
 }
 
-/// 内容行组件
-/// 展示单条内容的缩略图、标题、摘要、类型和标签
-class _ContentRow extends StatelessWidget {
-  const _ContentRow({required this.content});
+// ============================================================================
+// 内容行组件
+// ============================================================================
 
-  final BlogContent content; // 内容数据
+class _ContentRow extends StatelessWidget {
+  const _ContentRow({super.key, required this.content});
+
+  final BlogContent content;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
         onTap: () => context.go('/contents/${content.id}'),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 缩略图
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: _Thumb(url: content.coverUrl),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.md),
+
+              // 内容信息
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 标题
                     Text(
                       content.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                     const SizedBox(height: 6),
+
+                    // 摘要
                     Text(
                       content.summary,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 10),
+
+                    // 标签
                     Wrap(
                       spacing: 6,
                       children: [
@@ -379,7 +447,12 @@ class _ContentRow extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right),
+
+              // 箭头图标
+              Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),
@@ -388,64 +461,85 @@ class _ContentRow extends StatelessWidget {
   }
 }
 
-/// 缩略图组件
-/// 加载网络图片，失败时显示占位图标
+// ============================================================================
+// 缩略图组件
+// ============================================================================
+
 class _Thumb extends StatelessWidget {
   const _Thumb({required this.url});
 
-  final String url; // 图片 URL
+  final String url;
 
   @override
   Widget build(BuildContext context) {
     if (url.isEmpty) {
       return SizedBox(
-        width: 132,
-        height: 92,
+        width: kThumbWidth,
+        height: kThumbHeight,
         child: ColoredBox(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          child: const Icon(Icons.article_outlined),
+          child: Icon(
+            Icons.article_outlined,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
-    return Image.network(
-      url,
-      width: 132,
-      height: 92,
+
+    return CachedNetworkImage(
+      imageUrl: url,
+      width: kThumbWidth,
+      height: kThumbHeight,
       fit: BoxFit.cover,
-      errorBuilder:
-          (context, error, stackTrace) => SizedBox(
-            width: 132,
-            height: 92,
-            child: ColoredBox(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              child: const Icon(Icons.broken_image_outlined),
-            ),
+      memCacheWidth: kThumbWidth.toInt() * 2, // 限制内存缓存宽度
+      errorWidget: (context, url, error) => SizedBox(
+        width: kThumbWidth,
+        height: kThumbHeight,
+        child: ColoredBox(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: Icon(
+            Icons.broken_image_outlined,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
+        ),
+      ),
     );
   }
 }
 
-/// 空面板组件
-/// 搜索结果为空时显示的提示
-class _EmptyPanel extends StatelessWidget {
-  const _EmptyPanel();
+// ============================================================================
+// 状态组件
+// ============================================================================
+
+/// 加载状态组件
+class _LoadingState extends StatelessWidget {
+  const _LoadingState();
 
   @override
   Widget build(BuildContext context) {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 56),
-      child: Center(child: Text('没有找到内容')),
+      child: Center(child: CircularProgressIndicator()),
     );
   }
 }
 
-/// 错误面板组件
-/// 加载失败时显示错误信息和重试按钮
-class _ErrorPanel extends StatelessWidget {
-  const _ErrorPanel({required this.message, required this.onRetry});
+/// 加载指示器组件
+class _LoadingIndicator extends StatelessWidget {
+  const _LoadingIndicator();
 
-  final String message; // 错误信息
-  final VoidCallback onRetry; // 重试回调
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+/// 空面板组件
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
@@ -455,8 +549,72 @@ class _ErrorPanel extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
+            Icon(
+              Icons.inbox_outlined,
+              size: 48,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              '没有找到内容',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 没有更多内容组件
+class _NoMoreContent extends StatelessWidget {
+  const _NoMoreContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Center(
+        child: Text(
+          '没有更多内容了',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 错误面板组件
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 56),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 48,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.md),
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),

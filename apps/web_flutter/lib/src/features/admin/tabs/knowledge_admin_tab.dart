@@ -6,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
 import '../../../core/models.dart';
+import '../../../core/theme.dart';
 import '../admin_widgets.dart';
 
 /// 知识库管理标签页
-/// 展示知识文档列表，支持编辑和筛选
 class AdminKnowledgeTab extends ConsumerStatefulWidget {
   const AdminKnowledgeTab({super.key});
 
@@ -17,11 +17,10 @@ class AdminKnowledgeTab extends ConsumerStatefulWidget {
   ConsumerState<AdminKnowledgeTab> createState() => AdminKnowledgeTabState();
 }
 
-/// 知识库管理标签页状态管理
 class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
-  final _queryController = TextEditingController(); // 搜索关键词输入框
-  bool? _enabled; // 启用状态筛选
-  AdminKnowledgeDocQuery _query = const AdminKnowledgeDocQuery(); // 当前查询条件
+  final _queryController = TextEditingController();
+  bool? _enabled;
+  AdminKnowledgeDocQuery _query = const AdminKnowledgeDocQuery();
 
   @override
   void dispose() {
@@ -35,52 +34,21 @@ class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
 
     return docs.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, stackTrace) => AdminErrorPane(
-            message: error.toString(),
-            onRetry: () => ref.invalidate(adminKnowledgeDocsProvider(_query)),
-          ),
-      data:
-          (page) => ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              SectionToolbar(
-                title: '个人知识库',
-                actionLabel: '新增',
-                actionIcon: Icons.add,
-                onAction: () => _openKnowledgeEditor(context),
-                secondaryLabel: '刷新',
-                secondaryIcon: Icons.refresh,
-                onSecondaryAction:
-                    () => ref.invalidate(adminKnowledgeDocsProvider(_query)),
-              ),
-              const SizedBox(height: 12),
-              _KnowledgeFilters(
-                queryController: _queryController,
-                enabled: _enabled,
-                onEnabledChanged: (value) => setState(() => _enabled = value),
-                onApply: _applyFilters,
-                onClear: _clearFilters,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '共 ${page.total} 篇知识库文档',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              if (page.items.isEmpty)
-                const AdminEmptyPane(message: '暂无知识库文档')
-              else
-                for (final doc in page.items) ...[
-                  _KnowledgeDocRow(
-                    doc: doc,
-                    onEdit: () => _openKnowledgeEditor(context, doc: doc),
-                    onDelete: () => _deleteKnowledgeDoc(context, doc),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-            ],
-          ),
+      error: (error, stackTrace) => AdminErrorPane(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(adminKnowledgeDocsProvider(_query)),
+      ),
+      data: (page) => _KnowledgeList(
+        page: page,
+        query: _query,
+        queryController: _queryController,
+        enabled: _enabled,
+        onEnabledChanged: (value) => setState(() => _enabled = value),
+        onApply: _applyFilters,
+        onClear: _clearFilters,
+        onOpenEditor: (doc) => _openKnowledgeEditor(context, doc: doc),
+        onDelete: (doc) => _deleteKnowledgeDoc(context, doc),
+      ),
     );
   }
 
@@ -120,9 +88,7 @@ class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
             .read(apiClientProvider)
             .createAdminKnowledgeDoc(accessToken: token, draft: draft);
       } else {
-        await ref
-            .read(apiClientProvider)
-            .updateAdminKnowledgeDoc(
+        await ref.read(apiClientProvider).updateAdminKnowledgeDoc(
               accessToken: token,
               id: doc.id,
               draft: draft,
@@ -144,6 +110,7 @@ class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
     BuildContext context,
     AdminKnowledgeDocItem doc,
   ) async {
+    if (!mounted) return;
     final confirmed = await adminConfirm(
       context,
       title: '删除知识库文档',
@@ -177,6 +144,85 @@ class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
   }
 }
 
+/// 知识库列表组件
+class _KnowledgeList extends StatelessWidget {
+  const _KnowledgeList({
+    required this.page,
+    required this.query,
+    required this.queryController,
+    required this.enabled,
+    required this.onEnabledChanged,
+    required this.onApply,
+    required this.onClear,
+    required this.onOpenEditor,
+    required this.onDelete,
+  });
+
+  final PageResult<AdminKnowledgeDocItem> page;
+  final AdminKnowledgeDocQuery query;
+  final TextEditingController queryController;
+  final bool? enabled;
+  final ValueChanged<bool?> onEnabledChanged;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
+  final ValueChanged<AdminKnowledgeDocItem?> onOpenEditor;
+  final ValueChanged<AdminKnowledgeDocItem> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      itemCount: page.items.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildHeader(context);
+        }
+        final doc = page.items[index - 1];
+        return _KnowledgeDocRow(
+          doc: doc,
+          onEdit: () => onOpenEditor(doc),
+          onDelete: () => onDelete(doc),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionToolbar(
+          title: '个人知识库',
+          actionLabel: '新增',
+          actionIcon: Icons.add,
+          onAction: () => onOpenEditor(null),
+          secondaryLabel: '刷新',
+          secondaryIcon: Icons.refresh,
+          onSecondaryAction: onApply,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        _KnowledgeFilters(
+          queryController: queryController,
+          enabled: enabled,
+          onEnabledChanged: onEnabledChanged,
+          onApply: onApply,
+          onClear: onClear,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        Text(
+          '共 ${page.total} 篇知识库文档',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        if (page.items.isEmpty) ...[
+          const SizedBox(height: AppSpacing.xl),
+          const AdminEmptyPane(message: '暂无知识库文档'),
+        ],
+        const SizedBox(height: AppSpacing.sm + 4),
+      ],
+    );
+  }
+}
+
 /// 知识库筛选组件
 class _KnowledgeFilters extends StatelessWidget {
   const _KnowledgeFilters({
@@ -187,17 +233,17 @@ class _KnowledgeFilters extends StatelessWidget {
     required this.onClear,
   });
 
-  final TextEditingController queryController; // 搜索关键词控制器
-  final bool? enabled; // 启用状态
-  final ValueChanged<bool?> onEnabledChanged; // 状态变更回调
-  final VoidCallback onApply; // 应用筛选回调
-  final VoidCallback onClear; // 清空筛选回调
+  final TextEditingController queryController;
+  final bool? enabled;
+  final ValueChanged<bool?> onEnabledChanged;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+      spacing: AppSpacing.sm + 4,
+      runSpacing: AppSpacing.sm + 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         SizedBox(
@@ -236,7 +282,6 @@ class _KnowledgeFilters extends StatelessWidget {
 }
 
 /// 知识库文档行组件
-/// 展示单条知识库文档的标题、正文预览、来源类型和操作按钮
 class _KnowledgeDocRow extends StatelessWidget {
   const _KnowledgeDocRow({
     required this.doc,
@@ -244,82 +289,101 @@ class _KnowledgeDocRow extends StatelessWidget {
     required this.onDelete,
   });
 
-  final AdminKnowledgeDocItem doc; // 文档数据
-  final VoidCallback onEdit; // 编辑回调
-  final VoidCallback onDelete; // 删除回调
+  final AdminKnowledgeDocItem doc;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final preview = doc.body.isEmpty ? '暂无正文' : doc.body;
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.library_books_outlined),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        doc.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        preview,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                _KnowledgeSourceChip(sourceType: doc.sourceType),
-                _KnowledgeEnabledChip(enabled: doc.enabled),
-                if (doc.sourceRef.isNotEmpty)
-                  AdminMetaText(icon: Icons.link_outlined, text: doc.sourceRef),
-                AdminMetaText(icon: Icons.update, text: formatAdminDate(doc.updatedAt)),
-                OutlinedButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('编辑'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('删除'),
-                ),
-              ],
-            ),
+            // 头部：图标 + 信息
+            _buildHeader(context, preview),
+            const SizedBox(height: AppSpacing.sm + 4),
+
+            // 标签和操作
+            _buildActions(context),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildHeader(BuildContext context, String preview) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.library_books_outlined,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: AppSpacing.sm + 4),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                doc.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                preview,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActions(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _KnowledgeSourceChip(sourceType: doc.sourceType),
+        _KnowledgeEnabledChip(enabled: doc.enabled),
+        if (doc.sourceRef.isNotEmpty)
+          AdminMetaText(icon: Icons.link_outlined, text: doc.sourceRef),
+        AdminMetaText(
+          icon: Icons.update,
+          text: formatAdminDate(doc.updatedAt),
+        ),
+        OutlinedButton.icon(
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          label: const Text('编辑'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onDelete,
+          icon: const Icon(Icons.delete_outline, size: 18),
+          label: const Text('删除'),
+        ),
+      ],
+    );
+  }
 }
 
 /// 知识库编辑器对话框
-/// 支持新增和编辑知识库文档，包含标题、来源类型、来源引用、正文和启用状态
 class KnowledgeEditorDialog extends StatefulWidget {
   const KnowledgeEditorDialog({super.key, required this.doc});
 
-  final AdminKnowledgeDocItem? doc; // 待编辑文档（null 表示新增）
+  final AdminKnowledgeDocItem? doc;
 
   @override
   State<KnowledgeEditorDialog> createState() => KnowledgeEditorDialogState();
@@ -337,16 +401,15 @@ class KnowledgeEditorDialogState extends State<KnowledgeEditorDialog> {
   void initState() {
     super.initState();
     final doc = widget.doc;
-    final draft =
-        doc == null
-            ? const AdminKnowledgeDocDraft(
-              title: '',
-              sourceType: KnowledgeSourceType.manual,
-              sourceRef: '',
-              body: '',
-              enabled: true,
-            )
-            : AdminKnowledgeDocDraft.fromItem(doc);
+    final draft = doc == null
+        ? const AdminKnowledgeDocDraft(
+            title: '',
+            sourceType: KnowledgeSourceType.manual,
+            sourceRef: '',
+            body: '',
+            enabled: true,
+          )
+        : AdminKnowledgeDocDraft.fromItem(doc);
     _titleController.text = draft.title;
     _sourceType = draft.sourceType;
     _sourceRefController.text = draft.sourceRef;
@@ -379,13 +442,10 @@ class KnowledgeEditorDialogState extends State<KnowledgeEditorDialog> {
                   controller: _titleController,
                   decoration: const InputDecoration(labelText: '标题'),
                   maxLength: 180,
-                  validator:
-                      (value) =>
-                          value == null || value.trim().isEmpty
-                              ? '请输入标题'
-                              : null,
+                  validator: (value) =>
+                      value == null || value.trim().isEmpty ? '请输入标题' : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm + 4),
                 DropdownButtonFormField<KnowledgeSourceType>(
                   initialValue: _sourceType,
                   decoration: const InputDecoration(labelText: '来源类型'),
@@ -396,25 +456,24 @@ class KnowledgeEditorDialogState extends State<KnowledgeEditorDialog> {
                         child: Text(sourceType.label),
                       ),
                   ],
-                  onChanged:
-                      (value) => setState(
-                        () => _sourceType = value ?? KnowledgeSourceType.manual,
-                      ),
+                  onChanged: (value) => setState(
+                    () => _sourceType = value ?? KnowledgeSourceType.manual,
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm + 4),
                 TextFormField(
                   controller: _sourceRefController,
                   decoration: const InputDecoration(labelText: '来源引用'),
                   maxLines: 2,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm + 4),
                 TextFormField(
                   controller: _bodyController,
                   decoration: const InputDecoration(labelText: '知识正文'),
                   minLines: 8,
                   maxLines: 16,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm + 4),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('启用'),
@@ -458,7 +517,7 @@ class KnowledgeEditorDialogState extends State<KnowledgeEditorDialog> {
 class _KnowledgeSourceChip extends StatelessWidget {
   const _KnowledgeSourceChip({required this.sourceType});
 
-  final KnowledgeSourceType sourceType; // 来源类型
+  final KnowledgeSourceType sourceType;
 
   @override
   Widget build(BuildContext context) {
@@ -477,15 +536,14 @@ class _KnowledgeSourceChip extends StatelessWidget {
 class _KnowledgeEnabledChip extends StatelessWidget {
   const _KnowledgeEnabledChip({required this.enabled});
 
-  final bool enabled; // 是否启用
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Chip(
       label: Text(enabled ? '启用' : '停用'),
-      backgroundColor:
-          enabled ? scheme.primaryContainer : scheme.errorContainer,
+      backgroundColor: enabled ? scheme.primaryContainer : scheme.errorContainer,
     );
   }
 }

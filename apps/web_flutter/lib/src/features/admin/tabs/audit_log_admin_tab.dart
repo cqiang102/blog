@@ -5,10 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api_providers.dart';
 import '../../../core/models.dart';
+import '../../../core/theme.dart';
 import '../admin_widgets.dart';
 
 /// 审计日志管理标签页
-/// 展示管理员操作日志，支持筛选
 class AdminAuditLogTab extends ConsumerStatefulWidget {
   const AdminAuditLogTab({super.key});
 
@@ -16,22 +16,18 @@ class AdminAuditLogTab extends ConsumerStatefulWidget {
   ConsumerState<AdminAuditLogTab> createState() => AdminAuditLogTabState();
 }
 
-/// 审计日志管理标签页状态管理
 class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab> {
-  String? _action; // 操作类型筛选
-  String? _resourceType; // 资源类型筛选
-  AuditLogQuery _query = const AuditLogQuery(); // 当前查询条件
+  String? _action;
+  String? _resourceType;
+  AuditLogQuery _query = const AuditLogQuery();
 
-  /// 可选操作类型
   static const _actions = ['CREATE', 'UPDATE', 'DELETE', 'READ'];
-  /// 操作类型中文映射
   static const _actionLabels = {
     'CREATE': '创建',
     'UPDATE': '更新',
     'DELETE': '删除',
     'READ': '查看',
   };
-  /// 可选资源类型
   static const _resourceTypes = [
     'CONTENT',
     'TAG',
@@ -44,7 +40,6 @@ class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab> {
     'KNOWLEDGE',
     'AI_CHAT',
   ];
-  /// 资源类型中文映射
   static const _resourceTypeLabels = {
     'CONTENT': '内容',
     'TAG': '标签',
@@ -64,82 +59,24 @@ class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab> {
 
     return logs.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, stackTrace) => AdminErrorPane(
-            message: error.toString(),
-            onRetry: () => ref.invalidate(adminAuditLogsProvider(_query)),
-          ),
-      data:
-          (page) => ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              SectionToolbar(
-                title: '操作日志',
-                actionLabel: '刷新',
-                actionIcon: Icons.refresh,
-                onAction:
-                    () => ref.invalidate(adminAuditLogsProvider(_query)),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 180,
-                    child: DropdownButtonFormField<String?>(
-                      initialValue: _action,
-                      decoration: const InputDecoration(labelText: '操作类型'),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('全部')),
-                        for (final a in _actions)
-                          DropdownMenuItem(value: a, child: Text(_actionLabels[a] ?? a)),
-                      ],
-                      onChanged: (value) => setState(() => _action = value),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 180,
-                    child: DropdownButtonFormField<String?>(
-                      initialValue: _resourceType,
-                      decoration: const InputDecoration(labelText: '资源类型'),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('全部')),
-                        for (final r in _resourceTypes)
-                          DropdownMenuItem(value: r, child: Text(_resourceTypeLabels[r] ?? r)),
-                      ],
-                      onChanged:
-                          (value) => setState(() => _resourceType = value),
-                    ),
-                  ),
-                  FilledButton.icon(
-                    onPressed: _applyFilters,
-                    icon: const Icon(Icons.filter_alt),
-                    label: const Text('筛选'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _clearFilters,
-                    icon: const Icon(Icons.clear),
-                    label: const Text('清空'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '共 ${page.total} 条日志',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              if (page.items.isEmpty)
-                const AdminEmptyPane(message: '暂无操作日志')
-              else
-                for (final log in page.items) ...[
-                  _AuditLogRow(log: log),
-                  const SizedBox(height: 8),
-                ],
-            ],
-          ),
+      error: (error, stackTrace) => AdminErrorPane(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(adminAuditLogsProvider(_query)),
+      ),
+      data: (page) => _AuditLogList(
+        page: page,
+        query: _query,
+        action: _action,
+        resourceType: _resourceType,
+        actions: _actions,
+        actionLabels: _actionLabels,
+        resourceTypes: _resourceTypes,
+        resourceTypeLabels: _resourceTypeLabels,
+        onActionChanged: (value) => setState(() => _action = value),
+        onResourceTypeChanged: (value) => setState(() => _resourceType = value),
+        onApply: _applyFilters,
+        onClear: _clearFilters,
+      ),
     );
   }
 
@@ -158,14 +95,175 @@ class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab> {
   }
 }
 
+/// 审计日志列表组件
+class _AuditLogList extends StatelessWidget {
+  const _AuditLogList({
+    required this.page,
+    required this.query,
+    required this.action,
+    required this.resourceType,
+    required this.actions,
+    required this.actionLabels,
+    required this.resourceTypes,
+    required this.resourceTypeLabels,
+    required this.onActionChanged,
+    required this.onResourceTypeChanged,
+    required this.onApply,
+    required this.onClear,
+  });
+
+  final PageResult<AuditLogItem> page;
+  final AuditLogQuery query;
+  final String? action;
+  final String? resourceType;
+  final List<String> actions;
+  final Map<String, String> actionLabels;
+  final List<String> resourceTypes;
+  final Map<String, String> resourceTypeLabels;
+  final ValueChanged<String?> onActionChanged;
+  final ValueChanged<String?> onResourceTypeChanged;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      itemCount: page.items.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildHeader(context);
+        }
+        final log = page.items[index - 1];
+        return _AuditLogRow(log: log);
+      },
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionToolbar(
+          title: '操作日志',
+          actionLabel: '刷新',
+          actionIcon: Icons.refresh,
+          onAction: onApply,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        _AuditLogFilters(
+          action: action,
+          resourceType: resourceType,
+          actions: actions,
+          actionLabels: actionLabels,
+          resourceTypes: resourceTypes,
+          resourceTypeLabels: resourceTypeLabels,
+          onActionChanged: onActionChanged,
+          onResourceTypeChanged: onResourceTypeChanged,
+          onApply: onApply,
+          onClear: onClear,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        Text(
+          '共 ${page.total} 条日志',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        if (page.items.isEmpty) ...[
+          const SizedBox(height: AppSpacing.xl),
+          const AdminEmptyPane(message: '暂无操作日志'),
+        ],
+        const SizedBox(height: AppSpacing.sm),
+      ],
+    );
+  }
+}
+
+/// 审计日志筛选组件
+class _AuditLogFilters extends StatelessWidget {
+  const _AuditLogFilters({
+    required this.action,
+    required this.resourceType,
+    required this.actions,
+    required this.actionLabels,
+    required this.resourceTypes,
+    required this.resourceTypeLabels,
+    required this.onActionChanged,
+    required this.onResourceTypeChanged,
+    required this.onApply,
+    required this.onClear,
+  });
+
+  final String? action;
+  final String? resourceType;
+  final List<String> actions;
+  final Map<String, String> actionLabels;
+  final List<String> resourceTypes;
+  final Map<String, String> resourceTypeLabels;
+  final ValueChanged<String?> onActionChanged;
+  final ValueChanged<String?> onResourceTypeChanged;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.sm + 4,
+      runSpacing: AppSpacing.sm + 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 180,
+          child: DropdownButtonFormField<String?>(
+            initialValue: action,
+            decoration: const InputDecoration(labelText: '操作类型'),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('全部')),
+              for (final a in actions)
+                DropdownMenuItem(
+                  value: a,
+                  child: Text(actionLabels[a] ?? a),
+                ),
+            ],
+            onChanged: onActionChanged,
+          ),
+        ),
+        SizedBox(
+          width: 180,
+          child: DropdownButtonFormField<String?>(
+            initialValue: resourceType,
+            decoration: const InputDecoration(labelText: '资源类型'),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('全部')),
+              for (final r in resourceTypes)
+                DropdownMenuItem(
+                  value: r,
+                  child: Text(resourceTypeLabels[r] ?? r),
+                ),
+            ],
+            onChanged: onResourceTypeChanged,
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: onApply,
+          icon: const Icon(Icons.filter_alt),
+          label: const Text('筛选'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onClear,
+          icon: const Icon(Icons.clear),
+          label: const Text('清空'),
+        ),
+      ],
+    );
+  }
+}
+
 /// 审计日志行组件
-/// 展示单条日志的操作类型、资源类型、操作者和详情
 class _AuditLogRow extends StatelessWidget {
   const _AuditLogRow({required this.log});
 
-  final AuditLogItem log; // 日志数据
+  final AuditLogItem log;
 
-  /// 操作类型中文映射
   static const _actionLabels = {
     'CREATE': '创建',
     'UPDATE': '更新',
@@ -173,7 +271,6 @@ class _AuditLogRow extends StatelessWidget {
     'READ': '查看',
   };
 
-  /// 资源类型中文映射
   static const _resourceTypeLabels = {
     'CONTENT': '内容',
     'TAG': '标签',
@@ -199,69 +296,103 @@ class _AuditLogRow extends StatelessWidget {
     };
 
     final actionLabel = _actionLabels[log.action] ?? log.action;
-    final resourceLabel = _resourceTypeLabels[log.resourceType] ?? log.resourceType;
+    final resourceLabel =
+        _resourceTypeLabels[log.resourceType] ?? log.resourceType;
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Chip(
-                  label: Text(actionLabel),
-                  backgroundColor: actionColor,
-                  visualDensity: VisualDensity.compact,
-                ),
-                const SizedBox(width: 8),
-                Chip(
-                  label: Text(resourceLabel),
-                  visualDensity: VisualDensity.compact,
-                ),
-                const Spacer(),
-                Text(
-                  formatAdminDate(log.createdAt),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.person_outline, size: 16, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 4),
-                Text(log.actorNickname ?? '系统'),
-                if (log.resourceId != null) ...[
-                  const SizedBox(width: 16),
-                  Icon(Icons.tag, size: 16, color: scheme.onSurfaceVariant),
-                  const SizedBox(width: 4),
-                  SelectableText(
-                    log.resourceId!,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ],
-            ),
+            // 标题行
+            _buildHeader(context, actionLabel, resourceLabel, actionColor),
+            const SizedBox(height: AppSpacing.sm),
+
+            // 操作者信息
+            _buildActorInfo(context, scheme),
+
+            // 详情
             if (log.detail != null && log.detail!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: SelectableText(
-                  log.detail!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ),
+              const SizedBox(height: AppSpacing.sm),
+              _buildDetail(context, scheme),
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    String actionLabel,
+    String resourceLabel,
+    Color actionColor,
+  ) {
+    return Row(
+      children: [
+        Chip(
+          label: Text(actionLabel),
+          backgroundColor: actionColor,
+          visualDensity: VisualDensity.compact,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Chip(
+          label: Text(resourceLabel),
+          visualDensity: VisualDensity.compact,
+        ),
+        const Spacer(),
+        Text(
+          formatAdminDate(log.createdAt),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActorInfo(BuildContext context, ColorScheme scheme) {
+    return Row(
+      children: [
+        Icon(
+          Icons.person_outline,
+          size: 16,
+          color: scheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          log.actorNickname ?? '系统',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        if (log.resourceId != null) ...[
+          const SizedBox(width: AppSpacing.md),
+          Icon(
+            Icons.tag,
+            size: 16,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 4),
+          SelectableText(
+            log.resourceId!,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDetail(BuildContext context, ColorScheme scheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm + 4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SelectableText(
+        log.detail!,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+            ),
       ),
     );
   }

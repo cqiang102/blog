@@ -7,11 +7,11 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
 import '../../../core/models.dart';
+import '../../../core/theme.dart';
 import '../admin_widgets.dart';
 import '../content_editor/content_editor.dart';
 
 /// 内容管理标签页
-/// 支持内容的新增、编辑、归档操作
 class AdminContentTab extends ConsumerWidget {
   const AdminContentTab({super.key});
 
@@ -30,53 +30,20 @@ class AdminContentTab extends ConsumerWidget {
 
     return contents.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, stackTrace) => AdminErrorPane(
-            message: error.toString(),
-            onRetry: () => ref.invalidate(adminContentsProvider),
-          ),
-      data:
-          (page) => ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              SectionToolbar(
-                title: '内容管理',
-                actionLabel: '新增内容',
-                actionIcon: Icons.add,
-                onAction: () => _openContentEditor(context, ref, tags),
-              ),
-              if (tagError != null) ...[
-                const SizedBox(height: 12),
-                AdminInlineError(message: tagError),
-              ],
-              const SizedBox(height: 12),
-              if (page.items.isEmpty)
-                const AdminEmptyPane(message: '暂无内容')
-              else
-                for (final content in page.items) ...[
-                  _ContentAdminRow(
-                    content: content,
-                    onEdit:
-                        () => _openContentEditor(
-                          context,
-                          ref,
-                          tags,
-                          content: content,
-                        ),
-                    onArchive:
-                        content.archived
-                            ? null
-                            : () => _archiveContent(context, ref, content),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-            ],
-          ),
+      error: (error, stackTrace) => AdminErrorPane(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(adminContentsProvider),
+      ),
+      data: (page) => _ContentList(
+        page: page,
+        tags: tags,
+        tagError: tagError,
+        onOpenEditor: (content) => _openContentEditor(context, ref, tags, content: content),
+        onArchive: (content) => _archiveContent(context, ref, content),
+      ),
     );
   }
 
-  /// 打开内容编辑器对话框
-  /// 新增时 content 为 null，编辑时传入现有内容数据
   Future<void> _openContentEditor(
     BuildContext context,
     WidgetRef ref,
@@ -118,13 +85,12 @@ class AdminContentTab extends ConsumerWidget {
     }
   }
 
-  /// 归档内容
-  /// 弹出确认对话框后调用 API 归档内容
   Future<void> _archiveContent(
     BuildContext context,
     WidgetRef ref,
     AdminContentItem content,
   ) async {
+    if (!context.mounted) return;
     final confirmed = await adminConfirm(
       context,
       title: '归档内容',
@@ -153,8 +119,66 @@ class AdminContentTab extends ConsumerWidget {
   }
 }
 
+/// 内容列表组件
+class _ContentList extends StatelessWidget {
+  const _ContentList({
+    required this.page,
+    required this.tags,
+    required this.tagError,
+    required this.onOpenEditor,
+    required this.onArchive,
+  });
+
+  final PageResult<AdminContentItem> page;
+  final List<TagItem> tags;
+  final String? tagError;
+  final ValueChanged<AdminContentItem?> onOpenEditor;
+  final ValueChanged<AdminContentItem> onArchive;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      itemCount: page.items.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildHeader(context);
+        }
+        final content = page.items[index - 1];
+        return _ContentAdminRow(
+          content: content,
+          onEdit: () => onOpenEditor(content),
+          onArchive: content.archived ? null : () => onArchive(content),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionToolbar(
+          title: '内容管理',
+          actionLabel: '新增内容',
+          actionIcon: Icons.add,
+          onAction: () => onOpenEditor(null),
+        ),
+        if (tagError != null) ...[
+          const SizedBox(height: AppSpacing.sm + 4),
+          AdminInlineError(message: tagError!),
+        ],
+        if (page.items.isEmpty) ...[
+          const SizedBox(height: AppSpacing.xl),
+          const AdminEmptyPane(message: '暂无内容'),
+        ],
+        const SizedBox(height: AppSpacing.sm + 4),
+      ],
+    );
+  }
+}
+
 /// 内容管理行组件
-/// 展示单条内容的封面、标题、状态、标签和操作按钮
 class _ContentAdminRow extends StatelessWidget {
   const _ContentAdminRow({
     required this.content,
@@ -162,113 +186,132 @@ class _ContentAdminRow extends StatelessWidget {
     required this.onArchive,
   });
 
-  final AdminContentItem content; // 内容数据
-  final VoidCallback onEdit; // 编辑回调
-  final VoidCallback? onArchive; // 归档回调（已归档时为 null）
+  final AdminContentItem content;
+  final VoidCallback onEdit;
+  final VoidCallback? onArchive;
 
   @override
   Widget build(BuildContext context) {
     final publishedAt = formatAdminDate(content.publishedAt);
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AdminMediaThumb(
-                  url: content.coverUrl,
-                  type: MediaAssetType.image,
-                  size: const Size(96, 64),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => context.go('/contents/${content.id}'),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          content.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          content.summary.isEmpty
-                              ? content.slug
-                              : content.summary,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: '编辑',
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-                IconButton(
-                  tooltip: '归档',
-                  onPressed: onArchive,
-                  icon: const Icon(Icons.archive_outlined),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                AdminStatusChip(status: content.status),
-                Chip(label: Text(content.type.label)),
-                if (content.pinned)
-                  const Chip(
-                    avatar: Icon(Icons.push_pin_outlined, size: 18),
-                    label: Text('置顶'),
-                  ),
-                Chip(
-                  avatar: const Icon(Icons.perm_media_outlined, size: 18),
-                  label: Text('${content.mediaCount} 个媒体'),
-                ),
-                if (content.coverMediaId.isNotEmpty)
-                  const Chip(
-                    avatar: Icon(Icons.image_outlined, size: 18),
-                    label: Text('有封面'),
-                  ),
-                for (final tag in content.tags) Chip(label: Text(tag.name)),
-              ],
-            ),
+            // 头部：封面 + 标题 + 操作按钮
+            _buildHeader(context),
+            const SizedBox(height: AppSpacing.sm + 4),
+
+            // 标签
+            _buildTags(context),
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 16,
-              runSpacing: 8,
-              children: [
-                AdminMetaText(
-                  icon: Icons.favorite_outline,
-                  text: '${content.likeCount}',
-                ),
-                AdminMetaText(
-                  icon: Icons.visibility_outlined,
-                  text: '${content.viewCount}',
-                ),
-                AdminMetaText(
-                  icon: Icons.comment_outlined,
-                  text: '${content.commentCount}',
-                ),
-                AdminMetaText(icon: Icons.schedule_outlined, text: publishedAt),
-              ],
-            ),
+
+            // 统计信息
+            _buildStats(context, publishedAt),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AdminMediaThumb(
+          url: content.coverUrl,
+          type: MediaAssetType.image,
+          size: const Size(96, 64),
+        ),
+        const SizedBox(width: AppSpacing.sm + 4),
+        Expanded(
+          child: InkWell(
+            onTap: () => context.go('/contents/${content.id}'),
+            borderRadius: BorderRadius.circular(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  content.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  content.summary.isEmpty ? content.slug : content.summary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: '编辑',
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_outlined),
+        ),
+        IconButton(
+          tooltip: '归档',
+          onPressed: onArchive,
+          icon: const Icon(Icons.archive_outlined),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTags(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        AdminStatusChip(status: content.status),
+        Chip(label: Text(content.type.label)),
+        if (content.pinned)
+          const Chip(
+            avatar: Icon(Icons.push_pin_outlined, size: 18),
+            label: Text('置顶'),
+          ),
+        Chip(
+          avatar: const Icon(Icons.perm_media_outlined, size: 18),
+          label: Text('${content.mediaCount} 个媒体'),
+        ),
+        if (content.coverMediaId.isNotEmpty)
+          const Chip(
+            avatar: Icon(Icons.image_outlined, size: 18),
+            label: Text('有封面'),
+          ),
+        for (final tag in content.tags) Chip(label: Text(tag.name)),
+      ],
+    );
+  }
+
+  Widget _buildStats(BuildContext context, String publishedAt) {
+    return Wrap(
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.sm,
+      children: [
+        AdminMetaText(
+          icon: Icons.favorite_outline,
+          text: '${content.likeCount}',
+        ),
+        AdminMetaText(
+          icon: Icons.visibility_outlined,
+          text: '${content.viewCount}',
+        ),
+        AdminMetaText(
+          icon: Icons.comment_outlined,
+          text: '${content.commentCount}',
+        ),
+        AdminMetaText(icon: Icons.schedule_outlined, text: publishedAt),
+      ],
     );
   }
 }

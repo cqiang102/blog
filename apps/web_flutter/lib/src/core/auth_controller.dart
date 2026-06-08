@@ -1,6 +1,5 @@
-/// 认证控制器
-/// 管理用户登录、注册、登出、令牌刷新和持久化
-library;
+// 认证控制器
+// 管理用户登录、注册、登出、令牌刷新和持久化
 
 import 'dart:async';
 import 'dart:convert';

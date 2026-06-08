@@ -26,7 +26,7 @@ class AdminPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider); // 获取认证状态
-    final role = auth.user?.role.toUpperCase(); // 用户角色（大写）
+    final isAdmin = auth.user?.isAdmin ?? false; // 是否为管理员
 
     if (!auth.isLoaded) {
       return Scaffold(
@@ -35,7 +35,7 @@ class AdminPage extends ConsumerWidget {
       );
     }
 
-    if (role != 'ADMIN' && role != 'USER') {
+    if (!isAdmin && auth.user?.role.toUpperCase() != 'USER') {
       return Scaffold(
         appBar: AppBar(title: const Text('管理员中心')),
         body: const Center(
@@ -51,8 +51,6 @@ class AdminPage extends ConsumerWidget {
         ),
       );
     }
-
-    final isAdmin = role == 'ADMIN';
 
     // 根据角色过滤标签页
     final tabs = <_AdminTab>[

@@ -1,0 +1,295 @@
+// 内容相关数据模型
+// 包含博客内容、推荐内容、内容查询参数等
+
+import 'common_models.dart';
+import 'enums.dart';
+import 'helpers.dart';
+
+/// 博客内容模型
+/// 包含文章的基本信息、统计数据和媒体资源
+class BlogContent {
+  const BlogContent({
+    required this.id,
+    required this.title,
+    required this.type,
+    required this.summary,
+    required this.coverUrl,
+    required this.tags,
+    required this.pinned,
+    required this.likeCount,
+    required this.publishedAt,
+    this.slug = '',
+    this.viewCount = 0,
+    this.commentCount = 0,
+    this.likedByCurrentUser = false,
+    this.markdown = '',
+    this.mediaUrls = const [],
+  });
+
+  final String id;
+  final String title;
+  final String slug;
+  final ContentType type;
+  final String summary;
+  final String coverUrl;
+  final List<String> tags;
+  final bool pinned;
+  final int likeCount;
+  final int viewCount;
+  final int commentCount;
+  final bool likedByCurrentUser;
+  final DateTime publishedAt;
+  final String markdown;
+  final List<String> mediaUrls;
+
+  /// 从列表摘要 JSON 创建实例
+  factory BlogContent.fromSummaryJson(Map<String, dynamic> json) {
+    return BlogContent(
+      id: jsonString(json['id']),
+      title: jsonString(json['title']),
+      slug: jsonString(json['slug']),
+      type: ContentType.fromApi(jsonString(json['type'])),
+      summary: jsonString(json['summary']),
+      coverUrl: jsonString(json['coverUrl']),
+      tags: jsonStringList(json['tags']),
+      pinned: json['pinned'] == true,
+      likeCount: jsonInt(json['likeCount']),
+      publishedAt: jsonDate(json['publishedAt']),
+    );
+  }
+
+  /// 从详情 JSON 创建实例（包含完整内容和媒体）
+  factory BlogContent.fromDetailJson(Map<String, dynamic> json) {
+    final mediaUrls = _mediaUrls(json['mediaAssets']);
+    final rawCoverUrl = jsonString(json['coverUrl']);
+    return BlogContent(
+      id: jsonString(json['id']),
+      title: jsonString(json['title']),
+      slug: jsonString(json['slug']),
+      type: ContentType.fromApi(jsonString(json['type'])),
+      summary: jsonString(json['summary']),
+      coverUrl: rawCoverUrl.isNotEmpty
+          ? rawCoverUrl
+          : (mediaUrls.isEmpty ? '' : mediaUrls.first),
+      tags: jsonStringList(json['tags']),
+      pinned: json['pinned'] == true,
+      likeCount: jsonInt(json['likeCount']),
+      viewCount: jsonInt(json['viewCount']),
+      commentCount: jsonInt(json['commentCount']),
+      likedByCurrentUser: json['likedByCurrentUser'] == true,
+      publishedAt: jsonDate(json['publishedAt']),
+      markdown: jsonString(json['bodyMarkdown']),
+      mediaUrls: mediaUrls,
+    );
+  }
+}
+
+/// 从媒体资源列表提取公开 URL 列表
+List<String> _mediaUrls(Object? value) {
+  return (value as List? ?? const [])
+      .whereType<Map>()
+      .map((item) => jsonString(item['publicUrl']))
+      .where((url) => url.isNotEmpty)
+      .toList();
+}
+
+/// 首页推荐内容模型
+/// 包含置顶、最新和最热文章列表
+class Recommendations {
+  const Recommendations({
+    required this.pinned,
+    required this.latest,
+    required this.mostLiked,
+  });
+
+  final List<BlogContent> pinned;
+  final List<BlogContent> latest;
+  final List<BlogContent> mostLiked;
+
+  /// 从 JSON 创建实例
+  factory Recommendations.fromJson(Map<String, dynamic> json) {
+    return Recommendations(
+      pinned: _contentList(json['pinned']),
+      latest: _contentList(json['latest']),
+      mostLiked: _contentList(json['mostLiked']),
+    );
+  }
+}
+
+/// 从 JSON 列表解析 BlogContent 列表
+List<BlogContent> _contentList(Object? value) {
+  return (value as List? ?? const [])
+      .whereType<Map>()
+      .map((item) => BlogContent.fromSummaryJson(item.cast<String, dynamic>()))
+      .toList();
+}
+
+/// 内容列表查询参数
+class ContentListQuery {
+  const ContentListQuery({
+    this.query = '',
+    this.tag,
+    this.type,
+    this.startDate,
+    this.endDate,
+    this.page = 0,
+    this.size = 10,
+  });
+
+  final String query;
+  final String? tag;
+  final ContentType? type;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final int page;
+  final int size;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ContentListQuery &&
+        other.query == query &&
+        other.tag == tag &&
+        other.type == type &&
+        other.startDate == startDate &&
+        other.endDate == endDate &&
+        other.page == page &&
+        other.size == size;
+  }
+
+  @override
+  int get hashCode => Object.hash(query, tag, type, startDate, endDate, page, size);
+}
+
+/// 管理后台内容项模型
+class AdminContentItem {
+  const AdminContentItem({
+    required this.id,
+    required this.title,
+    required this.slug,
+    required this.type,
+    required this.status,
+    required this.summary,
+    required this.bodyMarkdown,
+    required this.pinned,
+    required this.coverMediaId,
+    required this.coverUrl,
+    required this.mediaCount,
+    required this.mediaUrls,
+    required this.likeCount,
+    required this.viewCount,
+    required this.commentCount,
+    required this.publishedAt,
+    required this.tags,
+  });
+
+  final String id;
+  final String title;
+  final String slug;
+  final ContentType type;
+  final ContentStatus status;
+  final String summary;
+  final String bodyMarkdown;
+  final bool pinned;
+  final String coverMediaId;
+  final String coverUrl;
+  final int mediaCount;
+  final List<String> mediaUrls;
+  final int likeCount;
+  final int viewCount;
+  final int commentCount;
+  final DateTime publishedAt;
+  final List<TagItem> tags;
+
+  /// 是否已归档
+  bool get archived => status == ContentStatus.archived;
+
+  /// 从 JSON 创建实例
+  factory AdminContentItem.fromJson(Map<String, dynamic> json) {
+    return AdminContentItem(
+      id: jsonString(json['id']),
+      title: jsonString(json['title']),
+      slug: jsonString(json['slug']),
+      type: ContentType.fromApi(jsonString(json['type'])),
+      status: ContentStatus.fromApi(jsonString(json['status'])),
+      summary: jsonString(json['summary']),
+      bodyMarkdown: jsonString(json['bodyMarkdown']),
+      pinned: json['pinned'] == true,
+      coverMediaId: jsonString(json['coverMediaId']),
+      coverUrl: jsonString(json['coverUrl']),
+      mediaCount: jsonInt(json['mediaCount']),
+      mediaUrls: jsonStringList(json['mediaUrls']),
+      likeCount: jsonInt(json['likeCount']),
+      viewCount: jsonInt(json['viewCount']),
+      commentCount: jsonInt(json['commentCount']),
+      publishedAt: jsonDate(json['publishedAt']),
+      tags: _tagItems(json['tags']),
+    );
+  }
+}
+
+/// 从 JSON 列表解析 TagItem 列表
+List<TagItem> _tagItems(Object? value) {
+  return (value as List? ?? const [])
+      .whereType<Map>()
+      .map((item) => TagItem.fromJson(item.cast<String, dynamic>()))
+      .toList();
+}
+
+/// 管理后台内容草稿模型
+class AdminContentDraft {
+  const AdminContentDraft({
+    required this.title,
+    required this.slug,
+    required this.type,
+    required this.status,
+    required this.summary,
+    required this.bodyMarkdown,
+    required this.pinned,
+    required this.tagSlugs,
+    this.mediaUrls = const [],
+    this.coverUrl,
+  });
+
+  final String title;
+  final String slug;
+  final ContentType type;
+  final ContentStatus status;
+  final String summary;
+  final String bodyMarkdown;
+  final bool pinned;
+  final List<String> tagSlugs;
+  final List<String> mediaUrls;
+  final String? coverUrl;
+
+  /// 从 AdminContentItem 创建草稿
+  factory AdminContentDraft.fromItem(AdminContentItem item) {
+    return AdminContentDraft(
+      title: item.title,
+      slug: item.slug,
+      type: item.type,
+      status: item.status,
+      summary: item.summary,
+      bodyMarkdown: item.bodyMarkdown,
+      pinned: item.pinned,
+      tagSlugs: item.tags.map((tag) => tag.slug).toList(),
+      mediaUrls: item.mediaUrls,
+      coverUrl: item.coverUrl,
+    );
+  }
+
+  /// 转换为 JSON Map
+  Map<String, Object?> toJson() {
+    return {
+      'title': title.trim(),
+      'slug': slug.trim(),
+      'type': type.apiValue,
+      'status': status.apiValue,
+      'summary': summary.trim(),
+      'bodyMarkdown': bodyMarkdown.trim(),
+      'pinned': pinned,
+      'tagSlugs': tagSlugs,
+      'mediaUrls': mediaUrls,
+      if (coverUrl != null) 'coverUrl': coverUrl,
+    };
+  }
+}

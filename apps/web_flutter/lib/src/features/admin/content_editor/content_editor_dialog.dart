@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants.dart';
 import '../../../core/models.dart';
 import 'content_editor.dart';
 
@@ -108,8 +110,10 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     return Dialog(
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: state.editMode == EditorEditMode.split ? 1200 : 800,
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
+          maxWidth: state.editMode == EditorEditMode.split
+              ? kEditorDialogSplitMaxWidth
+              : kEditorDialogMaxWidth,
+          maxHeight: MediaQuery.of(context).size.height * kEditorDialogMaxHeightRatio,
         ),
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -550,6 +554,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
 
     // 如果有已上传的媒体，显示选择对话框
     if (state.mediaUrls.isNotEmpty) {
+      if (!mounted) return;
       final url = await showDialog<String>(
         context: context,
         builder: (context) => _ImagePickerDialog(
@@ -602,6 +607,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     BuildContext context,
     ContentType type,
   ) async {
+    if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -741,10 +747,10 @@ class _ImagePickerDialog extends StatelessWidget {
                     onTap: () => Navigator.of(context).pop(url),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        url,
+                      child: CachedNetworkImage(
+                        imageUrl: url,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
+                        errorWidget: (context, url, error) =>
                             const Center(child: Icon(Icons.broken_image)),
                       ),
                     ),

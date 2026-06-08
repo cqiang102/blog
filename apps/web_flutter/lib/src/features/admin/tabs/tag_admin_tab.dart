@@ -117,6 +117,7 @@ class AdminTagTab extends ConsumerWidget {
     WidgetRef ref,
     TagItem tag,
   ) async {
+    if (!context.mounted) return;
     final confirmed = await adminConfirm(
       context,
       title: '删除标签',

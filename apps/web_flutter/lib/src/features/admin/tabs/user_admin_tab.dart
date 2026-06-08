@@ -6,11 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
 import '../../../core/models.dart';
+import '../../../core/theme.dart';
 import '../admin_widgets.dart';
 import '../user_editor_dialog.dart';
 
 /// 管理后台 - 用户管理标签页
-/// 展示用户列表，支持筛选和编辑
 class AdminUserTab extends ConsumerStatefulWidget {
   const AdminUserTab({super.key});
 
@@ -18,12 +18,11 @@ class AdminUserTab extends ConsumerStatefulWidget {
   ConsumerState<AdminUserTab> createState() => AdminUserTabState();
 }
 
-/// 用户管理标签页状态管理
 class AdminUserTabState extends ConsumerState<AdminUserTab> {
-  final _queryController = TextEditingController(); // 搜索关键词输入框
-  AdminUserRole? _role; // 角色筛选
-  AdminUserStatus? _status; // 状态筛选
-  AdminUserQuery _query = const AdminUserQuery(); // 当前查询条件
+  final _queryController = TextEditingController();
+  AdminUserRole? _role;
+  AdminUserStatus? _status;
+  AdminUserQuery _query = const AdminUserQuery();
 
   @override
   void dispose() {
@@ -38,54 +37,24 @@ class AdminUserTabState extends ConsumerState<AdminUserTab> {
 
     return users.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, stackTrace) => AdminErrorPane(
-            message: error.toString(),
-            onRetry: () => ref.invalidate(adminUsersProvider(_query)),
-          ),
-      data:
-          (page) => ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              SectionToolbar(
-                title: '用户管理',
-                actionLabel: '刷新',
-                actionIcon: Icons.refresh,
-                onAction: () => ref.invalidate(adminUsersProvider(_query)),
-              ),
-              const SizedBox(height: 12),
-              _UserFilters(
-                queryController: _queryController,
-                role: _role,
-                status: _status,
-                onRoleChanged: (value) => setState(() => _role = value),
-                onStatusChanged: (value) => setState(() => _status = value),
-                onApply: _applyFilters,
-                onClear: _clearFilters,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '共 ${page.total} 个用户',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              if (page.items.isEmpty)
-                const AdminEmptyPane(message: '暂无用户')
-              else
-                for (final user in page.items) ...[
-                  _UserAdminRow(
-                    user: user,
-                    isCurrentUser: user.id == currentUserId,
-                    onEdit: () => _openUserEditor(context, user),
-                    onDisable:
-                        user.id == currentUserId || user.disabled
-                            ? null
-                            : () => _disableUser(context, user),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-            ],
-          ),
+      error: (error, stackTrace) => AdminErrorPane(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(adminUsersProvider(_query)),
+      ),
+      data: (page) => _UserList(
+        page: page,
+        currentUserId: currentUserId,
+        query: _query,
+        queryController: _queryController,
+        role: _role,
+        status: _status,
+        onRoleChanged: (value) => setState(() => _role = value),
+        onStatusChanged: (value) => setState(() => _status = value),
+        onApply: _applyFilters,
+        onClear: _clearFilters,
+        onEdit: (user) => _openUserEditor(context, user),
+        onDisable: (user) => _disableUser(context, user),
+      ),
     );
   }
 
@@ -133,6 +102,7 @@ class AdminUserTabState extends ConsumerState<AdminUserTab> {
   }
 
   Future<void> _disableUser(BuildContext context, AdminUserItem user) async {
+    if (!mounted) return;
     final confirmed = await adminConfirm(
       context,
       title: '禁用用户',
@@ -164,6 +134,93 @@ class AdminUserTabState extends ConsumerState<AdminUserTab> {
   }
 }
 
+/// 用户列表组件
+class _UserList extends StatelessWidget {
+  const _UserList({
+    required this.page,
+    required this.currentUserId,
+    required this.query,
+    required this.queryController,
+    required this.role,
+    required this.status,
+    required this.onRoleChanged,
+    required this.onStatusChanged,
+    required this.onApply,
+    required this.onClear,
+    required this.onEdit,
+    required this.onDisable,
+  });
+
+  final PageResult<AdminUserItem> page;
+  final String? currentUserId;
+  final AdminUserQuery query;
+  final TextEditingController queryController;
+  final AdminUserRole? role;
+  final AdminUserStatus? status;
+  final ValueChanged<AdminUserRole?> onRoleChanged;
+  final ValueChanged<AdminUserStatus?> onStatusChanged;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
+  final ValueChanged<AdminUserItem> onEdit;
+  final ValueChanged<AdminUserItem> onDisable;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      itemCount: page.items.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildHeader(context);
+        }
+        final user = page.items[index - 1];
+        return _UserAdminRow(
+          user: user,
+          isCurrentUser: user.id == currentUserId,
+          onEdit: () => onEdit(user),
+          onDisable: user.id == currentUserId || user.disabled
+              ? null
+              : () => onDisable(user),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionToolbar(
+          title: '用户管理',
+          actionLabel: '刷新',
+          actionIcon: Icons.refresh,
+          onAction: onApply,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        _UserFilters(
+          queryController: queryController,
+          role: role,
+          status: status,
+          onRoleChanged: onRoleChanged,
+          onStatusChanged: onStatusChanged,
+          onApply: onApply,
+          onClear: onClear,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        Text(
+          '共 ${page.total} 个用户',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        if (page.items.isEmpty) ...[
+          const SizedBox(height: AppSpacing.xl),
+          const AdminEmptyPane(message: '暂无用户'),
+        ],
+        const SizedBox(height: AppSpacing.sm + 4),
+      ],
+    );
+  }
+}
+
 /// 用户筛选组件
 class _UserFilters extends StatelessWidget {
   const _UserFilters({
@@ -176,19 +233,19 @@ class _UserFilters extends StatelessWidget {
     required this.onClear,
   });
 
-  final TextEditingController queryController; // 搜索关键词控制器
-  final AdminUserRole? role; // 角色筛选
-  final AdminUserStatus? status; // 状态筛选
-  final ValueChanged<AdminUserRole?> onRoleChanged; // 角色变更回调
-  final ValueChanged<AdminUserStatus?> onStatusChanged; // 状态变更回调
-  final VoidCallback onApply; // 应用筛选回调
-  final VoidCallback onClear; // 清空筛选回调
+  final TextEditingController queryController;
+  final AdminUserRole? role;
+  final AdminUserStatus? status;
+  final ValueChanged<AdminUserRole?> onRoleChanged;
+  final ValueChanged<AdminUserStatus?> onStatusChanged;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+      spacing: AppSpacing.sm + 4,
+      runSpacing: AppSpacing.sm + 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         SizedBox(
@@ -246,7 +303,6 @@ class _UserFilters extends StatelessWidget {
 }
 
 /// 用户管理行组件
-/// 展示单条用户的头像、昵称、邮箱、角色、状态和操作按钮
 class _UserAdminRow extends StatelessWidget {
   const _UserAdminRow({
     required this.user,
@@ -255,98 +311,112 @@ class _UserAdminRow extends StatelessWidget {
     required this.onDisable,
   });
 
-  final AdminUserItem user; // 用户数据
-  final bool isCurrentUser; // 是否为当前登录用户
-  final VoidCallback onEdit; // 编辑回调
-  final VoidCallback? onDisable; // 禁用回调（当前用户或已禁用时为 null）
+  final AdminUserItem user;
+  final bool isCurrentUser;
+  final VoidCallback onEdit;
+  final VoidCallback? onDisable;
 
   @override
   Widget build(BuildContext context) {
     final createdAt = formatAdminDate(user.createdAt);
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _AdminUserAvatar(user: user),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              user.nickname,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          if (isCurrentUser) const Chip(label: Text('当前账号')),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        user.email,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (user.bio.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          user.bio,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                AdminUserRoleChip(role: user.role),
-                AdminUserStatusChip(status: user.status),
-                if (user.blogUrl.isNotEmpty)
-                  AdminMetaText(icon: Icons.link_outlined, text: user.blogUrl),
-                AdminMetaText(icon: Icons.schedule_outlined, text: createdAt),
-                OutlinedButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('编辑'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onDisable,
-                  icon: const Icon(Icons.block),
-                  label: const Text('禁用'),
-                ),
-              ],
-            ),
+            // 头部：头像 + 信息
+            _buildHeader(context),
+            const SizedBox(height: AppSpacing.sm + 4),
+
+            // 标签和操作
+            _buildActions(context, createdAt),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildHeader(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _AdminUserAvatar(user: user),
+        const SizedBox(width: AppSpacing.sm + 4),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      user.nickname,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  if (isCurrentUser) const Chip(label: Text('当前账号')),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                user.email,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              if (user.bio.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  user.bio,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActions(BuildContext context, String createdAt) {
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        AdminUserRoleChip(role: user.role),
+        AdminUserStatusChip(status: user.status),
+        if (user.blogUrl.isNotEmpty)
+          AdminMetaText(icon: Icons.link_outlined, text: user.blogUrl),
+        AdminMetaText(icon: Icons.schedule_outlined, text: createdAt),
+        OutlinedButton.icon(
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          label: const Text('编辑'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onDisable,
+          icon: const Icon(Icons.block, size: 18),
+          label: const Text('禁用'),
+        ),
+      ],
+    );
+  }
 }
 
 /// 管理后台用户头像组件
-/// 显示用户头像，无头像时显示昵称首字符
 class _AdminUserAvatar extends StatelessWidget {
   const _AdminUserAvatar({required this.user});
 
-  final AdminUserItem user; // 用户数据
+  final AdminUserItem user;
 
   @override
   Widget build(BuildContext context) {

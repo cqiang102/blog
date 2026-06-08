@@ -98,6 +98,7 @@ class AdminLikeTabState extends ConsumerState<AdminLikeTab> {
   }
 
   Future<void> _deleteLike(BuildContext context, AdminLikeItem like) async {
+    if (!mounted) return;
     final confirmed = await adminConfirm(
       context,
       title: '删除点赞记录',
@@ -224,6 +225,7 @@ class AdminViewTabState extends ConsumerState<AdminViewTab> {
     BuildContext context,
     AdminViewRecordItem view,
   ) async {
+    if (!mounted) return;
     final confirmed = await adminConfirm(
       context,
       title: '删除浏览记录',

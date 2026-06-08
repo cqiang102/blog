@@ -1,12 +1,12 @@
-/// GoRouter 路由配置
-/// 包含 8 个路由、响应式 Shell 布局和认证守卫逻辑
-library;
+// GoRouter 路由配置
+// 包含 8 个路由、响应式 Shell 布局和认证守卫逻辑
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'api_providers.dart';
+import 'constants.dart';
 import '../features/about/about_page.dart';
 import '../features/admin/admin_page.dart';
 import '../features/auth/auth_page.dart';
@@ -44,7 +44,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ).toString();
       }
       // 非 ADMIN 角色访问管理后台 -> 跳转首页
-      if (location.startsWith('/admin') && auth.user?.role != 'ADMIN') {
+      if (location.startsWith('/admin') && !(auth.user?.isAdmin ?? false)) {
         return '/';
       }
       // 已登录访问登录页 -> 跳转来源页或个人中心
@@ -129,7 +129,7 @@ class BlogShell extends ConsumerWidget {
       }
       // "管理" 需要登录且为 ADMIN 角色才能显示
       if (item.path == '/admin') {
-        if (!auth.isAuthenticated || auth.user?.role != 'ADMIN') {
+        if (!auth.isAuthenticated || !(auth.user?.isAdmin ?? false)) {
           return false;
         }
       }
@@ -142,7 +142,7 @@ class BlogShell extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 900; // 宽屏阈值 900px
+        final wide = constraints.maxWidth >= kWideBreakpoint; // 宽屏阈值
 
         // 宽屏布局：左侧 NavigationRail
         if (wide) {
@@ -158,7 +158,7 @@ class BlogShell extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: CircleAvatar(
                       backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       backgroundImage: auth.user?.avatarUrl != null
                           ? NetworkImage(auth.user!.avatarUrl!)
                           : null,

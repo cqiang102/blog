@@ -1,6 +1,5 @@
-/// 应用根组件
-/// 负责初始化 MaterialApp.router，配置主题和路由
-library;
+// 应用根组件
+// 负责初始化 MaterialApp.router，配置主题和路由
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,10 +18,20 @@ class BlogApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
-      title: '个人博客', // 应用标题
-      debugShowCheckedModeBanner: false, // 隐藏调试横幅
-      theme: buildAppTheme(), // Material 3 主题配置
-      routerConfig: ref.watch(routerProvider), // GoRouter 路由配置
+      title: '个人博客',
+      debugShowCheckedModeBanner: false,
+
+      // 浅色主题
+      theme: buildAppTheme(),
+
+      // 深色主题 - 支持系统暗黑模式切换
+      darkTheme: buildDarkAppTheme(),
+
+      // 跟随系统主题
+      themeMode: ThemeMode.system,
+
+      // GoRouter 路由配置
+      routerConfig: ref.watch(routerProvider),
     );
   }
 }
