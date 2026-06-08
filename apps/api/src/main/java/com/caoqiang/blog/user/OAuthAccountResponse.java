@@ -1,6 +1,6 @@
 package com.caoqiang.blog.user;
 
-import com.caoqiang.blog.auth.OAuthAccount;
+import com.caoqiang.blog.auth.entity.OAuthAccount;
 import java.time.Instant;
 
 /**

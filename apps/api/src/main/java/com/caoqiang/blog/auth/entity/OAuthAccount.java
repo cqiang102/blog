@@ -1,4 +1,6 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.entity;
+
+import com.caoqiang.blog.auth.enums.OAuthProvider;
 
 import com.caoqiang.blog.user.User;
 import jakarta.persistence.Column;

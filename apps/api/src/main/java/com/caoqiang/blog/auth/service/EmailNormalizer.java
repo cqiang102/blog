@@ -1,4 +1,4 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.service;
 
 import java.util.Locale;
 

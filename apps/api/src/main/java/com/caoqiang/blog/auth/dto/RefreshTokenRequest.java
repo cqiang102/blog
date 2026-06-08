@@ -1,4 +1,4 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
 

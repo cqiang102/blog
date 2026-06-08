@@ -1,4 +1,4 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.dto;
 
 import com.caoqiang.blog.shared.model.Role;
 import java.time.Instant;

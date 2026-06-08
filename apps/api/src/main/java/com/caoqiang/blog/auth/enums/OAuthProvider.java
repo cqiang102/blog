@@ -1,4 +1,4 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.enums;
 
 /**
  * OAuth 提供者枚举

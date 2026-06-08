@@ -1,4 +1,6 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.dto;
+
+import com.caoqiang.blog.auth.enums.OAuthProvider;
 
 import java.util.List;
 

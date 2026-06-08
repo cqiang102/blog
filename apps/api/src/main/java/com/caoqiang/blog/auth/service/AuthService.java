@@ -1,4 +1,18 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.service;
+
+import com.caoqiang.blog.auth.dto.AuthTokenResponse;
+import com.caoqiang.blog.auth.dto.JwtClaims;
+import com.caoqiang.blog.auth.dto.LoginRequest;
+import com.caoqiang.blog.auth.dto.RefreshTokenRequest;
+import com.caoqiang.blog.auth.dto.RegisterRequest;
+import com.caoqiang.blog.auth.dto.SendCodeRequest;
+import com.caoqiang.blog.auth.entity.OAuthAccount;
+import com.caoqiang.blog.auth.entity.RefreshToken;
+import com.caoqiang.blog.auth.entity.VerificationCode;
+import com.caoqiang.blog.auth.enums.OAuthProvider;
+import com.caoqiang.blog.auth.repository.OAuthAccountRepository;
+import com.caoqiang.blog.auth.repository.RefreshTokenRepository;
+import com.caoqiang.blog.auth.repository.VerificationCodeRepository;
 
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.user.User;

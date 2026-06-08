@@ -1,4 +1,6 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.repository;
+
+import com.caoqiang.blog.auth.entity.RefreshToken;
 
 import java.util.Optional;
 import java.util.UUID;

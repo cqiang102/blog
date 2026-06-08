@@ -1,5 +1,8 @@
 package com.caoqiang.blog.auth;
 
+import com.caoqiang.blog.auth.service.JwtService;
+import com.caoqiang.blog.auth.dto.JwtClaims;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

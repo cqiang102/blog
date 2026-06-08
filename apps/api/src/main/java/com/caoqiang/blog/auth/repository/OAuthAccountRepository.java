@@ -1,5 +1,7 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.repository;
 
+import com.caoqiang.blog.auth.entity.OAuthAccount;
+import com.caoqiang.blog.auth.enums.OAuthProvider;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

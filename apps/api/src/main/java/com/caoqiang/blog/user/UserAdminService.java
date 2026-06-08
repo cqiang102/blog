@@ -1,7 +1,7 @@
 package com.caoqiang.blog.user;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.auth.EmailNormalizer;
+import com.caoqiang.blog.auth.service.EmailNormalizer;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;

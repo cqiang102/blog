@@ -1,4 +1,7 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.service;
+
+import com.caoqiang.blog.auth.entity.RefreshToken;
+import com.caoqiang.blog.auth.repository.RefreshTokenRepository;
 
 import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.user.User;

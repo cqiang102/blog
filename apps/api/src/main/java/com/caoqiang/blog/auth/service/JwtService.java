@@ -1,4 +1,6 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.service;
+
+import com.caoqiang.blog.auth.dto.JwtClaims;
 
 import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.shared.model.Role;

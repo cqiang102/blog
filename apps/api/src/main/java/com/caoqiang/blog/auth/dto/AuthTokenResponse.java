@@ -1,4 +1,4 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.dto;
 
 import com.caoqiang.blog.user.UserProfileResponse;
 import java.time.Instant;

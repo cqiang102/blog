@@ -1,4 +1,4 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

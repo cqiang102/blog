@@ -1,4 +1,4 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.dto;
 
 import com.caoqiang.blog.user.User;
 import java.util.Collection;

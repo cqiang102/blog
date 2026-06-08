@@ -7,7 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.auth.OAuthAccountRepository;
+import com.caoqiang.blog.auth.repository.OAuthAccountRepository;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.time.Clock;

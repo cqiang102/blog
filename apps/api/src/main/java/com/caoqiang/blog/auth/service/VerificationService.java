@@ -1,4 +1,7 @@
-package com.caoqiang.blog.auth;
+package com.caoqiang.blog.auth.service;
+
+import com.caoqiang.blog.auth.entity.VerificationCode;
+import com.caoqiang.blog.auth.repository.VerificationCodeRepository;
 
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.security.SecureRandom;

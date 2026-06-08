@@ -1,7 +1,7 @@
 package com.caoqiang.blog.user;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.auth.OAuthProvider;
+import com.caoqiang.blog.auth.enums.OAuthProvider;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;
 import com.caoqiang.blog.shared.response.PageResponse;
