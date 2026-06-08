@@ -1,4 +1,4 @@
-package com.caoqiang.blog.admin;
+package com.caoqiang.blog.friend.admin;
 
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;

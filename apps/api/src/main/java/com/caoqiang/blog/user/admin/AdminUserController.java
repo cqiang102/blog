@@ -1,4 +1,4 @@
-package com.caoqiang.blog.admin;
+package com.caoqiang.blog.user.admin;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
