@@ -57,6 +57,32 @@ cd apps/api
 /Users/caoqiang/wubihuan/apache-maven-3.8.8/bin/mvn spring-boot:run -Dspring-boot.run.profiles=local,ai
 ```
 
+## Spring AI 升级说明
+
+### 2.0.0-RC1 (当前版本)
+
+已修复的问题：
+
+| 问题 | 修复 |
+|------|------|
+| **Stream 流式响应缓冲** | `OpenAiChatModel.stream()` 现在只缓冲 tool calls，普通流式响应逐 token 返回 |
+| **Tool 调用支持** | `ChatClient.tools()` 支持直接传入 `@Tool` 注解的对象 |
+
+已移除的临时方案：
+
+- `OpenAiChatModelStreamDecorator.java` — 用于绕过流式缓冲的临时装饰器，已删除
+- `buildKnowledgeContext()` — 预先查询向量数据库的 workaround，已移除
+
+当前实现：
+
+- AI 通过 `.tools(blogTools)` 注册工具，自主决定何时调用 `searchKnowledge` 进行知识库搜索
+- 流式响应不再需要自定义装饰器，直接使用 Spring AI 原生支持
+
+### 已知限制
+
+- `getDefaultOptions()` 已标记废弃，后续版本需关注迁移
+- Hibernate `UserType` 接口部分方法已标记待删除，需关注 Hibernate 版本升级
+
 只想先验证 Web/API 层、暂时不连接 PostgreSQL 时，可以使用诊断 profile：
 
 ```bash
