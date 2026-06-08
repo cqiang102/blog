@@ -23,12 +23,28 @@ public interface AiChatMessageRepository extends JpaRepository<AiChatMessage, UU
     long countBySessionId(UUID sessionId);
 
     /**
+     * 统计指定会话的未删除消息数量。
+     *
+     * @param sessionId 会话 ID
+     * @return 未删除消息数量
+     */
+    long countBySessionIdAndDeletedFalse(UUID sessionId);
+
+    /**
      * 获取指定会话的所有消息，按创建时间正序排列。
      *
      * @param sessionId 会话 ID
      * @return 消息列表
      */
     List<AiChatMessage> findBySessionIdOrderByCreatedAtAsc(UUID sessionId);
+
+    /**
+     * 获取指定会话的未删除消息，按创建时间正序排列。
+     *
+     * @param sessionId 会话 ID
+     * @return 未删除消息列表
+     */
+    List<AiChatMessage> findBySessionIdAndDeletedFalseOrderByCreatedAtAsc(UUID sessionId);
 
     /**
      * 分页获取指定会话的消息，按创建时间正序排列。
@@ -40,10 +56,27 @@ public interface AiChatMessageRepository extends JpaRepository<AiChatMessage, UU
     Page<AiChatMessage> findBySessionIdOrderByCreatedAtAsc(UUID sessionId, Pageable pageable);
 
     /**
+     * 分页获取指定会话的未删除消息，按创建时间正序排列。
+     *
+     * @param sessionId 会话 ID
+     * @param pageable  分页参数
+     * @return 分页未删除消息列表
+     */
+    Page<AiChatMessage> findBySessionIdAndDeletedFalseOrderByCreatedAtAsc(UUID sessionId, Pageable pageable);
+
+    /**
      * 获取指定会话的最后一条消息。
      *
      * @param sessionId 会话 ID
      * @return 最后一条消息
      */
     Optional<AiChatMessage> findFirstBySessionIdOrderByCreatedAtDesc(UUID sessionId);
+
+    /**
+     * 获取指定会话的最后一条未删除消息。
+     *
+     * @param sessionId 会话 ID
+     * @return 最后一条未删除消息
+     */
+    Optional<AiChatMessage> findFirstBySessionIdAndDeletedFalseOrderByCreatedAtDesc(UUID sessionId);
 }

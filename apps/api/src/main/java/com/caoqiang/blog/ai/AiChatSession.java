@@ -43,6 +43,10 @@ public class AiChatSession {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /** 是否已删除（逻辑删除） */
+    @Column(nullable = false)
+    private boolean deleted = false;
+
     protected AiChatSession() {
     }
 
@@ -67,6 +71,11 @@ public class AiChatSession {
         updatedAt = Instant.now();
     }
 
+    /** 标记会话为已删除（逻辑删除） */
+    public void markDeleted() {
+        this.deleted = true;
+    }
+
     public UUID getId() {
         return id;
     }
@@ -85,5 +94,9 @@ public class AiChatSession {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
     }
 }

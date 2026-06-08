@@ -57,6 +57,10 @@ public class AiChatMessage {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** 是否已删除（逻辑删除） */
+    @Column(nullable = false)
+    private boolean deleted = false;
+
     protected AiChatMessage() {
     }
 
@@ -71,6 +75,11 @@ public class AiChatMessage {
         if (createdAt == null) {
             createdAt = Instant.now();
         }
+    }
+
+    /** 标记消息为已删除（逻辑删除） */
+    public void markDeleted() {
+        this.deleted = true;
     }
 
     public UUID getId() {
@@ -103,5 +112,9 @@ public class AiChatMessage {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
     }
 }
