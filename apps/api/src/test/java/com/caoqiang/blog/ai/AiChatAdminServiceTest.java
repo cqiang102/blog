@@ -71,6 +71,7 @@ class AiChatAdminServiceTest {
 
         service.delete(session.getId());
 
-        verify(sessionRepository).delete(session);
+        assertThat(session.isDeleted()).isTrue();
+        verify(sessionRepository).save(session);
     }
 }

@@ -35,7 +35,8 @@ class RateLimitFilterTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        rateLimitFilter = new RateLimitFilter(redisTemplate, objectMapper);
+        BlogProperties blogProperties = new BlogProperties();
+        rateLimitFilter = new RateLimitFilter(redisTemplate, objectMapper, blogProperties);
     }
 
     @Test

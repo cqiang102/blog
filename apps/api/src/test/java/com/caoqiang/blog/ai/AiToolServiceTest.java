@@ -19,7 +19,6 @@ import com.caoqiang.blog.interaction.InteractionService;
 import com.caoqiang.blog.interaction.LikeStateResponse;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,10 +55,10 @@ class AiToolServiceTest {
 
         when(contentService.list(any(), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5))).thenReturn(page);
 
-        Map<String, Object> result = aiToolService.searchContent("测试", 5);
+        AiSearchContentResult result = aiToolService.searchContent("测试", 5);
 
-        assertThat(result.get("success")).isEqualTo(true);
-        assertThat((long) result.get("total")).isEqualTo(1L);
+        assertThat(result.total()).isEqualTo(1L);
+        assertThat(result.results()).hasSize(1);
     }
 
     @Test
@@ -73,9 +72,10 @@ class AiToolServiceTest {
 
         when(contentService.detail(eq(contentId), isNull())).thenReturn(detail);
 
-        Map<String, Object> result = aiToolService.getContentDetail(contentId);
+        AiContentDetailResult result = aiToolService.getContentDetail(contentId);
 
-        assertThat(result.get("success")).isEqualTo(true);
+        assertThat(result.error()).isNull();
+        assertThat(result.id()).isEqualTo(contentId.toString());
     }
 
     @Test
@@ -85,11 +85,11 @@ class AiToolServiceTest {
 
         when(interactionService.like(eq(currentUser), eq(contentId))).thenReturn(likeResponse);
 
-        Map<String, Object> result = aiToolService.likeContent(currentUser, contentId);
+        AiActionResult result = aiToolService.likeContent(currentUser, contentId);
 
-        assertThat(result.get("success")).isEqualTo(true);
-        assertThat(result.get("liked")).isEqualTo(true);
-        assertThat((long) result.get("likeCount")).isEqualTo(11L);
+        assertThat(result.error()).isNull();
+        assertThat(result.liked()).isEqualTo(true);
+        assertThat(result.likeCount()).isEqualTo(11L);
     }
 
     @Test
@@ -99,11 +99,11 @@ class AiToolServiceTest {
 
         when(interactionService.unlike(eq(currentUser), eq(contentId))).thenReturn(unlikeResponse);
 
-        Map<String, Object> result = aiToolService.unlikeContent(currentUser, contentId);
+        AiActionResult result = aiToolService.unlikeContent(currentUser, contentId);
 
-        assertThat(result.get("success")).isEqualTo(true);
-        assertThat(result.get("liked")).isEqualTo(false);
-        assertThat((long) result.get("likeCount")).isEqualTo(9L);
+        assertThat(result.error()).isNull();
+        assertThat(result.liked()).isEqualTo(false);
+        assertThat(result.likeCount()).isEqualTo(9L);
     }
 
     @Test
@@ -119,10 +119,10 @@ class AiToolServiceTest {
 
         when(interactionService.comment(eq(currentUser), eq(contentId), any())).thenReturn(commentResponse);
 
-        Map<String, Object> result = aiToolService.commentContent(currentUser, contentId, "测试评论");
+        AiActionResult result = aiToolService.commentContent(currentUser, contentId, "测试评论");
 
-        assertThat(result.get("success")).isEqualTo(true);
-        assertThat(result.get("commentId")).isEqualTo(commentId.toString());
-        assertThat(result.get("body")).isEqualTo("测试评论");
+        assertThat(result.error()).isNull();
+        assertThat(result.commentId()).isEqualTo(commentId.toString());
+        assertThat(result.body()).isEqualTo("测试评论");
     }
 }

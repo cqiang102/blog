@@ -7,10 +7,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.auth.AuthenticatedUser;
+import com.caoqiang.blog.auth.OAuthAccountRepository;
 import com.caoqiang.blog.auth.Role;
 import com.caoqiang.blog.common.BusinessException;
+import java.time.Clock;
 import java.util.Optional;
 import java.util.UUID;
+import org.dromara.x.file.storage.core.FileStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +30,12 @@ class ProfileServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private FileStorageService fileStorageService;
+
+    @Mock
+    private OAuthAccountRepository oauthAccountRepository;
+
     private ProfileService profileService;
 
     private User testUser;
@@ -34,7 +43,8 @@ class ProfileServiceTest {
 
     @BeforeEach
     void setUp() {
-        profileService = new ProfileService(userRepository, passwordEncoder);
+        profileService = new ProfileService(userRepository, passwordEncoder,
+                fileStorageService, oauthAccountRepository, Clock.systemUTC(), "minio-1");
         testUser = User.register("test@example.com", "hashedPassword", "测试用户");
         currentUser = new AuthenticatedUser(testUser.getId(), "test@example.com", "测试用户", Role.USER);
     }
