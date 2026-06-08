@@ -9,7 +9,6 @@ import com.caoqiang.blog.interaction.CommentRequest;
 import com.caoqiang.blog.interaction.CommentResponse;
 import com.caoqiang.blog.interaction.InteractionService;
 import com.caoqiang.blog.interaction.LikeStateResponse;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -18,7 +17,6 @@ import org.springframework.stereotype.Service;
  * <p>
  * 封装博客内容操作和用户交互功能，供 AI 调用工具时使用。
  * 与 {@link AiBlogTools} 不同，本服务以编程方式调用，不依赖 {@code @Tool} 注解。
- * 所有方法返回统一格式的 Map，包含 success 状态字段。
  */
 @Service
 public class AiToolService {
@@ -36,22 +34,22 @@ public class AiToolService {
      *
      * @param query 搜索关键词
      * @param limit 返回结果数量上限（最大 10）
-     * @return 包含 success、results、total 的 Map
+     * @return 搜索结果
      */
-    public Map<String, Object> searchContent(String query, int limit) {
+    public AiSearchContentResult searchContent(String query, int limit) {
         PageResponse<ContentSummaryResponse> results = contentService.list(
                 query, null, null, null, null, 0, Math.min(limit, 10)
         );
-
-        return Map.of(
-                "success", true,
-                "results", results.items().stream().map(item -> Map.of(
-                        "id", item.id().toString(),
-                        "title", item.title(),
-                        "summary", item.summary() != null ? item.summary() : "",
-                        "type", item.type().name()
-                )).toList(),
-                "total", results.total()
+        return new AiSearchContentResult(
+                results.items().stream()
+                        .map(item -> new AiContentItem(
+                                item.id().toString(),
+                                item.title(),
+                                item.summary() != null ? item.summary() : "",
+                                item.type().name()
+                        ))
+                        .toList(),
+                results.total()
         );
     }
 
@@ -59,29 +57,23 @@ public class AiToolService {
      * 获取博客文章详情。
      *
      * @param contentId 文章的 UUID
-     * @return 包含 success 和文章详情的 Map，失败时返回 error 信息
+     * @return 内容详情结果
      */
-    public Map<String, Object> getContentDetail(UUID contentId) {
+    public AiContentDetailResult getContentDetail(UUID contentId) {
         try {
             ContentDetailResponse detail = contentService.detail(contentId, null);
-            return Map.of(
-                    "success", true,
-                    "content", Map.of(
-                            "id", detail.id().toString(),
-                            "title", detail.title(),
-                            "summary", detail.summary() != null ? detail.summary() : "",
-                            "markdown", detail.bodyMarkdown() != null ? detail.bodyMarkdown() : "",
-                            "type", detail.type().name(),
-                            "likeCount", detail.likeCount(),
-                            "viewCount", detail.viewCount(),
-                            "commentCount", detail.commentCount()
-                    )
+            return AiContentDetailResult.success(
+                    detail.id().toString(),
+                    detail.title(),
+                    detail.summary() != null ? detail.summary() : "",
+                    detail.bodyMarkdown() != null ? detail.bodyMarkdown() : "",
+                    detail.type().name(),
+                    detail.likeCount(),
+                    detail.viewCount(),
+                    detail.commentCount()
             );
         } catch (Exception e) {
-            return Map.of(
-                    "success", false,
-                    "error", "内容不存在或已归档"
-            );
+            return AiContentDetailResult.error("内容不存在或已归档");
         }
     }
 
@@ -90,21 +82,14 @@ public class AiToolService {
      *
      * @param currentUser 当前登录用户
      * @param contentId   文章的 UUID
-     * @return 包含 success、liked、likeCount 的 Map
+     * @return 操作结果
      */
-    public Map<String, Object> likeContent(AuthenticatedUser currentUser, UUID contentId) {
+    public AiActionResult likeContent(AuthenticatedUser currentUser, UUID contentId) {
         try {
             LikeStateResponse result = interactionService.like(currentUser, contentId);
-            return Map.of(
-                    "success", true,
-                    "liked", result.liked(),
-                    "likeCount", result.likeCount()
-            );
+            return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
-            return Map.of(
-                    "success", false,
-                    "error", e.getMessage()
-            );
+            return AiActionResult.error(e.getMessage());
         }
     }
 
@@ -113,21 +98,14 @@ public class AiToolService {
      *
      * @param currentUser 当前登录用户
      * @param contentId   文章的 UUID
-     * @return 包含 success、liked、likeCount 的 Map
+     * @return 操作结果
      */
-    public Map<String, Object> unlikeContent(AuthenticatedUser currentUser, UUID contentId) {
+    public AiActionResult unlikeContent(AuthenticatedUser currentUser, UUID contentId) {
         try {
             LikeStateResponse result = interactionService.unlike(currentUser, contentId);
-            return Map.of(
-                    "success", true,
-                    "liked", result.liked(),
-                    "likeCount", result.likeCount()
-            );
+            return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
-            return Map.of(
-                    "success", false,
-                    "error", e.getMessage()
-            );
+            return AiActionResult.error(e.getMessage());
         }
     }
 
@@ -137,21 +115,14 @@ public class AiToolService {
      * @param currentUser 当前登录用户
      * @param contentId   文章的 UUID
      * @param body        评论内容
-     * @return 包含 success、commentId、body 的 Map
+     * @return 操作结果
      */
-    public Map<String, Object> commentContent(AuthenticatedUser currentUser, UUID contentId, String body) {
+    public AiActionResult commentContent(AuthenticatedUser currentUser, UUID contentId, String body) {
         try {
             CommentResponse result = interactionService.comment(currentUser, contentId, new CommentRequest(body));
-            return Map.of(
-                    "success", true,
-                    "commentId", result.id().toString(),
-                    "body", result.body()
-            );
+            return AiActionResult.commentSuccess(result.id(), result.body());
         } catch (Exception e) {
-            return Map.of(
-                    "success", false,
-                    "error", e.getMessage()
-            );
+            return AiActionResult.error(e.getMessage());
         }
     }
 
@@ -160,20 +131,14 @@ public class AiToolService {
      *
      * @param currentUser 当前登录用户
      * @param commentId   评论的 UUID
-     * @return 包含 success、deleted 的 Map
+     * @return 操作结果
      */
-    public Map<String, Object> deleteComment(AuthenticatedUser currentUser, UUID commentId) {
+    public AiActionResult deleteComment(AuthenticatedUser currentUser, UUID commentId) {
         try {
             interactionService.deleteComment(currentUser, commentId);
-            return Map.of(
-                    "success", true,
-                    "deleted", true
-            );
+            return AiActionResult.deleteSuccess();
         } catch (Exception e) {
-            return Map.of(
-                    "success", false,
-                    "error", e.getMessage()
-            );
+            return AiActionResult.error(e.getMessage());
         }
     }
 }

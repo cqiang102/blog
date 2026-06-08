@@ -1,14 +1,12 @@
 package com.caoqiang.blog.ai;
 
 import com.caoqiang.blog.auth.AuthenticatedUser;
-import com.caoqiang.blog.common.BusinessException;
 import com.caoqiang.blog.common.PageResponse;
 import com.caoqiang.blog.common.VectorUtils;
 import com.caoqiang.blog.content.Content;
 import com.caoqiang.blog.content.ContentDetailResponse;
 import com.caoqiang.blog.content.ContentRepository;
 import com.caoqiang.blog.content.ContentService;
-import com.caoqiang.blog.content.ContentStatus;
 import com.caoqiang.blog.content.ContentSummaryResponse;
 import com.caoqiang.blog.interaction.CommentRequest;
 import com.caoqiang.blog.interaction.CommentResponse;
@@ -70,24 +68,26 @@ public class AiBlogTools {
      *
      * @param query 搜索关键词
      * @param limit 返回结果数量上限（最大 10）
-     * @return 包含 results 列表和 total 总数的 Map
+     * @return 搜索结果
      */
     @Tool(description = "搜索博客文章。根据关键词搜索已发布的博客内容，返回匹配的文章列表（含标题、摘要、类型）。当用户想查找或浏览博客内容时调用。")
-    public Map<String, Object> searchContent(
+    public AiSearchContentResult searchContent(
             @ToolParam(description = "搜索关键词") String query,
             @ToolParam(description = "返回结果数量上限，最大10") int limit
     ) {
         PageResponse<ContentSummaryResponse> results = contentService.list(
                 query, null, null, null, null, 0, Math.min(limit, 10)
         );
-        return Map.of(
-                "results", results.items().stream().map(item -> Map.of(
-                        "id", item.id().toString(),
-                        "title", item.title(),
-                        "summary", item.summary() != null ? item.summary() : "",
-                        "type", item.type().name()
-                )).toList(),
-                "total", results.total()
+        return new AiSearchContentResult(
+                results.items().stream()
+                        .map(item -> new AiContentItem(
+                                item.id().toString(),
+                                item.title(),
+                                item.summary() != null ? item.summary() : "",
+                                item.type().name()
+                        ))
+                        .toList(),
+                results.total()
         );
     }
 
@@ -95,26 +95,26 @@ public class AiBlogTools {
      * 获取博客文章详情。根据文章 ID 获取完整内容。
      *
      * @param contentId 文章的 UUID
-     * @return 包含文章详情（标题、正文、点赞数等）或错误信息的 Map
+     * @return 内容详情结果
      */
     @Tool(description = "获取博客文章详情。根据文章ID获取完整内容，包括正文、点赞数、浏览数、评论数等。当用户想了解某篇文章的具体内容时调用。")
-    public Map<String, Object> getContentDetail(
+    public AiContentDetailResult getContentDetail(
             @ToolParam(description = "文章的UUID") UUID contentId
     ) {
         try {
             ContentDetailResponse detail = contentService.detail(contentId, null);
-            return Map.of(
-                    "id", detail.id().toString(),
-                    "title", detail.title(),
-                    "summary", detail.summary() != null ? detail.summary() : "",
-                    "markdown", detail.bodyMarkdown() != null ? detail.bodyMarkdown() : "",
-                    "type", detail.type().name(),
-                    "likeCount", detail.likeCount(),
-                    "viewCount", detail.viewCount(),
-                    "commentCount", detail.commentCount()
+            return AiContentDetailResult.success(
+                    detail.id().toString(),
+                    detail.title(),
+                    detail.summary() != null ? detail.summary() : "",
+                    detail.bodyMarkdown() != null ? detail.bodyMarkdown() : "",
+                    detail.type().name(),
+                    detail.likeCount(),
+                    detail.viewCount(),
+                    detail.commentCount()
             );
         } catch (Exception e) {
-            return Map.of("error", "内容不存在或已归档");
+            return AiContentDetailResult.error("内容不存在或已归档");
         }
     }
 
@@ -122,10 +122,10 @@ public class AiBlogTools {
      * 搜索知识库。优先使用向量相似度搜索，失败时回退到文本搜索。
      *
      * @param query 搜索关键词
-     * @return 包含内容片段、相似度分数、来源文章信息的列表
+     * @return 搜索结果列表
      */
     @Tool(description = "搜索知识库。根据关键词搜索博客内容的向量索引，返回匹配的内容片段及其来源文章。用于回答用户关于博客内容、技术观点等问题。")
-    public List<Map<String, Object>> searchKnowledge(
+    public List<KnowledgeSearchResult> searchKnowledge(
             @ToolParam(description = "搜索关键词") String query
     ) {
         try {
@@ -144,24 +144,19 @@ public class AiBlogTools {
                 Map<UUID, Content> contentMap = contentRepository.findAllById(contentIds).stream()
                         .collect(java.util.stream.Collectors.toMap(Content::getId, c -> c));
 
-                List<Map<String, Object>> results = new ArrayList<>();
+                List<KnowledgeSearchResult> results = new ArrayList<>();
                 for (Object[] chunk : similarChunks) {
                     UUID contentId = chunk[2] != null ? (UUID) chunk[2] : null;
                     String content = (String) chunk[3];
                     double score = chunk[5] != null ? ((Number) chunk[5]).doubleValue() : 0;
 
-                    Map<String, Object> result = new java.util.HashMap<>();
-                    result.put("content", content);
-                    result.put("score", score);
-
-                    // 从批量查询结果中获取文章标题
+                    String title = null;
                     if (contentId != null && contentMap.containsKey(contentId)) {
-                        Content c = contentMap.get(contentId);
-                        result.put("contentId", contentId.toString());
-                        result.put("title", c.getTitle());
+                        title = contentMap.get(contentId).getTitle();
                     }
 
-                    results.add(result);
+                    results.add(new KnowledgeSearchResult(content, score,
+                            contentId != null ? contentId.toString() : null, title));
                 }
                 return results;
             }
@@ -170,16 +165,16 @@ public class AiBlogTools {
         }
 
         // 向量搜索失败时，回退到文本搜索
-        List<Map<String, Object>> results = new ArrayList<>();
+        List<KnowledgeSearchResult> results = new ArrayList<>();
         PageResponse<ContentSummaryResponse> searchResults = contentService.list(
                 query, null, null, null, null, 0, 5
         );
         for (ContentSummaryResponse item : searchResults.items()) {
-            results.add(Map.of(
-                    "contentId", item.id().toString(),
-                    "title", item.title(),
-                    "content", item.summary() != null ? item.summary() : "",
-                    "score", 0.0
+            results.add(new KnowledgeSearchResult(
+                    item.summary() != null ? item.summary() : "",
+                    0.0,
+                    item.id().toString(),
+                    item.title()
             ));
         }
         return results;
@@ -189,21 +184,21 @@ public class AiBlogTools {
      * 对博客文章点赞。需要用户登录。
      *
      * @param contentId 文章的 UUID
-     * @return 包含 liked 状态和 likeCount 的 Map，未登录时返回错误信息
+     * @return 操作结果
      */
     @Tool(description = "对博客文章点赞。当用户表示喜欢某篇文章或想给文章点赞时调用。")
-    public Map<String, Object> likeContent(
+    public AiActionResult likeContent(
             @ToolParam(description = "文章的UUID") UUID contentId
     ) {
         AuthenticatedUser currentUser = AiUserContext.get();
         if (currentUser == null) {
-            return Map.of("error", "请先登录");
+            return AiActionResult.error("请先登录");
         }
         try {
             LikeStateResponse result = interactionService.like(currentUser, contentId);
-            return Map.of("liked", result.liked(), "likeCount", result.likeCount());
+            return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
-            return Map.of("error", e.getMessage());
+            return AiActionResult.error(e.getMessage());
         }
     }
 
@@ -211,21 +206,21 @@ public class AiBlogTools {
      * 取消对博客文章的点赞。需要用户登录。
      *
      * @param contentId 文章的 UUID
-     * @return 包含 liked 状态和 likeCount 的 Map，未登录时返回错误信息
+     * @return 操作结果
      */
     @Tool(description = "取消对博客文章的点赞。当用户想取消之前的点赞时调用。")
-    public Map<String, Object> unlikeContent(
+    public AiActionResult unlikeContent(
             @ToolParam(description = "文章的UUID") UUID contentId
     ) {
         AuthenticatedUser currentUser = AiUserContext.get();
         if (currentUser == null) {
-            return Map.of("error", "请先登录");
+            return AiActionResult.error("请先登录");
         }
         try {
             LikeStateResponse result = interactionService.unlike(currentUser, contentId);
-            return Map.of("liked", result.liked(), "likeCount", result.likeCount());
+            return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
-            return Map.of("error", e.getMessage());
+            return AiActionResult.error(e.getMessage());
         }
     }
 
@@ -234,25 +229,22 @@ public class AiBlogTools {
      *
      * @param contentId 文章的 UUID
      * @param body      评论内容
-     * @return 包含 commentId 和 body 的 Map，未登录时返回错误信息
+     * @return 操作结果
      */
     @Tool(description = "对博客文章发表评论。当用户想对某篇文章发表评论或留言时调用。")
-    public Map<String, Object> commentContent(
+    public AiActionResult commentContent(
             @ToolParam(description = "文章的UUID") UUID contentId,
             @ToolParam(description = "评论内容") String body
     ) {
         AuthenticatedUser currentUser = AiUserContext.get();
         if (currentUser == null) {
-            return Map.of("error", "请先登录");
+            return AiActionResult.error("请先登录");
         }
         try {
             CommentResponse result = interactionService.comment(currentUser, contentId, new CommentRequest(body));
-            return Map.of(
-                    "commentId", result.id().toString(),
-                    "body", result.body()
-            );
+            return AiActionResult.commentSuccess(result.id(), result.body());
         } catch (Exception e) {
-            return Map.of("error", e.getMessage());
+            return AiActionResult.error(e.getMessage());
         }
     }
 
@@ -260,21 +252,21 @@ public class AiBlogTools {
      * 删除自己的评论。需要用户登录，只能删除自己发布的评论。
      *
      * @param commentId 评论的 UUID
-     * @return 包含 deleted 状态的 Map，未登录时返回错误信息
+     * @return 操作结果
      */
     @Tool(description = "删除自己的评论。当用户想删除之前发表的评论时调用。只能删除自己发布的评论。")
-    public Map<String, Object> deleteComment(
+    public AiActionResult deleteComment(
             @ToolParam(description = "评论的UUID") UUID commentId
     ) {
         AuthenticatedUser currentUser = AiUserContext.get();
         if (currentUser == null) {
-            return Map.of("error", "请先登录");
+            return AiActionResult.error("请先登录");
         }
         try {
             interactionService.deleteComment(currentUser, commentId);
-            return Map.of("deleted", true);
+            return AiActionResult.deleteSuccess();
         } catch (Exception e) {
-            return Map.of("error", e.getMessage());
+            return AiActionResult.error(e.getMessage());
         }
     }
 

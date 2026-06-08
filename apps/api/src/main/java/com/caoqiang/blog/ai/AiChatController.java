@@ -2,12 +2,14 @@ package com.caoqiang.blog.ai;
 
 import com.caoqiang.blog.auth.AuthenticatedUser;
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.OperationResult;
 import com.caoqiang.blog.common.PageResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -73,6 +75,16 @@ public class AiChatController {
             @AuthenticationPrincipal AuthenticatedUser currentUser
     ) {
         return ApiResponse.ok(aiChatService.listSessions(currentUser));
+    }
+
+    /** 删除指定的 AI 聊天会话（逻辑删除）。 */
+    @DeleteMapping("/sessions/{sessionId}")
+    public ApiResponse<OperationResult> deleteSession(
+            @AuthenticationPrincipal AuthenticatedUser currentUser,
+            @PathVariable UUID sessionId
+    ) {
+        aiChatService.deleteSession(currentUser, sessionId);
+        return ApiResponse.ok(OperationResult.deleted(sessionId));
     }
 
     /** 分页获取指定会话的消息历史。 */

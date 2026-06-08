@@ -83,7 +83,7 @@ public class AiChatAdminService {
     }
 
     /**
-     * 删除指定的 AI 聊天会话（级联删除关联消息）。
+     * 删除指定的 AI 聊天会话（逻辑删除）。
      *
      * @param id 会话 ID
      */
@@ -91,7 +91,8 @@ public class AiChatAdminService {
     public void delete(UUID id) {
         AiChatSession session = sessionRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "AI 会话不存在"));
-        sessionRepository.delete(session);
+        session.markDeleted();
+        sessionRepository.save(session);
     }
 
     /** 将会话实体转换为管理端响应 DTO，附带消息数和最后一条消息。 */
@@ -105,10 +106,12 @@ public class AiChatAdminService {
         );
     }
 
-    /** 构建 JPA 动态查询条件：按用户 ID 和关键词（标题/邮箱/昵称）过滤。 */
+    /** 构建 JPA 动态查询条件：按用户 ID 和关键词（标题/邮箱/昵称）过滤，排除已删除记录。 */
     private Specification<AiChatSession> filters(UUID userId, String queryText) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
+            // 过滤已删除记录
+            predicates.add(criteriaBuilder.equal(root.get("deleted"), false));
             if (userId != null) {
                 predicates.add(criteriaBuilder.equal(root.get("user").get("id"), userId));
             }
