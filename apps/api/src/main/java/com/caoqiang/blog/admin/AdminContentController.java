@@ -1,12 +1,12 @@
 package com.caoqiang.blog.admin;
 
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.OperationResult;
 import com.caoqiang.blog.common.PageResponse;
 import com.caoqiang.blog.content.AdminContentRequest;
 import com.caoqiang.blog.content.AdminContentResponse;
 import com.caoqiang.blog.content.ContentAdminService;
 import jakarta.validation.Valid;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -102,11 +102,11 @@ public class AdminContentController {
      * 将内容状态设置为已归档，不会物理删除数据。
      *
      * @param id 内容 ID
-     * @return 操作结果，包含 {@code archived: true} 和内容 ID
+     * @return 操作结果
      */
     @DeleteMapping("/{id}")
-    public ApiResponse<Map<String, Object>> archive(@PathVariable UUID id) {
+    public ApiResponse<OperationResult> archive(@PathVariable UUID id) {
         contentAdminService.archive(id);
-        return ApiResponse.ok(Map.of("archived", true, "id", id));
+        return ApiResponse.ok(OperationResult.archived(id));
     }
 }

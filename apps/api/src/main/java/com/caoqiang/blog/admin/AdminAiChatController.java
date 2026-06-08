@@ -4,8 +4,8 @@ import com.caoqiang.blog.ai.AdminAiChatDetailResponse;
 import com.caoqiang.blog.ai.AdminAiChatSessionResponse;
 import com.caoqiang.blog.ai.AiChatAdminService;
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.OperationResult;
 import com.caoqiang.blog.common.PageResponse;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -74,11 +74,11 @@ public class AdminAiChatController {
      * 删除 AI 聊天会话
      *
      * @param id 会话 ID
-     * @return 操作结果，包含 {@code deleted: true} 和会话 ID
+     * @return 操作结果
      */
     @DeleteMapping("/{id}")
-    public ApiResponse<Map<String, Object>> delete(@PathVariable UUID id) {
+    public ApiResponse<OperationResult> delete(@PathVariable UUID id) {
         aiChatAdminService.delete(id);
-        return ApiResponse.ok(Map.of("deleted", true, "id", id));
+        return ApiResponse.ok(OperationResult.deleted(id));
     }
 }

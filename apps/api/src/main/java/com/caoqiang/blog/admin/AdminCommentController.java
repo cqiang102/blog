@@ -1,13 +1,13 @@
 package com.caoqiang.blog.admin;
 
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.OperationResult;
 import com.caoqiang.blog.common.PageResponse;
 import com.caoqiang.blog.interaction.AdminCommentResponse;
 import com.caoqiang.blog.interaction.AdminCommentStatusRequest;
 import com.caoqiang.blog.interaction.CommentAdminService;
 import com.caoqiang.blog.interaction.CommentStatus;
 import jakarta.validation.Valid;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -84,11 +84,11 @@ public class AdminCommentController {
      * 删除评论
      *
      * @param id 评论 ID
-     * @return 操作结果，包含 {@code deleted: true} 和评论 ID
+     * @return 操作结果
      */
     @DeleteMapping("/{id}")
-    public ApiResponse<Map<String, Object>> delete(@PathVariable UUID id) {
+    public ApiResponse<OperationResult> delete(@PathVariable UUID id) {
         commentAdminService.delete(id);
-        return ApiResponse.ok(Map.of("deleted", true, "id", id));
+        return ApiResponse.ok(OperationResult.deleted(id));
     }
 }

@@ -14,7 +14,6 @@ import com.caoqiang.blog.interaction.LikeRepository;
 import com.caoqiang.blog.interaction.ViewRecordRepository;
 import com.caoqiang.blog.user.UserRepository;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -90,20 +89,20 @@ public class AdminController {
      * <p>
      * 返回系统各模块的数据统计，用于管理后台首页展示。
      *
-     * @return 包含各模块统计数据的 Map
+     * @return 仪表盘统计数据
      */
     @GetMapping("/dashboard")
-    public ApiResponse<Map<String, Object>> dashboard() {
-        return ApiResponse.ok(Map.of(
-                "contents", contentRepository.count(),
-                "media", mediaAssetRepository.count(),
-                "friends", friendRepository.count(),
-                "users", userRepository.count(),
-                "comments", commentRepository.count(),
-                "likes", likeRepository.count(),
-                "views", viewRecordRepository.count(),
-                "aiChats", aiChatSessionRepository.count(),
-                "knowledgeDocs", knowledgeDocRepository.count()
+    public ApiResponse<DashboardStats> dashboard() {
+        return ApiResponse.ok(new DashboardStats(
+                contentRepository.count(),
+                mediaAssetRepository.count(),
+                friendRepository.count(),
+                userRepository.count(),
+                commentRepository.count(),
+                likeRepository.count(),
+                viewRecordRepository.count(),
+                aiChatSessionRepository.count(),
+                knowledgeDocRepository.count()
         ));
     }
 

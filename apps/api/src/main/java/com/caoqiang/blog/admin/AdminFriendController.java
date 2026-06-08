@@ -1,12 +1,12 @@
 package com.caoqiang.blog.admin;
 
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.OperationResult;
 import com.caoqiang.blog.friend.FriendAdminService;
 import com.caoqiang.blog.friend.FriendRequest;
 import com.caoqiang.blog.friend.FriendResponse;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -79,11 +79,11 @@ public class AdminFriendController {
      * 删除友链
      *
      * @param id 友链 ID
-     * @return 操作结果，包含 {@code deleted: true} 和友链 ID
+     * @return 操作结果
      */
     @DeleteMapping("/{id}")
-    public ApiResponse<Map<String, Object>> delete(@PathVariable UUID id) {
+    public ApiResponse<OperationResult> delete(@PathVariable UUID id) {
         friendAdminService.delete(id);
-        return ApiResponse.ok(Map.of("deleted", true, "id", id));
+        return ApiResponse.ok(OperationResult.deleted(id));
     }
 }

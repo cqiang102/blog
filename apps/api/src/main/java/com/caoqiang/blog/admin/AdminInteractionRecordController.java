@@ -1,11 +1,11 @@
 package com.caoqiang.blog.admin;
 
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.OperationResult;
 import com.caoqiang.blog.common.PageResponse;
 import com.caoqiang.blog.interaction.AdminLikeResponse;
 import com.caoqiang.blog.interaction.AdminViewRecordResponse;
 import com.caoqiang.blog.interaction.InteractionAdminService;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -62,12 +62,12 @@ public class AdminInteractionRecordController {
      * 删除点赞记录
      *
      * @param id 点赞记录 ID
-     * @return 操作结果，包含 {@code deleted: true} 和记录 ID
+     * @return 操作结果
      */
     @DeleteMapping("/likes/{id}")
-    public ApiResponse<Map<String, Object>> deleteLike(@PathVariable UUID id) {
+    public ApiResponse<OperationResult> deleteLike(@PathVariable UUID id) {
         interactionAdminService.deleteLike(id);
-        return ApiResponse.ok(Map.of("deleted", true, "id", id));
+        return ApiResponse.ok(OperationResult.deleted(id));
     }
 
     /**
@@ -93,11 +93,11 @@ public class AdminInteractionRecordController {
      * 删除浏览记录
      *
      * @param id 浏览记录 ID
-     * @return 操作结果，包含 {@code deleted: true} 和记录 ID
+     * @return 操作结果
      */
     @DeleteMapping("/views/{id}")
-    public ApiResponse<Map<String, Object>> deleteView(@PathVariable UUID id) {
+    public ApiResponse<OperationResult> deleteView(@PathVariable UUID id) {
         interactionAdminService.deleteView(id);
-        return ApiResponse.ok(Map.of("deleted", true, "id", id));
+        return ApiResponse.ok(OperationResult.deleted(id));
     }
 }

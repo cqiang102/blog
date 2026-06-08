@@ -3,13 +3,13 @@ package com.caoqiang.blog.admin;
 import com.caoqiang.blog.auth.AuthenticatedUser;
 import com.caoqiang.blog.auth.Role;
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.OperationResult;
 import com.caoqiang.blog.common.PageResponse;
 import com.caoqiang.blog.user.AdminUserRequest;
 import com.caoqiang.blog.user.AdminUserResponse;
 import com.caoqiang.blog.user.UserAdminService;
 import com.caoqiang.blog.user.UserStatus;
 import jakarta.validation.Valid;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -106,14 +106,14 @@ public class AdminUserController {
      *
      * @param currentUser 当前操作管理员
      * @param id          目标用户 ID
-     * @return 操作结果，包含 {@code disabled: true} 和用户 ID
+     * @return 操作结果
      */
     @DeleteMapping("/{id}")
-    public ApiResponse<Map<String, Object>> disable(
+    public ApiResponse<OperationResult> disable(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID id
     ) {
         userAdminService.disable(currentUser, id);
-        return ApiResponse.ok(Map.of("disabled", true, "id", id));
+        return ApiResponse.ok(OperationResult.success("禁用成功", id));
     }
 }

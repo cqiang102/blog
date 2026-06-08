@@ -1,6 +1,7 @@
 package com.caoqiang.blog.admin;
 
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.OperationResult;
 import com.caoqiang.blog.common.PageResponse;
 import com.caoqiang.blog.content.AdminContentResponse;
 import com.caoqiang.blog.content.AdminMediaRequest;
@@ -8,7 +9,6 @@ import com.caoqiang.blog.content.AdminMediaResponse;
 import com.caoqiang.blog.content.MediaAssetType;
 import com.caoqiang.blog.content.MediaAdminService;
 import jakarta.validation.Valid;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -112,12 +112,12 @@ public class AdminMediaController {
      * 删除媒体资源
      *
      * @param id 媒体资源 ID
-     * @return 操作结果，包含 {@code deleted: true} 和资源 ID
+     * @return 操作结果
      */
     @DeleteMapping("/media-assets/{id}")
-    public ApiResponse<Map<String, Object>> delete(@PathVariable UUID id) {
+    public ApiResponse<OperationResult> delete(@PathVariable UUID id) {
         mediaAdminService.delete(id);
-        return ApiResponse.ok(Map.of("deleted", true, "id", id));
+        return ApiResponse.ok(OperationResult.deleted(id));
     }
 
     /**
