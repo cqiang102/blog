@@ -1,4 +1,4 @@
-package com.caoqiang.blog.content;
+package com.caoqiang.blog.content.entity;
 
 /**
  * 媒体资源类型枚举。

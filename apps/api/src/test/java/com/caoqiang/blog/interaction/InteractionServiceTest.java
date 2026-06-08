@@ -10,10 +10,10 @@ import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.content.Content;
-import com.caoqiang.blog.content.ContentRepository;
-import com.caoqiang.blog.content.ContentStatus;
-import com.caoqiang.blog.content.ContentType;
+import com.caoqiang.blog.content.entity.Content;
+import com.caoqiang.blog.content.repository.ContentRepository;
+import com.caoqiang.blog.content.entity.ContentStatus;
+import com.caoqiang.blog.content.entity.ContentType;
 import com.caoqiang.blog.user.User;
 import com.caoqiang.blog.user.UserRepository;
 import java.time.Instant;

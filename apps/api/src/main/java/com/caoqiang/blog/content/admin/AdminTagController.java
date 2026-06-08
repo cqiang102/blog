@@ -1,10 +1,14 @@
 package com.caoqiang.blog.content.admin;
 
+import com.caoqiang.blog.content.dto.TagRequest;
+import com.caoqiang.blog.content.dto.TagResponse;
+import com.caoqiang.blog.content.service.TagAdminService;
+
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;
-import com.caoqiang.blog.content.TagAdminService;
-import com.caoqiang.blog.content.TagRequest;
-import com.caoqiang.blog.content.TagResponse;
+import com.caoqiang.blog.content.service.TagAdminService;
+import com.caoqiang.blog.content.dto.TagRequest;
+import com.caoqiang.blog.content.dto.TagResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;

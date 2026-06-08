@@ -1,4 +1,4 @@
-package com.caoqiang.blog.content;
+package com.caoqiang.blog.content.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

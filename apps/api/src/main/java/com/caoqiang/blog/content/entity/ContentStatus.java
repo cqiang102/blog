@@ -1,4 +1,4 @@
-package com.caoqiang.blog.content;
+package com.caoqiang.blog.content.entity;
 
 /**
  * 内容状态枚举。

@@ -1,4 +1,24 @@
-package com.caoqiang.blog.content;
+package com.caoqiang.blog.content.service;
+
+import com.caoqiang.blog.content.dto.AdminContentRequest;
+import com.caoqiang.blog.content.dto.AdminContentResponse;
+import com.caoqiang.blog.content.dto.AdminMediaRequest;
+import com.caoqiang.blog.content.dto.AdminMediaResponse;
+import com.caoqiang.blog.content.dto.ContentDetailResponse;
+import com.caoqiang.blog.content.dto.ContentSummaryResponse;
+import com.caoqiang.blog.content.dto.MediaAssetResponse;
+import com.caoqiang.blog.content.dto.RecommendationResponse;
+import com.caoqiang.blog.content.dto.TagRequest;
+import com.caoqiang.blog.content.dto.TagResponse;
+import com.caoqiang.blog.content.entity.Content;
+import com.caoqiang.blog.content.entity.ContentStatus;
+import com.caoqiang.blog.content.entity.ContentType;
+import com.caoqiang.blog.content.entity.MediaAsset;
+import com.caoqiang.blog.content.entity.MediaAssetType;
+import com.caoqiang.blog.content.entity.Tag;
+import com.caoqiang.blog.content.repository.ContentRepository;
+import com.caoqiang.blog.content.repository.MediaAssetRepository;
+import com.caoqiang.blog.content.repository.TagRepository;
 
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;

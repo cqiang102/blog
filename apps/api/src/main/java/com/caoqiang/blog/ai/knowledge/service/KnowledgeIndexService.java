@@ -6,7 +6,7 @@ import com.caoqiang.blog.ai.knowledge.entity.KnowledgeSourceType;
 import com.caoqiang.blog.ai.knowledge.repository.KnowledgeChunkRepository;
 import com.caoqiang.blog.ai.knowledge.repository.KnowledgeDocRepository;
 import com.caoqiang.blog.shared.util.VectorUtils;
-import com.caoqiang.blog.content.Content;
+import com.caoqiang.blog.content.entity.Content;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;

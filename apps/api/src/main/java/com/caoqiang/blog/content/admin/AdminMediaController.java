@@ -1,13 +1,20 @@
 package com.caoqiang.blog.content.admin;
 
+import com.caoqiang.blog.content.dto.AdminContentResponse;
+import com.caoqiang.blog.content.dto.AdminMediaRequest;
+import com.caoqiang.blog.content.dto.AdminMediaResponse;
+import com.caoqiang.blog.content.dto.MediaAssetResponse;
+import com.caoqiang.blog.content.entity.MediaAssetType;
+import com.caoqiang.blog.content.service.MediaAdminService;
+
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.content.AdminContentResponse;
-import com.caoqiang.blog.content.AdminMediaRequest;
-import com.caoqiang.blog.content.AdminMediaResponse;
-import com.caoqiang.blog.content.MediaAssetType;
-import com.caoqiang.blog.content.MediaAdminService;
+import com.caoqiang.blog.content.dto.AdminContentResponse;
+import com.caoqiang.blog.content.dto.AdminMediaRequest;
+import com.caoqiang.blog.content.dto.AdminMediaResponse;
+import com.caoqiang.blog.content.entity.MediaAssetType;
+import com.caoqiang.blog.content.service.MediaAdminService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.MediaType;

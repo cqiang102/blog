@@ -1,6 +1,6 @@
 package com.caoqiang.blog.interaction;
 
-import com.caoqiang.blog.content.Content;
+import com.caoqiang.blog.content.entity.Content;
 import java.time.Instant;
 import java.util.UUID;
 

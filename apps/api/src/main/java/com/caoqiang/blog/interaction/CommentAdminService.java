@@ -2,7 +2,7 @@ package com.caoqiang.blog.interaction;
 
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.content.ContentRepository;
+import com.caoqiang.blog.content.repository.ContentRepository;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;

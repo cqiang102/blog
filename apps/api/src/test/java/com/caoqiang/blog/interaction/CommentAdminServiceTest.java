@@ -5,10 +5,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.content.Content;
-import com.caoqiang.blog.content.ContentRepository;
-import com.caoqiang.blog.content.ContentStatus;
-import com.caoqiang.blog.content.ContentType;
+import com.caoqiang.blog.content.entity.Content;
+import com.caoqiang.blog.content.repository.ContentRepository;
+import com.caoqiang.blog.content.entity.ContentStatus;
+import com.caoqiang.blog.content.entity.ContentType;
 import com.caoqiang.blog.user.User;
 import java.time.Instant;
 import java.util.Optional;

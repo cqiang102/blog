@@ -1,4 +1,11 @@
-package com.caoqiang.blog.content;
+package com.caoqiang.blog.content.dto;
+
+import com.caoqiang.blog.content.entity.Content;
+import com.caoqiang.blog.content.entity.ContentStatus;
+import com.caoqiang.blog.content.entity.ContentType;
+import com.caoqiang.blog.content.entity.MediaAsset;
+import com.caoqiang.blog.content.entity.MediaAssetType;
+import com.caoqiang.blog.content.entity.Tag;
 
 import java.util.UUID;
 
