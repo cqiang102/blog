@@ -9,10 +9,10 @@ import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.content.dto.ContentDetailResponse;
 import com.caoqiang.blog.content.service.ContentService;
 import com.caoqiang.blog.content.dto.ContentSummaryResponse;
-import com.caoqiang.blog.interaction.CommentRequest;
-import com.caoqiang.blog.interaction.CommentResponse;
-import com.caoqiang.blog.interaction.InteractionService;
-import com.caoqiang.blog.interaction.LikeStateResponse;
+import com.caoqiang.blog.interaction.dto.CommentRequest;
+import com.caoqiang.blog.interaction.dto.CommentResponse;
+import com.caoqiang.blog.interaction.service.InteractionService;
+import com.caoqiang.blog.interaction.dto.LikeStateResponse;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 

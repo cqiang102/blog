@@ -1,4 +1,4 @@
-package com.caoqiang.blog.interaction;
+package com.caoqiang.blog.interaction.entity;
 
 import com.caoqiang.blog.content.entity.Content;
 import com.caoqiang.blog.user.User;

@@ -1,4 +1,9 @@
-package com.caoqiang.blog.interaction;
+package com.caoqiang.blog.interaction.dto;
+
+import com.caoqiang.blog.interaction.entity.Comment;
+import com.caoqiang.blog.interaction.entity.CommentStatus;
+import com.caoqiang.blog.interaction.entity.Like;
+import com.caoqiang.blog.interaction.entity.ViewRecord;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

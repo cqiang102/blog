@@ -23,7 +23,7 @@ import com.caoqiang.blog.content.repository.TagRepository;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.interaction.LikeRepository;
+import com.caoqiang.blog.interaction.repository.LikeRepository;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;

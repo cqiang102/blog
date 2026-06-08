@@ -1,5 +1,13 @@
 package com.caoqiang.blog.interaction;
 
+import com.caoqiang.blog.interaction.dto.AdminLikeResponse;
+import com.caoqiang.blog.interaction.dto.AdminViewRecordResponse;
+import com.caoqiang.blog.interaction.entity.Like;
+import com.caoqiang.blog.interaction.entity.ViewRecord;
+import com.caoqiang.blog.interaction.repository.LikeRepository;
+import com.caoqiang.blog.interaction.repository.ViewRecordRepository;
+import com.caoqiang.blog.interaction.service.InteractionAdminService;
+
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 

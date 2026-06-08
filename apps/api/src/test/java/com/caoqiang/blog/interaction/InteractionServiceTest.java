@@ -1,5 +1,19 @@
 package com.caoqiang.blog.interaction;
 
+import com.caoqiang.blog.interaction.dto.CommentRequest;
+import com.caoqiang.blog.interaction.dto.CommentResponse;
+import com.caoqiang.blog.interaction.dto.LikeStateResponse;
+import com.caoqiang.blog.interaction.dto.ViewStateResponse;
+import com.caoqiang.blog.interaction.entity.Comment;
+import com.caoqiang.blog.interaction.entity.CommentStatus;
+import com.caoqiang.blog.interaction.entity.Like;
+import com.caoqiang.blog.interaction.entity.ViewRecord;
+import com.caoqiang.blog.interaction.repository.CommentRepository;
+import com.caoqiang.blog.interaction.repository.LikeRepository;
+import com.caoqiang.blog.interaction.repository.ViewRecordRepository;
+import com.caoqiang.blog.interaction.service.InteractionService;
+import com.caoqiang.blog.interaction.service.CommentAuditService;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;

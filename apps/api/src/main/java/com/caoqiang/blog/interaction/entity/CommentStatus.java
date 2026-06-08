@@ -1,4 +1,4 @@
-package com.caoqiang.blog.interaction;
+package com.caoqiang.blog.interaction.entity;
 
 /**
  * 评论状态枚举

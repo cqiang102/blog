@@ -16,7 +16,7 @@ import static org.mockito.Mockito.*;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.interaction.LikeRepository;
+import com.caoqiang.blog.interaction.repository.LikeRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
