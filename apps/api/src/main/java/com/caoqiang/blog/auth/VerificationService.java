@@ -1,10 +1,10 @@
 package com.caoqiang.blog.auth;
 
 import com.caoqiang.blog.common.BusinessException;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
-import java.util.Random;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,8 +46,11 @@ public class VerificationService {
     /** 时钟，用于获取当前时间，便于测试 */
     private final Clock clock;
 
-    /** 随机数生成器 */
-    private final Random random = new Random();
+    /**
+     * 安全随机数生成器。使用 SecureRandom 而非 Random，
+     * 因为验证码属于安全敏感场景，需要密码学安全的随机性。
+     */
+    private final SecureRandom random = new SecureRandom();
 
     /**
      * 构造函数，注入依赖

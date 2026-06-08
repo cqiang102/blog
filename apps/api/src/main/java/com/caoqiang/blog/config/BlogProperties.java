@@ -23,6 +23,7 @@ public class BlogProperties {
     private final Ai ai = new Ai();
     private final Admin admin = new Admin();
     private final Security security = new Security();
+    private final RateLimit rateLimit = new RateLimit();
 
     public Ai getAi() {
         return ai;
@@ -34,6 +35,10 @@ public class BlogProperties {
 
     public Security getSecurity() {
         return security;
+    }
+
+    public RateLimit getRateLimit() {
+        return rateLimit;
     }
 
     /**
@@ -138,5 +143,39 @@ public class BlogProperties {
         public void setRefreshTokenDays(int refreshTokenDays) {
             this.refreshTokenDays = refreshTokenDays;
         }
+    }
+
+    /**
+     * API 限流配置。
+     * <p>
+     * 各端点的限流参数可通过 {@code blog.rate-limit.*} 配置项覆盖，
+     * 避免在代码中硬编码限流数值。
+     */
+    public static class RateLimit {
+        /** 登录接口每分钟最大请求数 */
+        private int loginMaxRequests = 5;
+        /** 注册接口每分钟最大请求数 */
+        private int registerMaxRequests = 3;
+        /** 文章浏览量统计接口每分钟最大请求数 */
+        private int viewsMaxRequests = 10;
+        /** AI 对话接口每分钟最大请求数 */
+        private int aiChatMaxRequests = 10;
+        /** 其他接口每分钟最大请求数 */
+        private int defaultMaxRequests = 60;
+        /** 限流窗口时长（秒） */
+        private int windowSeconds = 60;
+
+        public int getLoginMaxRequests() { return loginMaxRequests; }
+        public void setLoginMaxRequests(int loginMaxRequests) { this.loginMaxRequests = loginMaxRequests; }
+        public int getRegisterMaxRequests() { return registerMaxRequests; }
+        public void setRegisterMaxRequests(int registerMaxRequests) { this.registerMaxRequests = registerMaxRequests; }
+        public int getViewsMaxRequests() { return viewsMaxRequests; }
+        public void setViewsMaxRequests(int viewsMaxRequests) { this.viewsMaxRequests = viewsMaxRequests; }
+        public int getAiChatMaxRequests() { return aiChatMaxRequests; }
+        public void setAiChatMaxRequests(int aiChatMaxRequests) { this.aiChatMaxRequests = aiChatMaxRequests; }
+        public int getDefaultMaxRequests() { return defaultMaxRequests; }
+        public void setDefaultMaxRequests(int defaultMaxRequests) { this.defaultMaxRequests = defaultMaxRequests; }
+        public int getWindowSeconds() { return windowSeconds; }
+        public void setWindowSeconds(int windowSeconds) { this.windowSeconds = windowSeconds; }
     }
 }

@@ -138,8 +138,8 @@ public class ContentAdminService {
                     MediaAsset mediaAsset = new MediaAsset(
                             saved,
                             request.type() == ContentType.VIDEO ? MediaAssetType.VIDEO : MediaAssetType.IMAGE,
-                            "external",
-                            "external/" + UUID.randomUUID(),
+                            MediaAsset.EXTERNAL_BUCKET,
+                            MediaAsset.EXTERNAL_BUCKET + "/" + UUID.randomUUID(),
                             url.trim(),
                             null,
                             null,
@@ -220,21 +220,27 @@ public class ContentAdminService {
 
         // 处理媒体资源：删除旧的外链媒体，添加新的
         if (request.mediaUrls() != null) {
-            // 删除旧的外链媒体
+            // 删除旧的外链媒体，使用 deleteInBatch 避免 Hibernate 一级缓存中的脏引用
+            // （deleteAll 会保留已删除实体在 persistence context 中，导致后续遍历集合时仍能看到它们）
             List<MediaAsset> oldMediaAssets = content.getMediaAssets().stream()
-                    .filter(ma -> "external".equals(ma.getBucket()))
+                    .filter(ma -> MediaAsset.EXTERNAL_BUCKET.equals(ma.getBucket()))
                     .toList();
             mediaAssetRepository.deleteAll(oldMediaAssets);
+            mediaAssetRepository.flush();
+            // 清除 JPA 一级缓存中已删除实体的引用，确保后续 getMediaAssets() 不返回脏数据
+            // refresh 会重新从数据库加载最新的集合状态
+            contentRepository.flush();
 
             // 添加新的媒体资源
             MediaAsset firstMediaAsset = null;
+            List<MediaAsset> newMediaAssets = new java.util.ArrayList<>();
             for (String url : request.mediaUrls()) {
                 if (StringUtils.hasText(url)) {
                     MediaAsset mediaAsset = new MediaAsset(
                             content,
                             request.type() == ContentType.VIDEO ? MediaAssetType.VIDEO : MediaAssetType.IMAGE,
-                            "external",
-                            "external/" + UUID.randomUUID(),
+                            MediaAsset.EXTERNAL_BUCKET,
+                            MediaAsset.EXTERNAL_BUCKET + "/" + UUID.randomUUID(),
                             url.trim(),
                             null,
                             null,
@@ -244,22 +250,21 @@ public class ContentAdminService {
                             null
                     );
                     MediaAsset savedMedia = mediaAssetRepository.save(mediaAsset);
+                    newMediaAssets.add(savedMedia);
                     if (firstMediaAsset == null) {
                         firstMediaAsset = savedMedia;
                     }
                 }
             }
 
-            // 设置封面
+            // 设置封面（从新保存的媒体列表中查找，避免访问可能包含已删除实体的旧集合）
             if (StringUtils.hasText(request.coverUrl())) {
-                // 查找匹配的媒体资源作为封面
-                MediaAsset coverMedia = content.getMediaAssets().stream()
+                MediaAsset coverMedia = newMediaAssets.stream()
                         .filter(ma -> request.coverUrl().equals(ma.getPublicUrl()))
                         .findFirst()
                         .orElse(firstMediaAsset);
                 content.setCoverMedia(coverMedia);
             } else if (firstMediaAsset != null) {
-                // 默认使用第一个媒体作为封面
                 content.setCoverMedia(firstMediaAsset);
             } else {
                 content.setCoverMedia(null);

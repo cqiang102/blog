@@ -26,7 +26,7 @@ import java.util.UUID;
  * 内容实体。
  * <p>
  * 对应数据库表 {@code contents}，是博客系统的核心业务实体。
- * 支持文章（ARTICLE）、纯文本（TEXT）、图片（IMAGE）、视频（VIDEO）四种类型。
+ * 支持文章（ARTICLE）、图片（IMAGE）、视频（VIDEO）三种类型。
  * <p>
  * 关联关系：
  * <ul>
@@ -56,7 +56,7 @@ public class Content {
     @Column(nullable = false, unique = true, length = 220)
     private String slug;
 
-    /** 内容类型：TEXT / ARTICLE / IMAGE / VIDEO */
+    /** 内容类型：ARTICLE / IMAGE / VIDEO */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ContentType type;

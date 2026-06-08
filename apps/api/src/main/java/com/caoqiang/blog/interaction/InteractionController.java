@@ -3,10 +3,10 @@ package com.caoqiang.blog.interaction;
 import com.caoqiang.blog.auth.AuthenticatedUser;
 import com.caoqiang.blog.common.ApiResponse;
 import com.caoqiang.blog.common.IpUtils;
+import com.caoqiang.blog.common.OperationResult;
 import com.caoqiang.blog.common.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -100,15 +100,15 @@ public class InteractionController {
      *
      * @param currentUser 当前登录用户
      * @param commentId   要删除的评论 ID
-     * @return 包含删除状态和评论 ID 的响应
+     * @return 操作结果
      */
     @DeleteMapping("/comments/{commentId}")
-    public ApiResponse<Map<String, Object>> deleteComment(
+    public ApiResponse<OperationResult> deleteComment(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID commentId
     ) {
         interactionService.deleteComment(currentUser, commentId);
-        return ApiResponse.ok(Map.of("deleted", true, "commentId", commentId));
+        return ApiResponse.ok(OperationResult.deleted(commentId));
     }
 
     /**

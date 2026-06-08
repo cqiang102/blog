@@ -33,6 +33,9 @@ import java.util.UUID;
 @Table(name = "media_assets")
 public class MediaAsset {
 
+    /** 外链媒体的 bucket 标识，用于区分本地上传和外链引用 */
+    public static final String EXTERNAL_BUCKET = "external";
+
     /** 主键 UUID，创建时自动生成 */
     @Id
     @Column(nullable = false, updatable = false)

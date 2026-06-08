@@ -1,7 +1,6 @@
 package com.caoqiang.blog.common;
 
 import java.time.Instant;
-import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,14 +26,10 @@ public class MetaController {
     /**
      * 获取应用元数据信息。
      *
-     * @return 包含应用名称、版本号和服务器当前时间的 ApiResponse
+     * @return 应用元数据
      */
     @GetMapping
-    public ApiResponse<Map<String, Object>> meta() {
-        return ApiResponse.ok(Map.of(
-                "name", "personal-blog-api",
-                "version", "0.1.0-SNAPSHOT",
-                "time", Instant.now()
-        ));
+    public ApiResponse<AppMetadata> meta() {
+        return ApiResponse.ok(new AppMetadata("personal-blog-api", "0.1.0-SNAPSHOT", Instant.now()));
     }
 }

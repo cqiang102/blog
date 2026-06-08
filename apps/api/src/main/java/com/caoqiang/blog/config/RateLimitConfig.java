@@ -22,18 +22,20 @@ public class RateLimitConfig {
      *
      * @param redisTemplate Redis 操作模板，用于滑动窗口计数
      * @param objectMapper  JSON 序列化器，用于构造限流响应体
+     * @param blogProperties 博客配置，包含限流参数
      * @return 限流过滤器注册 Bean
      */
     @Bean
     public FilterRegistrationBean<RateLimitFilter> rateLimitFilter(
             StringRedisTemplate redisTemplate,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            BlogProperties blogProperties
     ) {
-        RateLimitFilter filter = new RateLimitFilter(redisTemplate, objectMapper);
+        RateLimitFilter filter = new RateLimitFilter(redisTemplate, objectMapper, blogProperties);
         FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(filter);
-        registration.addUrlPatterns("/api/*"); // 拦截所有 API 请求
-        registration.setOrder(1);              // 最高执行优先级
+        registration.addUrlPatterns("/api/*");
+        registration.setOrder(1);
         return registration;
     }
 }

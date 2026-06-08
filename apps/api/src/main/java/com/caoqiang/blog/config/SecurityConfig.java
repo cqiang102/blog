@@ -3,7 +3,7 @@ package com.caoqiang.blog.config;
 import com.caoqiang.blog.auth.GithubOAuth2UserService;
 import com.caoqiang.blog.auth.JwtAuthenticationFilter;
 import com.caoqiang.blog.auth.OAuth2LoginSuccessHandler;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;

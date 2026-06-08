@@ -76,6 +76,12 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  tomcat:
+    # 启用虚拟线程处理 HTTP 请求（Java 21 + Spring Boot 3.2+）。
+    # 虚拟线程适合 IO 密集型场景（如数据库查询、外部 API 调用），可大幅降低线程上下文切换开销。
+    # AI 流式对话等需要精细控制并发的场景仍使用专用线程池（见 AsyncConfig）。
+    threads:
+      virtual: ${VIRTUAL_THREADS:true}
 
 management:
   endpoints:

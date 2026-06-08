@@ -40,6 +40,8 @@ public class RefreshTokenService {
 
     /** Base64URL 编码器（无填充） */
     private static final Base64.Encoder BASE64_URL_ENCODER = Base64.getUrlEncoder().withoutPadding();
+    /** 刷新令牌的随机字节长度，32 字节 = 256 位，提供足够的熵以防止暴力猜测 */
+    private static final int TOKEN_BYTE_LENGTH = 32;
 
     /** 刷新令牌仓库，用于数据库操作 */
     private final RefreshTokenRepository refreshTokenRepository;
@@ -120,7 +122,7 @@ public class RefreshTokenService {
      * @return Base64URL 编码的随机令牌字符串
      */
     private String randomToken() {
-        byte[] token = new byte[32];
+        byte[] token = new byte[TOKEN_BYTE_LENGTH];
         secureRandom.nextBytes(token);
         return BASE64_URL_ENCODER.encodeToString(token);
     }

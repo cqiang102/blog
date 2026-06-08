@@ -3,7 +3,6 @@ package com.caoqiang.blog.auth;
 import com.caoqiang.blog.common.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -103,19 +102,19 @@ public class AuthController {
      * 查询可用的 OAuth 提供者
      * 返回当前系统支持的 OAuth 登录方式及其授权 URL。
      *
-     * @return 包含已启用、已预留的 OAuth 提供者列表及授权 URL 的 API 响应
+     * @return OAuth 提供者信息
      */
     @GetMapping("/providers")
-    public ApiResponse<Map<String, Object>> providers() {
+    public ApiResponse<OAuthProvidersResponse> providers() {
         String callbackUrl = frontendBaseUrl + "/login/oauth2/code/github";
         String githubLoginUrl = "https://github.com/login/oauth/authorize"
                 + "?client_id=" + clientId
                 + "&redirect_uri=" + callbackUrl
                 + "&scope=read:user,user:email";
-        return ApiResponse.ok(Map.of(
-                "enabled", List.of(OAuthProvider.GITHUB),
-                "reserved", List.of(OAuthProvider.QQ),
-                "githubLoginUrl", githubLoginUrl
+        return ApiResponse.ok(new OAuthProvidersResponse(
+                List.of(OAuthProvider.GITHUB),
+                List.of(OAuthProvider.QQ),
+                githubLoginUrl
         ));
     }
 }

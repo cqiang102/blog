@@ -3,12 +3,12 @@ package com.caoqiang.blog.user;
 import com.caoqiang.blog.auth.AuthenticatedUser;
 import com.caoqiang.blog.auth.OAuthProvider;
 import com.caoqiang.blog.common.ApiResponse;
+import com.caoqiang.blog.common.OperationResult;
 import com.caoqiang.blog.common.PageResponse;
 import com.caoqiang.blog.interaction.InteractionService;
 import com.caoqiang.blog.interaction.UserActivityResponse;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -115,13 +115,13 @@ public class ProfileController {
      * @return 操作结果
      */
     @DeleteMapping("/oauth-accounts/{provider}")
-    public ApiResponse<Map<String, Object>> unbindOAuth(
+    public ApiResponse<OperationResult> unbindOAuth(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable String provider
     ) {
         OAuthProvider oauthProvider = OAuthProvider.valueOf(provider.toUpperCase());
         profileService.unbindOAuthAccount(currentUser, oauthProvider);
-        return ApiResponse.ok(Map.of("unbind", true, "provider", provider));
+        return ApiResponse.ok(OperationResult.success("解绑成功"));
     }
 
     /**
@@ -129,15 +129,15 @@ public class ProfileController {
      *
      * @param currentUser 当前认证用户
      * @param request     修改密码请求体，包含旧密码和新密码
-     * @return 操作结果，包含 {@code changed: true} 表示成功
+     * @return 操作结果
      */
     @PutMapping("/password")
-    public ApiResponse<Map<String, Object>> changePassword(
+    public ApiResponse<OperationResult> changePassword(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @Valid @RequestBody ChangePasswordRequest request
     ) {
         profileService.changePassword(currentUser, request);
-        return ApiResponse.ok(Map.of("changed", true));
+        return ApiResponse.ok(OperationResult.success("密码修改成功"));
     }
 
     /**
@@ -145,15 +145,15 @@ public class ProfileController {
      *
      * @param currentUser 当前认证用户
      * @param request     设置密码请求体，仅包含新密码
-     * @return 操作结果，包含 {@code set: true} 表示成功
+     * @return 操作结果
      */
     @PostMapping("/password")
-    public ApiResponse<Map<String, Object>> setPassword(
+    public ApiResponse<OperationResult> setPassword(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @Valid @RequestBody SetPasswordRequest request
     ) {
         profileService.setPassword(currentUser, request);
-        return ApiResponse.ok(Map.of("set", true));
+        return ApiResponse.ok(OperationResult.success("密码设置成功"));
     }
 
     /**
@@ -212,15 +212,15 @@ public class ProfileController {
      *
      * @param currentUser 当前认证用户
      * @param commentId   要删除的评论 ID
-     * @return 操作结果，包含 {@code deleted: true} 和 {@code commentId}
+     * @return 操作结果
      */
     @DeleteMapping("/comments/{commentId}")
-    public ApiResponse<Map<String, Object>> deleteMyComment(
+    public ApiResponse<OperationResult> deleteMyComment(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID commentId
     ) {
         interactionService.deleteComment(currentUser, commentId);
-        return ApiResponse.ok(Map.of("deleted", true, "commentId", commentId));
+        return ApiResponse.ok(OperationResult.deleted(commentId));
     }
 
     /**
@@ -228,15 +228,15 @@ public class ProfileController {
      *
      * @param currentUser 当前认证用户
      * @param contentId   要取消点赞的内容 ID
-     * @return 操作结果，包含 {@code deleted: true} 和 {@code contentId}
+     * @return 操作结果
      */
     @DeleteMapping("/likes/{contentId}")
-    public ApiResponse<Map<String, Object>> deleteMyLike(
+    public ApiResponse<OperationResult> deleteMyLike(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID contentId
     ) {
         interactionService.deleteMyLike(currentUser, contentId);
-        return ApiResponse.ok(Map.of("deleted", true, "contentId", contentId));
+        return ApiResponse.ok(OperationResult.deleted(contentId));
     }
 
     /**
@@ -244,14 +244,14 @@ public class ProfileController {
      *
      * @param currentUser  当前认证用户
      * @param viewRecordId 要删除的浏览记录 ID
-     * @return 操作结果，包含 {@code deleted: true} 和 {@code viewRecordId}
+     * @return 操作结果
      */
     @DeleteMapping("/views/{viewRecordId}")
-    public ApiResponse<Map<String, Object>> deleteMyView(
+    public ApiResponse<OperationResult> deleteMyView(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID viewRecordId
     ) {
         interactionService.deleteMyView(currentUser, viewRecordId);
-        return ApiResponse.ok(Map.of("deleted", true, "viewRecordId", viewRecordId));
+        return ApiResponse.ok(OperationResult.deleted(viewRecordId));
     }
 }

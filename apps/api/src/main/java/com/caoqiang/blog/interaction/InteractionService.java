@@ -18,6 +18,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,6 +90,7 @@ public class InteractionService {
      * 获取指定内容的评论列表（分页）
      * <p>
      * 只返回可见评论和当前用户自己的被屏蔽评论（如果已登录）。
+     * 使用数据库层面过滤避免分页总数不准确的问题。
      * </p>
      *
      * @param contentId     内容 ID
@@ -99,17 +101,29 @@ public class InteractionService {
      */
     @Transactional(readOnly = true)
     public PageResponse<CommentResponse> comments(UUID contentId, int page, int size, UUID currentUserId) {
-        // 查询可见和被屏蔽的评论（被屏蔽的评论只有作者自己能看到）
-        List<CommentStatus> statuses = List.of(CommentStatus.VISIBLE, CommentStatus.BLOCKED);
-        Page<Comment> result = commentRepository.findByContentIdAndStatusInOrderByCreatedAtDesc(
-                contentId,
-                statuses,
-                pageRequest(page, size)
-        );
+        Page<Comment> result;
+        if (currentUserId == null) {
+            // 匿名用户：只查询可见评论
+            result = commentRepository.findByContentIdAndStatusOrderByCreatedAtDesc(
+                    contentId,
+                    CommentStatus.VISIBLE,
+                    pageRequest(page, size)
+            );
+        } else {
+            // 登录用户：查询可见评论 + 自己的被屏蔽评论
+            Specification<Comment> spec = Specification
+                    .<Comment>where((root, query, cb) -> cb.equal(root.get("content").get("id"), contentId))
+                    .and((root, query, cb) -> cb.or(
+                            cb.equal(root.get("status"), CommentStatus.VISIBLE),
+                            cb.and(
+                                    cb.equal(root.get("status"), CommentStatus.BLOCKED),
+                                    cb.equal(root.get("user").get("id"), currentUserId)
+                            )
+                    ));
+            result = commentRepository.findAll(spec, pageRequest(page, size));
+        }
         return new PageResponse<>(
                 result.getContent().stream()
-                        // 过滤：可见评论全部返回，被屏蔽评论只返回给作者本人
-                        .filter(c -> c.isVisible() || (currentUserId != null && c.getUser().getId().equals(currentUserId)))
                         .map(CommentResponse::from)
                         .toList(),
                 result.getNumber(),
@@ -145,9 +159,11 @@ public class InteractionService {
     }
 
     /**
-     * 删除评论
+     * 删除评论。
      * <p>
-     * 只能删除自己的评论（管理员除外）。删除后减少内容的评论计数。
+     * 只能删除自己的评论（管理员除外）。已删除状态的评论不重复处理。
+     * 对于可见评论，删除后减少内容的评论计数；对于不可见评论（BLOCKED/PENDING），
+     * 仅标记为删除，不减少计数（因为不可见评论未计入 commentCount）。
      * </p>
      *
      * @param currentUser 当前登录用户
@@ -161,11 +177,15 @@ public class InteractionService {
         if (!comment.getUser().getId().equals(currentUser.id()) && currentUser.role() != Role.ADMIN) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "只能删除自己的评论");
         }
-        // 只有可见评论才需要减少计数（防止重复减少）
+        // 已删除的评论不重复处理
+        if (comment.getStatus() == CommentStatus.DELETED) {
+            return;
+        }
+        // 只有可见评论才需要减少计数（不可见评论未计入 commentCount）
         if (comment.isVisible()) {
-            comment.markDeleted();
             contentRepository.incrementCommentCount(comment.getContent().getId(), -1);
         }
+        comment.markDeleted();
     }
 
     /**

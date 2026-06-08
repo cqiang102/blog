@@ -5,7 +5,6 @@ import com.caoqiang.blog.user.User;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -46,6 +45,8 @@ public class JwtService {
 
     /** HMAC-SHA256 算法标识 */
     private static final String HMAC_ALGORITHM = "HmacSHA256";
+    /** OAuth 绑定令牌有效期（秒），5 分钟。足够完成 OAuth 回调流程，过短会导致绑定失败 */
+    private static final int BINDING_TOKEN_EXPIRE_SECONDS = 300;
     /** Base64URL 编码器（无填充） */
     private static final Base64.Encoder BASE64_URL_ENCODER = Base64.getUrlEncoder().withoutPadding();
     /** Base64URL 解码器 */
@@ -168,7 +169,7 @@ public class JwtService {
      */
     public String createBindingToken(UUID userId) {
         Instant issuedAt = clock.instant();
-        Instant expiresAt = issuedAt.plusSeconds(300); // 5 分钟有效
+        Instant expiresAt = issuedAt.plusSeconds(BINDING_TOKEN_EXPIRE_SECONDS);
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("sub", userId.toString());
