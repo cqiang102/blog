@@ -462,6 +462,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
                           ? '*暂无内容*'
                           : _bodyController.text,
                       selectable: true,
+                      imageBuilder: _buildMarkdownImage,
                     ),
                   ),
                 ),
@@ -488,6 +489,36 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
               ? '*暂无内容*'
               : _bodyController.text,
           selectable: true,
+          imageBuilder: _buildMarkdownImage,
+        ),
+      ),
+    );
+  }
+
+  /// 构建 Markdown 中的图片，使用 CachedNetworkImage 缓存
+  Widget _buildMarkdownImage(Uri uri, String? title, String? alt) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: CachedNetworkImage(
+        imageUrl: uri.toString(),
+        fit: BoxFit.contain,
+        placeholder: (context, url) => const Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        errorWidget: (context, url, error) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.broken_image, size: 48),
+              const SizedBox(height: 8),
+              Text(
+                alt ?? '图片加载失败',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
         ),
       ),
     );
