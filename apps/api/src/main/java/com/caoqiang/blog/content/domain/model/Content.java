@@ -1,11 +1,11 @@
 package com.caoqiang.blog.content.domain.model;
 
+import com.caoqiang.blog.shared.domain.model.AggregateRoot;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
@@ -41,12 +41,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "contents")
-public class Content {
-
-    /** 主键 UUID，创建时自动生成 */
-    @Id
-    @Column(nullable = false, updatable = false)
-    private UUID id = UUID.randomUUID();
+public class Content extends AggregateRoot {
 
     /** 内容标题 */
     @Column(nullable = false, length = 180)
@@ -225,10 +220,6 @@ public class Content {
      */
     public void setCoverMedia(MediaAsset coverMedia) {
         this.coverMedia = coverMedia;
-    }
-
-    public UUID getId() {
-        return id;
     }
 
     public String getTitle() {

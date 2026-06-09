@@ -1,11 +1,11 @@
 package com.caoqiang.blog.user.domain.model;
 
+import com.caoqiang.blog.shared.domain.model.AggregateRoot;
 import com.caoqiang.blog.shared.model.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -29,12 +29,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "users")
-public class User {
-
-    /** 用户唯一标识，UUID 格式 */
-    @Id
-    @Column(nullable = false, updatable = false)
-    private UUID id = UUID.randomUUID();
+public class User extends AggregateRoot {
 
     /** 用户邮箱，唯一且大小写不敏感（CITEXT 类型） */
     @Column(nullable = false, unique = true, columnDefinition = "CITEXT")
@@ -198,10 +193,6 @@ public class User {
      */
     public boolean isActive() {
         return status == UserStatus.ACTIVE;
-    }
-
-    public UUID getId() {
-        return id;
     }
 
     public String getEmail() {

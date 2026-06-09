@@ -1,13 +1,13 @@
 package com.caoqiang.blog.interaction.domain.model;
 
 import com.caoqiang.blog.content.domain.model.Content;
+import com.caoqiang.blog.shared.domain.model.AggregateRoot;
 import com.caoqiang.blog.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -33,12 +33,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "comments")
-public class Comment {
-
-    /** 评论 ID，使用随机 UUID 生成 */
-    @Id
-    @Column(nullable = false, updatable = false)
-    private UUID id = UUID.randomUUID();
+public class Comment extends AggregateRoot {
 
     /** 关联的内容实体 */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -176,10 +171,6 @@ public class Comment {
         } else {
             this.status = CommentStatus.VISIBLE;
         }
-    }
-
-    public UUID getId() {
-        return id;
     }
 
     public Content getContent() {

@@ -1,8 +1,8 @@
 package com.caoqiang.blog.content.domain.model;
 
+import com.caoqiang.blog.shared.domain.model.AggregateRoot;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -24,12 +24,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "tags")
-public class Tag {
-
-    /** 主键 UUID，创建时自动生成 */
-    @Id
-    @Column(nullable = false, updatable = false)
-    private UUID id = UUID.randomUUID();
+public class Tag extends AggregateRoot {
 
     /** 标签显示名称 */
     @Column(nullable = false, unique = true, length = 60)
@@ -101,10 +96,6 @@ public class Tag {
         this.name = name;
         this.slug = slug;
         this.description = description;
-    }
-
-    public UUID getId() {
-        return id;
     }
 
     public String getName() {

@@ -1,8 +1,8 @@
 package com.caoqiang.blog.friend.domain.model;
 
+import com.caoqiang.blog.shared.domain.model.AggregateRoot;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -25,12 +25,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "friends")
-public class Friend {
-
-    /** 友链唯一标识，UUID 格式 */
-    @Id
-    @Column(nullable = false, updatable = false)
-    private UUID id = UUID.randomUUID();
+public class Friend extends AggregateRoot {
 
     /** 友链名称，最大 80 字符 */
     @Column(nullable = false, length = 80)
@@ -121,10 +116,6 @@ public class Friend {
         this.siteUrl = siteUrl;
         this.visible = visible;
         this.sortOrder = sortOrder;
-    }
-
-    public UUID getId() {
-        return id;
     }
 
     public String getName() {
