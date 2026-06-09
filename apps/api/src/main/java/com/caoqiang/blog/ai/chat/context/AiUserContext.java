@@ -1,4 +1,4 @@
-package com.caoqiang.blog.ai.chat.service;
+package com.caoqiang.blog.ai.chat.context;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 

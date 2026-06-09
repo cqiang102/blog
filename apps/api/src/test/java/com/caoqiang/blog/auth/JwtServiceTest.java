@@ -1,14 +1,14 @@
 package com.caoqiang.blog.auth;
 
-import com.caoqiang.blog.auth.service.JwtService;
-import com.caoqiang.blog.auth.dto.JwtClaims;
+import com.caoqiang.blog.auth.application.service.JwtService;
+import com.caoqiang.blog.auth.application.dto.JwtClaims;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.user.domain.model.User;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;

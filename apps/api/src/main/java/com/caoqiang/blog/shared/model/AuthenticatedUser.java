@@ -1,6 +1,6 @@
 package com.caoqiang.blog.shared.model;
 
-import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.user.domain.model.User;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;

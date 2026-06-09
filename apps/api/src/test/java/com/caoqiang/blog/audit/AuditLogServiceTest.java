@@ -5,8 +5,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.caoqiang.blog.audit.application.dto.AuditLogResponse;
+import com.caoqiang.blog.audit.application.service.AuditLogService;
+import com.caoqiang.blog.audit.domain.model.AuditLog;
+import com.caoqiang.blog.audit.domain.repository.AuditLogRepository;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.user.domain.model.User;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

@@ -5,12 +5,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.ai.knowledge.entity.KnowledgeChunk;
-import com.caoqiang.blog.ai.knowledge.entity.KnowledgeDoc;
-import com.caoqiang.blog.ai.knowledge.entity.KnowledgeSourceType;
-import com.caoqiang.blog.ai.knowledge.repository.KnowledgeChunkRepository;
-import com.caoqiang.blog.ai.knowledge.repository.KnowledgeDocRepository;
-import com.caoqiang.blog.ai.knowledge.service.KnowledgeIndexService;
+import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeChunk;
+import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
+import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeSourceType;
+import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
+import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
+import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeIndexService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

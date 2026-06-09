@@ -1,21 +1,21 @@
 package com.caoqiang.blog.interaction;
 
-import com.caoqiang.blog.interaction.dto.AdminLikeResponse;
-import com.caoqiang.blog.interaction.dto.AdminViewRecordResponse;
-import com.caoqiang.blog.interaction.entity.Like;
-import com.caoqiang.blog.interaction.entity.ViewRecord;
-import com.caoqiang.blog.interaction.repository.LikeRepository;
-import com.caoqiang.blog.interaction.repository.ViewRecordRepository;
-import com.caoqiang.blog.interaction.service.InteractionAdminService;
+import com.caoqiang.blog.interaction.application.dto.AdminLikeResponse;
+import com.caoqiang.blog.interaction.application.dto.AdminViewRecordResponse;
+import com.caoqiang.blog.interaction.domain.model.Like;
+import com.caoqiang.blog.interaction.domain.model.ViewRecord;
+import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
+import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
+import com.caoqiang.blog.interaction.application.service.InteractionAdminService;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.content.entity.Content;
-import com.caoqiang.blog.content.repository.ContentRepository;
-import com.caoqiang.blog.content.entity.ContentStatus;
-import com.caoqiang.blog.content.entity.ContentType;
-import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.content.domain.model.Content;
+import com.caoqiang.blog.content.domain.repository.ContentRepository;
+import com.caoqiang.blog.content.domain.model.ContentStatus;
+import com.caoqiang.blog.content.domain.model.ContentType;
+import com.caoqiang.blog.user.domain.model.User;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;

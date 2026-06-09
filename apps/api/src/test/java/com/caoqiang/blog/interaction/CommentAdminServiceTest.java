@@ -1,22 +1,22 @@
 package com.caoqiang.blog.interaction;
 
-import com.caoqiang.blog.interaction.dto.AdminCommentResponse;
-import com.caoqiang.blog.interaction.dto.AdminCommentStatusRequest;
-import com.caoqiang.blog.interaction.entity.Comment;
-import com.caoqiang.blog.interaction.entity.CommentStatus;
-import com.caoqiang.blog.interaction.repository.CommentRepository;
-import com.caoqiang.blog.interaction.service.CommentAdminService;
+import com.caoqiang.blog.interaction.application.dto.AdminCommentResponse;
+import com.caoqiang.blog.interaction.application.dto.AdminCommentStatusRequest;
+import com.caoqiang.blog.interaction.domain.model.Comment;
+import com.caoqiang.blog.interaction.domain.model.CommentStatus;
+import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
+import com.caoqiang.blog.interaction.application.service.CommentAdminService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.content.entity.Content;
-import com.caoqiang.blog.content.repository.ContentRepository;
-import com.caoqiang.blog.content.entity.ContentStatus;
-import com.caoqiang.blog.content.entity.ContentType;
-import com.caoqiang.blog.user.entity.User;
+import com.caoqiang.blog.content.domain.model.Content;
+import com.caoqiang.blog.content.domain.repository.ContentRepository;
+import com.caoqiang.blog.content.domain.model.ContentStatus;
+import com.caoqiang.blog.content.domain.model.ContentType;
+import com.caoqiang.blog.user.domain.model.User;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;

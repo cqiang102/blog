@@ -1,13 +1,13 @@
 package com.caoqiang.blog.content;
 
-import com.caoqiang.blog.content.dto.ContentDetailResponse;
-import com.caoqiang.blog.content.dto.ContentSummaryResponse;
-import com.caoqiang.blog.content.dto.RecommendationResponse;
-import com.caoqiang.blog.content.entity.Content;
-import com.caoqiang.blog.content.entity.ContentStatus;
-import com.caoqiang.blog.content.entity.ContentType;
-import com.caoqiang.blog.content.repository.ContentRepository;
-import com.caoqiang.blog.content.service.ContentService;
+import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
+import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
+import com.caoqiang.blog.content.application.dto.RecommendationResponse;
+import com.caoqiang.blog.content.domain.model.Content;
+import com.caoqiang.blog.content.domain.model.ContentStatus;
+import com.caoqiang.blog.content.domain.model.ContentType;
+import com.caoqiang.blog.content.domain.repository.ContentRepository;
+import com.caoqiang.blog.content.application.service.ContentService;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -16,7 +16,7 @@ import static org.mockito.Mockito.*;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.interaction.repository.LikeRepository;
+import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;

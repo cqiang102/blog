@@ -1,13 +1,13 @@
 package com.caoqiang.blog.user;
 
-import com.caoqiang.blog.user.dto.ChangePasswordRequest;
-import com.caoqiang.blog.user.dto.SetPasswordRequest;
-import com.caoqiang.blog.user.dto.UpdateProfileRequest;
-import com.caoqiang.blog.user.dto.UserProfileResponse;
-import com.caoqiang.blog.user.entity.User;
-import com.caoqiang.blog.user.entity.UserStatus;
-import com.caoqiang.blog.user.repository.UserRepository;
-import com.caoqiang.blog.user.service.ProfileService;
+import com.caoqiang.blog.user.application.dto.ChangePasswordRequest;
+import com.caoqiang.blog.user.application.dto.SetPasswordRequest;
+import com.caoqiang.blog.user.application.dto.UpdateProfileRequest;
+import com.caoqiang.blog.user.application.dto.UserProfileResponse;
+import com.caoqiang.blog.user.domain.model.User;
+import com.caoqiang.blog.user.domain.model.UserStatus;
+import com.caoqiang.blog.user.domain.repository.UserRepository;
+import com.caoqiang.blog.user.application.service.ProfileService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -16,7 +16,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.auth.repository.OAuthAccountRepository;
+import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.time.Clock;

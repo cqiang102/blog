@@ -1,8 +1,8 @@
 package com.caoqiang.blog.config;
 
-import com.caoqiang.blog.auth.service.GithubOAuth2UserService;
-import com.caoqiang.blog.auth.filter.JwtAuthenticationFilter;
-import com.caoqiang.blog.auth.filter.OAuth2LoginSuccessHandler;
+import com.caoqiang.blog.auth.application.service.GithubOAuth2UserService;
+import com.caoqiang.blog.auth.infrastructure.web.JwtAuthenticationFilter;
+import com.caoqiang.blog.auth.infrastructure.web.OAuth2LoginSuccessHandler;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
