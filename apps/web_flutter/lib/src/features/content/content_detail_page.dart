@@ -409,9 +409,12 @@ class _ContentViewer extends StatelessWidget {
       ContentType.markdown => Card(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md + 4),
-            child: MarkdownBody(
-              data:
-                  content.markdown.isEmpty ? content.summary : content.markdown,
+            child: SelectionArea(
+              child: MarkdownBody(
+                data:
+                    content.markdown.isEmpty ? content.summary : content.markdown,
+                softLineBreak: true,
+              ),
             ),
           ),
         ),
