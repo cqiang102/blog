@@ -12,7 +12,7 @@ import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.auth.application.service.EmailNormalizer;
+import com.caoqiang.blog.shared.util.EmailNormalizer;
 import com.caoqiang.blog.auth.domain.model.OAuthAccount;
 import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
 import com.caoqiang.blog.auth.domain.model.OAuthProvider;

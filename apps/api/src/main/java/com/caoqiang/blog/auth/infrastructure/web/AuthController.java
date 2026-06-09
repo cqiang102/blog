@@ -9,8 +9,8 @@ import com.caoqiang.blog.auth.domain.model.VerificationCode;
 import com.caoqiang.blog.auth.domain.model.OAuthProvider;
 import com.caoqiang.blog.auth.application.dto.RefreshTokenRequest;
 import com.caoqiang.blog.auth.application.service.AuthService;
-import com.caoqiang.blog.auth.application.service.EmailNormalizer;
 import com.caoqiang.blog.auth.application.service.VerificationService;
+import com.caoqiang.blog.shared.util.EmailNormalizer;
 
 import com.caoqiang.blog.shared.response.ApiResponse;
 import jakarta.validation.Valid;

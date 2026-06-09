@@ -1,6 +1,6 @@
 package com.caoqiang.blog.auth.application.init;
 
-import com.caoqiang.blog.auth.application.service.EmailNormalizer;
+import com.caoqiang.blog.shared.util.EmailNormalizer;
 
 import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.user.domain.model.User;

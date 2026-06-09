@@ -17,6 +17,7 @@ import com.caoqiang.blog.auth.domain.repository.VerificationCodeRepository;
 import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.shared.domain.event.user.UserCreatedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.util.EmailNormalizer;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.application.dto.UserProfileResponse;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
