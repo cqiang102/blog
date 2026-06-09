@@ -62,7 +62,6 @@ public class SecurityConfig {
      * @param githubOAuth2UserService         GitHub OAuth2 用户服务（可选）
      * @param oAuth2LoginSuccessHandler       OAuth2 登录成功处理器（可选）
      * @return 配置完成的 SecurityFilterChain
-     * @throws Exception 配置过程中可能抛出的异常
      */
     @Bean
     SecurityFilterChain securityFilterChain(
@@ -71,7 +70,7 @@ public class SecurityConfig {
             ObjectProvider<ClientRegistrationRepository> clientRegistrationRepository,
             ObjectProvider<GithubOAuth2UserService> githubOAuth2UserService,
             ObjectProvider<OAuth2LoginSuccessHandler> oAuth2LoginSuccessHandler
-    ) throws Exception {
+    ) {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable) // REST API 无状态，无需 CSRF 保护
@@ -149,7 +148,7 @@ public class SecurityConfig {
                 new ObjectMapper().writeValueAsString(
                         Map.of(
                                 "success", false,
-                                "code", 401,
+                                "code", HttpStatus.UNAUTHORIZED.value(),
                                 "message", "未登录或登录已过期"
                         )
                 )
