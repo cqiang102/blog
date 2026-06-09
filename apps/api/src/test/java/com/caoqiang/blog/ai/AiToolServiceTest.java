@@ -21,6 +21,7 @@ import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
 import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
 import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
+import com.caoqiang.blog.interaction.domain.model.CommentStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -118,7 +119,7 @@ class AiToolServiceTest {
                 UUID.randomUUID(), "测试用户", null
         );
         CommentResponse commentResponse = new CommentResponse(
-                commentId, contentId, "测试标题", "测试评论", author, null, Instant.now()
+                commentId, contentId, "测试标题", "测试评论", author, CommentStatus.VISIBLE, Instant.now()
         );
 
         when(interactionCommandService.comment(eq(currentUser), eq(contentId), any())).thenReturn(commentResponse);

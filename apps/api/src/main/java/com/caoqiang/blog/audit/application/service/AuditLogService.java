@@ -86,7 +86,7 @@ public class AuditLogService {
                 filters(action, resourceType, actorUserId),
                 PageRequest.of(
                         Math.max(0, page),
-                        Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
+                        Math.clamp(size, 1, MAX_PAGE_SIZE),
                         Sort.by(Sort.Direction.DESC, "createdAt")
                 )
         );

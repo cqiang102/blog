@@ -1,5 +1,6 @@
 package com.caoqiang.blog.interaction.application.dto;
 
+import com.caoqiang.blog.interaction.domain.model.ActivityType;
 import com.caoqiang.blog.interaction.domain.model.Comment;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
 import com.caoqiang.blog.interaction.domain.model.Like;
@@ -27,7 +28,7 @@ import java.util.UUID;
  */
 public record UserActivityResponse(
         UUID id,
-        String type,
+        ActivityType type,
         UUID contentId,
         String title,
         Instant createdAt
@@ -42,7 +43,7 @@ public record UserActivityResponse(
      * @return 用户活动响应
      */
     public static UserActivityResponse comment(UUID id, Content content, Instant createdAt) {
-        return new UserActivityResponse(id, "COMMENT", content.getId(), content.getTitle(), createdAt);
+        return new UserActivityResponse(id, ActivityType.COMMENT, content.getId(), content.getTitle(), createdAt);
     }
 
     /**
@@ -53,7 +54,7 @@ public record UserActivityResponse(
      * @return 用户活动响应
      */
     public static UserActivityResponse like(Content content, Instant createdAt) {
-        return new UserActivityResponse(content.getId(), "LIKE", content.getId(), content.getTitle(), createdAt);
+        return new UserActivityResponse(content.getId(), ActivityType.LIKE, content.getId(), content.getTitle(), createdAt);
     }
 
     /**
@@ -65,6 +66,6 @@ public record UserActivityResponse(
      * @return 用户活动响应
      */
     public static UserActivityResponse view(UUID id, Content content, Instant createdAt) {
-        return new UserActivityResponse(id, "VIEW", content.getId(), content.getTitle(), createdAt);
+        return new UserActivityResponse(id, ActivityType.VIEW, content.getId(), content.getTitle(), createdAt);
     }
 }

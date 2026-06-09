@@ -1,5 +1,6 @@
 package com.caoqiang.blog.shared.domain.event;
 
+import com.caoqiang.blog.config.CacheNames;
 import com.caoqiang.blog.shared.domain.event.content.ContentArchivedEvent;
 import com.caoqiang.blog.shared.domain.event.content.ContentPublishedEvent;
 import com.caoqiang.blog.shared.domain.event.interaction.CommentCreatedEvent;
@@ -58,7 +59,7 @@ public class DomainEventListener {
      * @param event 内容发布事件
      */
     @EventListener
-    @CacheEvict(value = "recommendations", allEntries = true)
+    @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
     public void onContentPublished(ContentPublishedEvent event) {
         log.info("Content published: id={}, title={}, slug={}", 
                 event.getContentId(), event.getTitle(), event.getSlug());
@@ -72,7 +73,7 @@ public class DomainEventListener {
      * @param event 内容归档事件
      */
     @EventListener
-    @CacheEvict(value = "recommendations", allEntries = true)
+    @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
     public void onContentArchived(ContentArchivedEvent event) {
         log.info("Content archived: id={}", event.getContentId());
     }

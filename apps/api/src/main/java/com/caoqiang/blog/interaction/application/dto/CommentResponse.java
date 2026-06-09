@@ -31,7 +31,7 @@ public record CommentResponse(
         String contentTitle,
         String body,
         CommentAuthor author,
-        String auditStatus,
+        CommentStatus auditStatus,
         Instant createdAt
 ) {
 

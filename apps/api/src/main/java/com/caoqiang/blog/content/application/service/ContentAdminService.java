@@ -21,6 +21,7 @@ import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 import com.caoqiang.blog.content.domain.repository.TagRepository;
 
 import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeIndexService;
+import com.caoqiang.blog.config.CacheNames;
 import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.shared.domain.event.content.ContentPublishedEvent;
 import com.caoqiang.blog.shared.domain.event.content.ContentArchivedEvent;
@@ -137,7 +138,7 @@ public class ContentAdminService {
      * @throws BusinessException slug 已存在时抛出 409
      */
     @Transactional
-    @CacheEvict(value = "recommendations", allEntries = true)
+    @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
     public AdminContentResponse create(AdminContentRequest request) {
         String slug = slugFor(request);
         if (contentRepository.existsBySlug(slug)) {
@@ -226,7 +227,7 @@ public class ContentAdminService {
      * @throws BusinessException 内容不存在或 slug 冲突时抛出异常
      */
     @Transactional
-    @CacheEvict(value = "recommendations", allEntries = true)
+    @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
     public AdminContentResponse update(UUID id, AdminContentRequest request) {
         Content content = contentRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
@@ -331,7 +332,7 @@ public class ContentAdminService {
      * @throws BusinessException 内容不存在时抛出 404
      */
     @Transactional
-    @CacheEvict(value = "recommendations", allEntries = true)
+    @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
     public void archive(UUID id) {
         Content content = contentRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));

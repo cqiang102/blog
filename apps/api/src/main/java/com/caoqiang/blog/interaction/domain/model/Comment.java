@@ -55,8 +55,9 @@ public class Comment extends AggregateRoot {
     private CommentStatus status = CommentStatus.VISIBLE;
 
     /** AI 审核状态（PASS/BLOCKED） */
+    @Enumerated(EnumType.STRING)
     @Column(name = "audit_status", length = 20)
-    private String auditStatus;
+    private CommentStatus auditStatus;
 
     /** AI 审核原因 */
     @Column(name = "audit_reason", columnDefinition = "TEXT")
@@ -163,10 +164,10 @@ public class Comment extends AggregateRoot {
      * @param auditStatus 审核状态（PASS/BLOCKED）
      * @param auditReason 审核原因
      */
-    public void setAuditResult(String auditStatus, String auditReason) {
+    public void setAuditResult(CommentStatus auditStatus, String auditReason) {
         this.auditStatus = auditStatus;
         this.auditReason = auditReason;
-        if ("BLOCKED".equals(auditStatus)) {
+        if (auditStatus == CommentStatus.BLOCKED) {
             this.status = CommentStatus.BLOCKED;
         } else {
             this.status = CommentStatus.VISIBLE;
@@ -189,7 +190,7 @@ public class Comment extends AggregateRoot {
         return status;
     }
 
-    public String getAuditStatus() {
+    public CommentStatus getAuditStatus() {
         return auditStatus;
     }
 

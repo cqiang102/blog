@@ -10,7 +10,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     <li>{@link Ai} — AI 助手相关配置（每日提问限额等）</li>
  *     <li>{@link Admin} — 管理员初始化配置（首次启动引导创建管理员账户）</li>
  *     <li>{@link Security} — 安全认证配置（JWT 密钥、Token 有效期）</li>
- *     <li>{@link Storage} — 对象存储配置（MinIO 连接信息、上传限制）</li>
+ *     <li>{@link RateLimit} — API 限流配置（各端点请求频率限制）</li>
  * </ul>
  * <p>
  * 通过 {@code @ConfigurationPropertiesScan} 在应用启动时自动注册，无需显式 {@code @EnableConfigurationProperties}。
@@ -24,6 +24,7 @@ public class BlogProperties {
     private final Admin admin = new Admin();
     private final Security security = new Security();
     private final RateLimit rateLimit = new RateLimit();
+    private final Cache cache = new Cache();
 
     public Ai getAi() {
         return ai;
@@ -39,6 +40,10 @@ public class BlogProperties {
 
     public RateLimit getRateLimit() {
         return rateLimit;
+    }
+
+    public Cache getCache() {
+        return cache;
     }
 
     /**
@@ -177,5 +182,31 @@ public class BlogProperties {
         public void setDefaultMaxRequests(int defaultMaxRequests) { this.defaultMaxRequests = defaultMaxRequests; }
         public int getWindowSeconds() { return windowSeconds; }
         public void setWindowSeconds(int windowSeconds) { this.windowSeconds = windowSeconds; }
+    }
+
+    /**
+     * 缓存配置。
+     * <p>
+     * 各缓存名称的 TTL 可通过 {@code blog.cache.*} 配置项覆盖，
+     * 避免在代码中硬编码缓存过期时间。
+     */
+    public static class Cache {
+        /** 默认缓存 TTL（分钟） */
+        private int defaultTtlMinutes = 5;
+        /** 推荐内容缓存 TTL（分钟） */
+        private int recommendationsTtlMinutes = 5;
+        /** AI 配额缓存 TTL（小时） */
+        private int aiQuotaTtlHours = 24;
+        /** 知识库文档缓存 TTL（分钟） */
+        private int knowledgeDocsTtlMinutes = 30;
+
+        public int getDefaultTtlMinutes() { return defaultTtlMinutes; }
+        public void setDefaultTtlMinutes(int defaultTtlMinutes) { this.defaultTtlMinutes = defaultTtlMinutes; }
+        public int getRecommendationsTtlMinutes() { return recommendationsTtlMinutes; }
+        public void setRecommendationsTtlMinutes(int recommendationsTtlMinutes) { this.recommendationsTtlMinutes = recommendationsTtlMinutes; }
+        public int getAiQuotaTtlHours() { return aiQuotaTtlHours; }
+        public void setAiQuotaTtlHours(int aiQuotaTtlHours) { this.aiQuotaTtlHours = aiQuotaTtlHours; }
+        public int getKnowledgeDocsTtlMinutes() { return knowledgeDocsTtlMinutes; }
+        public void setKnowledgeDocsTtlMinutes(int knowledgeDocsTtlMinutes) { this.knowledgeDocsTtlMinutes = knowledgeDocsTtlMinutes; }
     }
 }

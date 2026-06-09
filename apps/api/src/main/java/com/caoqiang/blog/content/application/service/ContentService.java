@@ -20,6 +20,7 @@ import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 import com.caoqiang.blog.content.domain.repository.TagRepository;
 
+import com.caoqiang.blog.config.CacheNames;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
@@ -77,7 +78,7 @@ public class ContentService {
      * @return 推荐内容响应
      */
     @Transactional(readOnly = true)
-    @Cacheable(value = "recommendations", key = "'all'")
+    @Cacheable(value = CacheNames.RECOMMENDATIONS, key = "'all'")
     public RecommendationResponse recommendations() {
         return new RecommendationResponse(
                 contentRepository.findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullOrderByPublishedAtDesc(ContentStatus.PUBLISHED)

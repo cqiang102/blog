@@ -93,7 +93,7 @@ public class CommentAuditService {
                         .content();
 
                 // 解析 AI 返回的 JSON 结果
-                String parsedStatus = "PASS";
+                CommentStatus parsedStatus = CommentStatus.VISIBLE;
                 String parsedReason = "";
                 if (result != null) {
                     try {
@@ -102,7 +102,12 @@ public class CommentAuditService {
                         Object statusObj = auditResult.get("status");
                         Object reasonObj = auditResult.get("reason");
                         if (statusObj != null) {
-                            parsedStatus = statusObj.toString().toUpperCase();
+                            String statusStr = statusObj.toString().toUpperCase();
+                            if ("BLOCK".equals(statusStr)) {
+                                parsedStatus = CommentStatus.BLOCKED;
+                            } else {
+                                parsedStatus = CommentStatus.VISIBLE;
+                            }
                         }
                         if (reasonObj != null) {
                             parsedReason = reasonObj.toString();
@@ -115,7 +120,7 @@ public class CommentAuditService {
                 // 保存审核结果
                 comment.setAuditResult(parsedStatus, parsedReason);
                 commentRepository.save(comment);
-                log.info("Comment {} audit result: {} - {}", commentId, parsedStatus, parsedReason);
+                log.info("Comment {} audit result: {} - {}", commentId, parsedStatus.name(), parsedReason);
             });
         } catch (Exception e) {
             // 审核失败不影响评论功能，只记录日志

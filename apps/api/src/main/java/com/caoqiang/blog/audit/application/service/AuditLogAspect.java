@@ -1,5 +1,6 @@
 package com.caoqiang.blog.audit.application.service;
 
+import com.caoqiang.blog.audit.domain.model.AuditAction;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
@@ -70,7 +71,7 @@ public class AuditLogAspect {
 
             // 获取类名、操作类型和资源类型
             String className = signature.getDeclaringType().getSimpleName();
-            String action = determineAction(methodName);
+            AuditAction action = determineAction(methodName);
             String resourceType = determineResourceType(className);
 
             // 获取当前操作用户
@@ -96,7 +97,7 @@ public class AuditLogAspect {
                     actor != null ? actor.getNickname() : "null", action, resourceType, resourceId);
 
             // 记录审计日志
-            auditLogService.log(actor, action, resourceType, resourceId);
+            auditLogService.log(actor, action.name(), resourceType, resourceId);
             log.info("审计日志记录成功");
         } catch (Exception e) {
             // 日志记录失败不应影响正常业务
@@ -117,15 +118,10 @@ public class AuditLogAspect {
      * </ul>
      *
      * @param methodName 方法名
-     * @return 操作类型字符串
+     * @return 操作类型枚举
      */
-    private String determineAction(String methodName) {
-        if (methodName.startsWith("create") || methodName.startsWith("add")) return "CREATE";
-        if (methodName.startsWith("update") || methodName.startsWith("edit")) return "UPDATE";
-        if (methodName.startsWith("delete") || methodName.startsWith("remove")) return "DELETE";
-        if (methodName.startsWith("get") || methodName.startsWith("list") || methodName.startsWith("detail")) return "READ";
-        if (methodName.startsWith("set") || methodName.startsWith("change")) return "UPDATE";
-        return methodName.toUpperCase();
+    private AuditAction determineAction(String methodName) {
+        return AuditAction.fromMethodName(methodName);
     }
 
     /**
