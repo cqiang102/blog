@@ -21,6 +21,22 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 互动查询服务（CQRS 读操作）
+ * <p>
+ * 处理博客内容互动的只读查询操作，包括评论列表和用户活动记录。
+ * 遵循 CQRS 模式，与 {@link InteractionCommandService} 分离读写职责。
+ * <p>
+ * 核心职责：
+ * <ul>
+ *   <li>获取内容的评论列表（分页，支持登录用户查看自己的被屏蔽评论）</li>
+ *   <li>获取当前用户的评论记录（分页）</li>
+ *   <li>获取当前用户的点赞记录（分页）</li>
+ *   <li>获取当前用户的浏览记录（分页）</li>
+ * </ul>
+ * <p>
+ * 所有查询均使用 {@code @Transactional(readOnly = true)} 优化性能。
+ */
 @Service
 public class InteractionQueryService {
 

@@ -32,6 +32,22 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 互动命令服务（CQRS 写操作）
+ * <p>
+ * 处理博客内容互动的写操作，包括评论、点赞和浏览记录。
+ * 遵循 CQRS 模式，与 {@link InteractionQueryService} 分离读写职责。
+ * <p>
+ * 核心职责：
+ * <ul>
+ *   <li>评论的创建和删除</li>
+ *   <li>内容的点赞和取消点赞</li>
+ *   <li>浏览记录的创建</li>
+ *   <li>发布领域事件（{@link CommentCreatedEvent}, {@link LikeAddedEvent}, {@link LikeRemovedEvent}）</li>
+ * </ul>
+ * <p>
+ * 所有写操作均使用事务管理，确保数据一致性。
+ */
 @Service
 public class InteractionCommandService {
 
