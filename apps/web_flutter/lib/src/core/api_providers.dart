@@ -46,11 +46,12 @@ final contentListProvider =
     });
 
 /// 内容详情 Provider
+/// 使用 ref.read 获取 token，避免 auth 状态变化导致连锁刷新
 final contentDetailProvider = FutureProvider.family<BlogContent, String>((
   ref,
   id,
 ) {
-  final token = ref.watch(authControllerProvider).accessToken;
+  final token = ref.read(authControllerProvider).accessToken;
   return ref.watch(apiClientProvider).fetchContent(id, accessToken: token);
 });
 

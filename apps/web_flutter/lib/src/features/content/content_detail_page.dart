@@ -123,10 +123,36 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
               _buildCommentInput(context, auth),
               const SizedBox(height: AppSpacing.sm + 4),
 
-              // 评论列表
-              _buildCommentSection(context, comments),
+              // 评论标题
+              Text('评论', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: AppSpacing.sm + 4),
             ],
           ),
+        ),
+
+        // 评论列表（使用 SliverList 优化性能）
+        comments.when(
+          loading: () => const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ),
+          error: (error, stackTrace) => SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Text(error.toString()),
+            ),
+          ),
+          data: (page) => SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            sliver: _CommentList(comments: page.items, contentId: widget.id),
+          ),
+        ),
+
+        // 底部间距
+        const SliverToBoxAdapter(
+          child: SizedBox(height: AppSpacing.xl),
         ),
       ],
     );
@@ -186,30 +212,7 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     );
   }
 
-  /// 构建评论区域
-  Widget _buildCommentSection(
-    BuildContext context,
-    AsyncValue<PageResult<CommentItem>> comments,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('评论', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: AppSpacing.sm + 4),
-        comments.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          error: (error, stackTrace) => Text(error.toString()),
-          data: (page) =>
-              _CommentList(comments: page.items, contentId: widget.id),
-        ),
-      ],
-    );
-  }
-
-  /// 记录浏览次数（仅首次）
+  /// 记录浏览次数（仅首次，不触发详情刷新）
   void _recordViewOnce(String? accessToken) {
     if (_viewRecorded) return;
     _viewRecorded = true;
@@ -218,9 +221,8 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
         await ref
             .read(apiClientProvider)
             .recordView(contentId: widget.id, accessToken: accessToken);
-        if (mounted) {
-          ref.invalidate(contentDetailProvider(widget.id));
-        }
+        // 浏览记录是 fire-and-forget，不需要 invalidate 详情
+        // viewCount 可以在下次进入页面时获取
       } catch (_) {
         // 浏览记录失败不阻断阅读。
       }
@@ -244,8 +246,8 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
           .read(apiClientProvider)
           .createComment(accessToken: token, contentId: widget.id, body: body);
       _commentController.clear();
+      // 只刷新评论列表，不刷新详情（评论数会在下次进入时更新）
       ref.invalidate(commentsProvider(widget.id));
-      ref.invalidate(contentDetailProvider(widget.id));
     } on ApiException catch (error) {
       _showError(error.message);
     } catch (error) {
@@ -263,7 +265,7 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
 }
 
 // ============================================================================
-// 评论列表组件
+// 评论列表组件（使用 SliverList 优化性能）
 // ============================================================================
 
 class _CommentList extends ConsumerWidget {
@@ -283,9 +285,7 @@ class _CommentList extends ConsumerWidget {
 
     final auth = ref.watch(authControllerProvider);
 
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+    return SliverList.builder(
       itemCount: comments.length,
       itemBuilder: (context, index) {
         final comment = comments[index];
@@ -375,6 +375,19 @@ class _HeroCover extends StatelessWidget {
       imageUrl: content.coverUrl,
       fit: BoxFit.cover,
       memCacheWidth: 1200,
+      placeholder: (context, url) => ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
+      errorWidget: (context, url, error) => ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: Center(
+          child: Icon(
+            Icons.broken_image,
+            size: 64,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -407,7 +420,7 @@ class _ContentViewer extends StatelessWidget {
 }
 
 // ============================================================================
-// 图片画廊组件
+// 图片画廊组件（添加 placeholder 优化体验）
 // ============================================================================
 
 class _ImageGallery extends StatelessWidget {
@@ -443,6 +456,13 @@ class _ImageGallery extends StatelessWidget {
               imageUrl: urls[index],
               fit: BoxFit.cover,
               memCacheWidth: 800,
+              placeholder: (context, url) => ColoredBox(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
+              errorWidget: (context, url, error) => ColoredBox(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: const Center(child: Icon(Icons.broken_image)),
+              ),
             ),
           ),
         );
@@ -452,7 +472,7 @@ class _ImageGallery extends StatelessWidget {
 }
 
 // ============================================================================
-// 视频播放器组件
+// 视频播放器组件（使用 ValueListenableBuilder 优化重建）
 // ============================================================================
 
 class _VideoPlayerWidget extends StatefulWidget {
@@ -487,9 +507,6 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
     try {
       _controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
       await _controller!.initialize();
-      _controller!.addListener(() {
-        if (mounted) setState(() {});
-      });
       setState(() => _isInitialized = true);
     } catch (e) {
       setState(() => _hasError = true);
@@ -520,6 +537,9 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
                 CachedNetworkImage(
                   imageUrl: widget.content.coverUrl,
                   fit: BoxFit.cover,
+                  placeholder: (context, url) => ColoredBox(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  ),
                 ),
               const Center(child: CircularProgressIndicator()),
             ],
@@ -608,7 +628,7 @@ class _MediaEmpty extends StatelessWidget {
 }
 
 // ============================================================================
-// 点赞按钮组件
+// 点赞按钮组件（使用乐观更新优化体验）
 // ============================================================================
 
 class _LikeButton extends ConsumerStatefulWidget {
@@ -623,17 +643,36 @@ class _LikeButton extends ConsumerStatefulWidget {
 
 class _LikeButtonState extends ConsumerState<_LikeButton> {
   bool _liking = false;
+  // 乐观更新状态
+  late bool _optimisticLiked;
+  late int _optimisticLikeCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _optimisticLiked = widget.content.likedByCurrentUser;
+    _optimisticLikeCount = widget.content.likeCount;
+  }
+
+  @override
+  void didUpdateWidget(_LikeButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.content.id != widget.content.id ||
+        oldWidget.content.likedByCurrentUser != widget.content.likedByCurrentUser ||
+        oldWidget.content.likeCount != widget.content.likeCount) {
+      _optimisticLiked = widget.content.likedByCurrentUser;
+      _optimisticLikeCount = widget.content.likeCount;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return FilledButton.icon(
       onPressed: _liking ? null : _toggleLike,
       icon: Icon(
-        widget.content.likedByCurrentUser
-            ? Icons.favorite
-            : Icons.favorite_outline,
+        _optimisticLiked ? Icons.favorite : Icons.favorite_outline,
       ),
-      label: Text('点赞 ${widget.content.likeCount}'),
+      label: Text('点赞 $_optimisticLikeCount'),
     );
   }
 
@@ -645,9 +684,17 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
       return;
     }
 
-    setState(() => _liking = true);
+    // 乐观更新：立即更新 UI
+    final previousLiked = _optimisticLiked;
+    final previousCount = _optimisticLikeCount;
+    setState(() {
+      _liking = true;
+      _optimisticLiked = !_optimisticLiked;
+      _optimisticLikeCount += _optimisticLiked ? 1 : -1;
+    });
+
     try {
-      if (widget.content.likedByCurrentUser) {
+      if (previousLiked) {
         await ref
             .read(apiClientProvider)
             .unlikeContent(accessToken: token, contentId: widget.contentId);
@@ -656,13 +703,24 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
             .read(apiClientProvider)
             .likeContent(accessToken: token, contentId: widget.contentId);
       }
+      // 成功后刷新详情（后台更新，不阻塞 UI）
       ref.invalidate(contentDetailProvider(widget.contentId));
     } on ApiException catch (error) {
+      // 失败回滚
       if (!mounted) return;
+      setState(() {
+        _optimisticLiked = previousLiked;
+        _optimisticLikeCount = previousCount;
+      });
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
+      // 失败回滚
       if (!mounted) return;
+      setState(() {
+        _optimisticLiked = previousLiked;
+        _optimisticLikeCount = previousCount;
+      });
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
