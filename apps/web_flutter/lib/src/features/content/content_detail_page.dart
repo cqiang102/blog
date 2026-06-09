@@ -48,8 +48,6 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
   @override
   Widget build(BuildContext context) {
     final content = ref.watch(contentDetailProvider(widget.id));
-    final comments = ref.watch(commentsProvider(widget.id));
-    final auth = ref.watch(authControllerProvider);
 
     return content.when(
       loading: () =>
@@ -72,7 +70,11 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
           ),
         ),
       ),
-      data: (content) => _buildContent(context, content, comments, auth),
+      data: (content) {
+        final comments = ref.watch(commentsProvider(widget.id));
+        final auth = ref.watch(authControllerProvider);
+        return _buildContent(context, content, comments, auth);
+      },
     );
   }
 
