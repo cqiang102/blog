@@ -12,7 +12,8 @@ import com.caoqiang.blog.interaction.domain.model.ViewRecord;
 import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
 import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
 import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
-import com.caoqiang.blog.interaction.application.service.InteractionService;
+import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
+import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.ApiResponse;
@@ -36,7 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 互动 REST 控制器
  * <p>
  * 负责处理博客内容的互动功能，包括评论、点赞和浏览记录。
- * 位于 API 层，接收前端请求并委托给 {@link InteractionService} 处理业务逻辑。
+ * 位于 API 层，接收前端请求并委托给 {@link InteractionQueryService} 和 {@link InteractionCommandService} 处理业务逻辑。
  * </p>
  * <p>
  * 主要功能：
@@ -51,16 +52,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 public class InteractionController {
 
-    /** 互动核心服务，处理评论、点赞、浏览记录的业务逻辑 */
-    private final InteractionService interactionService;
+    /** 互动查询服务，处理评论列表、用户活动等只读操作 */
+    private final InteractionQueryService interactionQueryService;
+    /** 互动命令服务，处理评论、点赞、浏览记录等写操作 */
+    private final InteractionCommandService interactionCommandService;
 
     /**
      * 构造函数，注入互动服务
      *
-     * @param interactionService 互动核心服务
+     * @param interactionQueryService   互动查询服务
+     * @param interactionCommandService 互动命令服务
      */
-    public InteractionController(InteractionService interactionService) {
-        this.interactionService = interactionService;
+    public InteractionController(InteractionQueryService interactionQueryService, InteractionCommandService interactionCommandService) {
+        this.interactionQueryService = interactionQueryService;
+        this.interactionCommandService = interactionCommandService;
     }
 
     /**
@@ -83,7 +88,7 @@ public class InteractionController {
             @RequestParam(defaultValue = "20") int size
     ) {
         UUID userId = currentUser != null ? currentUser.id() : null;
-        return ApiResponse.ok(interactionService.comments(contentId, page, size, userId));
+        return ApiResponse.ok(interactionQueryService.comments(contentId, page, size, userId));
     }
 
     /**
@@ -103,7 +108,7 @@ public class InteractionController {
             @PathVariable UUID contentId,
             @Valid @RequestBody CommentRequest request
     ) {
-        return ApiResponse.ok(interactionService.comment(currentUser, contentId, request));
+        return ApiResponse.ok(interactionCommandService.comment(currentUser, contentId, request));
     }
 
     /**
@@ -121,7 +126,7 @@ public class InteractionController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID commentId
     ) {
-        interactionService.deleteComment(currentUser, commentId);
+        interactionCommandService.deleteComment(currentUser, commentId);
         return ApiResponse.ok(OperationResult.deleted(commentId));
     }
 
@@ -140,7 +145,7 @@ public class InteractionController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID contentId
     ) {
-        return ApiResponse.ok(interactionService.like(currentUser, contentId));
+        return ApiResponse.ok(interactionCommandService.like(currentUser, contentId));
     }
 
     /**
@@ -158,7 +163,7 @@ public class InteractionController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID contentId
     ) {
-        return ApiResponse.ok(interactionService.unlike(currentUser, contentId));
+        return ApiResponse.ok(interactionCommandService.unlike(currentUser, contentId));
     }
 
     /**
@@ -181,6 +186,6 @@ public class InteractionController {
     ) {
         String clientIp = IpUtils.getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
-        return ApiResponse.ok(interactionService.recordView(currentUser, contentId, clientIp, userAgent));
+        return ApiResponse.ok(interactionCommandService.recordView(currentUser, contentId, clientIp, userAgent));
     }
 }

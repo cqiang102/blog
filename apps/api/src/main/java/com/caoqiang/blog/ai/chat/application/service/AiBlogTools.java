@@ -19,7 +19,7 @@ import com.caoqiang.blog.content.application.service.ContentService;
 import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.interaction.application.dto.CommentRequest;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
-import com.caoqiang.blog.interaction.application.service.InteractionService;
+import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
 import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +51,7 @@ public class AiBlogTools {
 
     private final ContentService contentService;
     private final ContentRepository contentRepository;
-    private final InteractionService interactionService;
+    private final InteractionCommandService interactionCommandService;
     private final KnowledgeChunkRepository knowledgeChunkRepository;
     private final KnowledgeDocRepository knowledgeDocRepository;
     private final EmbeddingModel embeddingModel;
@@ -59,14 +59,14 @@ public class AiBlogTools {
     public AiBlogTools(
             ContentService contentService,
             ContentRepository contentRepository,
-            InteractionService interactionService,
+            InteractionCommandService interactionCommandService,
             KnowledgeChunkRepository knowledgeChunkRepository,
             KnowledgeDocRepository knowledgeDocRepository,
             EmbeddingModel embeddingModel
     ) {
         this.contentService = contentService;
         this.contentRepository = contentRepository;
-        this.interactionService = interactionService;
+        this.interactionCommandService = interactionCommandService;
         this.knowledgeChunkRepository = knowledgeChunkRepository;
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.embeddingModel = embeddingModel;
@@ -204,7 +204,7 @@ public class AiBlogTools {
             return AiActionResult.error("请先登录");
         }
         try {
-            LikeStateResponse result = interactionService.like(currentUser, contentId);
+            LikeStateResponse result = interactionCommandService.like(currentUser, contentId);
             return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
@@ -226,7 +226,7 @@ public class AiBlogTools {
             return AiActionResult.error("请先登录");
         }
         try {
-            LikeStateResponse result = interactionService.unlike(currentUser, contentId);
+            LikeStateResponse result = interactionCommandService.unlike(currentUser, contentId);
             return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
@@ -250,7 +250,7 @@ public class AiBlogTools {
             return AiActionResult.error("请先登录");
         }
         try {
-            CommentResponse result = interactionService.comment(currentUser, contentId, new CommentRequest(body));
+            CommentResponse result = interactionCommandService.comment(currentUser, contentId, new CommentRequest(body));
             return AiActionResult.commentSuccess(result.id(), result.body());
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
@@ -272,7 +272,7 @@ public class AiBlogTools {
             return AiActionResult.error("请先登录");
         }
         try {
-            interactionService.deleteComment(currentUser, commentId);
+            interactionCommandService.deleteComment(currentUser, commentId);
             return AiActionResult.deleteSuccess();
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());

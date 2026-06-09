@@ -19,6 +19,10 @@ import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
+import com.caoqiang.blog.shared.domain.event.interaction.CommentCreatedEvent;
+import com.caoqiang.blog.shared.domain.event.interaction.LikeAddedEvent;
+import com.caoqiang.blog.shared.domain.event.interaction.LikeRemovedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.shared.util.PageUtils;
@@ -76,6 +80,8 @@ public class InteractionService {
     private final ViewRecordRepository viewRecordRepository;
     /** 评论审核服务（AI 异步审查） */
     private final CommentAuditService commentAuditService;
+    /** 领域事件发布器 */
+    private final DomainEventPublisher domainEventPublisher;
 
     /**
      * 构造函数，注入所有依赖的仓储和服务
@@ -86,6 +92,7 @@ public class InteractionService {
      * @param likeRepository       点赞仓储
      * @param viewRecordRepository 浏览记录仓储
      * @param commentAuditService  评论审核服务
+     * @param domainEventPublisher 领域事件发布器
      */
     public InteractionService(
             ContentRepository contentRepository,
@@ -93,7 +100,8 @@ public class InteractionService {
             CommentRepository commentRepository,
             LikeRepository likeRepository,
             ViewRecordRepository viewRecordRepository,
-            CommentAuditService commentAuditService
+            CommentAuditService commentAuditService,
+            DomainEventPublisher domainEventPublisher
     ) {
         this.contentRepository = contentRepository;
         this.userRepository = userRepository;
@@ -101,6 +109,7 @@ public class InteractionService {
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
         this.commentAuditService = commentAuditService;
+        this.domainEventPublisher = domainEventPublisher;
     }
 
     /**
@@ -172,6 +181,9 @@ public class InteractionService {
         // 触发 AI 异步审核
         commentAuditService.audit(comment.getId());
 
+        // 发布领域事件
+        domainEventPublisher.publishEvent(new CommentCreatedEvent(comment.getId(), contentId, currentUser.id()));
+
         return CommentResponse.from(comment);
     }
 
@@ -227,6 +239,8 @@ public class InteractionService {
         // 创建点赞记录并增加计数
         likeRepository.save(new Like(content, user));
         contentRepository.incrementLikeCount(contentId, 1);
+        // 发布领域事件
+        domainEventPublisher.publishEvent(new LikeAddedEvent(contentId, currentUser.id()));
         return new LikeStateResponse(contentId, true, content.getLikeCount() + 1);
     }
 
@@ -248,6 +262,8 @@ public class InteractionService {
                     // 找到点赞记录，删除并减少计数
                     likeRepository.delete(like);
                     contentRepository.incrementLikeCount(contentId, -1);
+                    // 发布领域事件
+                    domainEventPublisher.publishEvent(new LikeRemovedEvent(contentId, currentUser.id()));
                     return new LikeStateResponse(contentId, false, Math.max(0, content.getLikeCount() - 1));
                 })
                 .orElseGet(() -> new LikeStateResponse(contentId, false, content.getLikeCount()));

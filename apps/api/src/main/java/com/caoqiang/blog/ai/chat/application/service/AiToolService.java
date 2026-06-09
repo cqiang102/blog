@@ -11,7 +11,7 @@ import com.caoqiang.blog.content.application.service.ContentService;
 import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.interaction.application.dto.CommentRequest;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
-import com.caoqiang.blog.interaction.application.service.InteractionService;
+import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
 import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -26,11 +26,11 @@ import org.springframework.stereotype.Service;
 public class AiToolService {
 
     private final ContentService contentService;
-    private final InteractionService interactionService;
+    private final InteractionCommandService interactionCommandService;
 
-    public AiToolService(ContentService contentService, InteractionService interactionService) {
+    public AiToolService(ContentService contentService, InteractionCommandService interactionCommandService) {
         this.contentService = contentService;
-        this.interactionService = interactionService;
+        this.interactionCommandService = interactionCommandService;
     }
 
     /**
@@ -90,7 +90,7 @@ public class AiToolService {
      */
     public AiActionResult likeContent(AuthenticatedUser currentUser, UUID contentId) {
         try {
-            LikeStateResponse result = interactionService.like(currentUser, contentId);
+            LikeStateResponse result = interactionCommandService.like(currentUser, contentId);
             return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
@@ -106,7 +106,7 @@ public class AiToolService {
      */
     public AiActionResult unlikeContent(AuthenticatedUser currentUser, UUID contentId) {
         try {
-            LikeStateResponse result = interactionService.unlike(currentUser, contentId);
+            LikeStateResponse result = interactionCommandService.unlike(currentUser, contentId);
             return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
@@ -123,7 +123,7 @@ public class AiToolService {
      */
     public AiActionResult commentContent(AuthenticatedUser currentUser, UUID contentId, String body) {
         try {
-            CommentResponse result = interactionService.comment(currentUser, contentId, new CommentRequest(body));
+            CommentResponse result = interactionCommandService.comment(currentUser, contentId, new CommentRequest(body));
             return AiActionResult.commentSuccess(result.id(), result.body());
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
@@ -139,7 +139,7 @@ public class AiToolService {
      */
     public AiActionResult deleteComment(AuthenticatedUser currentUser, UUID commentId) {
         try {
-            interactionService.deleteComment(currentUser, commentId);
+            interactionCommandService.deleteComment(currentUser, commentId);
             return AiActionResult.deleteSuccess();
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());

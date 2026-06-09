@@ -11,7 +11,7 @@ import com.caoqiang.blog.interaction.domain.model.ViewRecord;
 import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
 import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
 import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
-import com.caoqiang.blog.interaction.application.service.InteractionService;
+import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
 import com.caoqiang.blog.interaction.application.service.CommentAuditService;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
@@ -61,7 +62,10 @@ class InteractionServiceTest {
     @Mock
     private CommentAuditService commentAuditService;
 
-    private InteractionService interactionService;
+    @Mock
+    private DomainEventPublisher domainEventPublisher;
+
+    private InteractionCommandService interactionCommandService;
 
     private Content testContent;
     private User testUser;
@@ -69,8 +73,8 @@ class InteractionServiceTest {
 
     @BeforeEach
     void setUp() {
-        interactionService = new InteractionService(
-                contentRepository, userRepository, commentRepository, likeRepository, viewRecordRepository, commentAuditService
+        interactionCommandService = new InteractionCommandService(
+                contentRepository, userRepository, commentRepository, likeRepository, viewRecordRepository, commentAuditService, domainEventPublisher
         );
 
         testContent = new Content(
@@ -97,7 +101,7 @@ class InteractionServiceTest {
         when(viewRecordRepository.existsByContentIdAndUserId(testContent.getId(), testUser.getId()))
                 .thenReturn(false);
 
-        ViewStateResponse response = interactionService.recordView(
+        ViewStateResponse response = interactionCommandService.recordView(
                 currentUser, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
         );
 
@@ -114,7 +118,7 @@ class InteractionServiceTest {
         when(viewRecordRepository.existsByContentIdAndUserId(testContent.getId(), testUser.getId()))
                 .thenReturn(true);
 
-        ViewStateResponse response = interactionService.recordView(
+        ViewStateResponse response = interactionCommandService.recordView(
                 currentUser, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
         );
 
@@ -130,7 +134,7 @@ class InteractionServiceTest {
         when(viewRecordRepository.existsByContentIdAndAnonymousId(eq(testContent.getId()), any()))
                 .thenReturn(false);
 
-        ViewStateResponse response = interactionService.recordView(
+        ViewStateResponse response = interactionCommandService.recordView(
                 null, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
         );
 
@@ -145,7 +149,7 @@ class InteractionServiceTest {
         when(viewRecordRepository.existsByContentIdAndAnonymousId(eq(testContent.getId()), any()))
                 .thenReturn(true);
 
-        ViewStateResponse response = interactionService.recordView(
+        ViewStateResponse response = interactionCommandService.recordView(
                 null, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
         );
 

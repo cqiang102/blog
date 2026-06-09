@@ -21,6 +21,9 @@ import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 import com.caoqiang.blog.content.domain.repository.TagRepository;
 
 import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeIndexService;
+import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
+import com.caoqiang.blog.shared.domain.event.content.ContentPublishedEvent;
+import com.caoqiang.blog.shared.domain.event.content.ContentArchivedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.shared.util.SlugUtils;
@@ -69,17 +72,21 @@ public class ContentAdminService {
 
     /** AI 知识库索引服务，用于内容发布后同步向量数据库 */
     private final KnowledgeIndexService knowledgeIndexService;
+    /** 领域事件发布器 */
+    private final DomainEventPublisher domainEventPublisher;
 
     public ContentAdminService(
             ContentRepository contentRepository,
             TagRepository tagRepository,
             MediaAssetRepository mediaAssetRepository,
-            KnowledgeIndexService knowledgeIndexService
+            KnowledgeIndexService knowledgeIndexService,
+            DomainEventPublisher domainEventPublisher
     ) {
         this.contentRepository = contentRepository;
         this.tagRepository = tagRepository;
         this.mediaAssetRepository = mediaAssetRepository;
         this.knowledgeIndexService = knowledgeIndexService;
+        this.domainEventPublisher = domainEventPublisher;
     }
 
     /**
@@ -196,6 +203,8 @@ public class ContentAdminService {
             } catch (Exception e) {
                 log.error("Failed to index content {}: {}", saved.getId(), e.getMessage(), e);
             }
+            // 发布领域事件
+            domainEventPublisher.publishEvent(new ContentPublishedEvent(saved.getId(), saved.getTitle(), saved.getSlug()));
         }
 
         return AdminContentResponse.from(saved);
@@ -298,6 +307,8 @@ public class ContentAdminService {
             } catch (Exception e) {
                 log.error("Failed to reindex content {}: {}", content.getId(), e.getMessage(), e);
             }
+            // 发布领域事件
+            domainEventPublisher.publishEvent(new ContentPublishedEvent(content.getId(), content.getTitle(), content.getSlug()));
         } else {
             // 非发布状态删除索引
             try {
@@ -332,6 +343,9 @@ public class ContentAdminService {
         } catch (Exception e) {
             log.error("Failed to delete content index {}: {}", content.getId(), e.getMessage(), e);
         }
+
+        // 发布领域事件
+        domainEventPublisher.publishEvent(new ContentArchivedEvent(content.getId()));
     }
 
     /**

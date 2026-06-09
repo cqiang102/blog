@@ -19,7 +19,7 @@ import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
-import com.caoqiang.blog.interaction.application.service.InteractionService;
+import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
 import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
 import java.time.Instant;
 import java.util.List;
@@ -37,7 +37,7 @@ class AiToolServiceTest {
     private ContentService contentService;
 
     @Mock
-    private InteractionService interactionService;
+    private InteractionCommandService interactionCommandService;
 
     private AiToolService aiToolService;
 
@@ -45,7 +45,7 @@ class AiToolServiceTest {
 
     @BeforeEach
     void setUp() {
-        aiToolService = new AiToolService(contentService, interactionService);
+        aiToolService = new AiToolService(contentService, interactionCommandService);
         currentUser = new AuthenticatedUser(UUID.randomUUID(), "test@example.com", "测试用户", Role.USER);
     }
 
@@ -87,7 +87,7 @@ class AiToolServiceTest {
         UUID contentId = UUID.randomUUID();
         LikeStateResponse likeResponse = new LikeStateResponse(contentId, true, 11);
 
-        when(interactionService.like(eq(currentUser), eq(contentId))).thenReturn(likeResponse);
+        when(interactionCommandService.like(eq(currentUser), eq(contentId))).thenReturn(likeResponse);
 
         AiActionResult result = aiToolService.likeContent(currentUser, contentId);
 
@@ -101,7 +101,7 @@ class AiToolServiceTest {
         UUID contentId = UUID.randomUUID();
         LikeStateResponse unlikeResponse = new LikeStateResponse(contentId, false, 9);
 
-        when(interactionService.unlike(eq(currentUser), eq(contentId))).thenReturn(unlikeResponse);
+        when(interactionCommandService.unlike(eq(currentUser), eq(contentId))).thenReturn(unlikeResponse);
 
         AiActionResult result = aiToolService.unlikeContent(currentUser, contentId);
 
@@ -121,7 +121,7 @@ class AiToolServiceTest {
                 commentId, contentId, "测试标题", "测试评论", author, null, Instant.now()
         );
 
-        when(interactionService.comment(eq(currentUser), eq(contentId), any())).thenReturn(commentResponse);
+        when(interactionCommandService.comment(eq(currentUser), eq(contentId), any())).thenReturn(commentResponse);
 
         AiActionResult result = aiToolService.commentContent(currentUser, contentId, "测试评论");
 

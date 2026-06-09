@@ -15,7 +15,8 @@ import com.caoqiang.blog.auth.domain.model.OAuthProvider;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.interaction.application.service.InteractionService;
+import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
+import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
 import com.caoqiang.blog.interaction.application.dto.UserActivityResponse;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -53,12 +54,15 @@ public class ProfileController {
 
     /** 个人资料服务 */
     private final ProfileService profileService;
-    /** 互动记录服务 */
-    private final InteractionService interactionService;
+    /** 互动查询服务 */
+    private final InteractionQueryService interactionQueryService;
+    /** 互动命令服务 */
+    private final InteractionCommandService interactionCommandService;
 
-    public ProfileController(ProfileService profileService, InteractionService interactionService) {
+    public ProfileController(ProfileService profileService, InteractionQueryService interactionQueryService, InteractionCommandService interactionCommandService) {
         this.profileService = profileService;
-        this.interactionService = interactionService;
+        this.interactionQueryService = interactionQueryService;
+        this.interactionCommandService = interactionCommandService;
     }
 
     /**
@@ -180,7 +184,7 @@ public class ProfileController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ApiResponse.ok(interactionService.myComments(currentUser, page, size));
+        return ApiResponse.ok(interactionQueryService.myComments(currentUser, page, size));
     }
 
     /**
@@ -197,7 +201,7 @@ public class ProfileController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ApiResponse.ok(interactionService.myLikes(currentUser, page, size));
+        return ApiResponse.ok(interactionQueryService.myLikes(currentUser, page, size));
     }
 
     /**
@@ -214,7 +218,7 @@ public class ProfileController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ApiResponse.ok(interactionService.myViews(currentUser, page, size));
+        return ApiResponse.ok(interactionQueryService.myViews(currentUser, page, size));
     }
 
     /**
@@ -229,7 +233,7 @@ public class ProfileController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID commentId
     ) {
-        interactionService.deleteComment(currentUser, commentId);
+        interactionCommandService.deleteComment(currentUser, commentId);
         return ApiResponse.ok(OperationResult.deleted(commentId));
     }
 
@@ -245,7 +249,7 @@ public class ProfileController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID contentId
     ) {
-        interactionService.deleteMyLike(currentUser, contentId);
+        interactionCommandService.deleteMyLike(currentUser, contentId);
         return ApiResponse.ok(OperationResult.deleted(contentId));
     }
 
@@ -261,7 +265,7 @@ public class ProfileController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID viewRecordId
     ) {
-        interactionService.deleteMyView(currentUser, viewRecordId);
+        interactionCommandService.deleteMyView(currentUser, viewRecordId);
         return ApiResponse.ok(OperationResult.deleted(viewRecordId));
     }
 }

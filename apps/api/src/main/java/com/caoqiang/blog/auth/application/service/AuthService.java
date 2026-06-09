@@ -14,6 +14,8 @@ import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
 import com.caoqiang.blog.auth.domain.repository.RefreshTokenRepository;
 import com.caoqiang.blog.auth.domain.repository.VerificationCodeRepository;
 
+import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
+import com.caoqiang.blog.shared.domain.event.user.UserCreatedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.application.dto.UserProfileResponse;
@@ -54,6 +56,8 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     /** 验证码服务，用于注册时校验邮箱验证码 */
     private final VerificationService verificationService;
+    /** 领域事件发布器 */
+    private final DomainEventPublisher domainEventPublisher;
     /** 时钟，用于获取当前时间，便于测试 */
     private final Clock clock;
 
@@ -65,6 +69,7 @@ public class AuthService {
      * @param jwtService            JWT 服务
      * @param refreshTokenService   刷新令牌服务
      * @param verificationService   验证码服务
+     * @param domainEventPublisher  领域事件发布器
      * @param clock                 时钟实例
      */
     public AuthService(
@@ -73,6 +78,7 @@ public class AuthService {
             JwtService jwtService,
             RefreshTokenService refreshTokenService,
             VerificationService verificationService,
+            DomainEventPublisher domainEventPublisher,
             Clock clock
     ) {
         this.userRepository = userRepository;
@@ -80,6 +86,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
         this.verificationService = verificationService;
+        this.domainEventPublisher = domainEventPublisher;
         this.clock = clock;
     }
 
@@ -107,6 +114,8 @@ public class AuthService {
         // 创建用户实体，密码使用 BCrypt 加密
         User user = User.register(email, passwordEncoder.encode(request.password()), request.nickname().trim());
         userRepository.save(user);
+        // 发布领域事件
+        domainEventPublisher.publishEvent(new UserCreatedEvent(user.getId(), user.getEmail(), user.getNickname()));
         // 生成访问令牌和刷新令牌
         return issueTokens(user);
     }
