@@ -64,10 +64,12 @@ public class ContentService {
 
     private final ContentRepository contentRepository;
     private final LikeRepository likeRepository;
+    private final MediaAdminService mediaAdminService;
 
-    public ContentService(ContentRepository contentRepository, LikeRepository likeRepository) {
+    public ContentService(ContentRepository contentRepository, LikeRepository likeRepository, MediaAdminService mediaAdminService) {
         this.contentRepository = contentRepository;
         this.likeRepository = likeRepository;
+        this.mediaAdminService = mediaAdminService;
     }
 
     /**
@@ -135,6 +137,7 @@ public class ContentService {
 
     /**
      * 获取单篇已发布内容的详情，包含正文、媒体资源、点赞状态等。
+     * 媒体资源 URL 使用预签名 URL，确保安全性。
      *
      * @param id          内容 UUID
      * @param currentUser 当前登录用户（可为 null，未登录时 likedByCurrentUser 为 false）
@@ -148,6 +151,28 @@ public class ContentService {
         // 查询当前用户是否已点赞该内容
         boolean liked = currentUser != null && likeRepository.existsByContentIdAndUserId(id, currentUser.id());
 
+        // 获取预签名 URL 列表
+        List<MediaAssetResponse> mediaAssets = content.getMediaAssets().stream()
+                .sorted(Comparator.comparing(MediaAsset::getCreatedAt))
+                .map(media -> {
+                    String presignedUrl = mediaAdminService.getPresignedUrl(media.getId());
+                    return new MediaAssetResponse(
+                            media.getId(),
+                            media.getType(),
+                            presignedUrl,
+                            media.getFilename(),
+                            media.getContentType(),
+                            media.getByteSize(),
+                            media.getWidth(),
+                            media.getHeight(),
+                            media.getDurationSeconds()
+                    );
+                })
+                .toList();
+
+        // 封面 URL 也使用预签名
+        String coverUrl = presignedCoverUrl(content);
+
         return new ContentDetailResponse(
                 content.getId(),
                 content.getTitle(),
@@ -156,12 +181,9 @@ public class ContentService {
                 content.getStatus(),
                 content.getSummary(),
                 content.getBodyMarkdown(),
-                coverUrl(content),
+                presignedCoverUrl(content),
                 tagNames(content),
-                content.getMediaAssets().stream()
-                        .sorted(Comparator.comparing(MediaAsset::getCreatedAt))
-                        .map(MediaAssetResponse::from)
-                        .toList(),
+                mediaAssets,
                 liked,
                 content.getLikeCount(),
                 content.getViewCount(),
@@ -291,5 +313,27 @@ public class ContentService {
                 .filter(StringUtils::hasText)
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * 获取内容封面的预签名 URL。
+     * <p>
+     * 优先使用显式设置的 coverMedia，若未设置则使用第一条媒体资源。
+     *
+     * @param content 内容实体
+     * @return 封面预签名 URL 或 null
+     */
+    private String presignedCoverUrl(Content content) {
+        MediaAsset coverMedia = content.getCoverMedia();
+        if (coverMedia == null) {
+            // 回退到第一条媒体资源
+            coverMedia = content.getMediaAssets().stream()
+                    .min(Comparator.comparing(MediaAsset::getCreatedAt))
+                    .orElse(null);
+        }
+        if (coverMedia == null) {
+            return null;
+        }
+        return mediaAdminService.getPresignedUrl(coverMedia.getId());
     }
 }
