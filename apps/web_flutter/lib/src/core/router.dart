@@ -20,13 +20,17 @@ import '../features/auth/oauth_callback_page.dart';
 /// 路由 Provider
 /// 创建并配置 GoRouter 实例，包含认证守卫
 final routerProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authControllerProvider); // 监听认证状态变化
+  // 不使用 ref.watch，避免 auth 状态变化时整个 GoRouter 被重新创建
+  // refreshListenable 已经足够触发路由刷新
+  final auth = ref.read(authControllerProvider);
   return GoRouter(
     initialLocation: '/', // 初始路由为首页
     refreshListenable: auth, // 认证状态变化时刷新路由
     redirect: (context, state) {
+      // 每次重定向时读取最新的 auth 状态
+      final currentAuth = ref.read(authControllerProvider);
       // 认证守卫：未加载完成时不重定向
-      if (!auth.isLoaded) return null;
+      if (!currentAuth.isLoaded) return null;
 
       final location = state.uri.path;
       final isLogin = location == '/login';
@@ -37,18 +41,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           location.startsWith('/profile') || location.startsWith('/admin');
 
       // 未登录访问受保护路由 -> 跳转登录页
-      if (isProtected && !auth.isAuthenticated) {
+      if (isProtected && !currentAuth.isAuthenticated) {
         return Uri(
           path: '/login',
           queryParameters: {'from': location}, // 记录来源页面
         ).toString();
       }
       // 非 ADMIN 角色访问管理后台 -> 跳转首页
-      if (location.startsWith('/admin') && !(auth.user?.isAdmin ?? false)) {
+      if (location.startsWith('/admin') && !(currentAuth.user?.isAdmin ?? false)) {
         return '/';
       }
       // 已登录访问登录页 -> 跳转来源页或个人中心
-      if (isLogin && auth.isAuthenticated) {
+      if (isLogin && currentAuth.isAuthenticated) {
         return state.uri.queryParameters['from'] ?? '/profile';
       }
       return null; // 无需重定向
