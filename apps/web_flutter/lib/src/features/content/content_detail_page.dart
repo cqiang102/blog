@@ -279,9 +279,11 @@ class _CommentList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (comments.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-        child: Text('暂无评论'),
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+          child: Text('暂无评论'),
+        ),
       );
     }
 
