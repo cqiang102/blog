@@ -266,14 +266,15 @@ class _AuthPageState extends ConsumerState<AuthPage> {
         await ref
             .read(authControllerProvider)
             .login(email: email, password: password);
-
-        // 登录成功后保存或清除凭据
-        await _saveCredentials();
       }
+
+      // 登录/注册成功后保存凭据并跳转
+      await _saveCredentials();
       if (!mounted) return;
       final from = GoRouterState.of(context).uri.queryParameters['from'];
       context.go(from == null || from.isEmpty ? '/profile' : from);
     } on ApiException catch (error) {
+      // 登录失败，显示错误消息，不跳转
       _showError(error.message);
     } catch (error) {
       _showError(error.toString());
