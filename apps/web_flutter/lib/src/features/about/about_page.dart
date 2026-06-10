@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import '../../core/ai_chat_state.dart';
 import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
+import '../../core/app_ui.dart';
 import '../../core/auth_controller.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
@@ -76,19 +77,22 @@ class _AboutPageState extends ConsumerState<AboutPage> {
 
     setState(() => _loadingHistory = true);
     try {
-      final page = await ref.read(apiClientProvider).fetchAiSessionMessages(
+      final page = await ref
+          .read(apiClientProvider)
+          .fetchAiSessionMessages(
             accessToken: token,
             sessionId: sessionId,
             size: 50,
           );
       if (!mounted) return;
 
-      final messages = page.items
-          .map((msg) => ChatMessage(
-                isMine: msg.role == 'USER',
-                text: msg.content,
-              ))
-          .toList();
+      final messages =
+          page.items
+              .map(
+                (msg) =>
+                    ChatMessage(isMine: msg.role == 'USER', text: msg.content),
+              )
+              .toList();
 
       ref.read(aiChatProvider.notifier).loadHistory(messages, sessionId);
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -105,9 +109,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     if (token == null) return;
 
     try {
-      await ref.read(apiClientProvider).createAiSession(
-            accessToken: token,
-          );
+      await ref.read(apiClientProvider).createAiSession(accessToken: token);
       if (!mounted) return;
       ref.read(aiChatProvider.notifier).reset();
     } on ApiException catch (error) {
@@ -128,14 +130,17 @@ class _AboutPageState extends ConsumerState<AboutPage> {
 
     return CustomScrollView(
       slivers: [
-        const SliverAppBar(title: Text('关于我')),
+        const SliverAppBar(
+          title: Text('关于我'),
+          actions: [AppThemeToggle(), SizedBox(width: AppSpacing.sm)],
+        ),
         SliverPadding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           sliver: SliverList.list(
             children: [
               // 介绍文字
-              _buildIntro(context),
-              const SizedBox(height: AppSpacing.lg),
+              // _buildIntro(context),
+              // const SizedBox(height: AppSpacing.lg),
 
               // AI 聊天卡片
               _buildChatCard(auth, remaining, chatState),
@@ -147,27 +152,31 @@ class _AboutPageState extends ConsumerState<AboutPage> {
   }
 
   /// 构建介绍区域
-  Widget _buildIntro(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '写代码，也记录生活。',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          '这里会放个人介绍、项目经历、常用技术栈和联系方式。',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ],
-    );
-  }
+  // Widget _buildIntro(BuildContext context) {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Text(
+  //         '写代码，也记录生活。',
+  //         style: Theme.of(
+  //           context,
+  //         ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+  //       ),
+  //       const SizedBox(height: AppSpacing.sm),
+  //       Text(
+  //         '这里会放个人介绍、项目经历、常用技术栈和联系方式。',
+  //         style: Theme.of(context).textTheme.bodyMedium,
+  //       ),
+  //     ],
+  //   );
+  // }
 
   /// 构建聊天卡片
-  Widget _buildChatCard(AuthController auth, int? remaining, AiChatState chatState) {
+  Widget _buildChatCard(
+    AuthController auth,
+    int? remaining,
+    AiChatState chatState,
+  ) {
     return Card(
       child: SizedBox(
         height: 560,
@@ -184,9 +193,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
             const Divider(height: 1),
 
             // 消息列表
-            Expanded(
-              child: _buildMessageList(chatState),
-            ),
+            Expanded(child: _buildMessageList(chatState)),
 
             // 会话限制提示
             if (chatState.isSessionLimitReached)
@@ -218,8 +225,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
         child: Text(
           '有什么想问的？试试问我关于博客文章、技术栈或个人经历的问题',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -228,12 +235,14 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       controller: _scrollController,
       padding: const EdgeInsets.all(AppSpacing.md),
       itemCount: chatState.messages.length,
-      itemBuilder: (context, index) => _ChatBubble(
-        message: chatState.messages[index],
-        isStreaming: chatState.isSending &&
-            index == chatState.messages.length - 1 &&
-            !chatState.messages[index].isMine,
-      ),
+      itemBuilder:
+          (context, index) => _ChatBubble(
+            message: chatState.messages[index],
+            isStreaming:
+                chatState.isSending &&
+                index == chatState.messages.length - 1 &&
+                !chatState.messages[index].isMine,
+          ),
     );
   }
 
@@ -249,33 +258,36 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       final chatState = ref.read(aiChatProvider);
       showDialog(
         context: context,
-        builder: (context) => _SessionListDialog(
-          sessions: sessions,
-          currentSessionId: chatState.sessionId,
-          onSelect: (session) {
-            Navigator.of(context).pop();
-            _loadHistory(session.id);
-          },
-          onCreateNew: () {
-            Navigator.of(context).pop();
-            _createNewSession();
-          },
-          onDelete: (session) async {
-            try {
-              await ref.read(apiClientProvider).deleteAiSession(
-                    accessToken: token,
-                    sessionId: session.id,
-                  );
-              if (!mounted) return;
-              // 如果删除的是当前会话，重置聊天状态
-              if (chatState.sessionId == session.id) {
-                ref.read(aiChatProvider.notifier).reset();
-              }
-            } on ApiException catch (error) {
-              _showError(error.message);
-            }
-          },
-        ),
+        builder:
+            (context) => _SessionListDialog(
+              sessions: sessions,
+              currentSessionId: chatState.sessionId,
+              onSelect: (session) {
+                Navigator.of(context).pop();
+                _loadHistory(session.id);
+              },
+              onCreateNew: () {
+                Navigator.of(context).pop();
+                _createNewSession();
+              },
+              onDelete: (session) async {
+                try {
+                  await ref
+                      .read(apiClientProvider)
+                      .deleteAiSession(
+                        accessToken: token,
+                        sessionId: session.id,
+                      );
+                  if (!mounted) return;
+                  // 如果删除的是当前会话，重置聊天状态
+                  if (chatState.sessionId == session.id) {
+                    ref.read(aiChatProvider.notifier).reset();
+                  }
+                } on ApiException catch (error) {
+                  _showError(error.message);
+                }
+              },
+            ),
       );
     } on ApiException catch (error) {
       _showError(error.message);
@@ -296,7 +308,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     if (text.isEmpty) return;
 
     final chatState = ref.read(aiChatProvider);
-    if (chatState.remainingQuestions != null && chatState.remainingQuestions! <= 0) {
+    if (chatState.remainingQuestions != null &&
+        chatState.remainingQuestions! <= 0) {
       return;
     }
 
@@ -305,7 +318,9 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
     try {
-      final stream = ref.read(apiClientProvider).sendAiMessageStream(
+      final stream = ref
+          .read(apiClientProvider)
+          .sendAiMessageStream(
             accessToken: token,
             sessionId: chatState.sessionId,
             message: text,
@@ -315,13 +330,16 @@ class _AboutPageState extends ConsumerState<AboutPage> {
         if (!mounted) return;
         if (event.type == 'token') {
           ref.read(aiChatProvider.notifier).appendAiToken(event.data);
-          WidgetsBinding.instance
-              .addPostFrameCallback((_) => _scrollToBottom());
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _scrollToBottom(),
+          );
         } else if (event.type == 'done') {
           final reply = AiChatReply.fromJson(
             (jsonDecode(event.data) as Map).cast<String, dynamic>(),
           );
-          ref.read(aiChatProvider.notifier).completeAiReply(
+          ref
+              .read(aiChatProvider.notifier)
+              .completeAiReply(
                 sessionId: reply.sessionId,
                 remainingQuestions: reply.remainingQuestions,
                 remainingMessages: reply.remainingMessages,
@@ -350,8 +368,9 @@ class _AboutPageState extends ConsumerState<AboutPage> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -390,23 +409,24 @@ class _ChatHeader extends StatelessWidget {
             : '登录后每天可以提问 10 次',
         style: Theme.of(context).textTheme.bodySmall,
       ),
-      trailing: auth.isAuthenticated
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: '历史会话',
-                  onPressed: onShowHistory,
-                  icon: const Icon(Icons.history),
-                ),
-                IconButton(
-                  tooltip: '新建会话',
-                  onPressed: onCreateNew,
-                  icon: const Icon(Icons.add_comment),
-                ),
-              ],
-            )
-          : null,
+      trailing:
+          auth.isAuthenticated
+              ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: '历史会话',
+                    onPressed: onShowHistory,
+                    icon: const Icon(Icons.history),
+                  ),
+                  IconButton(
+                    tooltip: '新建会话',
+                    onPressed: onCreateNew,
+                    icon: const Icon(Icons.add_comment),
+                  ),
+                ],
+              )
+              : null,
     );
   }
 }
@@ -439,8 +459,8 @@ class _SessionLimitBanner extends StatelessWidget {
             child: Text(
               '当前会话消息数已达上限',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
+                color: Theme.of(context).colorScheme.error,
+              ),
             ),
           ),
           TextButton.icon(
@@ -477,7 +497,8 @@ class _ChatInputBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canSend = auth.isAuthenticated &&
+    final canSend =
+        auth.isAuthenticated &&
         !sending &&
         (remaining == null || remaining! > 0) &&
         !sessionLimitReached;
@@ -491,21 +512,20 @@ class _ChatInputBar extends StatelessWidget {
               controller: controller,
               enabled: canSend,
               onSubmitted: (_) => onSend(),
-              decoration: InputDecoration(
-                hintText: _getHintText(),
-              ),
+              decoration: InputDecoration(hintText: _getHintText()),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
           IconButton.filled(
             tooltip: auth.isAuthenticated ? '发送' : '登录',
             onPressed: canSend ? onSend : null,
-            icon: sending
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.send),
+            icon:
+                sending
+                    ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Icons.send),
           ),
         ],
       ),
@@ -555,20 +575,21 @@ class _SessionListDialogState extends State<_SessionListDialog> {
   Future<void> _deleteSession(AiSessionItem session) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除会话'),
-        content: Text('确定删除会话"${session.title}"吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('删除会话'),
+            content: Text('确定删除会话"${session.title}"吗？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('删除'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true) return;
@@ -601,8 +622,8 @@ class _SessionListDialogState extends State<_SessionListDialog> {
                   Text(
                     '历史会话',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const Spacer(),
                   TextButton.icon(
@@ -622,8 +643,8 @@ class _SessionListDialogState extends State<_SessionListDialog> {
                 child: Text(
                   '暂无历史会话',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               )
             else
@@ -637,25 +658,26 @@ class _SessionListDialogState extends State<_SessionListDialog> {
                   itemBuilder: (context, index) {
                     final session = _sessions[index];
                     final isCurrent = session.id == widget.currentSessionId;
-                    final date =
-                        DateFormat('MM-dd HH:mm').format(session.updatedAt);
+                    final date = DateFormat(
+                      'MM-dd HH:mm',
+                    ).format(session.updatedAt);
 
                     return ListTile(
                       leading: Icon(
                         isCurrent
                             ? Icons.chat_bubble
                             : Icons.chat_bubble_outline,
-                        color: isCurrent
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
+                        color:
+                            isCurrent
+                                ? Theme.of(context).colorScheme.primary
+                                : null,
                       ),
                       title: Text(
                         session.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      subtitle:
-                          Text('${session.messageCount} 条消息 · $date'),
+                      subtitle: Text('${session.messageCount} 条消息 · $date'),
                       selected: isCurrent,
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline, size: 20),
@@ -694,45 +716,47 @@ class _ChatBubble extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: message.isMine
-              ? colorScheme.primary
-              : colorScheme.surfaceContainerHighest,
+          color:
+              message.isMine
+                  ? colorScheme.primary
+                  : colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
-          border: message.isMine
-              ? null
-              : Border.all(color: colorScheme.outlineVariant),
+          border:
+              message.isMine
+                  ? null
+                  : Border.all(color: colorScheme.outlineVariant),
         ),
-        child: message.text.isEmpty && isStreaming
-            ? SizedBox(
-                width: 24,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: colorScheme.primary,
-                ),
-              )
-            : message.isMine
+        child:
+            message.text.isEmpty && isStreaming
+                ? SizedBox(
+                  width: 24,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colorScheme.primary,
+                  ),
+                )
+                : message.isMine
                 ? Text(
-                    message.text,
-                    style: TextStyle(color: colorScheme.onPrimary),
-                  )
+                  message.text,
+                  style: TextStyle(color: colorScheme.onPrimary),
+                )
                 : MarkdownBody(
-                    data: '${message.text}${isStreaming ? '▍' : ''}',
-                    selectable: true,
-                    styleSheet: MarkdownStyleSheet(
-                      p: TextStyle(color: colorScheme.onSurface),
-                      code: TextStyle(
-                        backgroundColor:
-                            colorScheme.surfaceContainerHighest,
-                        fontFamily: 'monospace',
-                        fontSize: 13,
-                      ),
-                      codeblockDecoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                  data: '${message.text}${isStreaming ? '▍' : ''}',
+                  selectable: true,
+                  styleSheet: MarkdownStyleSheet(
+                    p: TextStyle(color: colorScheme.onSurface),
+                    code: TextStyle(
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                    ),
+                    codeblockDecoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
+                ),
       ),
     );
   }

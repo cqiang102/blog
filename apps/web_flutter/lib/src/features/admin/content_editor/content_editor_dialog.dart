@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants.dart';
 import '../../../core/models.dart';
+import '../../../core/theme.dart';
+import '../admin_widgets.dart';
 import 'content_editor.dart';
 
 /// 内容编辑器对话框
@@ -82,7 +84,9 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
       await controller.loadDraft();
       // 同步草稿数据到 UI 控制器
       if (mounted) {
-        final state = ref.read(contentEditorControllerProvider(widget.content?.id));
+        final state = ref.read(
+          contentEditorControllerProvider(widget.content?.id),
+        );
         _titleController.text = state.title;
         _slugController.text = state.slug;
         _summaryController.text = state.summary;
@@ -107,71 +111,24 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   Widget build(BuildContext context) {
     final state = _getState();
 
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: state.editMode == EditorEditMode.split
-              ? kEditorDialogSplitMaxWidth
-              : kEditorDialogMaxWidth,
-          maxHeight: MediaQuery.of(context).size.height * kEditorDialogMaxHeightRatio,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildTitleBar(context, state),
-              const SizedBox(height: 16),
-              if (state.isPreviewable) ...[
-                _buildToolbar(context, state),
-                const SizedBox(height: 12),
-              ],
-              Expanded(
-                child: Form(
-                  key: _formKey,
-                  child: _buildContent(context, state),
-                ),
+    return AdminEditorDialog(
+      title: widget.content == null ? '新增内容' : '编辑内容',
+      subtitle: state.hasUnsavedChanges ? '有尚未保存的更改' : '左侧设置发布信息，右侧专注编辑正文',
+      maxWidth: kEditorDialogSplitMaxWidth,
+      scrollable: false,
+      onClose: () => _onCancel(context, state),
+      actions: _buildActions(context, state),
+      child: Form(
+        key: _formKey,
+        child: LayoutBuilder(
+          builder:
+              (context, constraints) => _buildResponsiveEditor(
+                context,
+                state,
+                wide: constraints.maxWidth >= 900,
               ),
-              const SizedBox(height: 16),
-              _buildActions(context, state),
-            ],
-          ),
         ),
       ),
-    );
-  }
-
-  /// 构建标题栏
-  Widget _buildTitleBar(BuildContext context, ContentEditorState state) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            widget.content == null ? '新增内容' : '编辑内容',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-        ),
-        if (state.hasUnsavedChanges)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.errorContainer,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              '未保存',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onErrorContainer,
-              ),
-            ),
-          ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => _onCancel(context, state),
-        ),
-      ],
     );
   }
 
@@ -186,57 +143,149 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     );
   }
 
-  /// 构建主内容区域
-  Widget _buildContent(BuildContext context, ContentEditorState state) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildBasicFields(context, state),
-          const SizedBox(height: 16),
-          _buildContentSection(context, state),
-          if (widget.tags.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _buildTagSelector(context, state),
-          ],
-          if (state.isMediaType) ...[
-            const SizedBox(height: 16),
-            _buildMediaSection(context, state),
-          ],
-        ],
+  /// 构建操作按钮
+  List<Widget> _buildActions(BuildContext context, ContentEditorState state) {
+    return [
+      TextButton(
+        onPressed: state.isSubmitting ? null : () => _onCancel(context, state),
+        child: const Text('取消'),
       ),
+      OutlinedButton(
+        onPressed: state.isSubmitting ? null : _saveDraft,
+        child: const Text('保存草稿'),
+      ),
+      FilledButton(
+        onPressed: state.isSubmitting ? null : _submit,
+        child:
+            state.isSubmitting
+                ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                : const Text('提交发布'),
+      ),
+    ];
+  }
+
+  Widget _buildResponsiveEditor(
+    BuildContext context,
+    ContentEditorState state, {
+    required bool wide,
+  }) {
+    if (!wide) {
+      return SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminFormSection(
+              title: '发布信息',
+              subtitle: '设置标题、类型、状态和摘要',
+              child: _buildBasicFields(context, state),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildEditorPane(context, state, fillAvailable: false),
+            if (widget.tags.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              AdminFormSection(
+                title: '内容标签',
+                child: _buildTagSelector(context, state, showTitle: false),
+              ),
+            ],
+            if (state.isMediaType) ...[
+              const SizedBox(height: AppSpacing.md),
+              AdminFormSection(
+                title: '媒体资源',
+                child: _buildMediaSection(context, state),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          width: 360,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(right: AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AdminFormSection(
+                  title: '发布信息',
+                  subtitle: '设置标题、类型、状态和摘要',
+                  child: _buildBasicFields(context, state),
+                ),
+                if (widget.tags.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  AdminFormSection(
+                    title: '内容标签',
+                    child: _buildTagSelector(context, state, showTitle: false),
+                  ),
+                ],
+                if (state.isMediaType) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  AdminFormSection(
+                    title: '媒体资源',
+                    child: _buildMediaSection(context, state),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        VerticalDivider(color: Theme.of(context).colorScheme.outlineVariant),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(left: AppSpacing.md),
+            child: _buildEditorPane(context, state, fillAvailable: true),
+          ),
+        ),
+      ],
     );
   }
 
-  /// 构建操作按钮
-  Widget _buildActions(BuildContext context, ContentEditorState state) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        TextButton(
-          onPressed: state.isSubmitting ? null : () => _onCancel(context, state),
-          child: const Text('取消'),
-        ),
-        const SizedBox(width: 8),
-        OutlinedButton.icon(
-          onPressed: state.isSubmitting ? null : _saveDraft,
-          icon: const Icon(Icons.save_outlined),
-          label: const Text('保存草稿'),
-        ),
-        const SizedBox(width: 8),
-        FilledButton.icon(
-          onPressed: state.isSubmitting ? null : _submit,
-          icon: state.isSubmitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.check),
-          label: Text(state.isSubmitting ? '提交中...' : '提交'),
-        ),
-      ],
+  Widget _buildEditorPane(
+    BuildContext context,
+    ContentEditorState state, {
+    required bool fillAvailable,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    final editor = _buildContentSection(
+      context,
+      state,
+      fillAvailable: fillAvailable,
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: fillAvailable ? MainAxisSize.max : MainAxisSize.min,
+        children: [
+          Text('正文内容', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            state.isPreviewable ? '支持 Markdown，可随时切换源码、分屏和预览' : '补充内容说明',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          if (state.isPreviewable) ...[
+            const SizedBox(height: AppSpacing.md),
+            _buildToolbar(context, state),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          if (fillAvailable) Expanded(child: editor) else editor,
+        ],
+      ),
     );
   }
 
@@ -253,8 +302,8 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
           ),
           maxLength: 180,
           autovalidateMode: AutovalidateMode.onUserInteraction,
-          validator: (value) =>
-              value == null || value.trim().isEmpty ? '请输入标题' : null,
+          validator:
+              (value) => value == null || value.trim().isEmpty ? '请输入标题' : null,
           onChanged: (value) => _getController().updateTitle(value),
         ),
         const SizedBox(height: 12),
@@ -278,12 +327,13 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
                 key: ValueKey('type_${state.type}'),
                 initialValue: state.type,
                 decoration: const InputDecoration(labelText: '类型'),
-                items: ContentType.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type.label),
-                  );
-                }).toList(),
+                items:
+                    ContentType.values.map((type) {
+                      return DropdownMenuItem(
+                        value: type,
+                        child: Text(type.label),
+                      );
+                    }).toList(),
                 onChanged: (value) async {
                   if (value == null) return;
                   final controller = _getController();
@@ -301,12 +351,13 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
                 key: ValueKey('status_${state.status}'),
                 initialValue: state.status,
                 decoration: const InputDecoration(labelText: '状态'),
-                items: ContentStatus.values.map((status) {
-                  return DropdownMenuItem(
-                    value: status,
-                    child: Text(status.label),
-                  );
-                }).toList(),
+                items:
+                    ContentStatus.values.map((status) {
+                      return DropdownMenuItem(
+                        value: status,
+                        child: Text(status.label),
+                      );
+                    }).toList(),
                 onChanged: (value) {
                   if (value != null) {
                     _getController().updateStatus(value);
@@ -340,39 +391,36 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   }
 
   /// 构建内容编辑区域
-  Widget _buildContentSection(BuildContext context, ContentEditorState state) {
+  Widget _buildContentSection(
+    BuildContext context,
+    ContentEditorState state, {
+    required bool fillAvailable,
+  }) {
     if (!state.isPreviewable) {
-      // 非可预览类型（图片/视频），只显示简单输入框
-      return _buildMarkdownEditor();
+      return _buildMarkdownEditor(expanded: fillAvailable);
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          '正文内容',
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-        const SizedBox(height: 8),
-        _buildEditorByMode(context, state),
-      ],
-    );
+    return _buildEditorByMode(context, state, fillAvailable: fillAvailable);
   }
 
   /// 根据编辑模式构建编辑器
-  Widget _buildEditorByMode(BuildContext context, ContentEditorState state) {
+  Widget _buildEditorByMode(
+    BuildContext context,
+    ContentEditorState state, {
+    required bool fillAvailable,
+  }) {
     switch (state.editMode) {
       case EditorEditMode.source:
-        return _buildMarkdownEditor();
+        return _buildMarkdownEditor(expanded: fillAvailable);
       case EditorEditMode.split:
-        return _buildSplitEditor();
+        return _buildSplitEditor(expanded: fillAvailable);
       case EditorEditMode.preview:
-        return _buildPreviewOnly();
+        return _buildPreviewOnly(expanded: fillAvailable);
     }
   }
 
   /// 源码模式：纯文本编辑
-  Widget _buildMarkdownEditor() {
+  Widget _buildMarkdownEditor({required bool expanded}) {
     return TextFormField(
       controller: _bodyController,
       focusNode: _bodyFocusNode,
@@ -381,17 +429,21 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
         hintText: '支持Markdown语法，使用工具栏快速插入',
         alignLabelWithHint: true,
       ),
-      minLines: 8,
-      maxLines: 20,
+      expands: expanded,
+      minLines: expanded ? null : 10,
+      maxLines: expanded ? null : 20,
       keyboardType: TextInputType.multiline,
       onChanged: (value) => _getController().updateBody(value),
     );
   }
 
   /// 分屏模式：左侧编辑，右侧预览
-  Widget _buildSplitEditor() {
+  Widget _buildSplitEditor({required bool expanded}) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 300, maxHeight: 500),
+      constraints:
+          expanded
+              ? const BoxConstraints.expand()
+              : const BoxConstraints(minHeight: 340, maxHeight: 520),
       decoration: BoxDecoration(
         border: Border.all(color: Theme.of(context).colorScheme.outline),
         borderRadius: BorderRadius.circular(8),
@@ -404,9 +456,13 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(8),
                     ),
@@ -442,9 +498,13 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: const BorderRadius.only(
                       topRight: Radius.circular(8),
                     ),
@@ -458,9 +518,10 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(12),
                     child: MarkdownBody(
-                      data: _bodyController.text.isEmpty
-                          ? '*暂无内容*'
-                          : _bodyController.text,
+                      data:
+                          _bodyController.text.isEmpty
+                              ? '*暂无内容*'
+                              : _bodyController.text,
                       selectable: true,
                       imageBuilder: _buildMarkdownImage,
                     ),
@@ -475,9 +536,12 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   }
 
   /// 预览模式：只显示预览
-  Widget _buildPreviewOnly() {
+  Widget _buildPreviewOnly({required bool expanded}) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 200, maxHeight: 400),
+      constraints:
+          expanded
+              ? const BoxConstraints.expand()
+              : const BoxConstraints(minHeight: 300, maxHeight: 520),
       decoration: BoxDecoration(
         border: Border.all(color: Theme.of(context).colorScheme.outline),
         borderRadius: BorderRadius.circular(8),
@@ -485,9 +549,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: MarkdownBody(
-          data: _bodyController.text.isEmpty
-              ? '*暂无内容*'
-              : _bodyController.text,
+          data: _bodyController.text.isEmpty ? '*暂无内容*' : _bodyController.text,
           selectable: true,
           imageBuilder: _buildMarkdownImage,
         ),
@@ -502,34 +564,41 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
       child: CachedNetworkImage(
         imageUrl: uri.toString(),
         fit: BoxFit.contain,
-        placeholder: (context, url) => const Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(child: CircularProgressIndicator()),
-        ),
-        errorWidget: (context, url, error) => Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.broken_image, size: 48),
-              const SizedBox(height: 8),
-              Text(
-                alt ?? '图片加载失败',
-                style: Theme.of(context).textTheme.bodySmall,
+        placeholder:
+            (context, url) => const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+        errorWidget:
+            (context, url, error) => Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.broken_image, size: 48),
+                  const SizedBox(height: 8),
+                  Text(
+                    alt ?? '图片加载失败',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
       ),
     );
   }
 
   /// 构建标签选择器
-  Widget _buildTagSelector(BuildContext context, ContentEditorState state) {
+  Widget _buildTagSelector(
+    BuildContext context,
+    ContentEditorState state, {
+    bool showTitle = true,
+  }) {
     return TagSelector(
       tags: widget.tags,
       selectedSlugs: state.tagSlugs.toSet(),
       onToggle: (slug) => _getController().toggleTag(slug),
+      showTitle: showTitle,
     );
   }
 
@@ -588,17 +657,18 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
       if (!mounted) return;
       final url = await showDialog<String>(
         context: context,
-        builder: (context) => _ImagePickerDialog(
-          mediaUrls: state.mediaUrls,
-          onUploadNew: () async {
-            Navigator.of(context).pop();
-            await _uploadMedia(forceImage: true);
-            // 上传后重新显示选择器
-            if (mounted) {
-              _showImagePicker();
-            }
-          },
-        ),
+        builder:
+            (context) => _ImagePickerDialog(
+              mediaUrls: state.mediaUrls,
+              onUploadNew: () async {
+                Navigator.of(context).pop();
+                await _uploadMedia(forceImage: true);
+                // 上传后重新显示选择器
+                if (mounted) {
+                  _showImagePicker();
+                }
+              },
+            ),
       );
 
       if (url != null && mounted) {
@@ -611,10 +681,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
       if (mounted) {
         final updatedState = _getState();
         if (updatedState.mediaUrls.isNotEmpty) {
-          _insertMarkdown(
-            '![图片](${updatedState.mediaUrls.last})',
-            '',
-          );
+          _insertMarkdown('![图片](${updatedState.mediaUrls.last})', '');
         }
       }
     }
@@ -627,9 +694,9 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     final error = await controller.uploadMedia(forceImage: forceImage);
 
     if (error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -641,20 +708,21 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('切换类型'),
-        content: const Text('切换类型将清除已上传的媒体文件，是否继续？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('切换类型'),
+            content: const Text('切换类型将清除已上传的媒体文件，是否继续？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('确定'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('确定'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed == true) {
@@ -666,9 +734,9 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
   Future<void> _saveDraft() async {
     final success = await _getController().saveDraft();
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('草稿已保存')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('草稿已保存')));
     }
   }
 
@@ -677,31 +745,32 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     if (state.hasUnsavedChanges) {
       showDialog(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('提示'),
-          content: const Text('有未保存的更改，是否保存为草稿？'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                Navigator.of(context).pop();
-              },
-              child: const Text('不保存'),
+        builder:
+            (dialogContext) => AlertDialog(
+              title: const Text('提示'),
+              content: const Text('有未保存的更改，是否保存为草稿？'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('不保存'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await _saveDraft();
+                    if (dialogContext.mounted) {
+                      Navigator.of(dialogContext).pop();
+                    }
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: const Text('保存草稿'),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () async {
-                await _saveDraft();
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop();
-                }
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('保存草稿'),
-            ),
-          ],
-        ),
       );
     } else {
       Navigator.of(context).pop();
@@ -716,7 +785,9 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     if (state.isMediaType && state.mediaUrls.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(state.type == ContentType.image ? '请上传至少一张图片' : '请上传视频'),
+          content: Text(
+            state.type == ContentType.image ? '请上传至少一张图片' : '请上传视频',
+          ),
         ),
       );
       return;
@@ -758,10 +829,7 @@ class _ImagePickerDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              '已上传的图片',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
+            Text('已上传的图片', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             Flexible(
               child: GridView.builder(
@@ -781,8 +849,9 @@ class _ImagePickerDialog extends StatelessWidget {
                       child: CachedNetworkImage(
                         imageUrl: url,
                         fit: BoxFit.cover,
-                        errorWidget: (context, url, error) =>
-                            const Center(child: Icon(Icons.broken_image)),
+                        errorWidget:
+                            (context, url, error) =>
+                                const Center(child: Icon(Icons.broken_image)),
                       ),
                     ),
                   );
@@ -793,10 +862,7 @@ class _ImagePickerDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: onUploadNew,
-          child: const Text('上传新图片'),
-        ),
+        TextButton(onPressed: onUploadNew, child: const Text('上传新图片')),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),

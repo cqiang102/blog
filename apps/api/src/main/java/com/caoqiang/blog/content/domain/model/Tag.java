@@ -109,4 +109,12 @@ public class Tag extends AggregateRoot {
     public String getDescription() {
         return description;
     }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
 }

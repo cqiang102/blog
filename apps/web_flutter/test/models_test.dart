@@ -333,6 +333,8 @@ void main() {
         'siteUrl': 'https://example.com',
         'visible': true,
         'sortOrder': 1,
+        'createdAt': '2026-06-01T08:00:00Z',
+        'updatedAt': '2026-06-02T09:30:00Z',
       };
 
       final friend = FriendLink.fromJson(json);
@@ -343,6 +345,8 @@ void main() {
       expect(friend.siteUrl, 'https://example.com');
       expect(friend.visible, true);
       expect(friend.sortOrder, 1);
+      expect(friend.createdAt, isNotNull);
+      expect(friend.updatedAt, isNotNull);
     });
 
     test('fromJson defaults visible to true', () {
@@ -367,6 +371,8 @@ void main() {
         'name': 'Flutter',
         'slug': 'flutter',
         'description': 'Flutter 框架',
+        'createdAt': '2026-06-01T08:00:00Z',
+        'updatedAt': '2026-06-02T09:30:00Z',
       };
 
       final tag = TagItem.fromJson(json);
@@ -375,14 +381,12 @@ void main() {
       expect(tag.name, 'Flutter');
       expect(tag.slug, 'flutter');
       expect(tag.description, 'Flutter 框架');
+      expect(tag.createdAt, isNotNull);
+      expect(tag.updatedAt, isNotNull);
     });
 
     test('fromJson handles missing description', () {
-      final json = {
-        'id': 'tag-002',
-        'name': 'Dart',
-        'slug': 'dart',
-      };
+      final json = {'id': 'tag-002', 'name': 'Dart', 'slug': 'dart'};
 
       final tag = TagItem.fromJson(json);
       expect(tag.description, '');

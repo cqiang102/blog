@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
+import '../../core/theme.dart';
+import 'admin_widgets.dart';
 
 /// 友链编辑器对话框
 /// 支持新增和编辑友链，包含名称、站点 URL、头像、简介、排序和可见性
@@ -60,80 +62,86 @@ class FriendEditorDialogState extends State<FriendEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.friend == null ? '新增朋友' : '编辑朋友'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(labelText: '名称'),
-                  maxLength: 80,
-                  validator:
-                      (value) =>
-                          value == null || value.trim().isEmpty
-                              ? '请输入名称'
-                              : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _siteController,
-                  decoration: const InputDecoration(labelText: '站点 URL'),
-                  validator: _validateRequiredUrl,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _avatarController,
-                  decoration: const InputDecoration(labelText: '头像 URL'),
-                  validator: _validateOptionalUrl,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _introController,
-                  decoration: const InputDecoration(labelText: '简介'),
-                  maxLines: 3,
-                  maxLength: 1000,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _sortController,
-                  decoration: const InputDecoration(labelText: '排序值'),
-                  keyboardType: TextInputType.number,
-                  validator:
-                      (value) =>
-                          int.tryParse(value?.trim() ?? '') == null
-                              ? '请输入数字'
-                              : null,
-                ),
-                const SizedBox(height: 12),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('公开展示'),
-                  value: _visible,
-                  onChanged: (value) => setState(() => _visible = value),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return AdminEditorDialog(
+      title: widget.friend == null ? '新增朋友' : '编辑朋友',
+      subtitle: '维护站点信息、展示内容和排序',
+      maxWidth: 760,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        FilledButton.icon(
-          onPressed: _submit,
-          icon: const Icon(Icons.save),
-          label: const Text('保存'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('保存朋友')),
       ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminFormSection(
+              title: '站点信息',
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(labelText: '名称'),
+                    maxLength: 80,
+                    validator:
+                        (value) =>
+                            value == null || value.trim().isEmpty
+                                ? '请输入名称'
+                                : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _siteController,
+                    decoration: const InputDecoration(labelText: '站点 URL'),
+                    validator: _validateRequiredUrl,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            AdminFormSection(
+              title: '展示设置',
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _avatarController,
+                    decoration: const InputDecoration(labelText: '头像 URL'),
+                    validator: _validateOptionalUrl,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _introController,
+                    decoration: const InputDecoration(labelText: '简介'),
+                    maxLines: 3,
+                    maxLength: 1000,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _sortController,
+                    decoration: const InputDecoration(labelText: '排序值'),
+                    keyboardType: TextInputType.number,
+                    validator:
+                        (value) =>
+                            int.tryParse(value?.trim() ?? '') == null
+                                ? '请输入数字'
+                                : null,
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('公开展示'),
+                    value: _visible,
+                    onChanged: (value) => setState(() => _visible = value),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

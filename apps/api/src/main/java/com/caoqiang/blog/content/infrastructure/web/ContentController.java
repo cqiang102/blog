@@ -118,7 +118,7 @@ public class ContentController {
     @GetMapping("/tags")
     public ApiResponse<List<TagResponse>> tags() {
         return ApiResponse.ok(tagRepository.findAll().stream()
-                .map(tag -> new TagResponse(tag.getId(), tag.getName(), tag.getSlug(), tag.getDescription()))
+                .map(TagResponse::from)
                 .toList());
     }
 }

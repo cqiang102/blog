@@ -1,11 +1,5 @@
-// Material 3 主题配置
-// 定义应用的颜色方案、组件样式、间距和动画常量
-
 import 'package:flutter/material.dart';
 
-// ============================================================================
-// 间距常量 - 8-point 网格系统
-// ============================================================================
 class AppSpacing {
   AppSpacing._();
 
@@ -17,14 +11,11 @@ class AppSpacing {
   static const double xxl = 48;
 }
 
-// ============================================================================
-// 动画常量
-// ============================================================================
 class AppAnimations {
   AppAnimations._();
 
-  static const Duration fast = Duration(milliseconds: 150);
-  static const Duration normal = Duration(milliseconds: 300);
+  static const Duration fast = Duration(milliseconds: 180);
+  static const Duration normal = Duration(milliseconds: 240);
   static const Duration slow = Duration(milliseconds: 500);
 
   static const Curve defaultCurve = Curves.easeInOut;
@@ -32,188 +23,112 @@ class AppAnimations {
   static const Curve slideCurve = Curves.easeOutCubic;
 }
 
-// ============================================================================
-// 品牌色定义
-// ============================================================================
 class AppColors {
   AppColors._();
 
-  // 主色调
-  static const Color seed = Color(0xFF1F6F64);
-  static const Color accent = Color(0xFFE7B10A);
+  static const Color seed = Color(0xFF27665A);
+  static const Color accent = Color(0xFFB77924);
 
-  // 浅色主题色
-  static const Color lightSurface = Color(0xFFF7FAF8);
-  static const Color lightInk = Color(0xFF16201D);
-  static const Color lightBorder = Color(0xFFE0E7E3);
-  static const Color lightCard = Colors.white;
-  static const Color lightInputFill = Colors.white;
+  static const Color lightBackground = Color(0xFFF5F3ED);
+  static const Color lightSurface = Color(0xFFFCFBF8);
+  static const Color lightSurfaceMuted = Color(0xFFEEEDE7);
+  static const Color lightInk = Color(0xFF18201D);
+  static const Color lightMutedInk = Color(0xFF65706B);
+  static const Color lightBorder = Color(0xFFD9DDD8);
 
-  // 深色主题色
-  static const Color darkSurface = Color(0xFF1A1C1B);
-  static const Color darkSurfaceContainer = Color(0xFF222423);
-  static const Color darkInk = Color(0xFFE1E3E0);
-  static const Color darkBorder = Color(0xFF3A3C3B);
+  static const Color darkPrimary = Color(0xFF78B7A7);
+  static const Color darkBackground = Color(0xFF111614);
+  static const Color darkSurface = Color(0xFF181E1B);
+  static const Color darkSurfaceMuted = Color(0xFF202824);
+  static const Color darkInk = Color(0xFFEDF2EF);
+  static const Color darkMutedInk = Color(0xFFAAB5B0);
+  static const Color darkBorder = Color(0xFF34403B);
 
-  // 语义化颜色 - 覆盖层
-  static const Color overlayDark = Color(0xA6000000); // 黑色65%透明度
+  static const Color overlayDark = Color(0xB0000000);
   static const Color onOverlay = Colors.white;
-  static const Color onOverlayMuted = Color(0xB3FFFFFF); // 白色70%透明度
+  static const Color onOverlayMuted = Color(0xC7FFFFFF);
 }
 
-// ============================================================================
-// 浅色主题
-// ============================================================================
 ThemeData buildAppTheme() {
   final scheme = ColorScheme.fromSeed(
     seedColor: AppColors.seed,
     brightness: Brightness.light,
   ).copyWith(
     primary: AppColors.seed,
+    onPrimary: Colors.white,
+    primaryContainer: const Color(0xFFDCECE6),
+    onPrimaryContainer: const Color(0xFF173C34),
     secondary: AppColors.accent,
+    onSecondary: Colors.white,
+    secondaryContainer: const Color(0xFFF5E3C8),
+    onSecondaryContainer: const Color(0xFF5A3509),
     surface: AppColors.lightSurface,
     onSurface: AppColors.lightInk,
+    onSurfaceVariant: AppColors.lightMutedInk,
+    surfaceContainerLowest: AppColors.lightSurface,
+    surfaceContainerLow: const Color(0xFFF9F8F4),
+    surfaceContainer: AppColors.lightSurfaceMuted,
+    surfaceContainerHigh: const Color(0xFFE8E8E1),
+    surfaceContainerHighest: const Color(0xFFE2E4DE),
+    outline: const Color(0xFFA9B0AB),
+    outlineVariant: AppColors.lightBorder,
+    surfaceTint: AppColors.seed,
   );
 
-  return ThemeData(
-    useMaterial3: true,
-    colorScheme: scheme,
-    scaffoldBackgroundColor: AppColors.lightSurface,
-
-    // 字体配置
-    fontFamily: 'Roboto',
-    fontFamilyFallback: const [
-      'system-ui',
-      '-apple-system',
-      'BlinkMacSystemFont',
-      'Segoe UI',
-      'Helvetica Neue',
-      'Arial',
-      'Noto Sans',
-      'sans-serif',
-      'Apple Color Emoji',
-      'Segoe UI Emoji',
-    ],
-
-    // 文字主题
-    textTheme: _buildTextTheme(Brightness.light),
-
-    // AppBar 主题
-    appBarTheme: const AppBarTheme(
-      centerTitle: false,
-      elevation: 0,
-      backgroundColor: AppColors.lightSurface,
-      foregroundColor: AppColors.lightInk,
-    ),
-
-    // Card 主题
-    cardTheme: CardThemeData(
-      color: AppColors.lightCard,
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.lightBorder),
-      ),
-    ),
-
-    // 输入框主题
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: AppColors.lightInputFill,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.lightBorder),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.lightBorder),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.seed, width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm + 4,
-      ),
-    ),
-
-    // Chip 主题
-    chipTheme: ChipThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-    ),
-
-    // Button 主题
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm + 4,
-        ),
-      ),
-    ),
-
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm + 4,
-        ),
-      ),
-    ),
-
-    // Dialog 主题
-    dialogTheme: DialogThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      elevation: 0,
-    ),
-
-    // Divider 主题
-    dividerTheme: const DividerThemeData(
-      color: AppColors.lightBorder,
-      thickness: 1,
-      space: 1,
-    ),
+  return _buildTheme(
+    scheme: scheme,
+    brightness: Brightness.light,
+    background: AppColors.lightBackground,
   );
 }
 
-// ============================================================================
-// 深色主题
-// ============================================================================
 ThemeData buildDarkAppTheme() {
   final scheme = ColorScheme.fromSeed(
-    seedColor: AppColors.seed,
+    seedColor: AppColors.darkPrimary,
     brightness: Brightness.dark,
   ).copyWith(
-    primary: AppColors.seed,
-    secondary: AppColors.accent,
+    primary: AppColors.darkPrimary,
+    onPrimary: const Color(0xFF082019),
+    primaryContainer: const Color(0xFF254A42),
+    onPrimaryContainer: const Color(0xFFBCEBDD),
+    secondary: const Color(0xFFE5B86A),
+    onSecondary: const Color(0xFF3E2807),
+    secondaryContainer: const Color(0xFF594317),
+    onSecondaryContainer: const Color(0xFFFFE0A3),
     surface: AppColors.darkSurface,
     onSurface: AppColors.darkInk,
-    surfaceContainerHighest: AppColors.darkSurfaceContainer,
+    onSurfaceVariant: AppColors.darkMutedInk,
+    surfaceContainerLowest: AppColors.darkBackground,
+    surfaceContainerLow: AppColors.darkSurface,
+    surfaceContainer: AppColors.darkSurfaceMuted,
+    surfaceContainerHigh: const Color(0xFF28312D),
+    surfaceContainerHighest: const Color(0xFF303A35),
+    outline: const Color(0xFF78837D),
+    outlineVariant: AppColors.darkBorder,
+    surfaceTint: AppColors.darkPrimary,
   );
+
+  return _buildTheme(
+    scheme: scheme,
+    brightness: Brightness.dark,
+    background: AppColors.darkBackground,
+  );
+}
+
+ThemeData _buildTheme({
+  required ColorScheme scheme,
+  required Brightness brightness,
+  required Color background,
+}) {
+  final textTheme = _buildTextTheme(brightness);
+  final radius = BorderRadius.circular(12);
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: AppColors.darkSurface,
-
-    // 字体配置
-    fontFamily: 'Roboto',
+    brightness: brightness,
+    scaffoldBackgroundColor: background,
+    fontFamily: 'Inter',
     fontFamilyFallback: const [
       'system-ui',
       '-apple-system',
@@ -222,208 +137,236 @@ ThemeData buildDarkAppTheme() {
       'Helvetica Neue',
       'Arial',
       'Noto Sans',
+      'Noto Sans SC',
       'sans-serif',
       'Apple Color Emoji',
       'Segoe UI Emoji',
     ],
-
-    // 文字主题
-    textTheme: _buildTextTheme(Brightness.dark),
-
-    // AppBar 主题
-    appBarTheme: const AppBarTheme(
+    textTheme: textTheme,
+    appBarTheme: AppBarTheme(
       centerTitle: false,
       elevation: 0,
-      backgroundColor: AppColors.darkSurface,
-      foregroundColor: AppColors.darkInk,
+      scrolledUnderElevation: 0,
+      backgroundColor: Colors.transparent,
+      foregroundColor: scheme.onSurface,
+      titleTextStyle: textTheme.titleLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
     ),
-
-    // Card 主题
     cardTheme: CardThemeData(
-      color: AppColors.darkSurfaceContainer,
+      color: scheme.surfaceContainerLow,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.darkBorder),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: scheme.outlineVariant),
       ),
     ),
-
-    // 输入框主题
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.darkSurfaceContainer,
+      fillColor: scheme.surfaceContainerLow,
+      hintStyle: TextStyle(color: scheme.onSurfaceVariant),
+      labelStyle: TextStyle(color: scheme.onSurfaceVariant),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.darkBorder),
+        borderRadius: radius,
+        borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.darkBorder),
+        borderRadius: radius,
+        borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.seed, width: 2),
+        borderRadius: radius,
+        borderSide: BorderSide(color: scheme.primary, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: scheme.error),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: scheme.error, width: 2),
       ),
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm + 4,
+        vertical: 14,
       ),
     ),
-
-    // Chip 主题
     chipTheme: ChipThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
+      backgroundColor: scheme.surfaceContainerLow,
+      selectedColor: scheme.primaryContainer,
+      side: BorderSide(color: scheme.outlineVariant),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
+        vertical: 2,
       ),
+      labelStyle: textTheme.labelMedium,
     ),
-
-    // Button 主题
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm + 4,
-        ),
+        minimumSize: const Size(0, 48),
+        shape: RoundedRectangleBorder(borderRadius: radius),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
       ),
     ),
-
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm + 4,
-        ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 48),
+        shape: RoundedRectangleBorder(borderRadius: radius),
+        side: BorderSide(color: scheme.outline),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
       ),
     ),
-
-    // Dialog 主题
-    dialogTheme: DialogThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
       ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        minimumSize: const Size.square(44),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      height: 72,
+      backgroundColor: scheme.surface.withValues(alpha: 0.96),
+      indicatorColor: scheme.primaryContainer,
+      labelTextStyle: WidgetStatePropertyAll(textTheme.labelSmall),
       elevation: 0,
     ),
-
-    // Divider 主题
-    dividerTheme: const DividerThemeData(
-      color: AppColors.darkBorder,
+    dialogTheme: DialogThemeData(
+      backgroundColor: scheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 8,
+    ),
+    dividerTheme: DividerThemeData(
+      color: scheme.outlineVariant,
       thickness: 1,
       space: 1,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: scheme.inverseSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      textStyle: TextStyle(color: scheme.onInverseSurface),
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: scheme.primary),
+    scrollbarTheme: ScrollbarThemeData(
+      thumbColor: WidgetStatePropertyAll(
+        scheme.onSurfaceVariant.withValues(alpha: 0.35),
+      ),
+      radius: const Radius.circular(8),
+      thickness: const WidgetStatePropertyAll(6),
     ),
   );
 }
 
-// ============================================================================
-// 文字主题构建
-// ============================================================================
 TextTheme _buildTextTheme(Brightness brightness) {
-  final Color textColor = brightness == Brightness.light
-      ? AppColors.lightInk
-      : AppColors.darkInk;
+  final Color textColor =
+      brightness == Brightness.light ? AppColors.lightInk : AppColors.darkInk;
 
   return TextTheme(
-    // Display
     displayLarge: TextStyle(
       fontSize: 57,
-      fontWeight: FontWeight.w400,
-      letterSpacing: -0.25,
+      height: 1.08,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -1.2,
       color: textColor,
     ),
     displayMedium: TextStyle(
-      fontSize: 45,
-      fontWeight: FontWeight.w400,
+      fontSize: 44,
+      height: 1.12,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.8,
       color: textColor,
     ),
     displaySmall: TextStyle(
       fontSize: 36,
-      fontWeight: FontWeight.w400,
+      height: 1.18,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.5,
       color: textColor,
     ),
-
-    // Headline
     headlineLarge: TextStyle(
       fontSize: 32,
-      fontWeight: FontWeight.w600,
+      height: 1.2,
+      fontWeight: FontWeight.w700,
       color: textColor,
     ),
     headlineMedium: TextStyle(
-      fontSize: 28,
-      fontWeight: FontWeight.w600,
+      fontSize: 30,
+      height: 1.25,
+      fontWeight: FontWeight.w700,
       color: textColor,
     ),
     headlineSmall: TextStyle(
-      fontSize: 24,
-      fontWeight: FontWeight.w600,
+      fontSize: 22,
+      height: 1.3,
+      fontWeight: FontWeight.w700,
       color: textColor,
     ),
-
-    // Title
     titleLarge: TextStyle(
       fontSize: 22,
-      fontWeight: FontWeight.w500,
+      height: 1.3,
+      fontWeight: FontWeight.w700,
       color: textColor,
     ),
     titleMedium: TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0.15,
+      fontSize: 17,
+      height: 1.4,
+      fontWeight: FontWeight.w600,
       color: textColor,
     ),
     titleSmall: TextStyle(
       fontSize: 14,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0.1,
+      height: 1.4,
+      fontWeight: FontWeight.w600,
       color: textColor,
     ),
-
-    // Body
     bodyLarge: TextStyle(
       fontSize: 16,
+      height: 1.75,
       fontWeight: FontWeight.w400,
-      letterSpacing: 0.5,
       color: textColor,
     ),
     bodyMedium: TextStyle(
       fontSize: 14,
+      height: 1.65,
       fontWeight: FontWeight.w400,
-      letterSpacing: 0.25,
       color: textColor,
     ),
     bodySmall: TextStyle(
-      fontSize: 12,
+      fontSize: 13,
+      height: 1.5,
       fontWeight: FontWeight.w400,
-      letterSpacing: 0.4,
       color: textColor.withValues(alpha: 0.8),
     ),
-
-    // Label
     labelLarge: TextStyle(
       fontSize: 14,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0.1,
+      height: 1.4,
+      fontWeight: FontWeight.w600,
       color: textColor,
     ),
     labelMedium: TextStyle(
       fontSize: 12,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0.5,
+      height: 1.4,
+      fontWeight: FontWeight.w600,
       color: textColor,
     ),
     labelSmall: TextStyle(
       fontSize: 11,
-      fontWeight: FontWeight.w500,
-      letterSpacing: 0.5,
+      height: 1.4,
+      fontWeight: FontWeight.w600,
       color: textColor.withValues(alpha: 0.8),
     ),
   );

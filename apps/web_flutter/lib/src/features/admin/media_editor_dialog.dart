@@ -3,12 +3,17 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
+import '../../core/theme.dart';
 import 'admin_widgets.dart';
 
 /// 媒体编辑器对话框
 /// 支持新增和编辑媒体资源，包含 URL、文件名、MIME 类型和尺寸信息
 class MediaEditorDialog extends StatefulWidget {
-  const MediaEditorDialog({super.key, required this.media, required this.contents});
+  const MediaEditorDialog({
+    super.key,
+    required this.media,
+    required this.contents,
+  });
 
   final AdminMediaItem? media; // 待编辑媒体（null 表示新增）
   final List<AdminContentItem> contents; // 可绑定的内容列表
@@ -76,92 +81,102 @@ class MediaEditorDialogState extends State<MediaEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.media == null ? '新增媒体' : '编辑媒体'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: _contentId,
-                  decoration: const InputDecoration(labelText: '绑定内容'),
-                  items: [
-                    const DropdownMenuItem(value: '', child: Text('不绑定内容')),
-                    for (final content in widget.contents)
-                      DropdownMenuItem(
-                        value: content.id,
-                        child: Text(
-                          content.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged:
-                      (value) => setState(() => _contentId = value ?? ''),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<MediaAssetType>(
-                  initialValue: _type,
-                  decoration: const InputDecoration(labelText: '媒体类型'),
-                  items: [
-                    for (final type in MediaAssetType.values)
-                      DropdownMenuItem(value: type, child: Text(type.label)),
-                  ],
-                  onChanged:
-                      (value) =>
-                          setState(() => _type = value ?? MediaAssetType.image),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _urlController,
-                  decoration: const InputDecoration(labelText: '媒体 URL'),
-                  validator: _validateUrl,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _filenameController,
-                  decoration: const InputDecoration(labelText: '文件名'),
-                  maxLength: 240,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _contentTypeController,
-                  decoration: const InputDecoration(labelText: 'MIME 类型'),
-                  maxLength: 120,
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    AdminNumberField(controller: _byteSizeController, label: '字节数'),
-                    AdminNumberField(controller: _widthController, label: '宽度'),
-                    AdminNumberField(controller: _heightController, label: '高度'),
-                    AdminNumberField(controller: _durationController, label: '时长秒'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return AdminEditorDialog(
+      title: widget.media == null ? '新增媒体' : '编辑媒体',
+      subtitle: '维护资源地址、文件信息和关联内容',
+      maxWidth: 860,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        FilledButton.icon(
-          onPressed: _submit,
-          icon: const Icon(Icons.save),
-          label: const Text('保存'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('保存媒体')),
       ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminFormSection(
+              title: '资源信息',
+              child: Column(
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: _contentId,
+                    decoration: const InputDecoration(labelText: '绑定内容'),
+                    items: [
+                      const DropdownMenuItem(value: '', child: Text('不绑定内容')),
+                      for (final content in widget.contents)
+                        DropdownMenuItem(
+                          value: content.id,
+                          child: Text(
+                            content.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged:
+                        (value) => setState(() => _contentId = value ?? ''),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<MediaAssetType>(
+                    initialValue: _type,
+                    decoration: const InputDecoration(labelText: '媒体类型'),
+                    items: [
+                      for (final type in MediaAssetType.values)
+                        DropdownMenuItem(value: type, child: Text(type.label)),
+                    ],
+                    onChanged:
+                        (value) => setState(
+                          () => _type = value ?? MediaAssetType.image,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _urlController,
+                    decoration: const InputDecoration(labelText: '媒体 URL'),
+                    validator: _validateUrl,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _filenameController,
+                    decoration: const InputDecoration(labelText: '文件名'),
+                    maxLength: 240,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _contentTypeController,
+                    decoration: const InputDecoration(labelText: 'MIME 类型'),
+                    maxLength: 120,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            AdminFormSection(
+              title: '尺寸与容量',
+              subtitle: '这些字段可选，用于媒体信息展示',
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  AdminNumberField(
+                    controller: _byteSizeController,
+                    label: '字节数',
+                  ),
+                  AdminNumberField(controller: _widthController, label: '宽度'),
+                  AdminNumberField(controller: _heightController, label: '高度'),
+                  AdminNumberField(
+                    controller: _durationController,
+                    label: '时长秒',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

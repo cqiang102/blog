@@ -27,12 +27,16 @@ class TagItem {
     required this.name,
     required this.slug,
     this.description = '',
+    this.createdAt,
+    this.updatedAt,
   });
 
   final String id;
   final String name;
   final String slug;
   final String description;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   /// 从 JSON 创建实例
   factory TagItem.fromJson(Map<String, dynamic> json) {
@@ -41,6 +45,8 @@ class TagItem {
       name: jsonString(json['name']),
       slug: jsonString(json['slug']),
       description: jsonString(json['description']),
+      createdAt: json['createdAt'] == null ? null : jsonDate(json['createdAt']),
+      updatedAt: json['updatedAt'] == null ? null : jsonDate(json['updatedAt']),
     );
   }
 }
@@ -77,6 +83,8 @@ class FriendLink {
     required this.siteUrl,
     this.visible = true,
     this.sortOrder = 0,
+    this.createdAt,
+    this.updatedAt,
   });
 
   final String id;
@@ -86,6 +94,8 @@ class FriendLink {
   final String siteUrl;
   final bool visible;
   final int sortOrder;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   /// 从 JSON 创建实例
   factory FriendLink.fromJson(Map<String, dynamic> json) {
@@ -97,6 +107,8 @@ class FriendLink {
       siteUrl: jsonString(json['siteUrl']),
       visible: json['visible'] != false,
       sortOrder: jsonInt(json['sortOrder']),
+      createdAt: json['createdAt'] == null ? null : jsonDate(json['createdAt']),
+      updatedAt: json['updatedAt'] == null ? null : jsonDate(json['updatedAt']),
     );
   }
 }

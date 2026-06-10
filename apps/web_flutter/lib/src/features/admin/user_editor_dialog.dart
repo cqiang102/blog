@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
 import '../../core/theme.dart';
+import 'admin_widgets.dart';
 
 /// 用户编辑器对话框
 class UserEditorDialog extends StatefulWidget {
@@ -50,47 +51,43 @@ class UserEditorDialogState extends State<UserEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('编辑用户'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 620),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 基本信息
-                _buildBasicFields(),
-                const SizedBox(height: AppSpacing.sm + 4),
-
-                // URL 字段
-                _buildUrlFields(),
-                const SizedBox(height: AppSpacing.sm + 4),
-
-                // 简介
-                _buildBioField(),
-                const SizedBox(height: AppSpacing.sm + 4),
-
-                // 角色和状态
-                _buildRoleAndStatusFields(),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return AdminEditorDialog(
+      title: '编辑用户',
+      subtitle: '更新公开资料、账号角色和可用状态',
+      maxWidth: 820,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        FilledButton.icon(
-          onPressed: _submit,
-          icon: const Icon(Icons.save),
-          label: const Text('保存'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('保存用户')),
       ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminFormSection(
+              title: '基本资料',
+              child: Column(
+                children: [
+                  _buildBasicFields(),
+                  const SizedBox(height: AppSpacing.sm + 4),
+                  _buildUrlFields(),
+                  const SizedBox(height: AppSpacing.sm + 4),
+                  _buildBioField(),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            AdminFormSection(
+              title: '权限与状态',
+              subtitle: '角色和状态修改会影响账号可访问的功能',
+              child: _buildRoleAndStatusFields(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -109,8 +106,8 @@ class UserEditorDialogState extends State<UserEditorDialog> {
           controller: _nicknameController,
           decoration: const InputDecoration(labelText: '昵称'),
           maxLength: 80,
-          validator: (value) =>
-              value == null || value.trim().isEmpty ? '请输入昵称' : null,
+          validator:
+              (value) => value == null || value.trim().isEmpty ? '请输入昵称' : null,
         ),
       ],
     );
@@ -158,13 +155,10 @@ class UserEditorDialogState extends State<UserEditorDialog> {
             decoration: const InputDecoration(labelText: '角色'),
             items: [
               for (final role in AdminUserRole.values)
-                DropdownMenuItem(
-                  value: role,
-                  child: Text(role.label),
-                ),
+                DropdownMenuItem(value: role, child: Text(role.label)),
             ],
-            onChanged: (value) =>
-                setState(() => _role = value ?? AdminUserRole.user),
+            onChanged:
+                (value) => setState(() => _role = value ?? AdminUserRole.user),
           ),
         ),
         SizedBox(
@@ -174,13 +168,11 @@ class UserEditorDialogState extends State<UserEditorDialog> {
             decoration: const InputDecoration(labelText: '状态'),
             items: [
               for (final status in AdminUserStatus.values)
-                DropdownMenuItem(
-                  value: status,
-                  child: Text(status.label),
-                ),
+                DropdownMenuItem(value: status, child: Text(status.label)),
             ],
-            onChanged: (value) =>
-                setState(() => _status = value ?? AdminUserStatus.active),
+            onChanged:
+                (value) =>
+                    setState(() => _status = value ?? AdminUserStatus.active),
           ),
         ),
       ],

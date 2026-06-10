@@ -20,15 +20,18 @@ class AdminFriendTab extends ConsumerWidget {
 
     return friends.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stackTrace) => AdminErrorPane(
-        message: error.toString(),
-        onRetry: () => ref.invalidate(adminFriendsProvider),
-      ),
-      data: (items) => _FriendList(
-        items: items,
-        onOpenEditor: (friend) => _openFriendEditor(context, ref, friend: friend),
-        onDelete: (friend) => _deleteFriend(context, ref, friend),
-      ),
+      error:
+          (error, stackTrace) => AdminErrorPane(
+            message: error.toString(),
+            onRetry: () => ref.invalidate(adminFriendsProvider),
+          ),
+      data:
+          (items) => _FriendList(
+            items: items,
+            onOpenEditor:
+                (friend) => _openFriendEditor(context, ref, friend: friend),
+            onDelete: (friend) => _deleteFriend(context, ref, friend),
+          ),
     );
   }
 
@@ -202,9 +205,9 @@ class _FriendAdminRow extends StatelessWidget {
                 friend.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
               Text(
@@ -220,6 +223,15 @@ class _FriendAdminRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              if (friend.updatedAt case final updatedAt?) ...[
+                const SizedBox(height: 6),
+                Text(
+                  '更新于 ${formatAdminDate(updatedAt)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

@@ -10,22 +10,23 @@ class TagSelector extends StatelessWidget {
     required this.tags,
     required this.selectedSlugs,
     required this.onToggle,
+    this.showTitle = true,
   });
 
   final List<TagItem> tags;
   final Set<String> selectedSlugs;
   final void Function(String slug) onToggle;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          '标签',
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-        const SizedBox(height: 8),
+        if (showTitle) ...[
+          Text('标签', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+        ],
         Wrap(
           spacing: 8,
           runSpacing: 8,

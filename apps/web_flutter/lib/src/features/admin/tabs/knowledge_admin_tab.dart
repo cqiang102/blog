@@ -34,21 +34,23 @@ class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
 
     return docs.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stackTrace) => AdminErrorPane(
-        message: error.toString(),
-        onRetry: () => ref.invalidate(adminKnowledgeDocsProvider(_query)),
-      ),
-      data: (page) => _KnowledgeList(
-        page: page,
-        query: _query,
-        queryController: _queryController,
-        enabled: _enabled,
-        onEnabledChanged: (value) => setState(() => _enabled = value),
-        onApply: _applyFilters,
-        onClear: _clearFilters,
-        onOpenEditor: (doc) => _openKnowledgeEditor(context, doc: doc),
-        onDelete: (doc) => _deleteKnowledgeDoc(context, doc),
-      ),
+      error:
+          (error, stackTrace) => AdminErrorPane(
+            message: error.toString(),
+            onRetry: () => ref.invalidate(adminKnowledgeDocsProvider(_query)),
+          ),
+      data:
+          (page) => _KnowledgeList(
+            page: page,
+            query: _query,
+            queryController: _queryController,
+            enabled: _enabled,
+            onEnabledChanged: (value) => setState(() => _enabled = value),
+            onApply: _applyFilters,
+            onClear: _clearFilters,
+            onOpenEditor: (doc) => _openKnowledgeEditor(context, doc: doc),
+            onDelete: (doc) => _deleteKnowledgeDoc(context, doc),
+          ),
     );
   }
 
@@ -88,7 +90,9 @@ class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
             .read(apiClientProvider)
             .createAdminKnowledgeDoc(accessToken: token, draft: draft);
       } else {
-        await ref.read(apiClientProvider).updateAdminKnowledgeDoc(
+        await ref
+            .read(apiClientProvider)
+            .updateAdminKnowledgeDoc(
               accessToken: token,
               id: doc.id,
               draft: draft,
@@ -332,9 +336,9 @@ class _KnowledgeDocRow extends StatelessWidget {
                 doc.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
               Text(
@@ -360,10 +364,7 @@ class _KnowledgeDocRow extends StatelessWidget {
         _KnowledgeEnabledChip(enabled: doc.enabled),
         if (doc.sourceRef.isNotEmpty)
           AdminMetaText(icon: Icons.link_outlined, text: doc.sourceRef),
-        AdminMetaText(
-          icon: Icons.update,
-          text: formatAdminDate(doc.updatedAt),
-        ),
+        AdminMetaText(icon: Icons.update, text: formatAdminDate(doc.updatedAt)),
         OutlinedButton.icon(
           onPressed: onEdit,
           icon: const Icon(Icons.edit_outlined, size: 18),
@@ -401,15 +402,16 @@ class KnowledgeEditorDialogState extends State<KnowledgeEditorDialog> {
   void initState() {
     super.initState();
     final doc = widget.doc;
-    final draft = doc == null
-        ? const AdminKnowledgeDocDraft(
-            title: '',
-            sourceType: KnowledgeSourceType.manual,
-            sourceRef: '',
-            body: '',
-            enabled: true,
-          )
-        : AdminKnowledgeDocDraft.fromItem(doc);
+    final draft =
+        doc == null
+            ? const AdminKnowledgeDocDraft(
+              title: '',
+              sourceType: KnowledgeSourceType.manual,
+              sourceRef: '',
+              body: '',
+              enabled: true,
+            )
+            : AdminKnowledgeDocDraft.fromItem(doc);
     _titleController.text = draft.title;
     _sourceType = draft.sourceType;
     _sourceRefController.text = draft.sourceRef;
@@ -427,75 +429,90 @@ class KnowledgeEditorDialogState extends State<KnowledgeEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.doc == null ? '新增知识库文档' : '编辑知识库文档'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(labelText: '标题'),
-                  maxLength: 180,
-                  validator: (value) =>
-                      value == null || value.trim().isEmpty ? '请输入标题' : null,
-                ),
-                const SizedBox(height: AppSpacing.sm + 4),
-                DropdownButtonFormField<KnowledgeSourceType>(
-                  initialValue: _sourceType,
-                  decoration: const InputDecoration(labelText: '来源类型'),
-                  items: [
-                    for (final sourceType in KnowledgeSourceType.values)
-                      DropdownMenuItem(
-                        value: sourceType,
-                        child: Text(sourceType.label),
-                      ),
-                  ],
-                  onChanged: (value) => setState(
-                    () => _sourceType = value ?? KnowledgeSourceType.manual,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm + 4),
-                TextFormField(
-                  controller: _sourceRefController,
-                  decoration: const InputDecoration(labelText: '来源引用'),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: AppSpacing.sm + 4),
-                TextFormField(
-                  controller: _bodyController,
-                  decoration: const InputDecoration(labelText: '知识正文'),
-                  minLines: 8,
-                  maxLines: 16,
-                ),
-                const SizedBox(height: AppSpacing.sm + 4),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('启用'),
-                  value: _enabled,
-                  onChanged: (value) => setState(() => _enabled = value),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return AdminEditorDialog(
+      title: widget.doc == null ? '新增知识库文档' : '编辑知识库文档',
+      subtitle: '整理来源信息和可用于 AI 检索的正文内容',
+      maxWidth: 900,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        FilledButton.icon(
-          onPressed: _submit,
-          icon: const Icon(Icons.save),
-          label: const Text('保存'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('保存文档')),
       ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdminFormSection(
+              title: '文档信息',
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(labelText: '标题'),
+                    maxLength: 180,
+                    validator:
+                        (value) =>
+                            value == null || value.trim().isEmpty
+                                ? '请输入标题'
+                                : null,
+                  ),
+                  const SizedBox(height: AppSpacing.sm + 4),
+                  DropdownButtonFormField<KnowledgeSourceType>(
+                    initialValue: _sourceType,
+                    decoration: const InputDecoration(labelText: '来源类型'),
+                    items: [
+                      for (final sourceType in KnowledgeSourceType.values)
+                        DropdownMenuItem(
+                          value: sourceType,
+                          child: Text(sourceType.label),
+                        ),
+                    ],
+                    onChanged:
+                        (value) => setState(
+                          () =>
+                              _sourceType = value ?? KnowledgeSourceType.manual,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm + 4),
+                  TextFormField(
+                    controller: _sourceRefController,
+                    decoration: const InputDecoration(labelText: '来源引用'),
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            AdminFormSection(
+              title: '知识正文',
+              subtitle: '建议使用结构清晰、语义完整的文本',
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _bodyController,
+                    decoration: const InputDecoration(
+                      hintText: '输入可供检索和回答使用的正文内容',
+                      alignLabelWithHint: true,
+                    ),
+                    minLines: 10,
+                    maxLines: 20,
+                  ),
+                  const SizedBox(height: AppSpacing.sm + 4),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('启用'),
+                    value: _enabled,
+                    onChanged: (value) => setState(() => _enabled = value),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -543,7 +560,8 @@ class _KnowledgeEnabledChip extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Chip(
       label: Text(enabled ? '启用' : '停用'),
-      backgroundColor: enabled ? scheme.primaryContainer : scheme.errorContainer,
+      backgroundColor:
+          enabled ? scheme.primaryContainer : scheme.errorContainer,
     );
   }
 }

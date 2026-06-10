@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
+import 'admin_widgets.dart';
 
 /// 标签编辑器对话框
 /// 支持新增和编辑标签，包含名称、Slug 和描述
@@ -43,14 +44,22 @@ class TagEditorDialogState extends State<TagEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.tag == null ? '新增标签' : '编辑标签'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Form(
-          key: _formKey,
+    return AdminEditorDialog(
+      title: widget.tag == null ? '新增标签' : '编辑标签',
+      subtitle: '用于内容分类和筛选，Slug 留空时可由后端生成',
+      maxWidth: 620,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('保存标签')),
+      ],
+      child: Form(
+        key: _formKey,
+        child: AdminFormSection(
+          title: '标签信息',
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
                 controller: _nameController,
@@ -77,17 +86,6 @@ class TagEditorDialogState extends State<TagEditorDialog> {
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton.icon(
-          onPressed: _submit,
-          icon: const Icon(Icons.save),
-          label: const Text('保存'),
-        ),
-      ],
     );
   }
 

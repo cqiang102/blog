@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
+import '../../core/theme.dart';
+import 'admin_widgets.dart';
 
 /// 上传媒体草稿数据
 class UploadMediaDraft {
@@ -44,71 +46,85 @@ class UploadMediaDialogState extends State<UploadMediaDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('上传文件'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.insert_drive_file_outlined),
-              title: Text(
-                widget.filename,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: const Text('文件会上传到 MinIO 并自动写入媒体库'),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _contentId,
-              decoration: const InputDecoration(labelText: '绑定内容'),
-              items: [
-                const DropdownMenuItem(value: '', child: Text('不绑定内容')),
-                for (final content in widget.contents)
-                  DropdownMenuItem(
-                    value: content.id,
-                    child: Text(
-                      content.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: (value) => setState(() => _contentId = value ?? ''),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<MediaAssetType>(
-              initialValue: _type,
-              decoration: const InputDecoration(labelText: '媒体类型'),
-              items: [
-                for (final type in MediaAssetType.values)
-                  DropdownMenuItem(value: type, child: Text(type.label)),
-              ],
-              onChanged:
-                  (value) =>
-                      setState(() => _type = value ?? MediaAssetType.file),
-            ),
-          ],
-        ),
-      ),
+    return AdminEditorDialog(
+      title: '上传文件',
+      subtitle: '确认文件类型和关联内容后开始上传',
+      maxWidth: 640,
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        FilledButton.icon(
+        FilledButton(
           onPressed:
               () => Navigator.of(
                 context,
               ).pop(UploadMediaDraft(contentId: _contentId, type: _type)),
-          icon: const Icon(Icons.upload_file),
-          label: const Text('上传'),
+          child: const Text('开始上传'),
         ),
       ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AdminFormSection(
+            title: '文件信息',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.insert_drive_file_outlined),
+                  title: Text(
+                    widget.filename,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: const Text('文件会上传到 MinIO 并自动写入媒体库'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AdminFormSection(
+            title: '上传设置',
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _contentId,
+                  decoration: const InputDecoration(labelText: '绑定内容'),
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('不绑定内容')),
+                    for (final content in widget.contents)
+                      DropdownMenuItem(
+                        value: content.id,
+                        child: Text(
+                          content.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged:
+                      (value) => setState(() => _contentId = value ?? ''),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<MediaAssetType>(
+                  initialValue: _type,
+                  decoration: const InputDecoration(labelText: '媒体类型'),
+                  items: [
+                    for (final type in MediaAssetType.values)
+                      DropdownMenuItem(value: type, child: Text(type.label)),
+                  ],
+                  onChanged:
+                      (value) =>
+                          setState(() => _type = value ?? MediaAssetType.file),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

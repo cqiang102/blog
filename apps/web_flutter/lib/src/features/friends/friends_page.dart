@@ -2,11 +2,14 @@
 // 展示友链网格，包含头像、名称、简介，点击跳转外部链接
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_providers.dart';
+import '../../core/app_ui.dart';
 import '../../core/constants.dart';
 import '../../core/models.dart';
+import '../../core/theme.dart';
 
 /// 友链页 Widget
 /// 从 API 加载友链列表，以响应式网格展示
@@ -19,7 +22,10 @@ class FriendsPage extends ConsumerWidget {
 
     return CustomScrollView(
       slivers: [
-        const SliverAppBar(title: Text('朋友们')),
+        const SliverAppBar(
+          title: Text('朋友们'),
+          actions: [AppThemeToggle(), SizedBox(width: AppSpacing.sm)],
+        ),
         friends.when(
           loading:
               () => const SliverFillRemaining(
@@ -114,6 +120,15 @@ class _FriendCard extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(friend.intro, maxLines: 3, overflow: TextOverflow.ellipsis),
+              if (friend.updatedAt case final updatedAt?) ...[
+                const Spacer(),
+                Text(
+                  '更新于 ${DateFormat('yyyy-MM-dd').format(updatedAt)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

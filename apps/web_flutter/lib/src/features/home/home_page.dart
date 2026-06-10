@@ -1,5 +1,3 @@
-// 首页模块
-// 展示博客的轮播图、最新内容网格和最热内容网格，采用响应式布局
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,13 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api_providers.dart';
+import '../../core/app_ui.dart';
 import '../../core/constants.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 
-/// 首页 Widget
-/// 使用 Riverpod 管理状态，展示推荐内容（置顶轮播、最新更新、点赞最多）
-/// 添加 AutomaticKeepAliveClientMixin 保持页面状态，避免切换标签时重建
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
@@ -32,290 +28,399 @@ class _HomePageState extends ConsumerState<HomePage>
     final recommendations = ref.watch(recommendationsProvider);
     final auth = ref.watch(authControllerProvider);
 
-    return CustomScrollView(
-      slivers: [
-        // AppBar
-        SliverAppBar(
-          title: const Text('沐凉·日记'),
-          actions: [
-            IconButton(
-              tooltip: auth.isAuthenticated ? '个人中心' : '登录',
-              onPressed: () =>
-                  context.go(auth.isAuthenticated ? '/profile' : '/login'),
-              icon: Icon(auth.isAuthenticated ? Icons.person : Icons.login),
-            ),
-          ],
-        ),
-
-        // 内容区域
-        if (recommendations.isLoading)
-          const SliverFillRemaining(
-            hasScrollBody: false,
-            child: _LoadingState(),
-          )
-        else if (recommendations.hasError)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _ErrorState(
-              message: recommendations.error.toString(),
-              onRetry: () => ref.invalidate(recommendationsProvider),
-            ),
-          )
-        else if (recommendations.hasValue) ...[
-          // 轮播图
-          if (recommendations.value!.pinned.isNotEmpty) ...[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  AppSpacing.sm + 4,
-                  AppSpacing.lg,
-                  0,
+    return AppPageFrame(
+      child: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            toolbarHeight: 72,
+            title: const Text('推荐阅读'),
+            actions: [
+              const AppThemeToggle(),
+              IconButton(
+                tooltip: auth.isAuthenticated ? '个人中心' : '登录',
+                onPressed:
+                    () => context.go(
+                      auth.isAuthenticated ? '/profile' : '/login',
+                    ),
+                icon: CircleAvatar(
+                  radius: 18,
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
+                  foregroundColor:
+                      Theme.of(context).colorScheme.onPrimaryContainer,
+                  child: Icon(
+                    auth.isAuthenticated
+                        ? Icons.person_outline_rounded
+                        : Icons.login_rounded,
+                    size: 20,
+                  ),
                 ),
-                child: _PinnedCarousel(contents: recommendations.value!.pinned),
               ),
-            ),
-            const SliverToBoxAdapter(
-              child: SizedBox(height: AppSpacing.xl - 4),
-            ),
-          ],
-
-          // 最近更新标题
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: _SectionHeader(
-                title: '最近更新',
-                actionLabel: '全部内容',
-                onAction: () => context.go('/contents'),
-              ),
-            ),
+              const SizedBox(width: AppSpacing.sm),
+            ],
           ),
-          const SliverToBoxAdapter(
-            child: SizedBox(height: AppSpacing.sm + 4),
+          ...recommendations.when(
+            loading:
+                () => const [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _LoadingState(),
+                  ),
+                ],
+            error:
+                (error, stackTrace) => [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _ErrorState(
+                      message: error.toString(),
+                      onRetry: () => ref.invalidate(recommendationsProvider),
+                    ),
+                  ),
+                ],
+            data: (data) => _buildContent(data),
           ),
-
-          // 最近更新网格（虚拟化）
-          if (recommendations.value!.latest.isNotEmpty)
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              sliver: _ContentGrid(contents: recommendations.value!.latest),
-            ),
-
-          // 点赞最多
-          if (recommendations.value!.mostLiked.isNotEmpty) ...[
-            const SliverToBoxAdapter(
-              child: SizedBox(height: AppSpacing.xl - 4),
-            ),
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                child: _SectionHeader(title: '点赞最多'),
-              ),
-            ),
-            const SliverToBoxAdapter(
-              child: SizedBox(height: AppSpacing.sm + 4),
-            ),
-
-            // 点赞最多网格（虚拟化）
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                0,
-                AppSpacing.lg,
-                AppSpacing.xl,
-              ),
-              sliver: _ContentGrid(contents: recommendations.value!.mostLiked),
-            ),
-          ],
         ],
-      ],
+      ),
     );
+  }
+
+  List<Widget> _buildContent(Recommendations data) {
+    final featured =
+        data.pinned.isNotEmpty
+            ? data.pinned.first
+            : data.latest.isNotEmpty
+            ? data.latest.first
+            : null;
+    final latestWithoutFeatured =
+        featured == null
+            ? data.latest
+            : data.latest.where((item) => item.id != featured.id).toList();
+    final latest =
+        latestWithoutFeatured.isEmpty ? data.latest : latestWithoutFeatured;
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.sm,
+          AppSpacing.lg,
+          0,
+        ),
+        sliver: SliverToBoxAdapter(child: _HomeHero(featured: featured)),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        sliver: SliverToBoxAdapter(
+          child: AppSectionHeader(
+            title: '最近更新',
+            subtitle: '新写下的文章、照片与生活片段',
+            actionLabel: '查看全部',
+            onAction: () => context.go('/contents'),
+          ),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+      if (latest.isNotEmpty)
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          sliver: _LatestContent(contents: latest),
+        )
+      else
+        const SliverToBoxAdapter(child: _EmptyState(message: '还没有发布内容')),
+      if (data.mostLiked.isNotEmpty) ...[
+        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
+        const SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          sliver: SliverToBoxAdapter(
+            child: AppSectionHeader(title: '大家喜欢', subtitle: '被读者收藏和点赞最多的内容'),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          sliver: SliverToBoxAdapter(
+            child: _PopularList(contents: data.mostLiked),
+          ),
+        ),
+      ],
+      const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
+      const SliverPadding(
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          0,
+          AppSpacing.lg,
+          AppSpacing.xxl,
+        ),
+        sliver: SliverToBoxAdapter(child: _HomeFooter()),
+      ),
+    ];
   }
 }
 
-// ============================================================================
-// 轮播图组件
-// ============================================================================
+class _HomeHero extends StatelessWidget {
+  const _HomeHero({required this.featured});
 
-/// 置顶内容轮播图组件
-/// 展示带封面图、标题和摘要的可滑动轮播卡片
-class _PinnedCarousel extends StatelessWidget {
-  const _PinnedCarousel({required this.contents});
-
-  final List<BlogContent> contents;
+  final BlogContent? featured;
 
   @override
   Widget build(BuildContext context) {
-    if (contents.isEmpty) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
 
-    return SizedBox(
-      height: kCarouselHeight,
-      child: PageView.builder(
-        itemCount: contents.length,
-        itemBuilder: (context, index) {
-          final item = contents[index];
-          return _CarouselCard(item: item);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.primaryContainer,
+            scheme.secondaryContainer.withValues(alpha: 0.78),
+          ],
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= kTabletBreakpoint;
+          final intro = _HeroIntro(hasFeatured: featured != null);
+          final story =
+              featured == null
+                  ? const _HeroPlaceholder()
+                  : _FeaturedStory(content: featured!);
+
+          if (!wide) {
+            return Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  intro,
+                  const SizedBox(height: AppSpacing.lg),
+                  SizedBox(height: 280, child: story),
+                ],
+              ),
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Row(
+              children: [
+                Expanded(flex: 5, child: intro),
+                const SizedBox(width: AppSpacing.xl),
+                Expanded(flex: 6, child: SizedBox(height: 340, child: story)),
+              ],
+            ),
+          );
         },
       ),
     );
   }
 }
 
-/// 轮播卡片组件
-class _CarouselCard extends StatelessWidget {
-  const _CarouselCard({required this.item});
+class _HeroIntro extends StatelessWidget {
+  const _HeroIntro({required this.hasFeatured});
 
-  final BlogContent item;
+  final bool hasFeatured;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => context.go('/contents/${item.id}'),
-      borderRadius: BorderRadius.circular(12),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 封面图
-            _CoverImage(url: item.coverUrl),
+    final scheme = Theme.of(context).colorScheme;
 
-            // 渐变遮罩
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    AppColors.overlayDark,
-                  ],
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm + 4,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: scheme.surface.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            'PERSONAL NOTES · CODE & LIFE',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: scheme.primary,
+              letterSpacing: 1.1,
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          '写代码，\n也记录生活。',
+          style: Theme.of(
+            context,
+          ).textTheme.displaySmall?.copyWith(color: scheme.onPrimaryContainer),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          '这里收藏工程实践、AI 探索，以及值得被记住的普通日子。',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: scheme.onPrimaryContainer.withValues(alpha: 0.78),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            FilledButton(
+              onPressed: () => context.go('/contents'),
+              child: const Text('开始阅读'),
+            ),
+            OutlinedButton(
+              onPressed: () => context.go('/about'),
+              child: const Text('认识我'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _FeaturedStory extends StatelessWidget {
+  const _FeaturedStory({required this.content});
+
+  final BlogContent content;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppInteractiveCard(
+      borderRadius: 18,
+      onTap: () => context.go('/contents/${content.id}'),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          _CoverImage(url: content.coverUrl),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, AppColors.overlayDark],
+              ),
+            ),
+          ),
+          Positioned(
+            left: AppSpacing.lg,
+            right: AppSpacing.lg,
+            top: AppSpacing.lg,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.36),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  content.pinned ? '精选置顶' : '本期推荐',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: AppColors.onOverlay),
                 ),
               ),
             ),
-
-            // 文字内容
-            Positioned(
-              left: AppSpacing.lg,
-              right: AppSpacing.lg,
-              bottom: AppSpacing.lg,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    item.type.label,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.onOverlayMuted,
-                        ),
+          ),
+          Positioned(
+            left: AppSpacing.lg,
+            right: AppSpacing.lg,
+            bottom: AppSpacing.lg,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  content.type.label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppColors.onOverlayMuted,
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: AppColors.onOverlay,
-                              fontWeight: FontWeight.w700,
-                            ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  content.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppColors.onOverlay,
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    item.summary,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.onOverlay,
-                        ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  content.summary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onOverlayMuted,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroPlaceholder extends StatelessWidget {
+  const _HeroPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.edit_note_rounded,
+          size: 72,
+          color: scheme.primary.withValues(alpha: 0.55),
         ),
       ),
     );
   }
 }
 
-// ============================================================================
-// 区域标题组件
-// ============================================================================
-
-/// 区域标题组件
-/// 带有可选的操作按钮（如"全部内容"链接）
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.actionLabel, this.onAction});
-
-  final String title;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-        ),
-        if (actionLabel != null)
-          TextButton.icon(
-            onPressed: onAction,
-            icon: const Icon(Icons.arrow_forward),
-            label: Text(actionLabel!),
-          ),
-      ],
-    );
-  }
-}
-
-// ============================================================================
-// 内容网格组件
-// ============================================================================
-
-/// 内容网格组件
-/// 根据屏幕宽度自适应列数：>=1100显示3列，>=720显示2列，否则1列
-/// 使用 SliverGrid 实现虚拟化渲染，避免 shrinkWrap 性能问题
-class _ContentGrid extends StatelessWidget {
-  const _ContentGrid({required this.contents});
+class _LatestContent extends StatelessWidget {
+  const _LatestContent({required this.contents});
 
   final List<BlogContent> contents;
 
   @override
   Widget build(BuildContext context) {
-    if (contents.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: _EmptyState(message: '还没有发布内容'),
-      );
-    }
-
     return SliverLayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.crossAxisExtent >= kDesktopBreakpoint
-            ? 3
-            : constraints.crossAxisExtent >= kTabletBreakpoint
-                ? 2
-                : 1;
+        if (constraints.crossAxisExtent < 600) {
+          return SliverList.separated(
+            itemCount: contents.length,
+            separatorBuilder:
+                (context, index) => const SizedBox(height: AppSpacing.sm + 4),
+            itemBuilder:
+                (context, index) => _CompactStoryCard(content: contents[index]),
+          );
+        }
 
+        final columns =
+            constraints.crossAxisExtent >= kDesktopBreakpoint ? 3 : 2;
         return SliverGrid(
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
+            mainAxisExtent: 344,
             crossAxisSpacing: AppSpacing.md,
             mainAxisSpacing: AppSpacing.md,
-            childAspectRatio: columns == 1
-                ? kContentCardAspectRatioNarrow
-                : kContentCardAspectRatioWide,
           ),
           delegate: SliverChildBuilderDelegate(
-            (context, index) => _ContentCard(content: contents[index]),
+            (context, index) => _StoryCard(content: contents[index]),
             childCount: contents.length,
           ),
         );
@@ -324,66 +429,183 @@ class _ContentGrid extends StatelessWidget {
   }
 }
 
-/// 内容卡片组件
-/// 展示单个内容的封面、类型、标题、摘要、点赞数和发布日期
-class _ContentCard extends StatelessWidget {
-  const _ContentCard({required this.content});
+class _StoryCard extends StatelessWidget {
+  const _StoryCard({required this.content});
 
   final BlogContent content;
 
   @override
   Widget build(BuildContext context) {
-    final date = DateFormat('yyyy-MM-dd').format(content.publishedAt);
+    return AppInteractiveCard(
+      onTap: () => context.go('/contents/${content.id}'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 164,
+            width: double.infinity,
+            child: _CoverImage(url: content.coverUrl),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: _StoryBody(content: content),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => context.go('/contents/${content.id}'),
-        child: Column(
+class _CompactStoryCard extends StatelessWidget {
+  const _CompactStoryCard({required this.content});
+
+  final BlogContent content;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppInteractiveCard(
+      onTap: () => context.go('/contents/${content.id}'),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm + 4),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 封面图
-            Expanded(child: _CoverImage(url: content.coverUrl)),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 116,
+                height: 132,
+                child: _CoverImage(url: content.coverUrl),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: _StoryBody(content: content, compact: true)),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-            // 内容信息
-            Padding(
-              padding: const EdgeInsets.all(14),
+class _StoryBody extends StatelessWidget {
+  const _StoryBody({required this.content, this.compact = false});
+
+  final BlogContent content;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final date = DateFormat('yyyy-MM-dd').format(content.publishedAt);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          content.type.label,
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: scheme.primary),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          content.title,
+          maxLines: compact ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          content.summary,
+          maxLines: compact ? 2 : 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        const Spacer(),
+        _ContentStats(likeCount: content.likeCount, date: date),
+      ],
+    );
+  }
+}
+
+class _PopularList extends StatelessWidget {
+  const _PopularList({required this.contents});
+
+  final List<BlogContent> contents;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = contents.take(5).toList();
+    return Column(
+      children: [
+        for (var index = 0; index < visible.length; index++) ...[
+          _PopularRow(rank: index + 1, content: visible[index]),
+          if (index != visible.length - 1)
+            const SizedBox(height: AppSpacing.sm),
+        ],
+      ],
+    );
+  }
+}
+
+class _PopularRow extends StatelessWidget {
+  const _PopularRow({required this.rank, required this.content});
+
+  final int rank;
+  final BlogContent content;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AppInteractiveCard(
+      onTap: () => context.go('/contents/${content.id}'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm + 4,
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 44,
+              child: Text(
+                rank.toString().padLeft(2, '0'),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: rank <= 3 ? scheme.secondary : scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 类型标签
-                  Text(
-                    content.type.label,
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                  const SizedBox(height: 6),
-
-                  // 标题
                   Text(
                     content.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 6),
-
-                  // 摘要
                   Text(
                     content.summary,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 10),
-
-                  // 统计信息
-                  _ContentStats(
-                    likeCount: content.likeCount,
-                    date: date,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Icon(Icons.favorite_rounded, size: 16, color: scheme.secondary),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              '${content.likeCount}',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
@@ -392,47 +614,36 @@ class _ContentCard extends StatelessWidget {
   }
 }
 
-/// 内容统计信息组件
 class _ContentStats extends StatelessWidget {
-  const _ContentStats({
-    required this.likeCount,
-    required this.date,
-  });
+  const _ContentStats({required this.likeCount, required this.date});
 
   final int likeCount;
   final String date;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
+    final scheme = Theme.of(context).colorScheme;
+    final style = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant);
     return Row(
       children: [
-        Icon(Icons.favorite_outline, size: 16, color: colorScheme.onSurfaceVariant),
-        const SizedBox(width: 4),
-        Text(
-          '$likeCount',
-          style: Theme.of(context).textTheme.bodySmall,
+        Icon(
+          Icons.favorite_border_rounded,
+          size: 16,
+          color: scheme.onSurfaceVariant,
         ),
-        const SizedBox(width: 12),
-        Icon(Icons.schedule, size: 16, color: colorScheme.onSurfaceVariant),
-        const SizedBox(width: 4),
-        Text(
-          date,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        const SizedBox(width: AppSpacing.xs),
+        Text('$likeCount', style: style),
+        const SizedBox(width: AppSpacing.sm + 4),
+        Icon(Icons.schedule_rounded, size: 16, color: scheme.onSurfaceVariant),
+        const SizedBox(width: AppSpacing.xs),
+        Text(date, style: style),
       ],
     );
   }
 }
 
-// ============================================================================
-// 封面图片组件
-// ============================================================================
-
-/// 封面图片组件
-/// 使用 CachedNetworkImage 加载网络图片，加载失败时显示占位符
-/// 优化：添加 memCacheWidth 限制内存占用
 class _CoverImage extends StatelessWidget {
   const _CoverImage({required this.url});
 
@@ -440,22 +651,17 @@ class _CoverImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (url.isEmpty) {
-      return const _CoverPlaceholder();
-    }
-
+    if (url.isEmpty) return const _CoverPlaceholder();
     return CachedNetworkImage(
       imageUrl: url,
       fit: BoxFit.cover,
       width: double.infinity,
-      memCacheWidth: 800, // 限制内存缓存宽度，优化内存占用
+      memCacheWidth: 1000,
       errorWidget: (context, url, error) => const _CoverPlaceholder(),
     );
   }
 }
 
-/// 封面占位符组件
-/// 无封面图片时显示的默认占位界面
 class _CoverPlaceholder extends StatelessWidget {
   const _CoverPlaceholder();
 
@@ -465,8 +671,8 @@ class _CoverPlaceholder extends StatelessWidget {
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Center(
         child: Icon(
-          Icons.article_outlined,
-          size: 44,
+          Icons.auto_stories_outlined,
+          size: 48,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
@@ -474,24 +680,47 @@ class _CoverPlaceholder extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// 状态组件
-// ============================================================================
+class _HomeFooter extends StatelessWidget {
+  const _HomeFooter();
 
-/// 加载状态组件
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lightbulb_outline_rounded, color: scheme.secondary),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              '愿这里的记录，能给正在解决相似问题的你一点启发。',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          TextButton(
+            onPressed: () => context.go('/about'),
+            child: const Text('关于我'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LoadingState extends StatelessWidget {
   const _LoadingState();
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: CircularProgressIndicator(),
-    );
+    return const Center(child: CircularProgressIndicator());
   }
 }
 
-/// 空状态组件
-/// 内容列表为空时显示的提示信息
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.message});
 
@@ -501,31 +730,11 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 48,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              message,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-          ],
-        ),
-      ),
+      child: Center(child: Text(message)),
     );
   }
 }
 
-/// 错误状态组件
-/// 数据加载失败时显示错误信息和重试按钮
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.message, required this.onRetry});
 
@@ -546,17 +755,9 @@ class _ErrorState extends StatelessWidget {
               color: Theme.of(context).colorScheme.error,
             ),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            Text(message, textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.md),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('重试'),
-            ),
+            FilledButton(onPressed: onRetry, child: const Text('重试')),
           ],
         ),
       ),

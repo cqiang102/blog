@@ -44,12 +44,31 @@ class AdminTagTab extends ConsumerWidget {
                     child: ListTile(
                       leading: const Icon(Icons.sell_outlined),
                       title: Text(tag.name),
-                      subtitle: Text(
-                        tag.description.isEmpty
-                            ? tag.slug
-                            : '${tag.slug} · ${tag.description}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            tag.description.isEmpty
+                                ? tag.slug
+                                : '${tag.slug} · ${tag.description}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (tag.updatedAt case final updatedAt?) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '更新于 ${formatAdminDate(updatedAt)}',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.copyWith(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       trailing: Wrap(
                         spacing: 4,

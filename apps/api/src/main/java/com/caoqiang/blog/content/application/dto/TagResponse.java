@@ -7,6 +7,7 @@ import com.caoqiang.blog.content.domain.model.MediaAsset;
 import com.caoqiang.blog.content.domain.model.MediaAssetType;
 import com.caoqiang.blog.content.domain.model.Tag;
 
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -24,7 +25,11 @@ public record TagResponse(
         /** URL 标识符 */
         String slug,
         /** 标签描述 */
-        String description
+        String description,
+        /** 创建时间 */
+        Instant createdAt,
+        /** 最后更新时间 */
+        Instant updatedAt
 ) {
 
     /**
@@ -34,6 +39,13 @@ public record TagResponse(
      * @return 标签响应
      */
     public static TagResponse from(Tag tag) {
-        return new TagResponse(tag.getId(), tag.getName(), tag.getSlug(), tag.getDescription());
+        return new TagResponse(
+                tag.getId(),
+                tag.getName(),
+                tag.getSlug(),
+                tag.getDescription(),
+                tag.getCreatedAt(),
+                tag.getUpdatedAt()
+        );
     }
 }

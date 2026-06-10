@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'router.dart';
 import 'theme.dart';
+import 'theme_controller.dart';
 
 /// 博客应用根 Widget
 /// 使用 Riverpod 进行状态管理，集成 GoRouter 路由
@@ -17,6 +18,8 @@ class BlogApp extends ConsumerWidget {
   /// [ref] Riverpod 引用，用于监听 Provider
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final themeController = ref.watch(themeControllerProvider);
+
     return MaterialApp.router(
       title: '沐凉·日记',
       debugShowCheckedModeBanner: false,
@@ -27,8 +30,8 @@ class BlogApp extends ConsumerWidget {
       // 深色主题 - 支持系统暗黑模式切换
       darkTheme: buildDarkAppTheme(),
 
-      // 跟随系统主题
-      themeMode: ThemeMode.system,
+      // 默认跟随系统，也允许用户手动切换并持久化
+      themeMode: themeController.mode,
 
       // GoRouter 路由配置
       routerConfig: ref.watch(routerProvider),

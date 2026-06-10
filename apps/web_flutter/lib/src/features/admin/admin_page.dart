@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_providers.dart';
+import '../../core/app_ui.dart';
 import 'tabs/ai_chat_admin_tab.dart';
 import 'tabs/audit_log_admin_tab.dart';
 import 'tabs/comment_admin_tab.dart';
@@ -30,8 +31,19 @@ class AdminPage extends ConsumerStatefulWidget {
 
 class _AdminPageState extends ConsumerState<AdminPage>
     with AutomaticKeepAliveClientMixin {
+  int _selectedIndex = 0;
+  final Set<int> _visitedTabs = {0};
+
   @override
   bool get wantKeepAlive => true;
+
+  void _selectTab(int index) {
+    if (_selectedIndex == index) return;
+    setState(() {
+      _selectedIndex = index;
+      _visitedTabs.add(index);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,14 +53,20 @@ class _AdminPageState extends ConsumerState<AdminPage>
 
     if (!auth.isLoaded) {
       return Scaffold(
-        appBar: AppBar(title: const Text('管理员中心')),
+        appBar: AppBar(
+          title: const Text('管理员中心'),
+          actions: const [AppThemeToggle()],
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (!isAdmin && auth.user?.role.toUpperCase() != 'USER') {
       return Scaffold(
-        appBar: AppBar(title: const Text('管理员中心')),
+        appBar: AppBar(
+          title: const Text('管理员中心'),
+          actions: const [AppThemeToggle()],
+        ),
         body: const Center(
           child: Padding(
             padding: EdgeInsets.all(24),
@@ -65,102 +83,59 @@ class _AdminPageState extends ConsumerState<AdminPage>
 
     // 根据角色过滤标签页
     final tabs = <_AdminTab>[
-      const _AdminTab(
-        icon: Icon(Icons.space_dashboard_outlined),
-        selectedIcon: Icon(Icons.space_dashboard),
-        label: '概览',
-        builder: AdminDashboardTab(),
-      ),
-      const _AdminTab(
-        icon: Icon(Icons.article_outlined),
-        selectedIcon: Icon(Icons.article),
-        label: '内容',
-        builder: AdminContentTab(),
-      ),
+      const _AdminTab(label: '概览', builder: AdminDashboardTab()),
+      const _AdminTab(label: '内容', builder: AdminContentTab()),
 
-      const _AdminTab(
-        icon: Icon(Icons.mode_comment_outlined),
-        selectedIcon: Icon(Icons.mode_comment),
-        label: '评论',
-        builder: AdminCommentTab(),
-      ),
-      const _AdminTab(
-        icon: Icon(Icons.favorite_border),
-        selectedIcon: Icon(Icons.favorite),
-        label: '点赞',
-        builder: AdminLikeTab(),
-      ),
-      const _AdminTab(
-        icon: Icon(Icons.history_outlined),
-        selectedIcon: Icon(Icons.history),
-        label: '浏览',
-        builder: AdminViewTab(),
-      ),
+      const _AdminTab(label: '评论', builder: AdminCommentTab()),
+      const _AdminTab(label: '点赞', builder: AdminLikeTab()),
+      const _AdminTab(label: '浏览', builder: AdminViewTab()),
       // 以下标签页仅 ADMIN 可见
-      if (isAdmin)
-        const _AdminTab(
-          icon: Icon(Icons.people_outline),
-          selectedIcon: Icon(Icons.people),
-          label: '朋友',
-          builder: AdminFriendTab(),
-        ),
-      if (isAdmin)
-        const _AdminTab(
-          icon: Icon(Icons.sell_outlined),
-          selectedIcon: Icon(Icons.sell),
-          label: '标签',
-          builder: AdminTagTab(),
-        ),
-      if (isAdmin)
-        const _AdminTab(
-          icon: Icon(Icons.manage_accounts_outlined),
-          selectedIcon: Icon(Icons.manage_accounts),
-          label: '用户',
-          builder: AdminUserTab(),
-        ),
-      if (isAdmin)
-        const _AdminTab(
-          icon: Icon(Icons.smart_toy_outlined),
-          selectedIcon: Icon(Icons.smart_toy),
-          label: 'AI',
-          builder: AdminAiChatTab(),
-        ),
-      if (isAdmin)
-        const _AdminTab(
-          icon: Icon(Icons.library_books_outlined),
-          selectedIcon: Icon(Icons.library_books),
-          label: '知识库',
-          builder: AdminKnowledgeTab(),
-        ),
-      if (isAdmin)
-        const _AdminTab(
-          icon: Icon(Icons.shield_outlined),
-          selectedIcon: Icon(Icons.shield),
-          label: '日志',
-          builder: AdminAuditLogTab(),
-        ),
+      if (isAdmin) const _AdminTab(label: '朋友', builder: AdminFriendTab()),
+      if (isAdmin) const _AdminTab(label: '标签', builder: AdminTagTab()),
+      if (isAdmin) const _AdminTab(label: '用户', builder: AdminUserTab()),
+      if (isAdmin) const _AdminTab(label: 'AI', builder: AdminAiChatTab()),
+      if (isAdmin) const _AdminTab(label: '知识库', builder: AdminKnowledgeTab()),
+      if (isAdmin) const _AdminTab(label: '日志', builder: AdminAuditLogTab()),
     ];
 
-    return DefaultTabController(
-      length: tabs.length,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(isAdmin ? '管理员中心' : '内容管理'),
-          actions: [
-            IconButton(
-              tooltip: '刷新',
-              onPressed: () => _refresh(ref),
-              icon: const Icon(Icons.refresh),
+    final selectedIndex = _selectedIndex.clamp(0, tabs.length - 1);
+
+    return AppPageFrame(
+      maxWidth: 1480,
+      child: Column(
+        children: [
+          AppPageHeader(
+            title: isAdmin ? '管理员中心' : '内容管理',
+            // subtitle: '当前模块：${tabs[selectedIndex].label}',
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const AppThemeToggle(),
+                IconButton(
+                  tooltip: '刷新当前管理数据',
+                  onPressed: () => _refresh(ref),
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+              ],
             ),
-          ],
-          bottom: TabBar(
-            isScrollable: true,
-            tabs: [for (final tab in tabs) Tab(icon: tab.icon, text: tab.label)],
           ),
-        ),
-        body: TabBarView(
-          children: [for (final tab in tabs) tab.builder],
-        ),
+          AppHorizontalTabs(
+            labels: tabs.map((tab) => tab.label).toList(),
+            selectedIndex: selectedIndex,
+            onSelected: _selectTab,
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: selectedIndex,
+              children: [
+                for (var index = 0; index < tabs.length; index++)
+                  _visitedTabs.contains(index)
+                      ? tabs[index].builder
+                      : const SizedBox.shrink(),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -185,15 +160,8 @@ class _AdminPageState extends ConsumerState<AdminPage>
 
 /// 管理标签页数据模型
 class _AdminTab {
-  const _AdminTab({
-    required this.icon,
-    required this.label,
-    required this.builder,
-    this.selectedIcon,
-  });
+  const _AdminTab({required this.label, required this.builder});
 
-  final Widget icon;
-  final Widget? selectedIcon;
   final String label;
   final Widget builder;
 }

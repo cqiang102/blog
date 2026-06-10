@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
+import '../../core/app_ui.dart';
 import '../../core/auth_controller.dart';
 import '../../core/constants.dart';
 import '../../core/models.dart';
@@ -27,45 +28,79 @@ class ProfilePage extends ConsumerStatefulWidget {
 
 class _ProfilePageState extends ConsumerState<ProfilePage>
     with AutomaticKeepAliveClientMixin {
+  static const _sections = [
+    ('个人资料', '编辑头像、昵称与公开信息'),
+    ('我的评论', '查看自己的评论记录'),
+    ('我的点赞', '查看收藏和点赞过的内容'),
+    ('浏览记录', '快速找回最近阅读的内容'),
+  ];
+
+  int _selectedIndex = 0;
+  final Set<int> _visitedSections = {0};
+
   @override
   bool get wantKeepAlive => true;
+
+  void _selectSection(int index) {
+    if (_selectedIndex == index) return;
+    setState(() {
+      _selectedIndex = index;
+      _visitedSections.add(index);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final auth = ref.watch(authControllerProvider);
 
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('个人中心'),
-          actions: [
-            IconButton(
-              tooltip: '退出登录',
-              onPressed: auth.isBusy
-                  ? null
-                  : () => ref.read(authControllerProvider).logout(),
-              icon: const Icon(Icons.logout),
+    return AppPageFrame(
+      maxWidth: 1280,
+      child: Column(
+        children: [
+          AppPageHeader(
+            title: '个人中心',
+            // subtitle: _sections[_selectedIndex].$2,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const AppThemeToggle(),
+                IconButton(
+                  tooltip: '退出登录',
+                  onPressed:
+                      auth.isBusy
+                          ? null
+                          : () => ref.read(authControllerProvider).logout(),
+                  icon: const Icon(Icons.logout_rounded),
+                ),
+              ],
             ),
-          ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(icon: Icon(Icons.person), text: '资料'),
-              Tab(icon: Icon(Icons.comment), text: '评论'),
-              Tab(icon: Icon(Icons.favorite), text: '点赞'),
-              Tab(icon: Icon(Icons.history), text: '浏览'),
-            ],
           ),
-        ),
-        body: const TabBarView(
-          children: [
-            _ProfileForm(),
-            _RecordList(type: 'comments', label: '评论'),
-            _RecordList(type: 'likes', label: '点赞'),
-            _RecordList(type: 'views', label: '浏览'),
-          ],
-        ),
+          AppHorizontalTabs(
+            labels: _sections.map((item) => item.$1).toList(),
+            selectedIndex: _selectedIndex,
+            onSelected: _selectSection,
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: [
+                _visitedSections.contains(0)
+                    ? const _ProfileForm()
+                    : const SizedBox.shrink(),
+                _visitedSections.contains(1)
+                    ? const _RecordList(type: 'comments', label: '评论')
+                    : const SizedBox.shrink(),
+                _visitedSections.contains(2)
+                    ? const _RecordList(type: 'likes', label: '点赞')
+                    : const SizedBox.shrink(),
+                _visitedSections.contains(3)
+                    ? const _RecordList(type: 'views', label: '浏览')
+                    : const SizedBox.shrink(),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -137,24 +172,42 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
-        // 头像区域
-        _AvatarSection(
-          avatarUrl: avatarUrl,
-          uploading: _uploadingAvatar,
-          onUpload: _pickAndUploadAvatar,
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: Column(
+              children: [
+                _ProfileSectionCard(
+                  title: '头像',
+                  subtitle: '建议使用清晰、简洁的正方形图片',
+                  child: _AvatarSection(
+                    avatarUrl: avatarUrl,
+                    uploading: _uploadingAvatar,
+                    onUpload: _pickAndUploadAvatar,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _ProfileSectionCard(
+                  title: '基本信息',
+                  subtitle: '这些信息会展示在个人主页和互动记录中',
+                  child: _buildBasicInfoForm(auth),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _ProfileSectionCard(
+                  title: user?.hasPassword == true ? '修改密码' : '设置密码',
+                  subtitle: '定期更新密码有助于保护账号安全',
+                  child: _buildPasswordSection(user),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _ProfileSectionCard(
+                  title: '账号绑定',
+                  subtitle: '管理第三方登录方式',
+                  child: _buildOAuthSection(context),
+                ),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: AppSpacing.lg),
-
-        // 基本信息表单
-        _buildBasicInfoForm(auth),
-        const SizedBox(height: AppSpacing.xl),
-
-        // 密码区域
-        _buildPasswordSection(user),
-        const SizedBox(height: AppSpacing.xl),
-
-        // OAuth 绑定区域
-        _buildOAuthSection(context),
       ],
     );
   }
@@ -164,13 +217,6 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '基本信息',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: AppSpacing.md),
         TextField(
           controller: _nicknameController,
           decoration: const InputDecoration(labelText: '昵称'),
@@ -194,15 +240,15 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
         const SizedBox(height: AppSpacing.md),
         Align(
           alignment: Alignment.centerLeft,
-          child: FilledButton.icon(
+          child: FilledButton(
             onPressed: auth.isBusy ? null : _save,
-            icon: auth.isBusy
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save),
-            label: const Text('保存'),
+            child:
+                auth.isBusy
+                    ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Text('保存修改'),
           ),
         ),
       ],
@@ -214,15 +260,6 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(),
-        const SizedBox(height: AppSpacing.md),
-        Text(
-          user?.hasPassword == true ? '修改密码' : '设置密码',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: AppSpacing.md),
         if (user?.hasPassword == true) ...[
           TextField(
             controller: _oldPasswordController,
@@ -248,17 +285,20 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
         const SizedBox(height: AppSpacing.md),
         Align(
           alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            onPressed: _changingPassword
-                ? null
-                : (user?.hasPassword == true ? _changePassword : _setPassword),
-            icon: _changingPassword
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.lock_outline),
-            label: Text(user?.hasPassword == true ? '修改密码' : '设置密码'),
+          child: OutlinedButton(
+            onPressed:
+                _changingPassword
+                    ? null
+                    : (user?.hasPassword == true
+                        ? _changePassword
+                        : _setPassword),
+            child:
+                _changingPassword
+                    ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : Text(user?.hasPassword == true ? '修改密码' : '设置密码'),
           ),
         ),
       ],
@@ -272,36 +312,27 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(),
-        const SizedBox(height: AppSpacing.md),
-        Text(
-          '账号绑定',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: AppSpacing.sm + 4),
         Card(
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
               ListTile(
-                leading: const Icon(Icons.code),
                 title: const Text('GitHub'),
                 subtitle: Text(
                   hasGithub
                       ? '已绑定: ${_oauthAccounts.firstWhere((a) => a.provider == 'GITHUB').providerUsername}'
                       : '未绑定',
                 ),
-                trailing: hasGithub
-                    ? TextButton(
-                        onPressed: () => _unbindOAuth('github'),
-                        child: const Text('解绑'),
-                      )
-                    : TextButton(
-                        onPressed: _bindGithub,
-                        child: const Text('绑定'),
-                      ),
+                trailing:
+                    hasGithub
+                        ? TextButton(
+                          onPressed: () => _unbindOAuth('github'),
+                          child: const Text('解绑'),
+                        )
+                        : TextButton(
+                          onPressed: _bindGithub,
+                          child: const Text('绑定'),
+                        ),
               ),
             ],
           ),
@@ -328,8 +359,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     try {
       final token = ref.read(authControllerProvider).accessToken;
       if (token == null) return;
-      final accounts =
-          await ref.read(apiClientProvider).fetchOAuthAccounts(accessToken: token);
+      final accounts = await ref
+          .read(apiClientProvider)
+          .fetchOAuthAccounts(accessToken: token);
       if (mounted) {
         setState(() {
           _oauthAccounts = accounts;
@@ -346,14 +378,15 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
     try {
-      final githubUrl =
-          await ref.read(apiClientProvider).fetchGithubBindUrl(token);
+      final githubUrl = await ref
+          .read(apiClientProvider)
+          .fetchGithubBindUrl(token);
       await launchUrl(Uri.parse(githubUrl), webOnlyWindowName: '_self');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('获取绑定地址失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('获取绑定地址失败: $e')));
       }
     }
   }
@@ -363,20 +396,21 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认解绑'),
-        content: Text('确定要解绑 ${provider.toUpperCase()} 账号吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('确认解绑'),
+            content: Text('确定要解绑 ${provider.toUpperCase()} 账号吗？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('确定'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('确定'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true) return;
@@ -384,14 +418,14 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     try {
       final token = ref.read(authControllerProvider).accessToken;
       if (token == null) return;
-      await ref.read(apiClientProvider).unbindOAuthAccount(
-            accessToken: token,
-            provider: provider,
-          );
+      await ref
+          .read(apiClientProvider)
+          .unbindOAuthAccount(accessToken: token, provider: provider);
       _loadOAuthAccounts();
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已解绑')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已解绑')));
     } on ApiException catch (error) {
       if (!mounted) return;
       _showError(error.message);
@@ -424,7 +458,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
         return;
       }
 
-      final newAvatarUrl = await ref.read(apiClientProvider).uploadAvatar(
+      final newAvatarUrl = await ref
+          .read(apiClientProvider)
+          .uploadAvatar(
             accessToken: token,
             bytes: file.bytes!,
             filename: file.name,
@@ -438,8 +474,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('头像已更新')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('头像已更新')));
     } on ApiException catch (error) {
       if (mounted) setState(() => _uploadingAvatar = false);
       if (!mounted) return;
@@ -454,7 +491,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
   /// 保存个人资料
   Future<void> _save() async {
     try {
-      await ref.read(authControllerProvider).updateProfile(
+      await ref
+          .read(authControllerProvider)
+          .updateProfile(
             email: _emailController.text.trim(),
             nickname: _nicknameController.text.trim(),
             bio: _bioController.text.trim(),
@@ -462,8 +501,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
             avatarUrl: _avatarUrl,
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已保存')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已保存')));
     } on ApiException catch (error) {
       _showError(error.message);
     } catch (error) {
@@ -495,7 +535,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
 
     if (mounted) setState(() => _changingPassword = true);
     try {
-      await ref.read(apiClientProvider).changePassword(
+      await ref
+          .read(apiClientProvider)
+          .changePassword(
             accessToken: token,
             oldPassword: oldPassword,
             newPassword: newPassword,
@@ -504,8 +546,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       _oldPasswordController.clear();
       _newPasswordController.clear();
       _confirmPasswordController.clear();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('密码已修改')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('密码已修改')));
     } on ApiException catch (error) {
       if (!mounted) return;
       _showError(error.message);
@@ -536,17 +579,17 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
 
     if (mounted) setState(() => _changingPassword = true);
     try {
-      await ref.read(apiClientProvider).setPassword(
-            accessToken: token,
-            newPassword: newPassword,
-          );
+      await ref
+          .read(apiClientProvider)
+          .setPassword(accessToken: token, newPassword: newPassword);
       if (!mounted) return;
       _newPasswordController.clear();
       _confirmPasswordController.clear();
       await ref.read(authControllerProvider).loadUser();
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('密码已设置')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('密码已设置')));
     } on ApiException catch (error) {
       if (!mounted) return;
       _showError(error.message);
@@ -560,8 +603,52 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _ProfileSectionCard extends StatelessWidget {
+  const _ProfileSectionCard({
+    required this.title,
+    required this.child,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleLarge),
+          if (subtitle != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              subtitle!,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.lg),
+          child,
+        ],
+      ),
+    );
   }
 }
 
@@ -591,9 +678,10 @@ class _AvatarSection extends StatelessWidget {
                 radius: 44,
                 backgroundImage:
                     avatarUrl != null ? NetworkImage(avatarUrl!) : null,
-                child: avatarUrl == null
-                    ? const Icon(Icons.person, size: 44)
-                    : null,
+                child:
+                    avatarUrl == null
+                        ? const Icon(Icons.person, size: 44)
+                        : null,
               ),
               Positioned(
                 bottom: 0,
@@ -607,13 +695,16 @@ class _AvatarSection extends StatelessWidget {
                     onTap: uploading ? null : onUpload,
                     child: Padding(
                       padding: const EdgeInsets.all(AppSpacing.sm),
-                      child: uploading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.camera_alt, size: 20),
+                      child:
+                          uploading
+                              ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Icon(Icons.camera_alt, size: 20),
                     ),
                   ),
                 ),
@@ -658,7 +749,9 @@ class _RecordListState extends ConsumerState<_RecordList>
     if (token == null) {
       throw Exception('请先登录');
     }
-    return await ref.read(apiClientProvider).fetchMyActivity(
+    return await ref
+        .read(apiClientProvider)
+        .fetchMyActivity(
           accessToken: token,
           type: widget.type,
           page: page,
@@ -681,8 +774,8 @@ class _RecordListState extends ConsumerState<_RecordList>
         child: Text(
           '暂无${widget.label}记录',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -701,7 +794,6 @@ class _RecordListState extends ConsumerState<_RecordList>
         return Card(
           key: ValueKey(item.id),
           child: ListTile(
-            leading: const Icon(Icons.article_outlined),
             title: Text(item.title),
             subtitle: Text(date),
             onTap: () => context.go('/contents/${item.contentId}'),
@@ -722,19 +814,18 @@ class _RecordListState extends ConsumerState<_RecordList>
     if (token == null) return;
 
     try {
-      await ref.read(apiClientProvider).deleteMyActivity(
-            accessToken: token,
-            type: widget.type,
-            id: item.id,
-          );
+      await ref
+          .read(apiClientProvider)
+          .deleteMyActivity(accessToken: token, type: widget.type, id: item.id);
       setState(() {
         items.remove(item);
         total--;
       });
     } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 }

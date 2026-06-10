@@ -6,6 +6,162 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants.dart';
 import '../../core/models.dart';
+import '../../core/theme.dart';
+
+class AdminEditorDialog extends StatelessWidget {
+  const AdminEditorDialog({
+    super.key,
+    required this.title,
+    required this.child,
+    required this.actions,
+    this.subtitle,
+    this.maxWidth = 680,
+    this.scrollable = true,
+    this.onClose,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget child;
+  final List<Widget> actions;
+  final double maxWidth;
+  final bool scrollable;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final size = MediaQuery.sizeOf(context);
+    final body =
+        scrollable
+            ? SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: child,
+            )
+            : Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: child,
+            );
+
+    return Dialog(
+      insetPadding: const EdgeInsets.all(AppSpacing.md),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+          maxHeight: size.height * 0.92,
+        ),
+        child: Column(
+          mainAxisSize: scrollable ? MainAxisSize.min : MainAxisSize.max,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            subtitle!,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: onClose ?? () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: scheme.outlineVariant),
+            Flexible(
+              fit: scrollable ? FlexFit.loose : FlexFit.tight,
+              child: body,
+            ),
+            Divider(color: scheme.outlineVariant),
+            Container(
+              width: double.infinity,
+              color: scheme.surfaceContainerLow,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.sm + 4,
+              ),
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: actions,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdminFormSection extends StatelessWidget {
+  const AdminFormSection({
+    super.key,
+    required this.title,
+    required this.child,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          if (subtitle != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              subtitle!,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          child,
+        ],
+      ),
+    );
+  }
+}
 
 /// 区域工具栏组件
 /// 显示标题和操作按钮，支持主按钮和副按钮
@@ -67,7 +223,11 @@ class SectionToolbar extends StatelessWidget {
 /// 数字输入框组件
 /// 带数字验证的文本输入框
 class AdminNumberField extends StatelessWidget {
-  const AdminNumberField({super.key, required this.controller, required this.label});
+  const AdminNumberField({
+    super.key,
+    required this.controller,
+    required this.label,
+  });
 
   final TextEditingController controller; // 输入框控制器
   final String label; // 标签文本
@@ -261,7 +421,11 @@ class AdminInlineError extends StatelessWidget {
 /// 错误面板组件
 /// 居中显示错误信息和重试按钮
 class AdminErrorPane extends StatelessWidget {
-  const AdminErrorPane({super.key, required this.message, required this.onRetry});
+  const AdminErrorPane({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
 
   final String message; // 错误信息
   final VoidCallback onRetry; // 重试回调
