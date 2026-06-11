@@ -3,6 +3,7 @@
 
 import 'package:flutter_riverpod/legacy.dart';
 
+import 'constants.dart';
 import 'models.dart';
 
 /// 分页状态类
@@ -50,7 +51,7 @@ class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
   PaginationNotifier(this._fetchPage) : super(const PaginationState());
 
   final Future<PageResult<T>> Function(int page, int size) _fetchPage;
-  static const int _pageSize = 20;
+  static const int _pageSize = kDefaultPageSize;
 
   /// 加载更多数据
   Future<void> loadMore() async {

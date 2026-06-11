@@ -12,19 +12,15 @@ import 'sse_parser.dart';
 const _sseTimeout = Duration(minutes: 10);
 
 /// Web 平台 SSE 客户端
-/// 使用 XMLHttpRequest 实现增量读取 responseText
+/// 使用 Fetch API + ReadableStream 实现真正的流式读取
 Future<List<SseEvent>> postSse({
   required Dio dio,
   required String path,
   required Map<String, dynamic> body,
   required String accessToken,
   required void Function(SseEvent event) onEvent,
-}) {
-  final completer = Completer<List<SseEvent>>();
+}) async {
   final events = <SseEvent>[];
-  final request = web.XMLHttpRequest();
-
-  var processedLength = 0;
   var buffer = '';
 
   void consume(String chunk, {bool flush = false}) {
@@ -39,51 +35,62 @@ Future<List<SseEvent>> postSse({
     );
   }
 
-  void consumeProgress() {
-    final text = request.responseText;
-    if (text.length <= processedLength) return;
-    final chunk = text.substring(processedLength);
-    processedLength = text.length;
-    consume(chunk);
-  }
-
   // 构建完整 URL
   final base = dio.options.baseUrl.endsWith('/')
       ? dio.options.baseUrl.substring(0, dio.options.baseUrl.length - 1)
       : dio.options.baseUrl;
   final normalizedPath = path.startsWith('/') ? path : '/$path';
 
-  request
-    ..open('POST', '$base$normalizedPath')
-    ..setRequestHeader('Content-Type', 'application/json')
-    ..setRequestHeader('Accept', 'text/event-stream')
-    ..setRequestHeader('Authorization', 'Bearer $accessToken')
-    ..timeout = _sseTimeout.inMilliseconds;
+  // 使用 AbortController 实现超时控制
+  final abortController = web.AbortController();
+  final timer = Timer(_sseTimeout, () => abortController.abort());
 
-  request.onProgress.listen((_) => consumeProgress());
-  request.onLoad.listen((_) {
-    consumeProgress();
-    consume('', flush: true);
-    final status = request.status;
-    if (status >= 200 && status < 300) {
-      if (!completer.isCompleted) completer.complete(events);
-    } else if (!completer.isCompleted) {
-      completer.completeError(
-        Exception('SSE请求失败 [$status] ${request.responseText}'),
-      );
-    }
-  });
-  request.onError.listen((_) {
-    if (!completer.isCompleted) {
-      completer.completeError(Exception('SSE网络请求失败'));
-    }
-  });
-  request.ontimeout = ((web.Event _) {
-    if (!completer.isCompleted) {
-      completer.completeError(Exception('SSE请求超时'));
-    }
-  }).toJS;
+  try {
+    final response = await web.window
+        .fetch(
+          '$base$normalizedPath'.toJS,
+          web.RequestInit(
+            method: 'POST',
+            body: jsonEncode(body).toJS,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'text/event-stream',
+              'Authorization': 'Bearer $accessToken',
+            }.jsify()! as JSObject,
+            signal: abortController.signal,
+          ),
+        )
+        .toDart;
 
-  request.send(jsonEncode(body).toJS);
-  return completer.future;
+    if (!response.ok) {
+      final status = response.status;
+      final text = await response.text().toDart;
+      throw Exception('SSE请求失败 [$status] $text');
+    }
+
+    final bodyStream = response.body;
+    if (bodyStream == null) {
+      consume('', flush: true);
+      return events;
+    }
+
+    final reader = bodyStream.getReader() as web.ReadableStreamDefaultReader;
+    try {
+      while (true) {
+        final result = await reader.read().toDart;
+        if (result.done) break;
+
+        final bytes = (result.value! as JSUint8Array).toDart;
+        final chunk = utf8.decode(bytes, allowMalformed: true);
+        if (chunk.isNotEmpty) consume(chunk);
+      }
+      consume('', flush: true);
+    } finally {
+      reader.releaseLock();
+    }
+  } finally {
+    timer.cancel();
+  }
+
+  return events;
 }
