@@ -2,6 +2,7 @@
 // 负责初始化 MaterialApp.router，配置主题和路由
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'router.dart';
@@ -23,6 +24,18 @@ class BlogApp extends ConsumerWidget {
     return MaterialApp.router(
       title: '沐凉·日记',
       debugShowCheckedModeBanner: false,
+
+      // 中文本地化配置
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('zh', 'CN'),
+        Locale('en'),
+      ],
+      locale: const Locale('zh', 'CN'),
 
       // 浅色主题
       theme: buildAppTheme(),
