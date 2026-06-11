@@ -1,8 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:timelines_plus/timelines_plus.dart';
 
 import '../../core/api_providers.dart';
 import '../../core/app_ui.dart';
@@ -264,28 +266,10 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
                 AppSpacing.lg,
                 AppSpacing.xl,
               ),
-              sliver: SliverList.separated(
-                itemCount:
-                    pagination.items.length +
-                    (pagination.isLoading ? 1 : 0) +
-                    (!pagination.hasMore && pagination.items.isNotEmpty
-                        ? 1
-                        : 0),
-                separatorBuilder:
-                    (context, index) =>
-                        const SizedBox(height: AppSpacing.sm + 4),
-                itemBuilder: (context, index) {
-                  if (index < pagination.items.length) {
-                    return _ContentRow(
-                      key: ValueKey(pagination.items[index].id),
-                      content: pagination.items[index],
-                    );
-                  }
-                  if (pagination.isLoading) {
-                    return const _LoadingIndicator();
-                  }
-                  return const _NoMoreContent();
-                },
+              sliver: _TimelineContentList(
+                items: pagination.items,
+                isLoading: pagination.isLoading,
+                hasMore: pagination.hasMore,
               ),
             ),
         ],
@@ -608,6 +592,173 @@ class _ActiveFilters extends StatelessWidget {
         if (dateLabel.isNotEmpty)
           InputChip(label: Text(dateLabel), onDeleted: onRemoveDates),
         TextButton(onPressed: onClearAll, child: const Text('清空筛选')),
+      ],
+    );
+  }
+}
+
+class _TimelineContentList extends StatelessWidget {
+  const _TimelineContentList({
+    required this.items,
+    required this.isLoading,
+    required this.hasMore,
+  });
+
+  final List<BlogContent> items;
+  final bool isLoading;
+  final bool hasMore;
+
+  @override
+  Widget build(BuildContext context) {
+    // 按月分组
+    final grouped = groupBy(items, (item) => DateFormat('yyyy-MM').format(item.publishedAt));
+    final sortedMonths = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    // 构建扁平化的列表项
+    final List<_TimelineItem> flatItems = [];
+    for (final monthKey in sortedMonths) {
+      final parts = monthKey.split('-');
+      final monthLabel = '${parts[0]} 年 ${int.parse(parts[1])} 月';
+      flatItems.add(_TimelineDate(date: monthLabel, count: grouped[monthKey]!.length));
+      final monthItems = grouped[monthKey]!;
+      for (int i = 0; i < monthItems.length; i++) {
+        flatItems.add(_TimelineContent(
+          content: monthItems[i],
+          isLastInMonth: i == monthItems.length - 1,
+          isLastMonth: monthKey == sortedMonths.last,
+        ));
+      }
+    }
+
+    final totalItems = flatItems.length + (isLoading ? 1 : 0) + (!hasMore && items.isNotEmpty ? 1 : 0);
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (index < flatItems.length) {
+            final item = flatItems[index];
+            if (item is _TimelineDate) {
+              return _TimelineDateHeader(date: item.date, count: item.count);
+            } else if (item is _TimelineContent) {
+              return _TimelineContentCard(
+                key: ValueKey(item.content.id),
+                content: item.content,
+                isLast: item.isLastInMonth && item.isLastMonth && !isLoading,
+              );
+            }
+          }
+          if (isLoading) {
+            return const _LoadingIndicator();
+          }
+          if (!hasMore && items.isNotEmpty) {
+            return const _NoMoreContent();
+          }
+          return const SizedBox.shrink();
+        },
+        childCount: totalItems,
+      ),
+    );
+  }
+}
+
+// 辅助类用于扁平化列表
+abstract class _TimelineItem {}
+
+class _TimelineDate extends _TimelineItem {
+  final String date;
+  final int count;
+  _TimelineDate({required this.date, required this.count});
+}
+
+class _TimelineContent extends _TimelineItem {
+  final BlogContent content;
+  final bool isLastInMonth;
+  final bool isLastMonth;
+  _TimelineContent({required this.content, required this.isLastInMonth, required this.isLastMonth});
+}
+
+class _TimelineDateHeader extends StatelessWidget {
+  const _TimelineDateHeader({required this.date, required this.count});
+
+  final String date;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return TimelineTile(
+      mainAxisExtent: 48,
+      nodeAlign: TimelineNodeAlign.start,
+      node: TimelineNode.simple(
+        color: scheme.primary,
+        indicatorSize: 12,
+        drawStartConnector: false,
+        drawEndConnector: true,
+      ),
+      oppositeContents: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          date,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: scheme.primary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      contents: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        child: Text(
+          '$count 篇',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineContentCard extends StatelessWidget {
+  const _TimelineContentCard({
+    super.key,
+    required this.content,
+    required this.isLast,
+  });
+
+  final BlogContent content;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // 日期头 nodeAlign: start, indicatorSize: 12 → 节点中心 x=6
+    const nodeCenter = 6.0;
+    return Stack(
+      children: [
+        // 左侧竖线：向上延伸 8px 与上一个元素的底线重叠，保证连线
+        Positioned(
+          left: nodeCenter - 1, // 2px 宽度居中于节点中心
+          top: -8,
+          bottom: isLast ? 8.0 : 0.0,
+          child: Container(
+            width: 2,
+            color: scheme.primary,
+          ),
+        ),
+        // 圆点
+        Positioned(
+          left: nodeCenter - 4, // 8px 圆点居中于节点中心
+          top: 12,
+          child: DotIndicator(
+            size: 8,
+            color: scheme.primary,
+          ),
+        ),
+        // 内容卡片
+        Padding(
+          padding: const EdgeInsets.only(left: 40, bottom: 8),
+          child: _ContentRow(content: content),
+        ),
       ],
     );
   }
