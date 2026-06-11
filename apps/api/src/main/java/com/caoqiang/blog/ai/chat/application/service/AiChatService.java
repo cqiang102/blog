@@ -94,6 +94,7 @@ public class AiChatService {
     private final AiBlogTools blogTools;
     private final StringRedisTemplate redisTemplate;
     private final Executor aiStreamExecutor;
+    private final AiChatAuditService aiChatAuditService;
 
     public AiChatService(
             BlogProperties blogProperties,
@@ -105,7 +106,8 @@ public class AiChatService {
             ChatClient chatClient,
             AiBlogTools blogTools,
             StringRedisTemplate redisTemplate,
-            @Qualifier("aiStreamExecutor") Executor aiStreamExecutor
+            @Qualifier("aiStreamExecutor") Executor aiStreamExecutor,
+            AiChatAuditService aiChatAuditService
     ) {
         this.blogProperties = blogProperties;
         this.clock = clock;
@@ -117,6 +119,7 @@ public class AiChatService {
         this.blogTools = blogTools;
         this.redisTemplate = redisTemplate;
         this.aiStreamExecutor = aiStreamExecutor;
+        this.aiChatAuditService = aiChatAuditService;
     }
 
     /**
@@ -156,8 +159,10 @@ public class AiChatService {
         }
 
         // AI 调用成功后才持久化消息和配额，失败则整个事务回滚，保证数据一致性
-        messageRepository.save(new AiChatMessage(session, AiMessageRole.USER, userMessageText));
-        messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, answer));
+        AiChatMessage userMsg = messageRepository.save(new AiChatMessage(session, AiMessageRole.USER, userMessageText));
+        AiChatMessage assistantMsg = messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, answer));
+        aiChatAuditService.audit(userMsg.getId());
+        aiChatAuditService.audit(assistantMsg.getId());
         incrementQuota(user);
 
         return new AiChatResponse(
@@ -314,8 +319,10 @@ public class AiChatService {
                 user.getId(), session.getId(), answerText.length());
 
         try {
-            messageRepository.save(new AiChatMessage(session, AiMessageRole.USER, userMessageText));
-            messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, answerText));
+            AiChatMessage userMsg = messageRepository.save(new AiChatMessage(session, AiMessageRole.USER, userMessageText));
+            AiChatMessage assistantMsg = messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, answerText));
+            aiChatAuditService.audit(userMsg.getId());
+            aiChatAuditService.audit(assistantMsg.getId());
         } catch (Exception e) {
             log.error("Failed to save AI chat message", e);
         }
@@ -420,7 +427,7 @@ public class AiChatService {
                 session.getId(), pageRequest);
 
         List<AiChatMessageResponse> items = messagePage.getContent().stream()
-                .map(m -> new AiChatMessageResponse(m.getId(), m.getRole().name(), m.getContent(), m.getCreatedAt()))
+                .map(m -> new AiChatMessageResponse(m.getId(), m.getRole().name(), m.getContent(), m.getAuditStatus(), m.getCreatedAt()))
                 .toList();
 
         return new PageResponse<>(items, messagePage.getNumber(), messagePage.getSize(), messagePage.getTotalElements());

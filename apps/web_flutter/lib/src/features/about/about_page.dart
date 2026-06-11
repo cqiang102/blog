@@ -2,6 +2,7 @@
 // 支持 SSE 流式响应、会话管理、配额显示和 40 条消息限制
 // 使用 Riverpod 管理状态，替代 setState
 import 'dart:convert';
+import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,8 +90,12 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       final messages =
           page.items
               .map(
-                (msg) =>
-                    ChatMessage(isMine: msg.role == 'USER', text: msg.content),
+                (msg) => ChatMessage(
+                  isMine: msg.role == 'USER',
+                  text: msg.auditStatus == 'BLOCKED'
+                      ? '该内容不适合展示'
+                      : msg.content,
+                ),
               )
               .toList();
 
@@ -740,12 +745,18 @@ class _ChatBubble extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      '思考中...',
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 14,
-                      ),
+                    AnimatedTextKit(
+                      isRepeatingAnimation: true,
+                      repeatForever: true,
+                      animatedTexts: [
+                        WavyAnimatedText(
+                          '思考中...',
+                          textStyle: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 )

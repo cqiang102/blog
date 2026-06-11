@@ -1,3 +1,4 @@
+import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
@@ -990,11 +991,30 @@ class _LoadingState extends StatelessWidget {
         children: [
           const CircularProgressIndicator(),
           const SizedBox(height: AppSpacing.md),
-          Text(
-            '正在整理内容...',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+          AnimatedTextKit(
+            isRepeatingAnimation: true,
+            repeatForever: true,
+            pause: const Duration(milliseconds: 1500),
+            animatedTexts: [
+              RotateAnimatedText(
+                '正在整理内容',
+                textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              RotateAnimatedText(
+                '马上就好',
+                textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              RotateAnimatedText(
+                '稍等一下',
+                textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ],
       ),

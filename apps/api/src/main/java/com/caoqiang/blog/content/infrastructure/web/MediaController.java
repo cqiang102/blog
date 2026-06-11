@@ -17,6 +17,7 @@ import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 import com.caoqiang.blog.content.domain.repository.TagRepository;
 import com.caoqiang.blog.content.application.service.ContentService;
 
+import java.net.URI;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -50,8 +51,11 @@ public class MediaController {
     @GetMapping("/{id}/file")
     public ResponseEntity<Void> file(@PathVariable UUID id) {
         String presignedUrl = mediaAdminService.getPresignedUrl(id);
+        // 将 URL 转为 ASCII 安全格式，避免中文字符导致 Location 头无效
+        URI uri = URI.create(presignedUrl);
+        String asciiUrl = uri.toASCIIString();
         return ResponseEntity.status(HttpStatus.FOUND)
-                .header("Location", presignedUrl)
+                .header("Location", asciiUrl)
                 .build();
     }
 }

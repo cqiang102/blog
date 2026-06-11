@@ -1,3 +1,4 @@
+import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -241,20 +242,40 @@ class _HeroIntro extends StatelessWidget {
             color: scheme.surface.withValues(alpha: 0.72),
             borderRadius: BorderRadius.circular(999),
           ),
-          child: Text(
-            'PERSONAL NOTES · CODE & LIFE',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: scheme.primary,
-              letterSpacing: 1.1,
-            ),
+          child: AnimatedTextKit(
+            isRepeatingAnimation: true,
+            repeatForever: true,
+            animatedTexts: [
+              ColorizeAnimatedText(
+                'PERSONAL NOTES · CODE & LIFE',
+                textStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  letterSpacing: 1.1,
+                ) ?? const TextStyle(letterSpacing: 1.1),
+                colors: [
+                  scheme.primary,
+                  scheme.secondary,
+                  scheme.tertiary,
+                  scheme.primary,
+                ],
+                speed: const Duration(milliseconds: 400),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        Text(
-          '写代码，\n也记录生活。',
-          style: Theme.of(
-            context,
-          ).textTheme.displaySmall?.copyWith(color: scheme.onPrimaryContainer),
+        AnimatedTextKit(
+          isRepeatingAnimation: false,
+          totalRepeatCount: 1,
+          animatedTexts: [
+            TypewriterAnimatedText(
+              '写代码，\n也记录生活。',
+              speed: const Duration(milliseconds: 80),
+              textStyle: Theme.of(context).textTheme.displaySmall?.copyWith(
+                color: scheme.onPrimaryContainer,
+              ),
+              cursor: '|',
+            ),
+          ],
         ),
         const SizedBox(height: AppSpacing.md),
         Text(

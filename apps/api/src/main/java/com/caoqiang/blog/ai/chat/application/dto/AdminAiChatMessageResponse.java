@@ -25,6 +25,8 @@ public record AdminAiChatMessageResponse(
         String toolName,
         Integer promptTokens,
         Integer completionTokens,
+        String auditStatus,
+        String auditReason,
         Instant createdAt
 ) {
 
@@ -42,6 +44,8 @@ public record AdminAiChatMessageResponse(
                 message.getToolName(),
                 message.getPromptTokens(),
                 message.getCompletionTokens(),
+                message.getAuditStatus(),
+                message.getAuditReason(),
                 message.getCreatedAt()
         );
     }

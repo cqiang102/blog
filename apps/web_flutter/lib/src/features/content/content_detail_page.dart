@@ -99,11 +99,13 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
               const SizedBox(height: AppSpacing.md),
 
               // 摘要
-              Text(
-                content.summary,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: AppSpacing.lg),
+              if (content.summary.isNotEmpty) ...[
+                Text(
+                  content.summary,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+              ],
 
               // 内容查看器
               _ContentViewer(content: content),

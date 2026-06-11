@@ -479,6 +479,17 @@ class _AiChatMessageRow extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _AiRoleChip(role: message.role),
+                if (message.auditStatus == 'BLOCKED')
+                  _AuditStatusChip(
+                    label: '已屏蔽',
+                    color: scheme.error,
+                    reason: message.auditReason,
+                  )
+                else if (message.auditStatus == 'VISIBLE')
+                  _AuditStatusChip(
+                    label: '正常',
+                    color: scheme.primary,
+                  ),
                 AdminMetaText(
                   icon: Icons.schedule_outlined,
                   text: formatAdminDate(message.createdAt),
@@ -522,5 +533,33 @@ class _AiRoleChip extends StatelessWidget {
       AiChatMessageRole.system => scheme.surfaceContainerHighest,
     };
     return Chip(label: Text(role.label), backgroundColor: color);
+  }
+}
+
+/// 审核状态标签组件
+class _AuditStatusChip extends StatelessWidget {
+  const _AuditStatusChip({
+    required this.label,
+    required this.color,
+    this.reason,
+  });
+
+  final String label;
+  final Color color;
+  final String? reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: reason ?? '',
+      child: Chip(
+        label: Text(
+          label,
+          style: TextStyle(color: color, fontSize: 12),
+        ),
+        backgroundColor: color.withValues(alpha: 0.12),
+        side: BorderSide(color: color.withValues(alpha: 0.3)),
+      ),
+    );
   }
 }

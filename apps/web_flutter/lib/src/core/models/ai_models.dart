@@ -82,12 +82,14 @@ class AiMessageItem {
     required this.id,
     required this.role,
     required this.content,
+    this.auditStatus,
     required this.createdAt,
   });
 
   final String id;
   final String role;
   final String content;
+  final String? auditStatus;
   final DateTime createdAt;
 
   /// 从 JSON 创建实例
@@ -96,6 +98,7 @@ class AiMessageItem {
       id: jsonString(json['id']),
       role: jsonString(json['role']),
       content: jsonString(json['content']),
+      auditStatus: json['auditStatus'] as String?,
       createdAt: jsonDate(json['createdAt']),
     );
   }
@@ -150,6 +153,8 @@ class AdminAiChatMessageItem {
     required this.toolName,
     required this.promptTokens,
     required this.completionTokens,
+    this.auditStatus,
+    this.auditReason,
     required this.createdAt,
   });
 
@@ -159,6 +164,8 @@ class AdminAiChatMessageItem {
   final String toolName;
   final int promptTokens;
   final int completionTokens;
+  final String? auditStatus;
+  final String? auditReason;
   final DateTime createdAt;
 
   /// 从 JSON 创建实例
@@ -170,6 +177,8 @@ class AdminAiChatMessageItem {
       toolName: jsonString(json['toolName']),
       promptTokens: jsonInt(json['promptTokens']),
       completionTokens: jsonInt(json['completionTokens']),
+      auditStatus: json['auditStatus'] as String?,
+      auditReason: json['auditReason'] as String?,
       createdAt: jsonDate(json['createdAt']),
     );
   }

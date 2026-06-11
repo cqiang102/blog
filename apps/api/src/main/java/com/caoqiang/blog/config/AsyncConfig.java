@@ -54,4 +54,21 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * AI 聊天消息审核专用线程池。
+     * <p>
+     * 用于 AI 聊天消息异步审核场景，限制并发数避免 AI 服务过载。
+     */
+    @Bean("aiChatAuditExecutor")
+    public Executor aiChatAuditExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(5);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("ai-chat-audit-");
+        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        return executor;
+    }
 }

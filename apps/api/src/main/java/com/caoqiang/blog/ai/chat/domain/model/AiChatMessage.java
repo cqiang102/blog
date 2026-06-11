@@ -57,6 +57,14 @@ public class AiChatMessage {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** 审核状态：PENDING / VISIBLE / BLOCKED，默认 NULL 表示未审核 */
+    @Column(name = "audit_status", length = 20)
+    private String auditStatus;
+
+    /** 审核原因 */
+    @Column(name = "audit_reason", columnDefinition = "TEXT")
+    private String auditReason;
+
     /** 是否已删除（逻辑删除） */
     @Column(nullable = false)
     private boolean deleted = false;
@@ -80,6 +88,18 @@ public class AiChatMessage {
     /** 标记消息为已删除（逻辑删除） */
     public void markDeleted() {
         this.deleted = true;
+    }
+
+    /** 标记消息为不适合展示 */
+    public void markBlocked(String reason) {
+        this.auditStatus = "BLOCKED";
+        this.auditReason = reason;
+    }
+
+    /** 标记消息为适合展示 */
+    public void markVisible() {
+        this.auditStatus = "VISIBLE";
+        this.auditReason = null;
     }
 
     public UUID getId() {
@@ -112,6 +132,14 @@ public class AiChatMessage {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public String getAuditStatus() {
+        return auditStatus;
+    }
+
+    public String getAuditReason() {
+        return auditReason;
     }
 
     public boolean isDeleted() {

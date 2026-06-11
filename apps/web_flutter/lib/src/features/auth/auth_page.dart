@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -333,11 +334,19 @@ class _AuthBrandPanel extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          Text(
-            '欢迎回来，\n继续写下新的故事。',
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(
-              color: scheme.onPrimaryContainer,
-            ),
+          AnimatedTextKit(
+            isRepeatingAnimation: false,
+            totalRepeatCount: 1,
+            animatedTexts: [
+              TypewriterAnimatedText(
+                '欢迎回来，\n继续写下新的故事。',
+                speed: const Duration(milliseconds: 80),
+                textStyle: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: scheme.onPrimaryContainer,
+                ),
+                cursor: '|',
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
