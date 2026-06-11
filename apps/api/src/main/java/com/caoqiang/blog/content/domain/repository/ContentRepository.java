@@ -28,7 +28,7 @@ import org.springframework.data.jpa.domain.Specification;
  * 关键特性：
  * <ul>
  *   <li>推荐查询方法：按发布时间、点赞数排序，取 Top 10，通过 {@code @EntityGraph} 预加载 tags 和 coverMedia 避免 N+1</li>
- *   <li>详情查询：额外预加载 mediaAssets</li>
+ *   <li>详情查询：媒体集合在事务内单独加载，避免与 tags 联表产生笛卡尔重复</li>
  *   <li>计数原子更新：通过 {@code @Modifying} + JPQL 实现 likeCount / viewCount / commentCount 的原子增减</li>
  * </ul>
  */
@@ -54,13 +54,14 @@ public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpec
     List<Content> findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullOrderByPublishedAtDesc(ContentStatus status);
 
     /**
-     * 根据 ID 和状态查询内容详情，预加载 tags、coverMedia 和 mediaAssets。
+     * 根据 ID 和状态查询内容详情，预加载 tags 和 coverMedia。
+     * mediaAssets 保持懒加载，由详情服务在事务内单独查询，避免多集合联表时重复。
      *
      * @param id     内容 UUID
      * @param status 内容状态
      * @return 内容实体（若存在且状态匹配）
      */
-    @EntityGraph(attributePaths = {"tags", "coverMedia", "mediaAssets"})
+    @EntityGraph(attributePaths = {"tags", "coverMedia"})
     Optional<Content> findByIdAndStatus(UUID id, ContentStatus status);
 
     /**

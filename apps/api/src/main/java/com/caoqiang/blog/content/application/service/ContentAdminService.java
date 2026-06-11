@@ -2,19 +2,12 @@ package com.caoqiang.blog.content.application.service;
 
 import com.caoqiang.blog.content.application.dto.AdminContentRequest;
 import com.caoqiang.blog.content.application.dto.AdminContentResponse;
-import com.caoqiang.blog.content.application.dto.AdminMediaRequest;
-import com.caoqiang.blog.content.application.dto.AdminMediaResponse;
-import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
-import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
-import com.caoqiang.blog.content.application.dto.MediaAssetResponse;
-import com.caoqiang.blog.content.application.dto.RecommendationResponse;
-import com.caoqiang.blog.content.application.dto.TagRequest;
-import com.caoqiang.blog.content.application.dto.TagResponse;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.content.domain.model.MediaAsset;
 import com.caoqiang.blog.content.domain.model.MediaAssetType;
+import com.caoqiang.blog.content.domain.model.MediaReference;
 import com.caoqiang.blog.content.domain.model.Tag;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
@@ -29,6 +22,7 @@ import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.shared.util.SlugUtils;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -158,37 +152,17 @@ public class ContentAdminService {
         );
         Content saved = contentRepository.save(content);
 
-        // 处理媒体资源
-        MediaAsset firstMediaAsset = null;
-        if (request.mediaUrls() != null && !request.mediaUrls().isEmpty()) {
-            for (String url : request.mediaUrls()) {
-                if (StringUtils.hasText(url)) {
-                    MediaAsset mediaAsset = new MediaAsset(
-                            saved,
-                            request.type() == ContentType.VIDEO ? MediaAssetType.VIDEO : MediaAssetType.IMAGE,
-                            MediaAsset.EXTERNAL_BUCKET,
-                            MediaAsset.EXTERNAL_BUCKET + "/" + UUID.randomUUID(),
-                            url.trim(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
-                    );
-                    MediaAsset savedMedia = mediaAssetRepository.save(mediaAsset);
-                    if (firstMediaAsset == null) {
-                        firstMediaAsset = savedMedia;
-                    }
-                }
-            }
-        }
+        List<MediaAsset> mediaAssets = synchronizeMedia(
+                saved,
+                request.mediaUrls(),
+                request.type()
+        );
+        MediaAsset firstMediaAsset = mediaAssets.isEmpty() ? null : mediaAssets.getFirst();
 
         // 设置封面
         if (StringUtils.hasText(request.coverUrl()) && firstMediaAsset != null) {
-            // 查找匹配的媒体资源作为封面
-            MediaAsset coverMedia = saved.getMediaAssets().stream()
-                    .filter(ma -> request.coverUrl().equals(ma.getPublicUrl()))
+            MediaAsset coverMedia = mediaAssets.stream()
+                    .filter(media -> matchesReference(media, request.coverUrl()))
                     .findFirst()
                     .orElse(firstMediaAsset);
             saved.setCoverMedia(coverMedia);
@@ -248,49 +222,19 @@ public class ContentAdminService {
                 tags(request.tagSlugs())
         );
 
-        // 处理媒体资源：删除旧的外链媒体，添加新的
+        // 同步已上传媒体和外链媒体，Markdown 中保存稳定的媒体 ID 引用。
         if (request.mediaUrls() != null) {
-            // 先清除封面引用，避免 flush 时 Hibernate 检测到指向已删除实体的引用
             content.setCoverMedia(null);
+            List<MediaAsset> mediaAssets = synchronizeMedia(
+                    content,
+                    request.mediaUrls(),
+                    request.type()
+            );
+            MediaAsset firstMediaAsset = mediaAssets.isEmpty() ? null : mediaAssets.getFirst();
 
-            // 删除旧的外链媒体
-            List<MediaAsset> oldMediaAssets = content.getMediaAssets().stream()
-                    .filter(ma -> MediaAsset.EXTERNAL_BUCKET.equals(ma.getBucket()))
-                    .toList();
-            mediaAssetRepository.deleteAll(oldMediaAssets);
-            mediaAssetRepository.flush();
-            contentRepository.flush();
-
-            // 添加新的媒体资源
-            MediaAsset firstMediaAsset = null;
-            List<MediaAsset> newMediaAssets = new java.util.ArrayList<>();
-            for (String url : request.mediaUrls()) {
-                if (StringUtils.hasText(url)) {
-                    MediaAsset mediaAsset = new MediaAsset(
-                            content,
-                            request.type() == ContentType.VIDEO ? MediaAssetType.VIDEO : MediaAssetType.IMAGE,
-                            MediaAsset.EXTERNAL_BUCKET,
-                            MediaAsset.EXTERNAL_BUCKET + "/" + UUID.randomUUID(),
-                            url.trim(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
-                    );
-                    MediaAsset savedMedia = mediaAssetRepository.save(mediaAsset);
-                    newMediaAssets.add(savedMedia);
-                    if (firstMediaAsset == null) {
-                        firstMediaAsset = savedMedia;
-                    }
-                }
-            }
-
-            // 设置封面（从新保存的媒体列表中查找，避免访问可能包含已删除实体的旧集合）
             if (StringUtils.hasText(request.coverUrl())) {
-                MediaAsset coverMedia = newMediaAssets.stream()
-                        .filter(ma -> request.coverUrl().equals(ma.getPublicUrl()))
+                MediaAsset coverMedia = mediaAssets.stream()
+                        .filter(media -> matchesReference(media, request.coverUrl()))
                         .findFirst()
                         .orElse(firstMediaAsset);
                 content.setCoverMedia(coverMedia);
@@ -347,6 +291,88 @@ public class ContentAdminService {
 
         // 发布领域事件
         domainEventPublisher.publishEvent(new ContentArchivedEvent(content.getId()));
+    }
+
+    private List<MediaAsset> synchronizeMedia(
+            Content content,
+            List<String> references,
+            ContentType contentType
+    ) {
+        if (references == null) {
+            return new ArrayList<>(content.getMediaAssets());
+        }
+
+        List<MediaAsset> existing = new ArrayList<>(content.getMediaAssets());
+        List<MediaAsset> desired = new ArrayList<>();
+        Set<UUID> desiredIds = new LinkedHashSet<>();
+        MediaAssetType fallbackType = contentType == ContentType.VIDEO
+                ? MediaAssetType.VIDEO
+                : MediaAssetType.IMAGE;
+
+        for (String value : references) {
+            if (!StringUtils.hasText(value)) {
+                continue;
+            }
+            String reference = value.trim();
+            MediaAsset mediaAsset = MediaReference.mediaId(reference)
+                    .map(id -> mediaAssetRepository.findById(id)
+                            .orElseThrow(() -> new BusinessException(
+                                    HttpStatus.BAD_REQUEST,
+                                    "引用的媒体资源不存在"
+                            )))
+                    .orElseGet(() -> existing.stream()
+                            .filter(media -> reference.equals(media.getPublicUrl()))
+                            .findFirst()
+                            .orElseGet(() -> mediaAssetRepository.save(
+                                    new MediaAsset(
+                                            content,
+                                            fallbackType,
+                                            MediaAsset.EXTERNAL_BUCKET,
+                                            MediaAsset.EXTERNAL_BUCKET + "/" + UUID.randomUUID(),
+                                            reference,
+                                            null,
+                                            null,
+                                            null,
+                                            null,
+                                            null,
+                                            null
+                                    )
+                            )));
+
+            Content owner = mediaAsset.getContent();
+            if (owner != null && !owner.getId().equals(content.getId())) {
+                throw new BusinessException(
+                        HttpStatus.CONFLICT,
+                        "媒体资源已关联到其他内容"
+                );
+            }
+            if (desiredIds.add(mediaAsset.getId())) {
+                mediaAsset.assignTo(content);
+                desired.add(mediaAssetRepository.save(mediaAsset));
+            }
+        }
+
+        for (MediaAsset mediaAsset : existing) {
+            if (desiredIds.contains(mediaAsset.getId())) {
+                continue;
+            }
+            if (MediaAsset.EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
+                mediaAssetRepository.delete(mediaAsset);
+            } else {
+                mediaAsset.assignTo(null);
+                mediaAssetRepository.save(mediaAsset);
+            }
+        }
+
+        content.getMediaAssets().clear();
+        content.getMediaAssets().addAll(desired);
+        return desired;
+    }
+
+    private boolean matchesReference(MediaAsset mediaAsset, String reference) {
+        return MediaReference.mediaId(reference)
+                .map(id -> id.equals(mediaAsset.getId()))
+                .orElseGet(() -> reference.equals(mediaAsset.getPublicUrl()));
     }
 
     /**

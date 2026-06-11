@@ -156,4 +156,19 @@ class InteractionCommandServiceTest {
         assertThat(response.recorded()).isTrue();
         verify(viewRecordRepository, never()).save(any(ViewRecord.class));
     }
+
+    @Test
+    void skipViewWhenContentIsNotPublished() {
+        when(contentRepository.findByIdAndStatus(testContent.getId(), ContentStatus.PUBLISHED))
+                .thenReturn(Optional.empty());
+
+        ViewStateResponse response = interactionCommandService.recordView(
+                null, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
+        );
+
+        assertThat(response.recorded()).isFalse();
+        assertThat(response.viewCount()).isZero();
+        verify(viewRecordRepository, never()).save(any(ViewRecord.class));
+        verify(contentRepository, never()).incrementViewCount(any(UUID.class), anyLong());
+    }
 }

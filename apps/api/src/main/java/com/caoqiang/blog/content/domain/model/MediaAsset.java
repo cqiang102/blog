@@ -182,6 +182,15 @@ public class MediaAsset {
         this.publicUrl = publicUrl;
     }
 
+    /**
+     * 关联或解除关联所属内容。
+     *
+     * @param content 所属内容，null 表示独立媒体资源
+     */
+    public void assignTo(Content content) {
+        this.content = content;
+    }
+
     public Content getContent() {
         return content;
     }

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/media_url.dart';
 import '../../../../core/theme.dart';
 
 /// 封面图选择器对话框
@@ -52,7 +53,7 @@ class CoverPickerDialog extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       CachedNetworkImage(
-                        imageUrl: url,
+                        imageUrl: resolveMediaUrl(url),
                         fit: BoxFit.cover,
                         errorWidget: (context, url, error) =>
                             const Center(child: Icon(Icons.broken_image)),

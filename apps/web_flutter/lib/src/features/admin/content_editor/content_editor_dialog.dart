@@ -4,6 +4,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants.dart';
+import '../../../core/media_url.dart';
 import '../../../core/models.dart';
 import '../../../core/theme.dart';
 import '../admin_widgets.dart';
@@ -125,7 +126,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
               (context, constraints) => _buildResponsiveEditor(
                 context,
                 state,
-                wide: constraints.maxWidth >= 900,
+                wide: constraints.maxWidth >= kTabletBreakpoint,
               ),
         ),
       ),
@@ -207,7 +208,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
-          width: 360,
+          width: 300,
           child: SingleChildScrollView(
             padding: const EdgeInsets.only(right: AppSpacing.md),
             child: Column(
@@ -562,7 +563,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: CachedNetworkImage(
-        imageUrl: uri.toString(),
+        imageUrl: resolveMediaUrl(uri.toString()),
         fit: BoxFit.contain,
         placeholder:
             (context, url) => const Padding(
@@ -847,7 +848,7 @@ class _ImagePickerDialog extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: CachedNetworkImage(
-                        imageUrl: url,
+                        imageUrl: resolveMediaUrl(url),
                         fit: BoxFit.cover,
                         errorWidget:
                             (context, url, error) =>

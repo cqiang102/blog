@@ -134,7 +134,11 @@ public class InteractionCommandService {
 
     @Transactional
     public ViewStateResponse recordView(AuthenticatedUser currentUser, UUID contentId, String clientIp, String userAgent) {
-        Content content = publishedContent(contentId);
+        Content content = contentRepository.findByIdAndStatus(contentId, ContentStatus.PUBLISHED)
+                .orElse(null);
+        if (content == null) {
+            return new ViewStateResponse(contentId, false, 0);
+        }
         User user = currentUser == null ? null : activeUser(currentUser.id());
         String anonymousId = generateAnonymousId(clientIp, userAgent);
         String ipHash = hashIp(clientIp);

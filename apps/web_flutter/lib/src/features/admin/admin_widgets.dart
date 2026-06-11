@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants.dart';
+import '../../core/media_url.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 
@@ -380,7 +381,7 @@ class AdminMediaThumb extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: CachedNetworkImage(
-        imageUrl: url,
+        imageUrl: resolveMediaUrl(url),
         width: size.width,
         height: size.height,
         fit: BoxFit.cover,

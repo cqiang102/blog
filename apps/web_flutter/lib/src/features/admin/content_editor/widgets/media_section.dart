@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/media_url.dart';
 import '../../../../core/models.dart';
 import '../../../../core/theme.dart';
 
@@ -156,7 +157,7 @@ class _MediaCard extends StatelessWidget {
   Widget _buildContent(BuildContext context) {
     if (isImage) {
       return CachedNetworkImage(
-        imageUrl: url,
+        imageUrl: resolveMediaUrl(url),
         fit: BoxFit.cover,
         placeholder: (context, url) => Container(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,

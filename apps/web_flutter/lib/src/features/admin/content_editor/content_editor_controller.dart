@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api_providers.dart';
 import '../../../core/constants.dart';
+import '../../../core/media_url.dart';
 import '../../../core/models.dart';
 import 'content_editor_draft.dart';
 import 'content_editor_state.dart';
@@ -241,10 +242,11 @@ class ContentEditorController extends Notifier<ContentEditorState> {
             type: mediaType,
           );
 
-      final mediaUrls = [...state.mediaUrls, media.publicUrl];
+      final mediaReference = mediaFileReference(media.id);
+      final mediaUrls = [...state.mediaUrls, mediaReference];
       state = state.copyWith(
         mediaUrls: mediaUrls,
-        coverUrl: mediaUrls.length == 1 ? media.publicUrl : state.coverUrl,
+        coverUrl: mediaUrls.length == 1 ? mediaReference : state.coverUrl,
         isUploading: false,
         hasUnsavedChanges: true,
       );

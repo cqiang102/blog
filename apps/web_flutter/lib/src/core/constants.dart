@@ -23,7 +23,6 @@ const Duration kAutoSaveInterval = Duration(seconds: 30);
 
 /// UI 尺寸
 const double kCarouselHeight = 300;
-const double kSliverAppBarExpandedHeight = 280;
 const double kContentCardAspectRatioWide = 1.35;
 const double kContentCardAspectRatioNarrow = 2.4;
 const double kAdminNumberFieldWidth = 148;

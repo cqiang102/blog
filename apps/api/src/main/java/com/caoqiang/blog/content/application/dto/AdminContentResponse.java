@@ -3,9 +3,7 @@ package com.caoqiang.blog.content.application.dto;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.Tag;
+import com.caoqiang.blog.content.domain.model.MediaReference;
 
 import java.time.Instant;
 import java.util.List;
@@ -70,14 +68,16 @@ public record AdminContentResponse(
                 content.getType(),
                 content.getStatus(),
                 content.getSummary(),
-                content.getBodyMarkdown(),
+                MediaReference.normalizeMarkdown(
+                        content.getBodyMarkdown(),
+                        content.getMediaAssets()
+                ),
                 content.isPinned(),
                 content.getCoverMedia() == null ? null : content.getCoverMedia().getId(),
                 coverUrl(content),
                 content.getMediaAssets().size(),
                 content.getMediaAssets().stream()
-                        .map(MediaAsset::getPublicUrl)
-                        .filter(url -> url != null && !url.isEmpty())
+                        .map(media -> MediaReference.filePath(media.getId()))
                         .toList(),
                 content.getLikeCount(),
                 content.getViewCount(),
@@ -95,7 +95,7 @@ public record AdminContentResponse(
      */
     private static String coverUrl(Content content) {
         if (content.getCoverMedia() != null) {
-            return content.getCoverMedia().getPublicUrl();
+            return MediaReference.filePath(content.getCoverMedia().getId());
         }
         return null;
     }

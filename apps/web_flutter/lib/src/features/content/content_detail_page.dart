@@ -9,8 +9,10 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
+import '../../core/app_ui.dart';
 import '../../core/auth_controller.dart';
 import '../../core/constants.dart';
+import '../../core/media_url.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 
@@ -30,13 +32,11 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
   bool _submitting = false;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final auth = ref.read(authControllerProvider);
-      _recordViewOnce(auth.accessToken);
-    });
+  void didUpdateWidget(covariant ContentDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.id != widget.id) {
+      _viewRecorded = false;
+    }
   }
 
   @override
@@ -50,29 +50,20 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     final content = ref.watch(contentDetailProvider(widget.id));
 
     return content.when(
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (error, stackTrace) => Scaffold(
-        appBar: AppBar(title: const Text('内容详情')),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(error.toString(), textAlign: TextAlign.center),
-              const SizedBox(height: AppSpacing.sm + 4),
-              FilledButton.icon(
-                onPressed: () =>
-                    ref.invalidate(contentDetailProvider(widget.id)),
-                icon: const Icon(Icons.refresh),
-                label: const Text('重试'),
-              ),
-            ],
+      loading:
+          () =>
+              const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error:
+          (error, stackTrace) => _ContentErrorScaffold(
+            error: error,
+            onRetry: () => ref.invalidate(contentDetailProvider(widget.id)),
           ),
-        ),
-      ),
       data: (content) {
         final comments = ref.watch(commentsProvider(widget.id));
         final auth = ref.watch(authControllerProvider);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _recordViewOnce(auth.accessToken);
+        });
         return _buildContent(context, content, comments, auth);
       },
     );
@@ -89,9 +80,10 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
       slivers: [
         // AppBar
         SliverAppBar(
-          expandedHeight: kSliverAppBarExpandedHeight,
+          expandedHeight: 240,
           pinned: true,
           title: Text(content.title),
+          actions: const [AppThemeToggle(), SizedBox(width: AppSpacing.sm)],
           flexibleSpace: FlexibleSpaceBar(
             background: _HeroCover(content: content),
           ),
@@ -134,28 +126,32 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
 
         // 评论列表（使用 SliverList 优化性能）
         comments.when(
-          loading: () => const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          ),
-          error: (error, stackTrace) => SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Text(error.toString()),
-            ),
-          ),
-          data: (page) => SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            sliver: _CommentList(comments: page.items, contentId: widget.id),
-          ),
+          loading:
+              () => const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+          error:
+              (error, stackTrace) => SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Text(error.toString()),
+                ),
+              ),
+          data:
+              (page) => SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                sliver: _CommentList(
+                  comments: page.items,
+                  contentId: widget.id,
+                ),
+              ),
         ),
 
         // 底部间距
-        const SliverToBoxAdapter(
-          child: SizedBox(height: AppSpacing.xl),
-        ),
+        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
       ],
     );
   }
@@ -261,8 +257,93 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _ContentErrorScaffold extends StatelessWidget {
+  const _ContentErrorScaffold({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final notFound =
+        error is ApiException && (error as ApiException).statusCode == 404;
+    final scheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('内容详情'),
+        actions: const [AppThemeToggle(), SizedBox(width: AppSpacing.sm)],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        notFound
+                            ? Icons.find_in_page_outlined
+                            : Icons.cloud_off_outlined,
+                        size: 36,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text(
+                      notFound ? '这篇内容已不可用' : '内容加载失败',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      notFound ? '内容可能已归档、删除，或当前链接已经失效。' : error.toString(),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        FilledButton(
+                          onPressed: () => context.go('/contents'),
+                          child: const Text('返回全部内容'),
+                        ),
+                        OutlinedButton(
+                          onPressed: onRetry,
+                          child: const Text('重新检查'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -298,32 +379,38 @@ class _CommentList extends ConsumerWidget {
           child: ListTile(
             leading: const CircleAvatar(child: Icon(Icons.person)),
             title: Text(comment.authorNickname),
-            subtitle: comment.blocked
-                ? Row(
-                    children: [
-                      Icon(Icons.block, size: 14, color: Theme.of(context).colorScheme.error),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          '评论审核中，暂不可见',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                            fontStyle: FontStyle.italic,
+            subtitle:
+                comment.blocked
+                    ? Row(
+                      children: [
+                        Icon(
+                          Icons.block,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            '评论审核中，暂不可见',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  )
-                : Text(comment.body),
+                      ],
+                    )
+                    : Text(comment.body),
             trailing:
                 auth.isAuthenticated && auth.user?.id == comment.authorId
                     ? IconButton(
-                        tooltip: '删除评论',
-                        onPressed: () =>
-                            _deleteComment(context, ref, comment),
-                        icon:
-                            Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
-                      )
+                      tooltip: '删除评论',
+                      onPressed: () => _deleteComment(context, ref, comment),
+                      icon: Icon(
+                        Icons.delete_outline,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    )
                     : null,
           ),
         );
@@ -346,8 +433,9 @@ class _CommentList extends ConsumerWidget {
       ref.invalidate(commentsProvider(contentId));
     } on ApiException catch (error) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 }
@@ -364,32 +452,37 @@ class _HeroCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (content.coverUrl.isEmpty) {
-      return ColoredBox(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Center(
-          child: Icon(
-            Icons.article_outlined,
-            size: 64,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      );
+      return const _HeroPlaceholder();
     }
     return CachedNetworkImage(
-      imageUrl: content.coverUrl,
+      imageUrl: resolveMediaUrl(content.coverUrl),
       fit: BoxFit.cover,
       memCacheWidth: 1200,
-      placeholder: (context, url) => ColoredBox(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      placeholder: (context, url) => const _HeroPlaceholder(),
+      errorWidget: (context, url, error) => const _HeroPlaceholder(),
+    );
+  }
+}
+
+class _HeroPlaceholder extends StatelessWidget {
+  const _HeroPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [scheme.primaryContainer, scheme.surfaceContainerHighest],
+        ),
       ),
-      errorWidget: (context, url, error) => ColoredBox(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Center(
-          child: Icon(
-            Icons.broken_image,
-            size: 64,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+      child: Center(
+        child: Icon(
+          Icons.auto_stories_outlined,
+          size: 56,
+          color: scheme.onPrimaryContainer.withValues(alpha: 0.72),
         ),
       ),
     );
@@ -409,20 +502,55 @@ class _ContentViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     return switch (content.type) {
       ContentType.markdown => Card(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md + 4),
-            child: SelectionArea(
-              child: MarkdownBody(
-                data:
-                    content.markdown.isEmpty ? content.summary : content.markdown,
-                softLineBreak: true,
-              ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md + 4),
+          child: SelectionArea(
+            child: MarkdownBody(
+              data:
+                  content.markdown.isEmpty ? content.summary : content.markdown,
+              softLineBreak: true,
+              imageBuilder: _buildMarkdownImage,
             ),
           ),
         ),
+      ),
       ContentType.image => _ImageGallery(urls: content.mediaUrls),
       ContentType.video => _VideoPlayerWidget(content: content),
     };
+  }
+
+  Widget _buildMarkdownImage(Uri uri, String? title, String? alt) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: CachedNetworkImage(
+        imageUrl: resolveMediaUrl(uri.toString()),
+        fit: BoxFit.contain,
+        placeholder:
+            (context, url) => Container(
+              constraints: const BoxConstraints(minHeight: 180),
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              alignment: Alignment.center,
+              child: const CircularProgressIndicator(strokeWidth: 2),
+            ),
+        errorWidget:
+            (context, url, error) => Container(
+              constraints: const BoxConstraints(minHeight: 180),
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.broken_image_outlined, size: 40),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    '图片暂时无法加载',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+      ),
+    );
   }
 }
 
@@ -443,9 +571,10 @@ class _ImageGallery extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= kWideBreakpoint
-            ? 3
-            : constraints.maxWidth >= kSmallTabletBreakpoint
+        final columns =
+            constraints.maxWidth >= kWideBreakpoint
+                ? 3
+                : constraints.maxWidth >= kSmallTabletBreakpoint
                 ? 2
                 : 1;
         return GridView.builder(
@@ -457,21 +586,30 @@ class _ImageGallery extends StatelessWidget {
             crossAxisSpacing: AppSpacing.sm + 4,
             mainAxisSpacing: AppSpacing.sm + 4,
           ),
-          itemBuilder: (context, index) => ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: CachedNetworkImage(
-              imageUrl: urls[index],
-              fit: BoxFit.cover,
-              memCacheWidth: 800,
-              placeholder: (context, url) => ColoredBox(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          itemBuilder:
+              (context, index) => ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: CachedNetworkImage(
+                  imageUrl: urls[index],
+                  fit: BoxFit.cover,
+                  memCacheWidth: 800,
+                  placeholder:
+                      (context, url) => ColoredBox(
+                        color:
+                            Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                      ),
+                  errorWidget:
+                      (context, url, error) => ColoredBox(
+                        color:
+                            Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                        child: const Center(child: Icon(Icons.broken_image)),
+                      ),
+                ),
               ),
-              errorWidget: (context, url, error) => ColoredBox(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                child: const Center(child: Icon(Icons.broken_image)),
-              ),
-            ),
-          ),
         );
       },
     );
@@ -503,9 +641,10 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
   }
 
   Future<void> _initPlayer() async {
-    final videoUrl = widget.content.mediaUrls.isNotEmpty
-        ? widget.content.mediaUrls.first
-        : '';
+    final videoUrl =
+        widget.content.mediaUrls.isNotEmpty
+            ? widget.content.mediaUrls.first
+            : '';
     if (videoUrl.isEmpty) {
       setState(() => _hasError = true);
       return;
@@ -544,9 +683,13 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
                 CachedNetworkImage(
                   imageUrl: widget.content.coverUrl,
                   fit: BoxFit.cover,
-                  placeholder: (context, url) => ColoredBox(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  ),
+                  placeholder:
+                      (context, url) => ColoredBox(
+                        color:
+                            Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                      ),
                 ),
               const Center(child: CircularProgressIndicator()),
             ],
@@ -593,18 +736,19 @@ class _ControlsOverlay extends StatelessWidget {
       },
       child: AnimatedSwitcher(
         duration: AppAnimations.normal,
-        child: controller.value.isPlaying
-            ? const SizedBox.shrink()
-            : const ColoredBox(
-                color: AppColors.overlayDark,
-                child: Center(
-                  child: Icon(
-                    Icons.play_arrow,
-                    color: AppColors.onOverlay,
-                    size: 64,
+        child:
+            controller.value.isPlaying
+                ? const SizedBox.shrink()
+                : const ColoredBox(
+                  color: AppColors.overlayDark,
+                  child: Center(
+                    child: Icon(
+                      Icons.play_arrow,
+                      color: AppColors.onOverlay,
+                      size: 64,
+                    ),
                   ),
                 ),
-              ),
       ),
     );
   }
@@ -665,7 +809,8 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
   void didUpdateWidget(_LikeButton oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.content.id != widget.content.id ||
-        oldWidget.content.likedByCurrentUser != widget.content.likedByCurrentUser ||
+        oldWidget.content.likedByCurrentUser !=
+            widget.content.likedByCurrentUser ||
         oldWidget.content.likeCount != widget.content.likeCount) {
       _optimisticLiked = widget.content.likedByCurrentUser;
       _optimisticLikeCount = widget.content.likeCount;
@@ -676,9 +821,7 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
   Widget build(BuildContext context) {
     return FilledButton.icon(
       onPressed: _liking ? null : _toggleLike,
-      icon: Icon(
-        _optimisticLiked ? Icons.favorite : Icons.favorite_outline,
-      ),
+      icon: Icon(_optimisticLiked ? Icons.favorite : Icons.favorite_outline),
       label: Text('点赞 $_optimisticLikeCount'),
     );
   }
@@ -719,8 +862,9 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
         _optimisticLiked = previousLiked;
         _optimisticLikeCount = previousCount;
       });
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
       // 失败回滚
       if (!mounted) return;
@@ -728,8 +872,9 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
         _optimisticLiked = previousLiked;
         _optimisticLikeCount = previousCount;
       });
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) setState(() => _liking = false);
     }
