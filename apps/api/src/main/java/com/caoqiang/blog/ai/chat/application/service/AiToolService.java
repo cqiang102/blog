@@ -1,6 +1,8 @@
 package com.caoqiang.blog.ai.chat.application.service;
 
 import com.caoqiang.blog.ai.chat.application.dto.AiActionResult;
+import com.caoqiang.blog.ai.chat.application.dto.AiCommentItem;
+import com.caoqiang.blog.ai.chat.application.dto.AiCommentListResult;
 import com.caoqiang.blog.ai.chat.application.dto.AiContentDetailResult;
 import com.caoqiang.blog.ai.chat.application.dto.AiContentItem;
 import com.caoqiang.blog.ai.chat.application.dto.AiSearchContentResult;
@@ -12,7 +14,9 @@ import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.interaction.application.dto.CommentRequest;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
 import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
+import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
 import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -27,10 +31,16 @@ public class AiToolService {
 
     private final ContentService contentService;
     private final InteractionCommandService interactionCommandService;
+    private final InteractionQueryService interactionQueryService;
 
-    public AiToolService(ContentService contentService, InteractionCommandService interactionCommandService) {
+    public AiToolService(
+            ContentService contentService,
+            InteractionCommandService interactionCommandService,
+            InteractionQueryService interactionQueryService
+    ) {
         this.contentService = contentService;
         this.interactionCommandService = interactionCommandService;
+        this.interactionQueryService = interactionQueryService;
     }
 
     /**
@@ -127,6 +137,33 @@ public class AiToolService {
             return AiActionResult.commentSuccess(result.id(), result.body());
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 查询文章的评论列表。
+     *
+     * @param contentId   文章的 UUID
+     * @param limit       返回结果数量上限
+     * @param currentUserId 当前登录用户 ID（可选，用于查看自己的被屏蔽评论）
+     * @return 评论列表
+     */
+    public AiCommentListResult listComments(UUID contentId, int limit, UUID currentUserId) {
+        try {
+            PageResponse<CommentResponse> result = interactionQueryService.comments(
+                    contentId, 0, Math.min(limit, 20), currentUserId
+            );
+            List<AiCommentItem> items = result.items().stream()
+                    .map(c -> new AiCommentItem(
+                            c.id(),
+                            c.body(),
+                            c.author() != null ? c.author().nickname() : "匿名",
+                            c.createdAt()
+                    ))
+                    .toList();
+            return AiCommentListResult.success(items, result.total());
+        } catch (Exception e) {
+            return AiCommentListResult.error(e.getMessage());
         }
     }
 

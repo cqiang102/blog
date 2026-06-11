@@ -109,16 +109,23 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
               _ContentViewer(content: content),
               const SizedBox(height: AppSpacing.xl),
 
-              // 操作按钮
-              _buildActions(context, content),
-              const SizedBox(height: AppSpacing.lg),
-
               // 评论输入
-              _buildCommentInput(context, auth),
-              const SizedBox(height: AppSpacing.sm + 4),
+              _buildCommentInput(context, content),
+              const SizedBox(height: AppSpacing.md),
 
               // 评论标题
-              Text('评论', style: Theme.of(context).textTheme.titleLarge),
+              Row(
+                children: [
+                  Text('评论', style: Theme.of(context).textTheme.titleLarge),
+                  const Spacer(),
+                  Text(
+                    '共${(comments.value?.total ?? content.commentCount) > 99 ? '99+' : comments.value?.total ?? content.commentCount}条',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: AppSpacing.sm + 4),
             ],
           ),
@@ -168,42 +175,39 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     );
   }
 
-  /// 构建操作按钮
-  Widget _buildActions(BuildContext context, BlogContent content) {
-    return Row(
-      children: [
-        _LikeButton(contentId: widget.id, content: content),
-        const SizedBox(width: AppSpacing.sm + 4),
-        OutlinedButton.icon(
-          onPressed: null,
-          icon: const Icon(Icons.mode_comment_outlined),
-          label: Text('评论 ${content.commentCount}'),
-        ),
-      ],
-    );
-  }
-
-  /// 构建评论输入
-  Widget _buildCommentInput(BuildContext context, AuthController auth) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  /// 构建评论输入（含点赞和发布按钮）
+  Widget _buildCommentInput(BuildContext context, BlogContent content) {
+    final auth = ref.read(authControllerProvider);
+    return Stack(
       children: [
         TextField(
           controller: _commentController,
-          minLines: 3,
+          minLines: 1,
           maxLines: 5,
           decoration: InputDecoration(
             hintText: auth.isAuthenticated ? '写下你的评论' : '登录后发表评论',
             alignLabelWithHint: true,
+            contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
           ),
         ),
-        const SizedBox(height: AppSpacing.sm + 4),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton.icon(
-            onPressed: _submitting ? null : _submitComment,
-            icon: const Icon(Icons.send),
-            label: const Text('发布评论'),
+        Positioned(
+          right: 8,
+          bottom: 8,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _LikeButton(contentId: widget.id, content: content),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _submitting ? null : _submitComment,
+                icon: const Icon(Icons.send, size: 18),
+                label: const Text('发布'),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -374,45 +378,93 @@ class _CommentList extends ConsumerWidget {
       itemCount: comments.length,
       itemBuilder: (context, index) {
         final comment = comments[index];
-        return Card(
-          key: ValueKey(comment.id),
-          child: ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(comment.authorNickname),
-            subtitle:
-                comment.blocked
-                    ? Row(
+        return Column(
+          children: [
+            Padding(
+              key: ValueKey(comment.id),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm + 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _CommentAvatar(avatarUrl: comment.authorAvatarUrl),
+                  const SizedBox(width: AppSpacing.sm + 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.block,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            '评论审核中，暂不可见',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                              fontStyle: FontStyle.italic,
+                        Row(
+                          children: [
+                            Text(
+                              comment.authorNickname,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w600),
                             ),
-                          ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(
+                              _formatTime(comment.createdAt),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                            const Spacer(),
+                            if (auth.isAuthenticated &&
+                                auth.user?.id == comment.authorId)
+                              IconButton(
+                                tooltip: '删除评论',
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () =>
+                                    _deleteComment(context, ref, comment),
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                          ],
                         ),
+                        const SizedBox(height: 4),
+                        if (comment.blocked)
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.block,
+                                size: 14,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  '评论审核中，暂不可见',
+                                  style: TextStyle(
+                                    color:
+                                        Theme.of(context).colorScheme.error,
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            comment.body,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
                       ],
-                    )
-                    : Text(comment.body),
-            trailing:
-                auth.isAuthenticated && auth.user?.id == comment.authorId
-                    ? IconButton(
-                      tooltip: '删除评论',
-                      onPressed: () => _deleteComment(context, ref, comment),
-                      icon: Icon(
-                        Icons.delete_outline,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    )
-                    : null,
-          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (index < comments.length - 1) const Divider(height: 1),
+          ],
         );
       },
     );
@@ -437,6 +489,41 @@ class _CommentList extends ConsumerWidget {
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
     }
+  }
+
+  /// 格式化时间为相对时间
+  static String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    if (diff.inMinutes < 1) return '刚刚';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} 分钟前';
+    if (diff.inHours < 24) return '${diff.inHours} 小时前';
+    if (diff.inDays < 30) return '${diff.inDays} 天前';
+    if (diff.inDays < 365) return '${diff.inDays ~/ 30} 个月前';
+    return '${diff.inDays ~/ 365} 年前';
+  }
+}
+
+/// 评论头像组件
+class _CommentAvatar extends StatelessWidget {
+  const _CommentAvatar({this.avatarUrl});
+
+  final String? avatarUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolved =
+        avatarUrl != null && avatarUrl!.isNotEmpty ? resolveMediaUrl(avatarUrl!) : '';
+    final scheme = Theme.of(context).colorScheme;
+
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: scheme.surfaceContainerHighest,
+      backgroundImage: resolved.isNotEmpty ? NetworkImage(resolved) : null,
+      child: resolved.isNotEmpty
+          ? null
+          : Icon(Icons.person, size: 20, color: scheme.onSurfaceVariant),
+    );
   }
 }
 
@@ -821,8 +908,12 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
   Widget build(BuildContext context) {
     return FilledButton.icon(
       onPressed: _liking ? null : _toggleLike,
-      icon: Icon(_optimisticLiked ? Icons.favorite : Icons.favorite_outline),
-      label: Text('点赞 $_optimisticLikeCount'),
+      icon: Icon(_optimisticLiked ? Icons.favorite : Icons.favorite_outline, size: 18),
+      label: Text(_optimisticLikeCount > 99 ? '99+' : '$_optimisticLikeCount'),
+      style: FilledButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      ),
     );
   }
 

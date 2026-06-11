@@ -1,5 +1,7 @@
 package com.caoqiang.blog.ai.chat.application.service;
 
+import com.caoqiang.blog.ai.chat.application.dto.AiCommentItem;
+import com.caoqiang.blog.ai.chat.application.dto.AiCommentListResult;
 import com.caoqiang.blog.ai.chat.application.dto.AiContentDetailResult;
 import com.caoqiang.blog.ai.chat.application.dto.AiContentItem;
 import com.caoqiang.blog.ai.chat.application.dto.AiSearchContentResult;
@@ -20,6 +22,7 @@ import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.interaction.application.dto.CommentRequest;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
 import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
+import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
 import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,12 +38,12 @@ import org.springframework.stereotype.Component;
 /**
  * Spring AI @Tool 工具类，为 AI 模型提供博客操作能力。
  * <p>
- * 通过 {@code @Tool} 注解声明 7 个工具方法，使 AI 能够：
+ * 通过 {@code @Tool} 注解声明 8 个工具方法，使 AI 能够：
  * <ul>
  *   <li>搜索和查看博客文章</li>
  *   <li>搜索知识库（向量相似度 + 文本回退）</li>
  *   <li>对文章点赞/取消点赞</li>
- *   <li>对文章发表评论/删除评论</li>
+ *   <li>对文章发表评论/查询评论/删除评论</li>
  * </ul>
  * 需要用户身份的操作通过 {@link AiUserContext} 获取当前登录用户。
  */
@@ -52,6 +55,7 @@ public class AiBlogTools {
     private final ContentService contentService;
     private final ContentRepository contentRepository;
     private final InteractionCommandService interactionCommandService;
+    private final InteractionQueryService interactionQueryService;
     private final KnowledgeChunkRepository knowledgeChunkRepository;
     private final KnowledgeDocRepository knowledgeDocRepository;
     private final EmbeddingModel embeddingModel;
@@ -60,6 +64,7 @@ public class AiBlogTools {
             ContentService contentService,
             ContentRepository contentRepository,
             InteractionCommandService interactionCommandService,
+            InteractionQueryService interactionQueryService,
             KnowledgeChunkRepository knowledgeChunkRepository,
             KnowledgeDocRepository knowledgeDocRepository,
             EmbeddingModel embeddingModel
@@ -67,6 +72,7 @@ public class AiBlogTools {
         this.contentService = contentService;
         this.contentRepository = contentRepository;
         this.interactionCommandService = interactionCommandService;
+        this.interactionQueryService = interactionQueryService;
         this.knowledgeChunkRepository = knowledgeChunkRepository;
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.embeddingModel = embeddingModel;
@@ -254,6 +260,38 @@ public class AiBlogTools {
             return AiActionResult.commentSuccess(result.id(), result.body());
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 查询文章的评论列表。返回评论的 ID、内容、作者和时间，可用于后续删除评论操作。
+     *
+     * @param contentId 文章的 UUID
+     * @param limit     返回结果数量上限（最大 20）
+     * @return 评论列表
+     */
+    @Tool(description = "查询文章的评论列表。返回评论的ID、内容、作者和时间信息。当用户想查看某篇文章的评论、查找自己的评论、或需要获取评论ID以便删除评论时调用。")
+    public AiCommentListResult listComments(
+            @ToolParam(description = "文章的UUID") UUID contentId,
+            @ToolParam(description = "返回结果数量上限，最大20") int limit
+    ) {
+        AuthenticatedUser currentUser = AiUserContext.get();
+        UUID currentUserId = currentUser != null ? currentUser.id() : null;
+        try {
+            PageResponse<CommentResponse> result = interactionQueryService.comments(
+                    contentId, 0, Math.min(limit, 20), currentUserId
+            );
+            List<AiCommentItem> items = result.items().stream()
+                    .map(c -> new AiCommentItem(
+                            c.id(),
+                            c.body(),
+                            c.author() != null ? c.author().nickname() : "匿名",
+                            c.createdAt()
+                    ))
+                    .toList();
+            return AiCommentListResult.success(items, result.total());
+        } catch (Exception e) {
+            return AiCommentListResult.error(e.getMessage());
         }
     }
 

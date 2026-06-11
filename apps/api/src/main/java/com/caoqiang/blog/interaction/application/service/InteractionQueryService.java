@@ -13,6 +13,7 @@ import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.shared.util.PageUtils;
+import com.caoqiang.blog.user.application.service.ProfileService;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -45,15 +46,18 @@ public class InteractionQueryService {
     private final CommentRepository commentRepository;
     private final LikeRepository likeRepository;
     private final ViewRecordRepository viewRecordRepository;
+    private final ProfileService profileService;
 
     public InteractionQueryService(
             CommentRepository commentRepository,
             LikeRepository likeRepository,
-            ViewRecordRepository viewRecordRepository
+            ViewRecordRepository viewRecordRepository,
+            ProfileService profileService
     ) {
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
+        this.profileService = profileService;
     }
 
     @Transactional(readOnly = true)
@@ -79,7 +83,10 @@ public class InteractionQueryService {
         }
         return new PageResponse<>(
                 result.getContent().stream()
-                        .map(CommentResponse::from)
+                        .map(comment -> CommentResponse.from(
+                                comment,
+                                profileService.generatePresignedAvatarUrl(comment.getUser().getAvatarUrl())
+                        ))
                         .toList(),
                 result.getNumber(),
                 result.getSize(),

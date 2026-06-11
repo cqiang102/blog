@@ -405,7 +405,7 @@ class _ChatHeader extends StatelessWidget {
         auth.isAuthenticated
             ? remaining != null
                 ? '今日剩余 $remaining 次 · 会话剩余 $remainingMessages 条'
-                : '正在加载配额...'
+                : '正在加载...'
             : '登录后每天可以提问 10 次',
         style: Theme.of(context).textTheme.bodySmall,
       ),

@@ -284,7 +284,7 @@ public class ProfileService {
      * @param avatarUrl 原始头像 URL
      * @return 预签名 URL 或原 URL
      */
-    private String generatePresignedAvatarUrl(String avatarUrl) {
+    public String generatePresignedAvatarUrl(String avatarUrl) {
         if (!StringUtils.hasText(avatarUrl)) {
             return avatarUrl;
         }

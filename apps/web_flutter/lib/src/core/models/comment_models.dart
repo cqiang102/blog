@@ -14,6 +14,7 @@ class CommentItem {
     required this.authorId,
     required this.authorNickname,
     required this.createdAt,
+    this.authorAvatarUrl,
     this.auditStatus,
   });
 
@@ -24,6 +25,7 @@ class CommentItem {
   final String authorId;
   final String authorNickname;
   final DateTime createdAt;
+  final String? authorAvatarUrl;
   final String? auditStatus;
 
   /// 是否被屏蔽
@@ -41,6 +43,7 @@ class CommentItem {
       authorId: jsonString(author['id']),
       authorNickname: nickname.isEmpty ? '用户' : nickname,
       createdAt: jsonDate(json['createdAt']),
+      authorAvatarUrl: jsonNullableString(author['avatarUrl']),
       auditStatus: jsonNullableString(json['auditStatus']),
     );
   }

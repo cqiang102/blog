@@ -42,6 +42,17 @@ public record CommentResponse(
      * @return 评论响应 DTO
      */
     public static CommentResponse from(Comment comment) {
+        return from(comment, comment.getUser().getAvatarUrl());
+    }
+
+    /**
+     * 从评论实体创建响应 DTO（使用预签名头像 URL）
+     *
+     * @param comment           评论实体
+     * @param presignedAvatarUrl 预签名头像 URL
+     * @return 评论响应 DTO
+     */
+    public static CommentResponse from(Comment comment, String presignedAvatarUrl) {
         return new CommentResponse(
                 comment.getId(),
                 comment.getContent().getId(),
@@ -50,7 +61,7 @@ public record CommentResponse(
                 new CommentAuthor(
                         comment.getUser().getId(),
                         comment.getUser().getNickname(),
-                        comment.getUser().getAvatarUrl()
+                        presignedAvatarUrl
                 ),
                 comment.getAuditStatus(),
                 comment.getCreatedAt()

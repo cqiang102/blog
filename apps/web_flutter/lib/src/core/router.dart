@@ -2,6 +2,7 @@
 // 包含 8 个路由、响应式 Shell 布局和认证守卫逻辑
 
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -318,51 +319,62 @@ class _BrandSidebar extends StatelessWidget {
       if (!authenticated) _destinations[6],
     ];
 
-    return Container(
-      width: expanded ? 232 : 88,
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        border: Border(right: BorderSide(color: scheme.outlineVariant)),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: expanded ? AppSpacing.md : AppSpacing.sm,
-            vertical: AppSpacing.md,
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          width: expanded ? 232 : 88,
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLow.withValues(alpha: 0.82),
+            border: Border(right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
           ),
-          child: Column(
-            children: [
-              _SidebarIdentity(
-                expanded: expanded,
-                avatarText: avatarText,
-                avatarUrl: avatarUrl,
-                nickname: nickname,
+          child: SafeArea(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: expanded ? AppSpacing.md : AppSpacing.sm,
+                vertical: AppSpacing.md,
               ),
-              const SizedBox(height: AppSpacing.xl),
-              for (final item in _publicDestinations)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                  child: _SidebarItem(
-                    item: item,
+              child: Column(
+                children: [
+                  _SidebarIdentity(
                     expanded: expanded,
-                    selected: currentPath == item.path,
-                    onTap: () => onNavigate(item),
+                    avatarText: avatarText,
+                    avatarUrl: avatarUrl,
+                    nickname: nickname,
                   ),
-                ),
-              const Spacer(),
-              Divider(color: scheme.outlineVariant),
-              const SizedBox(height: AppSpacing.sm),
-              for (final item in accountItems)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                  child: _SidebarItem(
-                    item: item,
-                    expanded: expanded,
-                    selected: currentPath == item.path,
-                    onTap: () => onNavigate(item),
-                  ),
-                ),
-            ],
+                  const SizedBox(height: AppSpacing.xl),
+                  for (final item in _publicDestinations)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                      child: _SidebarItem(
+                        item: item,
+                        expanded: expanded,
+                        selected: currentPath == item.path,
+                        onTap: () => onNavigate(item),
+                      ),
+                    ),
+                  const Spacer(),
+                  Divider(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                  const SizedBox(height: AppSpacing.sm),
+                  for (final item in accountItems)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                      child: item == _destinations[6]
+                          ? _SidebarCapsuleButton(
+                              item: item,
+                              expanded: expanded,
+                              onTap: () => onNavigate(item),
+                            )
+                          : _SidebarItem(
+                              item: item,
+                              expanded: expanded,
+                              selected: currentPath == item.path,
+                              onTap: () => onNavigate(item),
+                            ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -448,36 +460,87 @@ class _SidebarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final foreground =
-        selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant;
+    // 浅绿色选中效果
+    final selectedBg = const Color(0xFF27665A).withValues(alpha: 0.1);
+    final selectedFg = const Color(0xFF27665A);
+    final foreground = selected ? selectedFg : scheme.onSurfaceVariant;
 
     final child = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: AnimatedContainer(
         duration: AppAnimations.fast,
-        height: 48,
-        padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 0),
+        height: 44,
+        padding: EdgeInsets.symmetric(horizontal: expanded ? 14 : 0),
         decoration: BoxDecoration(
-          color: selected ? scheme.primaryContainer : Colors.transparent,
+          color: selected ? selectedBg : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           mainAxisAlignment:
               expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
           children: [
-            Icon(selected ? item.selectedIcon : item.icon, color: foreground),
+            Icon(selected ? item.selectedIcon : item.icon, size: 22, color: foreground),
             if (expanded) ...[
-              const SizedBox(width: AppSpacing.sm + 4),
+              const SizedBox(width: 14),
               Text(
                 item.label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: foreground,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ],
           ],
+        ),
+      ),
+    );
+
+    return expanded ? child : Tooltip(message: item.label, child: child);
+  }
+}
+
+class _SidebarCapsuleButton extends StatelessWidget {
+  const _SidebarCapsuleButton({
+    required this.item,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final _Destination item;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    final child = Material(
+      color: scheme.primary,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          height: 44,
+          padding: EdgeInsets.symmetric(horizontal: expanded ? 16 : 0),
+          child: Row(
+            mainAxisAlignment:
+                expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+            children: [
+              Icon(item.icon, size: 22, color: scheme.onPrimary),
+              if (expanded) ...[
+                const SizedBox(width: 14),
+                Text(
+                  item.label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: scheme.onPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
