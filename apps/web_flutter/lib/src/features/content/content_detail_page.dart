@@ -2,6 +2,7 @@
 // 支持 Markdown 渲染、视频播放、点赞、评论列表和浏览记录
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -464,7 +465,7 @@ class _CommentList extends ConsumerWidget {
                   ),
                 ],
               ),
-            ),
+            ).fadeSlideIn(delay: (index * 60).ms),
             if (index < comments.length - 1) const Divider(height: 1),
           ],
         );
@@ -909,6 +910,7 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
   @override
   Widget build(BuildContext context) {
     return FilledButton.icon(
+      key: ValueKey(_optimisticLiked),
       onPressed: _liking ? null : _toggleLike,
       icon: Icon(_optimisticLiked ? Icons.favorite : Icons.favorite_outline, size: 18),
       label: Text(_optimisticLikeCount > 99 ? '99+' : '$_optimisticLikeCount'),
@@ -916,7 +918,7 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
-    );
+    ).scalePulse();
   }
 
   Future<void> _toggleLike() async {

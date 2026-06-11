@@ -2,6 +2,7 @@ import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -679,13 +680,14 @@ class _TimelineContentList extends StatelessWidget {
           if (index < flatItems.length) {
             final item = flatItems[index];
             if (item is _TimelineDate) {
-              return _TimelineDateHeader(date: item.date, count: item.count);
+              return _TimelineDateHeader(date: item.date, count: item.count)
+                  .fadeSlideIn(delay: (index * 60).ms);
             } else if (item is _TimelineContent) {
               return _TimelineContentCard(
                 key: ValueKey(item.content.id),
                 content: item.content,
                 isLast: item.isLastInMonth && item.isLastMonth && !isLoading,
-              );
+              ).fadeSlideFromLeft(delay: (index * 60).ms);
             }
           }
           if (isLoading) {

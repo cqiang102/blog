@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -162,7 +163,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                                       onSendCode: _sendCode,
                                       onSubmit: _submit,
                                       onGithubLogin: _openGithubLogin,
-                                    ),
+                                    ).fadeSlideIn(delay: 200.ms),
                                   ),
                                 ),
                               ],
@@ -197,7 +198,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                                 onSendCode: _sendCode,
                                 onSubmit: _submit,
                                 onGithubLogin: _openGithubLogin,
-                              ),
+                              ).fadeSlideIn(delay: 200.ms),
                             ],
                           ),
                 ),
@@ -356,11 +357,14 @@ class _AuthBrandPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-          const _BrandFeature(label: '参与文章讨论'),
+          const _BrandFeature(label: '参与文章讨论')
+              .fadeSlideIn(delay: 400.ms),
           const SizedBox(height: AppSpacing.sm + 4),
-          const _BrandFeature(label: '保存你的阅读足迹'),
+          const _BrandFeature(label: '保存你的阅读足迹')
+              .fadeSlideIn(delay: 500.ms),
           const SizedBox(height: AppSpacing.sm + 4),
-          const _BrandFeature(label: '使用个人知识库 AI 助手'),
+          const _BrandFeature(label: '使用个人知识库 AI 助手')
+              .fadeSlideIn(delay: 600.ms),
           const Spacer(),
           Text(
             '写代码，也记录生活。',

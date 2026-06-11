@@ -1,6 +1,7 @@
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -261,7 +262,7 @@ class _HeroIntro extends StatelessWidget {
               ),
             ],
           ),
-        ),
+        ).fadeSlideIn(delay: 0.ms, duration: 500.ms),
         const SizedBox(height: AppSpacing.md),
         AnimatedTextKit(
           isRepeatingAnimation: false,
@@ -276,14 +277,14 @@ class _HeroIntro extends StatelessWidget {
               cursor: '|',
             ),
           ],
-        ),
+        ).fadeSlideIn(delay: 200.ms, duration: 500.ms),
         const SizedBox(height: AppSpacing.md),
         Text(
           '这里收藏工程实践、AI 探索，以及值得被记住的普通日子。',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: scheme.onPrimaryContainer.withValues(alpha: 0.78),
           ),
-        ),
+        ).fadeSlideIn(delay: 400.ms),
         const SizedBox(height: AppSpacing.lg),
         Wrap(
           spacing: AppSpacing.sm,
@@ -298,7 +299,7 @@ class _HeroIntro extends StatelessWidget {
               child: const Text('认识我'),
             ),
           ],
-        ),
+        ).fadeSlideIn(delay: 600.ms),
       ],
     );
   }
@@ -387,7 +388,15 @@ class _FeaturedStory extends StatelessWidget {
           ),
         ],
       ),
-    );
+    )
+        .animate(delay: 300.ms)
+        .fadeIn(duration: 500.ms, curve: Curves.easeOutCubic)
+        .scale(
+          begin: const Offset(0.95, 0.95),
+          end: const Offset(1.0, 1.0),
+          duration: 500.ms,
+          curve: Curves.easeOutCubic,
+        );
   }
 }
 
@@ -428,7 +437,8 @@ class _LatestContent extends StatelessWidget {
             separatorBuilder:
                 (context, index) => const SizedBox(height: AppSpacing.sm + 4),
             itemBuilder:
-                (context, index) => _CompactStoryCard(content: contents[index]),
+                (context, index) => _CompactStoryCard(content: contents[index])
+                    .fadeSlideIn(delay: (index * 80).ms),
           );
         }
 
@@ -442,7 +452,8 @@ class _LatestContent extends StatelessWidget {
             mainAxisSpacing: AppSpacing.md,
           ),
           delegate: SliverChildBuilderDelegate(
-            (context, index) => _StoryCard(content: contents[index]),
+            (context, index) => _StoryCard(content: contents[index])
+                .fadeSlideIn(delay: (index * 80).ms),
             childCount: contents.length,
           ),
         );
@@ -591,7 +602,8 @@ class _PopularList extends StatelessWidget {
     return Column(
       children: [
         for (var index = 0; index < visible.length; index++) ...[
-          _PopularRow(rank: index + 1, content: visible[index]),
+          _PopularRow(rank: index + 1, content: visible[index])
+              .fadeSlideIn(delay: (index * 80).ms),
           if (index != visible.length - 1)
             const SizedBox(height: AppSpacing.sm),
         ],

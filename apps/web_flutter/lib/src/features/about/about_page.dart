@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -782,6 +783,14 @@ class _ChatBubble extends StatelessWidget {
                   ),
                 ),
       ),
-    );
+    )
+        .animate()
+        .fadeIn(duration: 300.ms, curve: Curves.easeOutCubic)
+        .slideX(
+          begin: message.isMine ? 0.08 : -0.08,
+          end: 0,
+          duration: 300.ms,
+          curve: Curves.easeOutCubic,
+        );
   }
 }

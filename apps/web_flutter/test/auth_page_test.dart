@@ -20,6 +20,7 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
   }
 
   testWidgets('renders desktop login layout', (tester) async {

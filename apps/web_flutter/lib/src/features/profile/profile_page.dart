@@ -2,6 +2,7 @@
 // 支持资料编辑、修改密码、查看评论/点赞/浏览活动记录、OAuth 账号绑定
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -185,25 +186,25 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                     uploading: _uploadingAvatar,
                     onUpload: _pickAndUploadAvatar,
                   ),
-                ),
+                ).fadeSlideIn(delay: 0.ms),
                 const SizedBox(height: AppSpacing.md),
                 _ProfileSectionCard(
                   title: '基本信息',
                   subtitle: '这些信息会展示在个人主页和互动记录中',
                   child: _buildBasicInfoForm(auth),
-                ),
+                ).fadeSlideIn(delay: 80.ms),
                 const SizedBox(height: AppSpacing.md),
                 _ProfileSectionCard(
                   title: user?.hasPassword == true ? '修改密码' : '设置密码',
                   subtitle: '定期更新密码有助于保护账号安全',
                   child: _buildPasswordSection(user),
-                ),
+                ).fadeSlideIn(delay: 160.ms),
                 const SizedBox(height: AppSpacing.md),
                 _ProfileSectionCard(
                   title: '账号绑定',
                   subtitle: '管理第三方登录方式',
                   child: _buildOAuthSection(context),
-                ),
+                ).fadeSlideIn(delay: 240.ms),
               ],
             ),
           ),

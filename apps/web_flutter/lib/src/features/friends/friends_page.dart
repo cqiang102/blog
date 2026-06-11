@@ -1,6 +1,7 @@
 // 友链页模块
 // 展示友链网格，包含头像、名称、简介，点击跳转外部链接
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -55,7 +56,8 @@ class FriendsPage extends ConsumerWidget {
                   crossAxisSpacing: 16,
                 ),
                 itemBuilder: (context, index) {
-                  return _FriendCard(friend: items[index]);
+                  return _FriendCard(friend: items[index])
+                      .fadeSlideIn(delay: (index * 80).ms);
                 },
               ),
             );
