@@ -1,10 +1,15 @@
 // 管理后台相关数据模型
 // 包含点赞、浏览记录、用户管理、仪表盘等
 
+import 'package:json_annotation/json_annotation.dart';
+
 import 'enums.dart';
-import 'helpers.dart';
+import 'json_converters.dart';
+
+part 'admin_models.g.dart';
 
 /// 管理后台点赞项模型
+@JsonSerializable()
 class AdminLikeItem {
   const AdminLikeItem({
     required this.id,
@@ -16,29 +21,29 @@ class AdminLikeItem {
     required this.createdAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String contentId;
+  @SafeStringJsonConverter()
   final String contentTitle;
+  @SafeStringJsonConverter()
   final String userId;
+  @SafeStringJsonConverter()
   final String userNickname;
+  @SafeStringJsonConverter()
   final String userEmail;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
 
-  /// 从 JSON 创建实例
-  factory AdminLikeItem.fromJson(Map<String, dynamic> json) {
-    return AdminLikeItem(
-      id: jsonString(json['id']),
-      contentId: jsonString(json['contentId']),
-      contentTitle: jsonString(json['contentTitle']),
-      userId: jsonString(json['userId']),
-      userNickname: jsonString(json['userNickname']),
-      userEmail: jsonString(json['userEmail']),
-      createdAt: jsonDate(json['createdAt']),
-    );
-  }
+  factory AdminLikeItem.fromJson(Map<String, dynamic> json) =>
+      _$AdminLikeItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AdminLikeItemToJson(this);
 }
 
 /// 管理后台浏览记录项模型
+@JsonSerializable()
 class AdminViewRecordItem {
   const AdminViewRecordItem({
     required this.id,
@@ -53,38 +58,38 @@ class AdminViewRecordItem {
     required this.createdAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String contentId;
+  @SafeStringJsonConverter()
   final String contentTitle;
+  @SafeStringJsonConverter()
   final String userId;
+  @SafeStringJsonConverter()
   final String userNickname;
+  @SafeStringJsonConverter()
   final String userEmail;
+  @SafeStringJsonConverter()
   final String anonymousId;
+  @SafeStringJsonConverter()
   final String ipHash;
+  @SafeStringJsonConverter()
   final String userAgent;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
 
   /// 是否匿名用户
   bool get anonymous => userId.isEmpty;
 
-  /// 从 JSON 创建实例
-  factory AdminViewRecordItem.fromJson(Map<String, dynamic> json) {
-    return AdminViewRecordItem(
-      id: jsonString(json['id']),
-      contentId: jsonString(json['contentId']),
-      contentTitle: jsonString(json['contentTitle']),
-      userId: jsonString(json['userId']),
-      userNickname: jsonString(json['userNickname']),
-      userEmail: jsonString(json['userEmail']),
-      anonymousId: jsonString(json['anonymousId']),
-      ipHash: jsonString(json['ipHash']),
-      userAgent: jsonString(json['userAgent']),
-      createdAt: jsonDate(json['createdAt']),
-    );
-  }
+  factory AdminViewRecordItem.fromJson(Map<String, dynamic> json) =>
+      _$AdminViewRecordItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AdminViewRecordItemToJson(this);
 }
 
 /// 管理后台用户项模型
+@JsonSerializable()
 class AdminUserItem {
   const AdminUserItem({
     required this.id,
@@ -99,38 +104,38 @@ class AdminUserItem {
     required this.updatedAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String email;
+  @SafeStringJsonConverter()
   final String nickname;
+  @SafeStringJsonConverter()
   final String avatarUrl;
+  @SafeStringJsonConverter()
   final String bio;
+  @SafeStringJsonConverter()
   final String blogUrl;
+  @AdminUserRoleJsonConverter()
   final AdminUserRole role;
+  @AdminUserStatusJsonConverter()
   final AdminUserStatus status;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
+  @SafeDateTimeJsonConverter()
   final DateTime updatedAt;
 
   /// 是否已禁用
   bool get disabled => status == AdminUserStatus.disabled;
 
-  /// 从 JSON 创建实例
-  factory AdminUserItem.fromJson(Map<String, dynamic> json) {
-    return AdminUserItem(
-      id: jsonString(json['id']),
-      email: jsonString(json['email']),
-      nickname: jsonString(json['nickname']),
-      avatarUrl: jsonString(json['avatarUrl']),
-      bio: jsonString(json['bio']),
-      blogUrl: jsonString(json['blogUrl']),
-      role: AdminUserRole.fromApi(jsonString(json['role'])),
-      status: AdminUserStatus.fromApi(jsonString(json['status'])),
-      createdAt: jsonDate(json['createdAt']),
-      updatedAt: jsonDate(json['updatedAt']),
-    );
-  }
+  factory AdminUserItem.fromJson(Map<String, dynamic> json) =>
+      _$AdminUserItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AdminUserItemToJson(this);
 }
 
 /// 管理后台用户编辑草稿模型
+/// 保留手写 toJson：包含 .trim() 调用
 class AdminUserDraft {
   const AdminUserDraft({
     required this.email,
@@ -243,6 +248,7 @@ class AdminMetric {
 }
 
 /// 管理后台仪表盘模型
+@JsonSerializable()
 class AdminDashboard {
   const AdminDashboard({
     required this.contents,
@@ -256,14 +262,23 @@ class AdminDashboard {
     required this.knowledgeDocs,
   });
 
+  @SafeIntJsonConverter()
   final int contents;
+  @SafeIntJsonConverter()
   final int media;
+  @SafeIntJsonConverter()
   final int friends;
+  @SafeIntJsonConverter()
   final int users;
+  @SafeIntJsonConverter()
   final int comments;
+  @SafeIntJsonConverter()
   final int likes;
+  @SafeIntJsonConverter()
   final int views;
+  @SafeIntJsonConverter()
   final int aiChats;
+  @SafeIntJsonConverter()
   final int knowledgeDocs;
 
   /// 获取指标列表
@@ -281,23 +296,14 @@ class AdminDashboard {
     ];
   }
 
-  /// 从 JSON 创建实例
-  factory AdminDashboard.fromJson(Map<String, dynamic> json) {
-    return AdminDashboard(
-      contents: jsonInt(json['contents']),
-      media: jsonInt(json['media']),
-      friends: jsonInt(json['friends']),
-      users: jsonInt(json['users']),
-      comments: jsonInt(json['comments']),
-      likes: jsonInt(json['likes']),
-      views: jsonInt(json['views']),
-      aiChats: jsonInt(json['aiChats']),
-      knowledgeDocs: jsonInt(json['knowledgeDocs']),
-    );
-  }
+  factory AdminDashboard.fromJson(Map<String, dynamic> json) =>
+      _$AdminDashboardFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AdminDashboardToJson(this);
 }
 
 /// 审计日志项模型
+@JsonSerializable()
 class AuditLogItem {
   const AuditLogItem({
     required this.id,
@@ -310,28 +316,27 @@ class AuditLogItem {
     required this.createdAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @NullableStringJsonConverter()
   final String? actorUserId;
+  @NullableStringJsonConverter()
   final String? actorNickname;
+  @SafeStringJsonConverter()
   final String action;
+  @SafeStringJsonConverter()
   final String resourceType;
+  @NullableStringJsonConverter()
   final String? resourceId;
+  @NullableStringJsonConverter()
   final String? detail;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
 
-  /// 从 JSON 创建实例
-  factory AuditLogItem.fromJson(Map<String, dynamic> json) {
-    return AuditLogItem(
-      id: jsonString(json['id']),
-      actorUserId: jsonNullableString(json['actorUserId']),
-      actorNickname: jsonNullableString(json['actorNickname']),
-      action: jsonString(json['action']),
-      resourceType: jsonString(json['resourceType']),
-      resourceId: jsonNullableString(json['resourceId']),
-      detail: jsonNullableString(json['detail']),
-      createdAt: jsonDate(json['createdAt']),
-    );
-  }
+  factory AuditLogItem.fromJson(Map<String, dynamic> json) =>
+      _$AuditLogItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AuditLogItemToJson(this);
 }
 
 /// 审计日志查询参数
@@ -363,6 +368,7 @@ class AuditLogQuery {
 }
 
 /// 用户活动记录模型
+@JsonSerializable()
 class UserActivity {
   const UserActivity({
     required this.id,
@@ -372,20 +378,19 @@ class UserActivity {
     required this.createdAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String type;
+  @SafeStringJsonConverter()
   final String contentId;
+  @SafeStringJsonConverter()
   final String title;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
 
-  /// 从 JSON 创建实例
-  factory UserActivity.fromJson(Map<String, dynamic> json) {
-    return UserActivity(
-      id: jsonString(json['id']),
-      type: jsonString(json['type']),
-      contentId: jsonString(json['contentId']),
-      title: jsonString(json['title']),
-      createdAt: jsonDate(json['createdAt']),
-    );
-  }
+  factory UserActivity.fromJson(Map<String, dynamic> json) =>
+      _$UserActivityFromJson(json);
+
+  Map<String, dynamic> toJson() => _$UserActivityToJson(this);
 }

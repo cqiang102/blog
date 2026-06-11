@@ -1,10 +1,16 @@
 // 评论相关数据模型
 // 包含评论项、管理后台评论等
 
+import 'package:json_annotation/json_annotation.dart';
+
 import 'enums.dart';
 import 'helpers.dart';
+import 'json_converters.dart';
+
+part 'comment_models.g.dart';
 
 /// 评论项模型
+/// 保留手写 fromJson：需要从嵌套的 author 对象提取字段
 class CommentItem {
   const CommentItem({
     required this.id,
@@ -33,7 +39,8 @@ class CommentItem {
 
   /// 从 JSON 创建实例
   factory CommentItem.fromJson(Map<String, dynamic> json) {
-    final author = (json['author'] as Map? ?? const {}).cast<String, dynamic>();
+    final author =
+        (json['author'] as Map? ?? const {}).cast<String, dynamic>();
     final nickname = jsonString(author['nickname']);
     return CommentItem(
       id: jsonString(json['id']),
@@ -50,6 +57,7 @@ class CommentItem {
 }
 
 /// 管理后台评论项模型
+@JsonSerializable()
 class AdminCommentItem {
   const AdminCommentItem({
     required this.id,
@@ -64,35 +72,34 @@ class AdminCommentItem {
     required this.updatedAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String contentId;
+  @SafeStringJsonConverter()
   final String contentTitle;
+  @SafeStringJsonConverter()
   final String userId;
+  @SafeStringJsonConverter()
   final String userNickname;
+  @SafeStringJsonConverter()
   final String userEmail;
+  @AdminCommentStatusJsonConverter()
   final AdminCommentStatus status;
+  @SafeStringJsonConverter()
   final String body;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
+  @SafeDateTimeJsonConverter()
   final DateTime updatedAt;
 
   /// 是否已删除
   bool get deleted => status == AdminCommentStatus.deleted;
 
-  /// 从 JSON 创建实例
-  factory AdminCommentItem.fromJson(Map<String, dynamic> json) {
-    return AdminCommentItem(
-      id: jsonString(json['id']),
-      contentId: jsonString(json['contentId']),
-      contentTitle: jsonString(json['contentTitle']),
-      userId: jsonString(json['userId']),
-      userNickname: jsonString(json['userNickname']),
-      userEmail: jsonString(json['userEmail']),
-      status: AdminCommentStatus.fromApi(jsonString(json['status'])),
-      body: jsonString(json['body']),
-      createdAt: jsonDate(json['createdAt']),
-      updatedAt: jsonDate(json['updatedAt']),
-    );
-  }
+  factory AdminCommentItem.fromJson(Map<String, dynamic> json) =>
+      _$AdminCommentItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AdminCommentItemToJson(this);
 }
 
 /// 管理后台评论查询参数

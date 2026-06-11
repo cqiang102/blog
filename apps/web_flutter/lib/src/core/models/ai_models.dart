@@ -1,29 +1,34 @@
 // AI 相关数据模型
 // 包含 AI 配额、聊天回复、会话、消息等
 
+import 'package:json_annotation/json_annotation.dart';
+
 import 'enums.dart';
-import 'helpers.dart';
+import 'json_converters.dart';
+
+part 'ai_models.g.dart';
 
 /// AI 配额模型
+@JsonSerializable()
 class AiQuota {
   const AiQuota({required this.dailyLimit, required this.used});
 
+  @SafeIntJsonConverter()
   final int dailyLimit;
+  @SafeIntJsonConverter()
   final int used;
 
   /// 剩余配额
   int get remaining => dailyLimit - used;
 
-  /// 从 JSON 创建实例
-  factory AiQuota.fromJson(Map<String, dynamic> json) {
-    return AiQuota(
-      dailyLimit: jsonInt(json['dailyLimit']),
-      used: jsonInt(json['used']),
-    );
-  }
+  factory AiQuota.fromJson(Map<String, dynamic> json) =>
+      _$AiQuotaFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AiQuotaToJson(this);
 }
 
 /// AI 聊天回复模型
+@JsonSerializable()
 class AiChatReply {
   const AiChatReply({
     required this.sessionId,
@@ -32,23 +37,23 @@ class AiChatReply {
     required this.remainingMessages,
   });
 
+  @SafeStringJsonConverter()
   final String sessionId;
+  @SafeStringJsonConverter()
   final String answer;
+  @SafeIntJsonConverter()
   final int remainingQuestions;
+  @SafeIntJsonConverter()
   final int remainingMessages;
 
-  /// 从 JSON 创建实例
-  factory AiChatReply.fromJson(Map<String, dynamic> json) {
-    return AiChatReply(
-      sessionId: jsonString(json['sessionId']),
-      answer: jsonString(json['answer']),
-      remainingQuestions: jsonInt(json['remainingQuestions']),
-      remainingMessages: jsonInt(json['remainingMessages']),
-    );
-  }
+  factory AiChatReply.fromJson(Map<String, dynamic> json) =>
+      _$AiChatReplyFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AiChatReplyToJson(this);
 }
 
 /// AI 会话项模型
+@JsonSerializable()
 class AiSessionItem {
   const AiSessionItem({
     required this.id,
@@ -58,25 +63,25 @@ class AiSessionItem {
     required this.updatedAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String title;
+  @SafeIntJsonConverter()
   final int messageCount;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
+  @SafeDateTimeJsonConverter()
   final DateTime updatedAt;
 
-  /// 从 JSON 创建实例
-  factory AiSessionItem.fromJson(Map<String, dynamic> json) {
-    return AiSessionItem(
-      id: jsonString(json['id']),
-      title: jsonString(json['title']),
-      messageCount: jsonInt(json['messageCount']),
-      createdAt: jsonDate(json['createdAt']),
-      updatedAt: jsonDate(json['updatedAt']),
-    );
-  }
+  factory AiSessionItem.fromJson(Map<String, dynamic> json) =>
+      _$AiSessionItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AiSessionItemToJson(this);
 }
 
 /// AI 消息项模型
+@JsonSerializable()
 class AiMessageItem {
   const AiMessageItem({
     required this.id,
@@ -86,25 +91,24 @@ class AiMessageItem {
     required this.createdAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String role;
+  @SafeStringJsonConverter()
   final String content;
   final String? auditStatus;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
 
-  /// 从 JSON 创建实例
-  factory AiMessageItem.fromJson(Map<String, dynamic> json) {
-    return AiMessageItem(
-      id: jsonString(json['id']),
-      role: jsonString(json['role']),
-      content: jsonString(json['content']),
-      auditStatus: json['auditStatus'] as String?,
-      createdAt: jsonDate(json['createdAt']),
-    );
-  }
+  factory AiMessageItem.fromJson(Map<String, dynamic> json) =>
+      _$AiMessageItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AiMessageItemToJson(this);
 }
 
 /// 管理后台 AI 聊天会话项模型
+@JsonSerializable()
 class AdminAiChatSessionItem {
   const AdminAiChatSessionItem({
     required this.id,
@@ -118,33 +122,33 @@ class AdminAiChatSessionItem {
     required this.updatedAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String userId;
+  @SafeStringJsonConverter()
   final String userNickname;
+  @SafeStringJsonConverter()
   final String userEmail;
+  @SafeStringJsonConverter()
   final String title;
+  @SafeIntJsonConverter()
   final int messageCount;
+  @SafeStringJsonConverter()
   final String lastMessage;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
+  @SafeDateTimeJsonConverter()
   final DateTime updatedAt;
 
-  /// 从 JSON 创建实例
-  factory AdminAiChatSessionItem.fromJson(Map<String, dynamic> json) {
-    return AdminAiChatSessionItem(
-      id: jsonString(json['id']),
-      userId: jsonString(json['userId']),
-      userNickname: jsonString(json['userNickname']),
-      userEmail: jsonString(json['userEmail']),
-      title: jsonString(json['title']),
-      messageCount: jsonInt(json['messageCount']),
-      lastMessage: jsonString(json['lastMessage']),
-      createdAt: jsonDate(json['createdAt']),
-      updatedAt: jsonDate(json['updatedAt']),
-    );
-  }
+  factory AdminAiChatSessionItem.fromJson(Map<String, dynamic> json) =>
+      _$AdminAiChatSessionItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AdminAiChatSessionItemToJson(this);
 }
 
 /// 管理后台 AI 聊天消息项模型
+@JsonSerializable()
 class AdminAiChatMessageItem {
   const AdminAiChatMessageItem({
     required this.id,
@@ -158,33 +162,31 @@ class AdminAiChatMessageItem {
     required this.createdAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @AiChatMessageRoleJsonConverter()
   final AiChatMessageRole role;
+  @SafeStringJsonConverter()
   final String content;
+  @SafeStringJsonConverter()
   final String toolName;
+  @SafeIntJsonConverter()
   final int promptTokens;
+  @SafeIntJsonConverter()
   final int completionTokens;
   final String? auditStatus;
   final String? auditReason;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
 
-  /// 从 JSON 创建实例
-  factory AdminAiChatMessageItem.fromJson(Map<String, dynamic> json) {
-    return AdminAiChatMessageItem(
-      id: jsonString(json['id']),
-      role: AiChatMessageRole.fromApi(jsonString(json['role'])),
-      content: jsonString(json['content']),
-      toolName: jsonString(json['toolName']),
-      promptTokens: jsonInt(json['promptTokens']),
-      completionTokens: jsonInt(json['completionTokens']),
-      auditStatus: json['auditStatus'] as String?,
-      auditReason: json['auditReason'] as String?,
-      createdAt: jsonDate(json['createdAt']),
-    );
-  }
+  factory AdminAiChatMessageItem.fromJson(Map<String, dynamic> json) =>
+      _$AdminAiChatMessageItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AdminAiChatMessageItemToJson(this);
 }
 
 /// 管理后台 AI 聊天详情模型
+/// 保留手写 fromJson：包含防御性类型转换逻辑
 class AdminAiChatDetail {
   const AdminAiChatDetail({required this.session, required this.messages});
 

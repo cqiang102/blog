@@ -1,12 +1,18 @@
 // 内容相关数据模型
 // 包含博客内容、推荐内容、内容查询参数等
 
+import 'package:json_annotation/json_annotation.dart';
+
 import 'common_models.dart';
 import 'enums.dart';
 import 'helpers.dart';
+import 'json_converters.dart';
+
+part 'content_models.g.dart';
 
 /// 博客内容模型
 /// 包含文章的基本信息、统计数据和媒体资源
+/// 保留手写工厂：fromSummaryJson 和 fromDetailJson 解析不同 API 响应
 class BlogContent {
   const BlogContent({
     required this.id,
@@ -98,6 +104,7 @@ List<String> _mediaUrls(Object? value) {
 
 /// 首页推荐内容模型
 /// 包含置顶、最新和最热文章列表
+/// 保留手写 fromJson：使用 BlogContent.fromSummaryJson
 class Recommendations {
   const Recommendations({
     required this.pinned,
@@ -123,7 +130,9 @@ class Recommendations {
 List<BlogContent> _contentList(Object? value) {
   return (value as List? ?? const [])
       .whereType<Map>()
-      .map((item) => BlogContent.fromSummaryJson(item.cast<String, dynamic>()))
+      .map(
+        (item) => BlogContent.fromSummaryJson(item.cast<String, dynamic>()),
+      )
       .toList();
 }
 
@@ -160,10 +169,12 @@ class ContentListQuery {
   }
 
   @override
-  int get hashCode => Object.hash(query, tag, type, startDate, endDate, page, size);
+  int get hashCode =>
+      Object.hash(query, tag, type, startDate, endDate, page, size);
 }
 
 /// 管理后台内容项模型
+@JsonSerializable()
 class AdminContentItem {
   const AdminContentItem({
     required this.id,
@@ -185,60 +196,51 @@ class AdminContentItem {
     required this.tags,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String title;
+  @SafeStringJsonConverter()
   final String slug;
+  @ContentTypeJsonConverter()
   final ContentType type;
+  @ContentStatusJsonConverter()
   final ContentStatus status;
+  @SafeStringJsonConverter()
   final String summary;
+  @SafeStringJsonConverter()
   final String bodyMarkdown;
+  @JsonKey(defaultValue: false)
   final bool pinned;
+  @SafeStringJsonConverter()
   final String coverMediaId;
+  @SafeStringJsonConverter()
   final String coverUrl;
+  @SafeIntJsonConverter()
   final int mediaCount;
+  @SafeStringListJsonConverter()
   final List<String> mediaUrls;
+  @SafeIntJsonConverter()
   final int likeCount;
+  @SafeIntJsonConverter()
   final int viewCount;
+  @SafeIntJsonConverter()
   final int commentCount;
+  @SafeDateTimeJsonConverter()
   final DateTime publishedAt;
   final List<TagItem> tags;
 
   /// 是否已归档
   bool get archived => status == ContentStatus.archived;
 
-  /// 从 JSON 创建实例
-  factory AdminContentItem.fromJson(Map<String, dynamic> json) {
-    return AdminContentItem(
-      id: jsonString(json['id']),
-      title: jsonString(json['title']),
-      slug: jsonString(json['slug']),
-      type: ContentType.fromApi(jsonString(json['type'])),
-      status: ContentStatus.fromApi(jsonString(json['status'])),
-      summary: jsonString(json['summary']),
-      bodyMarkdown: jsonString(json['bodyMarkdown']),
-      pinned: json['pinned'] == true,
-      coverMediaId: jsonString(json['coverMediaId']),
-      coverUrl: jsonString(json['coverUrl']),
-      mediaCount: jsonInt(json['mediaCount']),
-      mediaUrls: jsonStringList(json['mediaUrls']),
-      likeCount: jsonInt(json['likeCount']),
-      viewCount: jsonInt(json['viewCount']),
-      commentCount: jsonInt(json['commentCount']),
-      publishedAt: jsonDate(json['publishedAt']),
-      tags: _tagItems(json['tags']),
-    );
-  }
-}
+  factory AdminContentItem.fromJson(Map<String, dynamic> json) =>
+      _$AdminContentItemFromJson(json);
 
-/// 从 JSON 列表解析 TagItem 列表
-List<TagItem> _tagItems(Object? value) {
-  return (value as List? ?? const [])
-      .whereType<Map>()
-      .map((item) => TagItem.fromJson(item.cast<String, dynamic>()))
-      .toList();
+  Map<String, dynamic> toJson() => _$AdminContentItemToJson(this);
 }
 
 /// 管理后台内容草稿模型
+/// 保留手写 toJson：包含 .trim() 调用和条件字段
 class AdminContentDraft {
   const AdminContentDraft({
     required this.title,

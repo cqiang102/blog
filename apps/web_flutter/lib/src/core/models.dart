@@ -3,6 +3,7 @@
 
 export 'models/enums.dart';
 export 'models/helpers.dart';
+export 'models/json_converters.dart';
 export 'models/content_models.dart';
 export 'models/auth_models.dart';
 export 'models/comment_models.dart';

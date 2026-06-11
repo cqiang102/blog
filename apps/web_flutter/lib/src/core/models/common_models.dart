@@ -1,8 +1,12 @@
 // 通用数据模型
 // 包含分页结果、标签、友情链接、媒体等
 
+import 'package:json_annotation/json_annotation.dart';
+
 import 'enums.dart';
-import 'helpers.dart';
+import 'json_converters.dart';
+
+part 'common_models.g.dart';
 
 /// 分页结果泛型模型
 /// [T] 数据项类型
@@ -21,6 +25,7 @@ class PageResult<T> {
 }
 
 /// 标签项模型
+@JsonSerializable()
 class TagItem {
   const TagItem({
     required this.id,
@@ -31,27 +36,27 @@ class TagItem {
     this.updatedAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String name;
+  @SafeStringJsonConverter()
   final String slug;
+  @JsonKey(defaultValue: '')
   final String description;
+  @NullableSafeDateTimeJsonConverter()
   final DateTime? createdAt;
+  @NullableSafeDateTimeJsonConverter()
   final DateTime? updatedAt;
 
-  /// 从 JSON 创建实例
-  factory TagItem.fromJson(Map<String, dynamic> json) {
-    return TagItem(
-      id: jsonString(json['id']),
-      name: jsonString(json['name']),
-      slug: jsonString(json['slug']),
-      description: jsonString(json['description']),
-      createdAt: json['createdAt'] == null ? null : jsonDate(json['createdAt']),
-      updatedAt: json['updatedAt'] == null ? null : jsonDate(json['updatedAt']),
-    );
-  }
+  factory TagItem.fromJson(Map<String, dynamic> json) =>
+      _$TagItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$TagItemToJson(this);
 }
 
 /// 标签草稿模型
+/// 保留手写 toJson：包含 .trim() 调用
 class TagDraft {
   const TagDraft({
     required this.name,
@@ -74,6 +79,7 @@ class TagDraft {
 }
 
 /// 友情链接模型
+@JsonSerializable()
 class FriendLink {
   const FriendLink({
     required this.id,
@@ -87,33 +93,33 @@ class FriendLink {
     this.updatedAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String name;
+  @SafeStringJsonConverter()
   final String intro;
+  @SafeStringJsonConverter()
   final String avatarUrl;
+  @SafeStringJsonConverter()
   final String siteUrl;
+  @JsonKey(defaultValue: true)
   final bool visible;
+  @JsonKey(defaultValue: 0)
   final int sortOrder;
+  @NullableSafeDateTimeJsonConverter()
   final DateTime? createdAt;
+  @NullableSafeDateTimeJsonConverter()
   final DateTime? updatedAt;
 
-  /// 从 JSON 创建实例
-  factory FriendLink.fromJson(Map<String, dynamic> json) {
-    return FriendLink(
-      id: jsonString(json['id']),
-      name: jsonString(json['name']),
-      intro: jsonString(json['intro']),
-      avatarUrl: jsonString(json['avatarUrl']),
-      siteUrl: jsonString(json['siteUrl']),
-      visible: json['visible'] != false,
-      sortOrder: jsonInt(json['sortOrder']),
-      createdAt: json['createdAt'] == null ? null : jsonDate(json['createdAt']),
-      updatedAt: json['updatedAt'] == null ? null : jsonDate(json['updatedAt']),
-    );
-  }
+  factory FriendLink.fromJson(Map<String, dynamic> json) =>
+      _$FriendLinkFromJson(json);
+
+  Map<String, dynamic> toJson() => _$FriendLinkToJson(this);
 }
 
 /// 友情链接草稿模型
+/// 保留手写 toJson：包含 .trim() 调用
 class FriendDraft {
   const FriendDraft({
     required this.name,
@@ -157,6 +163,7 @@ class FriendDraft {
 }
 
 /// 管理后台媒体项模型
+@JsonSerializable()
 class AdminMediaItem {
   const AdminMediaItem({
     required this.id,
@@ -174,18 +181,31 @@ class AdminMediaItem {
     required this.createdAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String contentId;
+  @SafeStringJsonConverter()
   final String contentTitle;
+  @MediaAssetTypeJsonConverter()
   final MediaAssetType type;
+  @SafeStringJsonConverter()
   final String publicUrl;
+  @SafeStringJsonConverter()
   final String filename;
+  @SafeStringJsonConverter()
   final String contentType;
+  @SafeIntJsonConverter()
   final int byteSize;
+  @SafeIntJsonConverter()
   final int width;
+  @SafeIntJsonConverter()
   final int height;
+  @SafeIntJsonConverter()
   final int durationSeconds;
+  @JsonKey(defaultValue: false)
   final bool cover;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
 
   /// 获取显示名称
@@ -195,27 +215,14 @@ class AdminMediaItem {
     return id;
   }
 
-  /// 从 JSON 创建实例
-  factory AdminMediaItem.fromJson(Map<String, dynamic> json) {
-    return AdminMediaItem(
-      id: jsonString(json['id']),
-      contentId: jsonString(json['contentId']),
-      contentTitle: jsonString(json['contentTitle']),
-      type: MediaAssetType.fromApi(jsonString(json['type'])),
-      publicUrl: jsonString(json['publicUrl']),
-      filename: jsonString(json['filename']),
-      contentType: jsonString(json['contentType']),
-      byteSize: jsonInt(json['byteSize']),
-      width: jsonInt(json['width']),
-      height: jsonInt(json['height']),
-      durationSeconds: jsonInt(json['durationSeconds']),
-      cover: json['cover'] == true,
-      createdAt: jsonDate(json['createdAt']),
-    );
-  }
+  factory AdminMediaItem.fromJson(Map<String, dynamic> json) =>
+      _$AdminMediaItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AdminMediaItemToJson(this);
 }
 
 /// 管理后台媒体草稿模型
+/// 保留手写 toJson：包含 .trim() 和条件逻辑
 class AdminMediaDraft {
   const AdminMediaDraft({
     required this.contentId,
@@ -271,6 +278,7 @@ class AdminMediaDraft {
 }
 
 /// 管理后台知识库文档项模型
+@JsonSerializable()
 class AdminKnowledgeDocItem {
   const AdminKnowledgeDocItem({
     required this.id,
@@ -283,31 +291,31 @@ class AdminKnowledgeDocItem {
     required this.updatedAt,
   });
 
+  @SafeStringJsonConverter()
   final String id;
+  @SafeStringJsonConverter()
   final String title;
+  @KnowledgeSourceTypeJsonConverter()
   final KnowledgeSourceType sourceType;
+  @SafeStringJsonConverter()
   final String sourceRef;
+  @SafeStringJsonConverter()
   final String body;
+  @JsonKey(defaultValue: true)
   final bool enabled;
+  @SafeDateTimeJsonConverter()
   final DateTime createdAt;
+  @SafeDateTimeJsonConverter()
   final DateTime updatedAt;
 
-  /// 从 JSON 创建实例
-  factory AdminKnowledgeDocItem.fromJson(Map<String, dynamic> json) {
-    return AdminKnowledgeDocItem(
-      id: jsonString(json['id']),
-      title: jsonString(json['title']),
-      sourceType: KnowledgeSourceType.fromApi(jsonString(json['sourceType'])),
-      sourceRef: jsonString(json['sourceRef']),
-      body: jsonString(json['body']),
-      enabled: json['enabled'] != false,
-      createdAt: jsonDate(json['createdAt']),
-      updatedAt: jsonDate(json['updatedAt']),
-    );
-  }
+  factory AdminKnowledgeDocItem.fromJson(Map<String, dynamic> json) =>
+      _$AdminKnowledgeDocItemFromJson(json);
+
+  Map<String, dynamic> toJson() => _$AdminKnowledgeDocItemToJson(this);
 }
 
 /// 管理后台知识库文档草稿模型
+/// 保留手写 toJson：包含 .trim() 调用
 class AdminKnowledgeDocDraft {
   const AdminKnowledgeDocDraft({
     required this.title,
