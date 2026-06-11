@@ -12,8 +12,8 @@ import com.caoqiang.blog.shared.model.AuthenticatedUser;
  */
 public final class AiUserContext {
 
-    /** ThreadLocal 存储当前线程的认证用户 */
-    private static final ThreadLocal<AuthenticatedUser> HOLDER = new ThreadLocal<>();
+    /** ThreadLocal 存储当前线程的认证用户。使用 InheritableThreadLocal 以支持子线程继承（如 AI 流式调用中的工具执行线程） */
+    private static final InheritableThreadLocal<AuthenticatedUser> HOLDER = new InheritableThreadLocal<>();
 
     private AiUserContext() {
     }

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../core/api_providers.dart';
 import '../../core/app_ui.dart';
 import '../../core/constants.dart';
+import '../../core/media_url.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 
@@ -499,15 +500,41 @@ class _StoryBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final date = DateFormat('yyyy-MM-dd').format(content.publishedAt);
+    final isArchived = content.status == ContentStatus.archived;
+    final isDraft = content.status == ContentStatus.draft;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          content.type.label,
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(color: scheme.primary),
+        Row(
+          children: [
+            Text(
+              content.type.label,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(color: scheme.primary),
+            ),
+            if (isArchived || isDraft) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isArchived
+                      ? scheme.errorContainer
+                      : scheme.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  content.status.label,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: isArchived
+                        ? scheme.onErrorContainer
+                        : scheme.onTertiaryContainer,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 6),
         Text(
@@ -653,7 +680,7 @@ class _CoverImage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (url.isEmpty) return const _CoverPlaceholder();
     return CachedNetworkImage(
-      imageUrl: url,
+      imageUrl: resolveMediaUrl(url),
       fit: BoxFit.cover,
       width: double.infinity,
       memCacheWidth: 1000,

@@ -8,6 +8,7 @@ import '../../core/api_providers.dart';
 import '../../core/app_ui.dart';
 import '../../core/constants.dart';
 import '../../core/content_filter_state.dart';
+import '../../core/media_url.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 
@@ -660,14 +661,42 @@ class _ContentSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final visibleTags = content.tags.take(compact ? 1 : 3);
+    final isArchived = content.status == ContentStatus.archived;
+    final isDraft = content.status == ContentStatus.draft;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          content.title,
-          maxLines: compact ? 2 : 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleMedium,
+        Row(
+          children: [
+            if (isArchived || isDraft) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isArchived
+                      ? scheme.errorContainer
+                      : scheme.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  content.status.label,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: isArchived
+                        ? scheme.onErrorContainer
+                        : scheme.onTertiaryContainer,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Expanded(
+              child: Text(
+                content.title,
+                maxLines: compact ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 6),
         Text(
@@ -748,7 +777,7 @@ class _Thumb extends StatelessWidget {
     if (url.isEmpty) return fallback;
 
     return CachedNetworkImage(
-      imageUrl: url,
+      imageUrl: resolveMediaUrl(url),
       width: width,
       height: height,
       fit: BoxFit.cover,

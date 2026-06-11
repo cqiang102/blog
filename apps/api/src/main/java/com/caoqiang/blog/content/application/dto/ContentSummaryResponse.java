@@ -27,6 +27,8 @@ public record ContentSummaryResponse(
         String slug,
         /** 内容类型 */
         ContentType type,
+        /** 内容状态 */
+        ContentStatus status,
         /** 摘要 */
         String summary,
         /** 封面图 URL */

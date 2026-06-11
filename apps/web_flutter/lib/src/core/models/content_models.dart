@@ -19,6 +19,7 @@ class BlogContent {
     required this.likeCount,
     required this.publishedAt,
     this.slug = '',
+    this.status = ContentStatus.published,
     this.viewCount = 0,
     this.commentCount = 0,
     this.likedByCurrentUser = false,
@@ -30,6 +31,7 @@ class BlogContent {
   final String title;
   final String slug;
   final ContentType type;
+  final ContentStatus status;
   final String summary;
   final String coverUrl;
   final List<String> tags;
@@ -49,6 +51,7 @@ class BlogContent {
       title: jsonString(json['title']),
       slug: jsonString(json['slug']),
       type: ContentType.fromApi(jsonString(json['type'])),
+      status: ContentStatus.fromApi(jsonString(json['status'])),
       summary: jsonString(json['summary']),
       coverUrl: jsonString(json['coverUrl']),
       tags: jsonStringList(json['tags']),

@@ -1,27 +1,21 @@
 package com.caoqiang.blog.content.application.service;
 
-import com.caoqiang.blog.content.application.dto.AdminContentRequest;
-import com.caoqiang.blog.content.application.dto.AdminContentResponse;
-import com.caoqiang.blog.content.application.dto.AdminMediaRequest;
-import com.caoqiang.blog.content.application.dto.AdminMediaResponse;
 import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
 import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.content.application.dto.MediaAssetResponse;
 import com.caoqiang.blog.content.application.dto.RecommendationResponse;
-import com.caoqiang.blog.content.application.dto.TagRequest;
-import com.caoqiang.blog.content.application.dto.TagResponse;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
+import com.caoqiang.blog.content.domain.model.MediaReference;
 import com.caoqiang.blog.content.domain.model.Tag;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
-import com.caoqiang.blog.content.domain.repository.TagRepository;
 
 import com.caoqiang.blog.config.CacheNames;
+import com.caoqiang.blog.content.infrastructure.web.ContentController;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
@@ -146,8 +140,12 @@ public class ContentService {
      */
     @Transactional(readOnly = true)
     public ContentDetailResponse detail(UUID id, AuthenticatedUser currentUser) {
-        Content content = contentRepository.findByIdAndStatus(id, ContentStatus.PUBLISHED)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
+        boolean isAdmin = currentUser != null && currentUser.role() == Role.ADMIN;
+        Content content = isAdmin
+                ? contentRepository.findById(id)
+                        .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"))
+                : contentRepository.findByIdAndStatus(id, ContentStatus.PUBLISHED)
+                        .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
         // 查询当前用户是否已点赞该内容
         boolean liked = currentUser != null && likeRepository.existsByContentIdAndUserId(id, currentUser.id());
 
@@ -180,7 +178,10 @@ public class ContentService {
                 content.getType(),
                 content.getStatus(),
                 content.getSummary(),
-                content.getBodyMarkdown(),
+                MediaReference.normalizeMarkdown(
+                        content.getBodyMarkdown(),
+                        content.getMediaAssets()
+                ),
                 presignedCoverUrl(content),
                 tagNames(content),
                 mediaAssets,
@@ -272,8 +273,9 @@ public class ContentService {
                 content.getTitle(),
                 content.getSlug(),
                 content.getType(),
+                content.getStatus(),
                 content.getSummary(),
-                coverUrl(content),
+                presignedCoverUrl(content),
                 content.isPinned(),
                 content.getLikeCount(),
                 content.getPublishedAt(),
@@ -292,27 +294,6 @@ public class ContentService {
                 .sorted(Comparator.comparing(Tag::getName))
                 .map(Tag::getName)
                 .toList();
-    }
-
-    /**
-     * 获取内容的封面图 URL。
-     * <p>
-     * 优先返回显式设置的 coverMedia 的公开 URL，
-     * 若未设置则回退到第一条关联媒体资源的 URL，都没有则返回 null。
-     *
-     * @param content 内容实体
-     * @return 封面图 URL 或 null
-     */
-    private String coverUrl(Content content) {
-        if (content.getCoverMedia() != null && StringUtils.hasText(content.getCoverMedia().getPublicUrl())) {
-            return content.getCoverMedia().getPublicUrl();
-        }
-
-        return content.getMediaAssets().stream()
-                .map(MediaAsset::getPublicUrl)
-                .filter(StringUtils::hasText)
-                .findFirst()
-                .orElse(null);
     }
 
     /**
