@@ -294,7 +294,7 @@ int _activeFilterCount(ContentFilterState filter) {
   return count;
 }
 
-class _SearchAndFilterBar extends StatelessWidget {
+class _SearchAndFilterBar extends StatefulWidget {
   const _SearchAndFilterBar({
     required this.controller,
     required this.filterCount,
@@ -310,46 +310,86 @@ class _SearchAndFilterBar extends StatelessWidget {
   final VoidCallback onToggleFilters;
 
   @override
+  State<_SearchAndFilterBar> createState() => _SearchAndFilterBarState();
+}
+
+class _SearchAndFilterBarState extends State<_SearchAndFilterBar> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    super.dispose();
+  }
+
+  void _onTextChanged() => setState(() {});
+
+  @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Row(
-          children: [
-            Expanded(
-              child: SearchBar(
-                controller: controller,
-                hintText: '搜索标题、摘要或正文',
-                leading: const Icon(Icons.search_rounded),
-                onSubmitted: (_) => onSearch(),
-                trailing: [
-                  IconButton(
-                    tooltip: '清除搜索',
-                    onPressed: () {
-                      controller.clear();
-                      onSearch();
-                    },
-                    icon: const Icon(Icons.close_rounded),
+    final scheme = Theme.of(context).colorScheme;
+    final hasText = widget.controller.text.isNotEmpty;
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.search_rounded, color: scheme.onSurfaceVariant, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: widget.controller,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    decoration: InputDecoration(
+                      hintText: '搜索标题、摘要或正文',
+                      hintStyle: TextStyle(color: scheme.onSurfaceVariant),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onSubmitted: (_) => widget.onSearch(),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm + 4),
-            Badge(
-              isLabelVisible: filterCount > 0,
-              label: Text('$filterCount'),
-              child: IconButton.outlined(
-                tooltip: filtersExpanded ? '收起筛选' : '展开筛选',
-                onPressed: onToggleFilters,
-                icon: Icon(
-                  filtersExpanded
-                      ? Icons.filter_list_off_rounded
-                      : Icons.tune_rounded,
                 ),
-              ),
+                if (hasText)
+                  GestureDetector(
+                    onTap: () {
+                      widget.controller.clear();
+                      widget.onSearch();
+                    },
+                    child: Icon(Icons.close_rounded, size: 18, color: scheme.onSurfaceVariant),
+                  ),
+              ],
             ),
-          ],
-        );
-      },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Badge(
+          isLabelVisible: widget.filterCount > 0,
+          label: Text('${widget.filterCount}'),
+          child: IconButton(
+            tooltip: widget.filtersExpanded ? '收起筛选' : '展开筛选',
+            onPressed: widget.onToggleFilters,
+            icon: Icon(
+              widget.filtersExpanded
+                  ? Icons.filter_list_off_rounded
+                  : Icons.tune_rounded,
+              size: 22,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
