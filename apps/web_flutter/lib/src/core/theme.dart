@@ -128,7 +128,6 @@ ThemeData _buildTheme({
     colorScheme: scheme,
     brightness: brightness,
     scaffoldBackgroundColor: background,
-    fontFamily: 'Inter',
     fontFamilyFallback: const [
       'system-ui',
       '-apple-system',

@@ -1,6 +1,7 @@
 .DS_Store
 .idea/
 .vscode/
+.claude/
 *.iml
 
 # Local env and secrets
@@ -14,6 +15,7 @@ infra/.env
 .m2/
 target/
 *.log
+apps/api/logs/
 
 # Flutter / Dart
 .dart_tool/
