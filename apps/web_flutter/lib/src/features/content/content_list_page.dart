@@ -264,7 +264,7 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
+                AppSpacing.sm,
                 0,
                 AppSpacing.lg,
                 AppSpacing.xl,
@@ -681,7 +681,7 @@ class _TimelineContentList extends StatelessWidget {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         theme: TimelineThemeData(
-          nodePosition: 0.08,
+          nodePosition: 0.05,
           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
           connectorTheme: ConnectorThemeData(
             thickness: 2,
@@ -696,7 +696,7 @@ class _TimelineContentList extends StatelessWidget {
               final item = flatItems[index];
               if (item is _TimelineDate) {
                 return Padding(
-                  padding: const EdgeInsets.only(left: 16, bottom: 8),
+                  padding: const EdgeInsets.only(left: 8, bottom: 8),
                   child: Text(
                     '${item.count} 篇',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -706,7 +706,7 @@ class _TimelineContentList extends StatelessWidget {
                 );
               } else if (item is _TimelineContent) {
                 return Padding(
-                  padding: const EdgeInsets.only(left: 16, bottom: 8),
+                  padding: const EdgeInsets.only(left: 8, bottom: 8),
                   child: _ContentRow(content: item.content),
                 );
               }
