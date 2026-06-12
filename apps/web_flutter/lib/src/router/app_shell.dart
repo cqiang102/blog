@@ -230,12 +230,18 @@ class _SidebarIdentity extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final hasNetworkAvatar = avatarUrl != null && avatarUrl!.isNotEmpty;
-    final avatar = CircleAvatar(
-      radius: 22,
-      backgroundColor: scheme.primaryContainer,
-      backgroundImage: hasNetworkAvatar
-          ? NetworkImage(avatarUrl!)
-          : const AssetImage('assets/images/lacia.png'),
+    final avatar = Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        image: DecorationImage(
+          image: hasNetworkAvatar
+              ? NetworkImage(avatarUrl!)
+              : const AssetImage('assets/images/lacia.png'),
+          fit: BoxFit.cover,
+        ),
+      ),
     );
 
     if (!expanded) {
