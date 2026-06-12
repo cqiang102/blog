@@ -2,6 +2,7 @@
 // 展示用户列表，支持筛选和编辑
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
@@ -193,7 +194,7 @@ class _UserList extends StatelessWidget {
         SectionToolbar(
           title: '用户管理',
           actionLabel: '刷新',
-          actionIcon: Icons.refresh,
+          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
           onAction: onApply,
         ),
         const SizedBox(height: AppSpacing.sm + 4),
@@ -289,12 +290,12 @@ class _UserFilters extends StatelessWidget {
         ),
         FilledButton.icon(
           onPressed: onApply,
-          icon: const Icon(Icons.filter_alt_outlined),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
           label: const Text('筛选'),
         ),
         OutlinedButton.icon(
           onPressed: onClear,
-          icon: const Icon(Icons.clear),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
           label: const Text('清空'),
         ),
       ],
@@ -395,16 +396,16 @@ class _UserAdminRow extends StatelessWidget {
         AdminUserRoleChip(role: user.role),
         AdminUserStatusChip(status: user.status),
         if (user.blogUrl.isNotEmpty)
-          AdminMetaText(icon: Icons.link_outlined, text: user.blogUrl),
-        AdminMetaText(icon: Icons.schedule_outlined, text: createdAt),
+          AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18), text: user.blogUrl),
+        AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18), text: createdAt),
         OutlinedButton.icon(
           onPressed: onEdit,
-          icon: const Icon(Icons.edit_outlined, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
           label: const Text('编辑'),
         ),
         OutlinedButton.icon(
           onPressed: onDisable,
-          icon: const Icon(Icons.block, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedBlocked, size: 18),
           label: const Text('禁用'),
         ),
       ],

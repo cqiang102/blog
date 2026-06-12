@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
@@ -54,7 +55,7 @@ class AdminLikeTabState extends ConsumerState<AdminLikeTab> {
                     SectionToolbar(
                       title: '点赞记录',
                       actionLabel: '刷新',
-                      actionIcon: Icons.refresh,
+                      actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
                       onAction: () => ref.invalidate(adminLikesProvider(_query)),
                     ),
                     const SizedBox(height: 12),
@@ -186,7 +187,7 @@ class AdminViewTabState extends ConsumerState<AdminViewTab> {
                     SectionToolbar(
                       title: '浏览记录',
                       actionLabel: '刷新',
-                      actionIcon: Icons.refresh,
+                      actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
                       onAction: () => ref.invalidate(adminViewsProvider(_query)),
                     ),
                     const SizedBox(height: 12),
@@ -313,12 +314,12 @@ class _RecordFilters extends StatelessWidget {
         ),
         FilledButton.icon(
           onPressed: onApply,
-          icon: const Icon(Icons.filter_alt_outlined),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
           label: const Text('筛选'),
         ),
         OutlinedButton.icon(
           onPressed: onClear,
-          icon: const Icon(Icons.clear),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
           label: const Text('清空'),
         ),
       ],
@@ -348,7 +349,7 @@ class _LikeAdminRow extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.favorite_border),
+                const HugeIcon(icon: HugeIcons.strokeRoundedFavourite),
                 const SizedBox(width: 12),
                 Expanded(
                   child: InkWell(
@@ -371,13 +372,13 @@ class _LikeAdminRow extends StatelessWidget {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                AdminMetaText(icon: Icons.person_outline, text: userLabel),
+                AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18), text: userLabel),
                 if (like.userEmail.isNotEmpty)
-                  AdminMetaText(icon: Icons.mail_outline, text: like.userEmail),
-                AdminMetaText(icon: Icons.schedule_outlined, text: createdAt),
+                  AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 18), text: like.userEmail),
+                AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18), text: createdAt),
                 OutlinedButton.icon(
                   onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline),
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01),
                   label: const Text('删除'),
                 ),
               ],
@@ -413,7 +414,7 @@ class _ViewAdminRow extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.history_outlined),
+                const HugeIcon(icon: HugeIcons.strokeRoundedClock01),
                 const SizedBox(width: 12),
                 Expanded(
                   child: InkWell(
@@ -445,15 +446,15 @@ class _ViewAdminRow extends StatelessWidget {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                AdminMetaText(icon: Icons.person_outline, text: userLabel),
+                AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18), text: userLabel),
                 if (view.userEmail.isNotEmpty)
-                  AdminMetaText(icon: Icons.mail_outline, text: view.userEmail),
+                  AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 18), text: view.userEmail),
                 if (view.anonymousId.isNotEmpty)
-                  AdminMetaText(icon: Icons.fingerprint, text: view.anonymousId),
-                AdminMetaText(icon: Icons.schedule_outlined, text: createdAt),
+                  AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedFingerPrint, size: 18), text: view.anonymousId),
+                AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18), text: createdAt),
                 OutlinedButton.icon(
                   onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline),
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01),
                   label: const Text('删除'),
                 ),
               ],

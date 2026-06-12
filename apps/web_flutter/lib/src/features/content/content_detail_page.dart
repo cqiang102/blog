@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/api_client.dart';
@@ -203,7 +204,7 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
               const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: _submitting ? null : _submitComment,
-                icon: const Icon(Icons.send, size: 18),
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedSent, size: 18),
                 label: const Text('发布'),
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
@@ -305,10 +306,10 @@ class _ContentErrorScaffold extends StatelessWidget {
                         color: scheme.surfaceContainerHighest,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
-                        notFound
-                            ? Icons.find_in_page_outlined
-                            : Icons.cloud_off_outlined,
+                      child: HugeIcon(
+                        icon: notFound
+                            ? HugeIcons.strokeRoundedFileNotFound
+                            : HugeIcons.strokeRoundedCloudOff,
                         size: 36,
                         color: scheme.onSurfaceVariant,
                       ),
@@ -424,8 +425,8 @@ class _CommentList extends ConsumerWidget {
                                 visualDensity: VisualDensity.compact,
                                 onPressed: () =>
                                     _deleteComment(context, ref, comment),
-                                icon: Icon(
-                                  Icons.delete_outline,
+                                icon: HugeIcon(
+                                  icon: HugeIcons.strokeRoundedDelete01,
                                   size: 18,
                                   color: Theme.of(context).colorScheme.error,
                                 ),
@@ -436,8 +437,8 @@ class _CommentList extends ConsumerWidget {
                         if (comment.blocked)
                           Row(
                             children: [
-                              Icon(
-                                Icons.block,
+                              HugeIcon(
+                                icon: HugeIcons.strokeRoundedBlocked,
                                 size: 14,
                                 color: Theme.of(context).colorScheme.error,
                               ),
@@ -525,7 +526,7 @@ class _CommentAvatar extends StatelessWidget {
       backgroundImage: resolved.isNotEmpty ? NetworkImage(resolved) : null,
       child: resolved.isNotEmpty
           ? null
-          : Icon(Icons.person, size: 20, color: scheme.onSurfaceVariant),
+          : HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 20, color: scheme.onSurfaceVariant),
     );
   }
 }
@@ -569,8 +570,8 @@ class _HeroPlaceholder extends StatelessWidget {
         ),
       ),
       child: Center(
-        child: Icon(
-          Icons.auto_stories_outlined,
+        child: HugeIcon(
+          icon: HugeIcons.strokeRoundedBook01,
           size: 56,
           color: scheme.onPrimaryContainer.withValues(alpha: 0.72),
         ),
@@ -630,7 +631,7 @@ class _ContentViewer extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.broken_image_outlined, size: 40),
+                  const HugeIcon(icon: HugeIcons.strokeRoundedImageNotFound01, size: 40),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     '图片暂时无法加载',
@@ -696,7 +697,7 @@ class _ImageGallery extends StatelessWidget {
                             Theme.of(
                               context,
                             ).colorScheme.surfaceContainerHighest,
-                        child: const Center(child: Icon(Icons.broken_image)),
+                        child: const Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImageNotFound01)),
                       ),
                 ),
               ),
@@ -832,8 +833,8 @@ class _ControlsOverlay extends StatelessWidget {
                 : const ColoredBox(
                   color: AppColors.overlayDark,
                   child: Center(
-                    child: Icon(
-                      Icons.play_arrow,
+                    child: HugeIcon(
+                      icon: HugeIcons.strokeRoundedPlay,
                       color: AppColors.onOverlay,
                       size: 64,
                     ),
@@ -912,7 +913,7 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
     return FilledButton.icon(
       key: ValueKey(_optimisticLiked),
       onPressed: _liking ? null : _toggleLike,
-      icon: Icon(_optimisticLiked ? Icons.favorite : Icons.favorite_outline, size: 18),
+      icon: HugeIcon(icon: _optimisticLiked ? HugeIcons.strokeRoundedFavourite : HugeIcons.strokeRoundedFavourite, size: 18),
       label: Text(_optimisticLikeCount > 99 ? '99+' : '$_optimisticLikeCount'),
       style: FilledButton.styleFrom(
         visualDensity: VisualDensity.compact,

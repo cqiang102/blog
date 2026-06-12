@@ -2,6 +2,7 @@
 // 管理后台主页 Shell，导入各标签页模块并组装 TabBar
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/api_providers.dart';
 import '../../core/app_ui.dart';
@@ -114,7 +115,7 @@ class _AdminPageState extends ConsumerState<AdminPage>
                 IconButton(
                   tooltip: '刷新当前管理数据',
                   onPressed: () => _refresh(ref),
-                  icon: const Icon(Icons.refresh_rounded),
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
                 ),
               ],
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import 'constants.dart';
 import 'models.dart';
@@ -117,7 +118,7 @@ mixin PaginationMixin<T extends StatefulWidget, E> on State<T> {
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: resetAndLoad,
-              icon: const Icon(Icons.refresh),
+              icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
               label: const Text('重试'),
             ),
           ],

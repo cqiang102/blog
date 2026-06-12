@@ -1,6 +1,7 @@
 // 媒体上传对话框
 // 支持选择文件、填写标题和描述后上传到 MinIO
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/models.dart';
 import '../../core/theme.dart';
@@ -73,7 +74,7 @@ class UploadMediaDialogState extends State<UploadMediaDialog> {
               children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.insert_drive_file_outlined),
+                  leading: const HugeIcon(icon: HugeIcons.strokeRoundedFile01),
                   title: Text(
                     widget.filename,
                     maxLines: 1,

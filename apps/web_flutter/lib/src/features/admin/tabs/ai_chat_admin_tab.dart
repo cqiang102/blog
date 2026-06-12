@@ -2,6 +2,7 @@
 // 展示 AI 会话列表，支持查看详情和筛选
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
@@ -179,7 +180,7 @@ class _AiChatList extends StatelessWidget {
         SectionToolbar(
           title: 'AI 聊天记录',
           actionLabel: '刷新',
-          actionIcon: Icons.refresh,
+          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
           onAction: onApply,
         ),
         const SizedBox(height: AppSpacing.sm + 4),
@@ -241,12 +242,12 @@ class _AiChatFilters extends StatelessWidget {
         ),
         FilledButton.icon(
           onPressed: onApply,
-          icon: const Icon(Icons.filter_alt_outlined),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
           label: const Text('筛选'),
         ),
         OutlinedButton.icon(
           onPressed: onClear,
-          icon: const Icon(Icons.clear),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
           label: const Text('清空'),
         ),
       ],
@@ -296,8 +297,8 @@ class _AiChatAdminRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          Icons.smart_toy_outlined,
+        HugeIcon(
+          icon: HugeIcons.strokeRoundedRobot01,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         const SizedBox(width: AppSpacing.sm + 4),
@@ -333,25 +334,25 @@ class _AiChatAdminRow extends StatelessWidget {
       runSpacing: AppSpacing.sm,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        AdminMetaText(icon: Icons.person_outline, text: userLabel),
+        AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18), text: userLabel),
         if (session.userEmail.isNotEmpty)
-          AdminMetaText(icon: Icons.mail_outline, text: session.userEmail),
+          AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 18), text: session.userEmail),
         AdminMetaText(
-          icon: Icons.forum_outlined,
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedMessage01, size: 18),
           text: '${session.messageCount} 条消息',
         ),
         AdminMetaText(
-          icon: Icons.update,
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
           text: formatAdminDate(session.updatedAt),
         ),
         OutlinedButton.icon(
           onPressed: onOpen,
-          icon: const Icon(Icons.visibility_outlined, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedView, size: 18),
           label: const Text('查看'),
         ),
         OutlinedButton.icon(
           onPressed: onDelete,
-          icon: const Icon(Icons.delete_outline, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
           label: const Text('删除'),
         ),
       ],
@@ -396,18 +397,18 @@ class _AiChatDetailDialog extends StatelessWidget {
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: [
-                AdminMetaText(icon: Icons.person_outline, text: userLabel),
+                AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18), text: userLabel),
                 if (session.userEmail.isNotEmpty)
                   AdminMetaText(
-                    icon: Icons.mail_outline,
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 18),
                     text: session.userEmail,
                   ),
                 AdminMetaText(
-                  icon: Icons.forum_outlined,
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedMessage01, size: 18),
                   text: '${session.messageCount} 条消息',
                 ),
                 AdminMetaText(
-                  icon: Icons.schedule_outlined,
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
                   text: formatAdminDate(session.createdAt),
                 ),
               ],
@@ -432,7 +433,7 @@ class _AiChatDetailDialog extends StatelessWidget {
       actions: [
         FilledButton.icon(
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.check),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedTick01),
           label: const Text('关闭'),
         ),
       ],
@@ -491,16 +492,16 @@ class _AiChatMessageRow extends StatelessWidget {
                     color: scheme.primary,
                   ),
                 AdminMetaText(
-                  icon: Icons.schedule_outlined,
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
                   text: formatAdminDate(message.createdAt),
                 ),
                 if (message.toolName.isNotEmpty)
                   AdminMetaText(
-                    icon: Icons.build_outlined,
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
                     text: message.toolName,
                   ),
                 if (tokenText.isNotEmpty)
-                  AdminMetaText(icon: Icons.data_usage, text: tokenText),
+                  AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedDataRecovery, size: 18), text: tokenText),
               ],
             ),
             const SizedBox(height: 10),

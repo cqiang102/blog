@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -512,7 +513,7 @@ class _AuthForm extends StatelessWidget {
               autofillHints: const [AutofillHints.email],
               decoration: const InputDecoration(
                 labelText: '邮箱',
-                prefixIcon: Icon(Icons.mail_outline_rounded),
+                prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedMail01),
               ),
               validator: (value) {
                 final email = value?.trim() ?? '';
@@ -528,7 +529,7 @@ class _AuthForm extends StatelessWidget {
                 autofillHints: const [AutofillHints.nickname],
                 decoration: const InputDecoration(
                   labelText: '昵称（可选）',
-                  prefixIcon: Icon(Icons.person_outline_rounded),
+                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedUser),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm + 4),
@@ -541,7 +542,7 @@ class _AuthForm extends StatelessWidget {
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         labelText: '邮箱验证码',
-                        prefixIcon: Icon(Icons.verified_outlined),
+                        prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedTick01),
                       ),
                       validator: (value) {
                         if ((value ?? '').trim().isEmpty) return '请输入验证码';
@@ -566,14 +567,14 @@ class _AuthForm extends StatelessWidget {
               ],
               decoration: InputDecoration(
                 labelText: '密码',
-                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                prefixIcon: const HugeIcon(icon: HugeIcons.strokeRoundedLock),
                 suffixIcon: IconButton(
                   tooltip: obscurePassword ? '显示密码' : '隐藏密码',
                   onPressed: onTogglePassword,
-                  icon: Icon(
-                    obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
+                  icon: HugeIcon(
+                    icon: obscurePassword
+                        ? HugeIcons.strokeRoundedView
+                        : HugeIcons.strokeRoundedViewOff,
                   ),
                 ),
               ),
@@ -636,7 +637,7 @@ class _AuthForm extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             OutlinedButton.icon(
               onPressed: busy ? null : onGithubLogin,
-              icon: const Icon(Icons.code_rounded),
+              icon: const HugeIcon(icon: HugeIcons.strokeRoundedCode),
               label: const Text('使用 GitHub 登录'),
             ),
           ],
@@ -662,7 +663,7 @@ class _FormError extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline_rounded, color: scheme.onErrorContainer),
+          HugeIcon(icon: HugeIcons.strokeRoundedAlert01, color: scheme.onErrorContainer),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(

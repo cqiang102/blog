@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -117,7 +118,7 @@ class _FriendCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Icon(Icons.open_in_new),
+                  const HugeIcon(icon: HugeIcons.strokeRoundedLink01),
                 ],
               ),
               const SizedBox(height: 16),
@@ -159,7 +160,7 @@ class _FriendsError extends StatelessWidget {
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
+              icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
               label: const Text('重试'),
             ),
           ],

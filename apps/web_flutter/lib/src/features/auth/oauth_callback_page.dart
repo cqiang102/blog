@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/api_client.dart';
 import '../../core/api_providers.dart';
@@ -146,8 +147,8 @@ class _OAuthCallbackPageState extends ConsumerState<OAuthCallbackPage> {
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.error_outline,
+                  HugeIcon(
+                    icon: HugeIcons.strokeRoundedAlert01,
                     size: 48,
                     color: Theme.of(context).colorScheme.error,
                   ),

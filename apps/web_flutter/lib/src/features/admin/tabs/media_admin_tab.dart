@@ -3,6 +3,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
@@ -245,10 +246,10 @@ class _MediaList extends StatelessWidget {
         SectionToolbar(
           title: '媒体管理',
           actionLabel: '上传文件',
-          actionIcon: Icons.upload_file,
+          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedUpload01),
           onAction: onPickAndUpload,
           secondaryLabel: '外链媒体',
-          secondaryIcon: Icons.add_link,
+          secondaryIcon: const HugeIcon(icon: HugeIcons.strokeRoundedLink01),
           onSecondaryAction: () => onOpenEditor(null),
         ),
         if (contentError != null) ...[
@@ -343,7 +344,7 @@ class _MediaAdminRow extends StatelessWidget {
                   Chip(label: Text(media.type.label)),
                   if (media.cover)
                     const Chip(
-                      avatar: Icon(Icons.image_outlined, size: 18),
+                      avatar: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
                       label: Text('封面'),
                     ),
                   if (media.contentTitle.isNotEmpty)
@@ -367,20 +368,20 @@ class _MediaAdminRow extends StatelessWidget {
       runSpacing: AppSpacing.sm,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        AdminMetaText(icon: Icons.schedule_outlined, text: createdAt),
+        AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18), text: createdAt),
         OutlinedButton.icon(
           onPressed: onEdit,
-          icon: const Icon(Icons.edit_outlined, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
           label: const Text('编辑'),
         ),
         OutlinedButton.icon(
           onPressed: onSetCover,
-          icon: const Icon(Icons.image_outlined, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
           label: const Text('设封面'),
         ),
         OutlinedButton.icon(
           onPressed: onDelete,
-          icon: const Icon(Icons.delete_outline, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
           label: const Text('删除'),
         ),
       ],

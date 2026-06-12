@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/models.dart';
 
@@ -22,11 +23,11 @@ enum EditorEditMode {
     };
   }
 
-  IconData get icon {
+  List<List<dynamic>> get icon {
     return switch (this) {
-      EditorEditMode.source => Icons.code,
-      EditorEditMode.split => Icons.vertical_split,
-      EditorEditMode.preview => Icons.preview,
+      EditorEditMode.source => HugeIcons.strokeRoundedCode,
+      EditorEditMode.split => HugeIcons.strokeRoundedVerticalScrollPoint,
+      EditorEditMode.preview => HugeIcons.strokeRoundedView,
     };
   }
 }

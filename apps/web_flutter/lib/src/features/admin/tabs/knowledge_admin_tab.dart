@@ -2,6 +2,7 @@
 // 展示知识文档列表，支持编辑和筛选
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
@@ -198,10 +199,10 @@ class _KnowledgeList extends StatelessWidget {
         SectionToolbar(
           title: '个人知识库',
           actionLabel: '新增',
-          actionIcon: Icons.add,
+          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
           onAction: () => onOpenEditor(null),
           secondaryLabel: '刷新',
-          secondaryIcon: Icons.refresh,
+          secondaryIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
           onSecondaryAction: onApply,
         ),
         const SizedBox(height: AppSpacing.sm + 4),
@@ -272,12 +273,12 @@ class _KnowledgeFilters extends StatelessWidget {
         ),
         FilledButton.icon(
           onPressed: onApply,
-          icon: const Icon(Icons.filter_alt_outlined),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
           label: const Text('筛选'),
         ),
         OutlinedButton.icon(
           onPressed: onClear,
-          icon: const Icon(Icons.clear),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
           label: const Text('清空'),
         ),
       ],
@@ -323,8 +324,8 @@ class _KnowledgeDocRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          Icons.library_books_outlined,
+        HugeIcon(
+          icon: HugeIcons.strokeRoundedBook01,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         const SizedBox(width: AppSpacing.sm + 4),
@@ -363,16 +364,16 @@ class _KnowledgeDocRow extends StatelessWidget {
         _KnowledgeSourceChip(sourceType: doc.sourceType),
         _KnowledgeEnabledChip(enabled: doc.enabled),
         if (doc.sourceRef.isNotEmpty)
-          AdminMetaText(icon: Icons.link_outlined, text: doc.sourceRef),
-        AdminMetaText(icon: Icons.update, text: formatAdminDate(doc.updatedAt)),
+          AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18), text: doc.sourceRef),
+        AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18), text: formatAdminDate(doc.updatedAt)),
         OutlinedButton.icon(
           onPressed: onEdit,
-          icon: const Icon(Icons.edit_outlined, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
           label: const Text('编辑'),
         ),
         OutlinedButton.icon(
           onPressed: onDelete,
-          icon: const Icon(Icons.delete_outline, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
           label: const Text('删除'),
         ),
       ],

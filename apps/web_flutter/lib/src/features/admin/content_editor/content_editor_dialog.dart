@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/constants.dart';
 import '../../../core/media_url.dart';
@@ -576,7 +577,7 @@ class _ContentEditorDialogState extends ConsumerState<ContentEditorDialog> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.broken_image, size: 48),
+                  const HugeIcon(icon: HugeIcons.strokeRoundedImageNotFound01, size: 48),
                   const SizedBox(height: 8),
                   Text(
                     alt ?? '图片加载失败',

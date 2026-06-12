@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
@@ -172,7 +173,7 @@ class _ContentList extends StatelessWidget {
         SectionToolbar(
           title: '内容管理',
           actionLabel: '新增内容',
-          actionIcon: Icons.add,
+          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
           onAction: () => onOpenEditor(null),
         ),
         if (tagError != null) ...[
@@ -266,12 +267,12 @@ class _ContentAdminRow extends StatelessWidget {
         IconButton(
           tooltip: '编辑',
           onPressed: onEdit,
-          icon: const Icon(Icons.edit_outlined),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01),
         ),
         IconButton(
           tooltip: '归档',
           onPressed: onArchive,
-          icon: const Icon(Icons.archive_outlined),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedArchive),
         ),
       ],
     );
@@ -287,16 +288,16 @@ class _ContentAdminRow extends StatelessWidget {
         Chip(label: Text(content.type.label)),
         if (content.pinned)
           const Chip(
-            avatar: Icon(Icons.push_pin_outlined, size: 18),
+            avatar: HugeIcon(icon: HugeIcons.strokeRoundedPin, size: 18),
             label: Text('置顶'),
           ),
         Chip(
-          avatar: const Icon(Icons.perm_media_outlined, size: 18),
+          avatar: const HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
           label: Text('${content.mediaCount} 个媒体'),
         ),
         if (content.coverMediaId.isNotEmpty)
           const Chip(
-            avatar: Icon(Icons.image_outlined, size: 18),
+            avatar: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
             label: Text('有封面'),
           ),
         for (final tag in content.tags) Chip(label: Text(tag.name)),
@@ -310,18 +311,18 @@ class _ContentAdminRow extends StatelessWidget {
       runSpacing: AppSpacing.sm,
       children: [
         AdminMetaText(
-          icon: Icons.favorite_outline,
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
           text: '${content.likeCount}',
         ),
         AdminMetaText(
-          icon: Icons.visibility_outlined,
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedView, size: 18),
           text: '${content.viewCount}',
         ),
         AdminMetaText(
-          icon: Icons.comment_outlined,
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedMessage01, size: 18),
           text: '${content.commentCount}',
         ),
-        AdminMetaText(icon: Icons.schedule_outlined, text: publishedAt),
+        AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18), text: publishedAt),
       ],
     );
   }

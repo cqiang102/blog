@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../content_editor_state.dart';
 
@@ -38,17 +39,17 @@ class MarkdownToolbar extends StatelessWidget {
       children: [
         // 格式化按钮
         _ToolbarButton(
-          icon: Icons.format_bold,
+          icon: HugeIcons.strokeRoundedTextBold,
           tooltip: '粗体 (Ctrl+B)',
           onPressed: () => onInsert('**', '**'),
         ),
         _ToolbarButton(
-          icon: Icons.format_italic,
+          icon: HugeIcons.strokeRoundedTextItalic,
           tooltip: '斜体 (Ctrl+I)',
           onPressed: () => onInsert('*', '*'),
         ),
         _ToolbarButton(
-          icon: Icons.strikethrough_s,
+          icon: HugeIcons.strokeRoundedTextStrikethrough,
           tooltip: '删除线',
           onPressed: () => onInsert('~~', '~~'),
         ),
@@ -60,22 +61,22 @@ class MarkdownToolbar extends StatelessWidget {
 
         // 列表和引用
         _ToolbarButton(
-          icon: Icons.format_list_bulleted,
+          icon: HugeIcons.strokeRoundedLeftToRightListBullet,
           tooltip: '无序列表',
           onPressed: () => onInsert('\n- ', '\n'),
         ),
         _ToolbarButton(
-          icon: Icons.format_list_numbered,
+          icon: HugeIcons.strokeRoundedLeftToRightListNumber,
           tooltip: '有序列表',
           onPressed: () => onInsert('\n1. ', '\n'),
         ),
         _ToolbarButton(
-          icon: Icons.checklist,
+          icon: HugeIcons.strokeRoundedCheckList,
           tooltip: '任务列表',
           onPressed: () => onInsert('\n- [ ] ', '\n'),
         ),
         _ToolbarButton(
-          icon: Icons.format_quote,
+          icon: HugeIcons.strokeRoundedLeftToRightBlockQuote,
           tooltip: '引用',
           onPressed: () => onInsert('\n> ', '\n'),
         ),
@@ -83,17 +84,17 @@ class MarkdownToolbar extends StatelessWidget {
 
         // 代码和链接
         _ToolbarButton(
-          icon: Icons.code,
+          icon: HugeIcons.strokeRoundedCode,
           tooltip: '行内代码',
           onPressed: () => onInsert('`', '`'),
         ),
         _ToolbarButton(
-          icon: Icons.integration_instructions,
+          icon: HugeIcons.strokeRoundedCodeSquare,
           tooltip: '代码块',
           onPressed: () => onInsert('\n```\n', '\n```\n'),
         ),
         _ToolbarButton(
-          icon: Icons.link,
+          icon: HugeIcons.strokeRoundedLink01,
           tooltip: '链接',
           onPressed: () => onInsert('[', '](url)'),
         ),
@@ -101,7 +102,7 @@ class MarkdownToolbar extends StatelessWidget {
 
         // 图片
         _ToolbarButton(
-          icon: Icons.image,
+          icon: HugeIcons.strokeRoundedImage01,
           tooltip: '插入图片',
           onPressed: onInsertImage,
         ),
@@ -111,7 +112,7 @@ class MarkdownToolbar extends StatelessWidget {
 
         // 分割线
         _ToolbarButton(
-          icon: Icons.horizontal_rule,
+          icon: HugeIcons.strokeRoundedSeparatorHorizontal,
           tooltip: '分割线',
           onPressed: () => onInsert('\n---\n', ''),
         ),
@@ -142,20 +143,20 @@ class _EditModeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SegmentedButton<EditorEditMode>(
-      segments: const [
+      segments: [
         ButtonSegment(
           value: EditorEditMode.source,
-          icon: Icon(Icons.code, size: 16),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCode, size: 16),
           tooltip: '源码模式',
         ),
         ButtonSegment(
           value: EditorEditMode.split,
-          icon: Icon(Icons.vertical_split, size: 16),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedVerticalScrollPoint, size: 16),
           tooltip: '分屏模式',
         ),
         ButtonSegment(
           value: EditorEditMode.preview,
-          icon: Icon(Icons.preview, size: 16),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedView, size: 16),
           tooltip: '预览模式',
         ),
       ],
@@ -182,14 +183,14 @@ class _HeadingMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<int>(
       tooltip: '标题',
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.title, size: 20),
-            SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, size: 16),
+            HugeIcon(icon: HugeIcons.strokeRoundedText, size: 20),
+            const SizedBox(width: 4),
+            HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 16),
           ],
         ),
       ),
@@ -237,14 +238,14 @@ class _TableMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       tooltip: '表格',
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.table_chart, size: 20),
-            SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, size: 16),
+            HugeIcon(icon: HugeIcons.strokeRoundedTable, size: 20),
+            const SizedBox(width: 4),
+            HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 16),
           ],
         ),
       ),
@@ -293,14 +294,14 @@ class _ToolbarButton extends StatelessWidget {
     required this.onPressed,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String tooltip;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: Icon(icon, size: 20),
+      icon: HugeIcon(icon: icon, size: 20),
       tooltip: tooltip,
       onPressed: onPressed,
       visualDensity: VisualDensity.compact,

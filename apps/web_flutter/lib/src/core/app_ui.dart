@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import 'theme.dart';
 import 'theme_controller.dart';
@@ -21,8 +22,8 @@ class AppThemeToggle extends ConsumerWidget {
         transitionBuilder:
             (child, animation) =>
                 RotationTransition(turns: animation, child: child),
-        child: Icon(
-          dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+        child: HugeIcon(
+          icon: dark ? HugeIcons.strokeRoundedSun01 : HugeIcons.strokeRoundedMoon01,
           key: ValueKey(dark),
         ),
       ),

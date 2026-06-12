@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 import 'package:timelines_plus/timelines_plus.dart';
 
@@ -346,7 +347,7 @@ class _SearchAndFilterBarState extends State<_SearchAndFilterBar> {
             ),
             child: Row(
               children: [
-                Icon(Icons.search_rounded, color: scheme.onSurfaceVariant, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedSearch01, color: scheme.onSurfaceVariant, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
@@ -370,7 +371,7 @@ class _SearchAndFilterBarState extends State<_SearchAndFilterBar> {
                       widget.controller.clear();
                       widget.onSearch();
                     },
-                    child: Icon(Icons.close_rounded, size: 18, color: scheme.onSurfaceVariant),
+                    child: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18, color: scheme.onSurfaceVariant),
                   ),
               ],
             ),
@@ -383,10 +384,10 @@ class _SearchAndFilterBarState extends State<_SearchAndFilterBar> {
           child: IconButton(
             tooltip: widget.filtersExpanded ? '收起筛选' : '展开筛选',
             onPressed: widget.onToggleFilters,
-            icon: Icon(
-              widget.filtersExpanded
-                  ? Icons.filter_list_off_rounded
-                  : Icons.tune_rounded,
+            icon: HugeIcon(
+              icon: widget.filtersExpanded
+                  ? HugeIcons.strokeRoundedFilterRemove
+                  : HugeIcons.strokeRoundedFilter,
               size: 22,
             ),
           ),
@@ -546,7 +547,7 @@ class _DateFilter extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         ActionChip(
-          avatar: const Icon(Icons.calendar_today_outlined, size: 17),
+          avatar: const HugeIcon(icon: HugeIcons.strokeRoundedCalendar01, size: 17),
           label: Text(startDate == null ? '开始日期' : format.format(startDate!)),
           onPressed: () => _selectDate(context, isStart: true),
         ),
@@ -557,7 +558,7 @@ class _DateFilter extends StatelessWidget {
           ),
         ),
         ActionChip(
-          avatar: const Icon(Icons.event_outlined, size: 17),
+          avatar: const HugeIcon(icon: HugeIcons.strokeRoundedCalendar02, size: 17),
           label: Text(endDate == null ? '结束日期' : format.format(endDate!)),
           onPressed: () => _selectDate(context, isStart: false),
         ),
@@ -962,8 +963,8 @@ class _Thumb extends StatelessWidget {
       height: height,
       child: ColoredBox(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Icon(
-          Icons.auto_stories_outlined,
+        child: HugeIcon(
+          icon: HugeIcons.strokeRoundedBook01,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
@@ -1047,8 +1048,8 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.search_off_rounded,
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedSearch01,
             size: 56,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -1097,8 +1098,8 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.cloud_off_outlined,
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedCloudOff,
               size: 48,
               color: Theme.of(context).colorScheme.error,
             ),
@@ -1107,7 +1108,7 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             FilledButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
+              icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
               label: const Text('重试'),
             ),
           ],

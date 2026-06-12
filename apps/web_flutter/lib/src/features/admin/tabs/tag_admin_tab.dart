@@ -2,6 +2,7 @@
 // 展示标签列表，支持新增、编辑和删除
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
@@ -32,7 +33,7 @@ class AdminTagTab extends ConsumerWidget {
               SectionToolbar(
                 title: '标签管理',
                 actionLabel: '新增标签',
-                actionIcon: Icons.add,
+                actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
                 onAction: () => _openTagEditor(context, ref),
               ),
               const SizedBox(height: 12),
@@ -42,7 +43,7 @@ class AdminTagTab extends ConsumerWidget {
                 for (final tag in items) ...[
                   Card(
                     child: ListTile(
-                      leading: const Icon(Icons.sell_outlined),
+                      leading: const HugeIcon(icon: HugeIcons.strokeRoundedTag01),
                       title: Text(tag.name),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,12 +78,12 @@ class AdminTagTab extends ConsumerWidget {
                             tooltip: '编辑',
                             onPressed:
                                 () => _openTagEditor(context, ref, tag: tag),
-                            icon: const Icon(Icons.edit_outlined),
+                            icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01),
                           ),
                           IconButton(
                             tooltip: '删除',
                             onPressed: () => _deleteTag(context, ref, tag),
-                            icon: const Icon(Icons.delete_outline),
+                            icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01),
                           ),
                         ],
                       ),

@@ -2,6 +2,7 @@
 // 包含工具栏、状态标签、错误面板、确认对话框等通用组件
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants.dart';
@@ -87,7 +88,7 @@ class AdminEditorDialog extends StatelessWidget {
                   IconButton(
                     tooltip: '关闭',
                     onPressed: onClose ?? () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
                   ),
                 ],
               ),
@@ -180,10 +181,10 @@ class SectionToolbar extends StatelessWidget {
 
   final String title; // 区域标题
   final String actionLabel; // 主按钮文本
-  final IconData actionIcon; // 主按钮图标
+  final Widget actionIcon; // 主按钮图标
   final VoidCallback onAction; // 主按钮点击回调
   final String? secondaryLabel; // 副按钮文本
-  final IconData? secondaryIcon; // 副按钮图标
+  final Widget? secondaryIcon; // 副按钮图标
   final VoidCallback? onSecondaryAction; // 副按钮点击回调
 
   @override
@@ -206,12 +207,12 @@ class SectionToolbar extends StatelessWidget {
             if (secondaryLabel != null)
               OutlinedButton.icon(
                 onPressed: onSecondaryAction,
-                icon: Icon(secondaryIcon ?? Icons.add),
+                icon: secondaryIcon ?? const Icon(Icons.add),
                 label: Text(secondaryLabel!),
               ),
             FilledButton.icon(
               onPressed: onAction,
-              icon: Icon(actionIcon),
+              icon: actionIcon,
               label: Text(actionLabel),
             ),
           ],
@@ -329,14 +330,14 @@ class AdminUserStatusChip extends StatelessWidget {
 class AdminMetaText extends StatelessWidget {
   const AdminMetaText({super.key, required this.icon, required this.text});
 
-  final IconData icon; // 图标
+  final Widget icon; // 图标
   final String text; // 文本
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [Icon(icon, size: 18), const SizedBox(width: 4), Text(text)],
+      children: [icon, const SizedBox(width: 4), Text(text)],
     );
   }
 }
@@ -358,16 +359,16 @@ class AdminMediaThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fallbackIcon = switch (type) {
-      MediaAssetType.video => Icons.play_circle_outline,
-      MediaAssetType.file => Icons.insert_drive_file_outlined,
-      MediaAssetType.image => Icons.image_outlined,
+      MediaAssetType.video => HugeIcons.strokeRoundedPlayCircle,
+      MediaAssetType.file => HugeIcons.strokeRoundedFile01,
+      MediaAssetType.image => HugeIcons.strokeRoundedImage01,
     };
     final placeholder = SizedBox(
       width: size.width,
       height: size.height,
       child: ColoredBox(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Icon(fallbackIcon),
+        child: HugeIcon(icon: fallbackIcon),
       ),
     );
 
@@ -406,8 +407,8 @@ class AdminInlineError extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(
-              Icons.error_outline,
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedAlert01,
               color: Theme.of(context).colorScheme.error,
             ),
             const SizedBox(width: 12),
@@ -443,7 +444,7 @@ class AdminErrorPane extends StatelessWidget {
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
+              icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
               label: const Text('重试'),
             ),
           ],

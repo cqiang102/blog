@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -72,7 +73,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                       auth.isBusy
                           ? null
                           : () => ref.read(authControllerProvider).logout(),
-                  icon: const Icon(Icons.logout_rounded),
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedLogout01),
                 ),
               ],
             ),
@@ -681,7 +682,7 @@ class _AvatarSection extends StatelessWidget {
                     avatarUrl != null ? NetworkImage(avatarUrl!) : null,
                 child:
                     avatarUrl == null
-                        ? const Icon(Icons.person, size: 44)
+                        ? const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 44)
                         : null,
               ),
               Positioned(
@@ -705,7 +706,7 @@ class _AvatarSection extends StatelessWidget {
                                   strokeWidth: 2,
                                 ),
                               )
-                              : const Icon(Icons.camera_alt, size: 20),
+                              : const HugeIcon(icon: HugeIcons.strokeRoundedCamera01, size: 20),
                     ),
                   ),
                 ),
@@ -801,7 +802,7 @@ class _RecordListState extends ConsumerState<_RecordList>
             trailing: IconButton(
               tooltip: '删除',
               onPressed: () => _delete(item),
-              icon: const Icon(Icons.delete_outline),
+              icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01),
             ),
           ),
         );

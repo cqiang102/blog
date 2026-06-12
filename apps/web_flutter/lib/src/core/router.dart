@@ -7,6 +7,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import 'api_providers.dart';
 import 'constants.dart';
@@ -268,8 +269,8 @@ class _BlogShellState extends ConsumerState<BlogShell> {
                     destinations: [
                       for (final item in _publicDestinations)
                         NavigationDestination(
-                          icon: Icon(item.icon),
-                          selectedIcon: Icon(item.selectedIcon),
+                          icon: item.icon,
+                          selectedIcon: item.selectedIcon,
                           label: item.label,
                         ),
                     ],
@@ -480,7 +481,17 @@ class _SidebarItem extends StatelessWidget {
           mainAxisAlignment:
               expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
           children: [
-            Icon(selected ? item.selectedIcon : item.icon, size: 22, color: foreground),
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: HugeIcon(
+                icon: selected
+                    ? (item.selectedIcon as HugeIcon).icon
+                    : (item.icon as HugeIcon).icon,
+                size: 22,
+                color: foreground,
+              ),
+            ),
             if (expanded) ...[
               const SizedBox(width: 14),
               Text(
@@ -528,7 +539,15 @@ class _SidebarCapsuleButton extends StatelessWidget {
             mainAxisAlignment:
                 expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
             children: [
-              Icon(item.icon, size: 22, color: scheme.onPrimary),
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: HugeIcon(
+                  icon: (item.icon as HugeIcon).icon,
+                  size: 22,
+                  color: scheme.onPrimary,
+                ),
+              ),
               if (expanded) ...[
                 const SizedBox(width: 14),
                 Text(
@@ -555,55 +574,55 @@ class _Destination {
 
   final String path; // 路由路径
   final String label; // 导航标签文本
-  final IconData icon; // 未选中图标
-  final IconData selectedIcon; // 选中图标
+  final Widget icon; // 未选中图标
+  final Widget selectedIcon; // 选中图标
 }
 
 /// 所有导航目的地配置列表
-const _recommendDestination = _Destination(
+final _recommendDestination = _Destination(
   '/',
   '推荐',
-  Icons.home_outlined,
-  Icons.home_rounded,
+  const HugeIcon(icon: HugeIcons.strokeRoundedHome01),
+  const HugeIcon(icon: HugeIcons.strokeRoundedHome01),
 );
-const _contentsDestination = _Destination(
+final _contentsDestination = _Destination(
   '/contents',
   '全部',
-  Icons.menu_book_outlined,
-  Icons.menu_book_rounded,
+  const HugeIcon(icon: HugeIcons.strokeRoundedBook01),
+  const HugeIcon(icon: HugeIcons.strokeRoundedBook01),
 );
-const _friendsDestination = _Destination(
+final _friendsDestination = _Destination(
   '/friends',
   '朋友',
-  Icons.link_outlined,
-  Icons.link_rounded,
+  const HugeIcon(icon: HugeIcons.strokeRoundedLink01),
+  const HugeIcon(icon: HugeIcons.strokeRoundedLink01),
 );
-const _aboutDestination = _Destination(
+final _aboutDestination = _Destination(
   '/about',
   '关于我',
-  Icons.account_circle_outlined,
-  Icons.account_circle_rounded,
+  const HugeIcon(icon: HugeIcons.strokeRoundedUserCircle),
+  const HugeIcon(icon: HugeIcons.strokeRoundedUserCircle),
 );
-const _profileDestination = _Destination(
+final _profileDestination = _Destination(
   '/profile',
   '我的',
-  Icons.person_outline_rounded,
-  Icons.person_rounded,
+  const HugeIcon(icon: HugeIcons.strokeRoundedUser),
+  const HugeIcon(icon: HugeIcons.strokeRoundedUser),
 );
-const _adminDestination = _Destination(
+final _adminDestination = _Destination(
   '/admin',
   '管理',
-  Icons.admin_panel_settings_outlined,
-  Icons.admin_panel_settings,
+  const HugeIcon(icon: HugeIcons.strokeRoundedSettings01),
+  const HugeIcon(icon: HugeIcons.strokeRoundedSettings01),
 );
-const _loginDestination = _Destination(
+final _loginDestination = _Destination(
   '/login',
   '登录',
-  Icons.login_outlined,
-  Icons.login,
+  const HugeIcon(icon: HugeIcons.strokeRoundedLogin01),
+  const HugeIcon(icon: HugeIcons.strokeRoundedLogin01),
 );
 
-const _destinations = <_Destination>[
+final _destinations = <_Destination>[
   _recommendDestination,
   _contentsDestination,
   _friendsDestination,
@@ -613,7 +632,7 @@ const _destinations = <_Destination>[
   _loginDestination,
 ];
 
-const _publicDestinations = <_Destination>[
+final _publicDestinations = <_Destination>[
   _recommendDestination,
   _contentsDestination,
   _friendsDestination,

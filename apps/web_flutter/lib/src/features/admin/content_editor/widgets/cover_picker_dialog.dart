@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../../core/media_url.dart';
 import '../../../../core/theme.dart';
@@ -56,13 +57,13 @@ class CoverPickerDialog extends StatelessWidget {
                         imageUrl: resolveMediaUrl(url),
                         fit: BoxFit.cover,
                         errorWidget: (context, url, error) =>
-                            const Center(child: Icon(Icons.broken_image)),
+                            Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImageNotFound01)),
                       ),
                       if (isCover)
                         const ColoredBox(
                           color: AppColors.overlayDark,
                           child: Center(
-                            child: Icon(Icons.check, color: AppColors.onOverlay, size: 32),
+                            child: HugeIcon(icon: HugeIcons.strokeRoundedTick01, color: AppColors.onOverlay, size: 32),
                           ),
                         ),
                     ],

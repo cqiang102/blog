@@ -2,6 +2,7 @@
 // 展示管理员操作日志，支持筛选
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_providers.dart';
 import '../../../core/models.dart';
@@ -147,7 +148,7 @@ class _AuditLogList extends StatelessWidget {
         SectionToolbar(
           title: '操作日志',
           actionLabel: '刷新',
-          actionIcon: Icons.refresh,
+          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
           onAction: onApply,
         ),
         const SizedBox(height: AppSpacing.sm + 4),
@@ -245,12 +246,12 @@ class _AuditLogFilters extends StatelessWidget {
         ),
         FilledButton.icon(
           onPressed: onApply,
-          icon: const Icon(Icons.filter_alt),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
           label: const Text('筛选'),
         ),
         OutlinedButton.icon(
           onPressed: onClear,
-          icon: const Icon(Icons.clear),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
           label: const Text('清空'),
         ),
       ],
@@ -353,8 +354,8 @@ class _AuditLogRow extends StatelessWidget {
   Widget _buildActorInfo(BuildContext context, ColorScheme scheme) {
     return Row(
       children: [
-        Icon(
-          Icons.person_outline,
+        HugeIcon(
+          icon: HugeIcons.strokeRoundedUser,
           size: 16,
           color: scheme.onSurfaceVariant,
         ),
@@ -365,8 +366,8 @@ class _AuditLogRow extends StatelessWidget {
         ),
         if (log.resourceId != null) ...[
           const SizedBox(width: AppSpacing.md),
-          Icon(
-            Icons.tag,
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedTag01,
             size: 16,
             color: scheme.onSurfaceVariant,
           ),

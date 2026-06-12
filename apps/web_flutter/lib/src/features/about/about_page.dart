@@ -8,6 +8,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/ai_chat_state.dart';
@@ -402,8 +403,8 @@ class _ChatHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(
-        Icons.smart_toy,
+      leading: HugeIcon(
+        icon: HugeIcons.strokeRoundedRobot01,
         color: Theme.of(context).colorScheme.primary,
       ),
       title: const Text('AI 助手'),
@@ -423,12 +424,12 @@ class _ChatHeader extends StatelessWidget {
                   IconButton(
                     tooltip: '历史会话',
                     onPressed: onShowHistory,
-                    icon: const Icon(Icons.history),
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01),
                   ),
                   IconButton(
                     tooltip: '新建会话',
                     onPressed: onCreateNew,
-                    icon: const Icon(Icons.add_comment),
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
                   ),
                 ],
               )
@@ -455,8 +456,8 @@ class _SessionLimitBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.info_outline,
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedInformationCircle,
             size: 18,
             color: Theme.of(context).colorScheme.error,
           ),
@@ -471,7 +472,7 @@ class _SessionLimitBanner extends StatelessWidget {
           ),
           TextButton.icon(
             onPressed: onCreateNew,
-            icon: const Icon(Icons.add, size: 18),
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
             label: const Text('新建会话'),
           ),
         ],
@@ -531,7 +532,7 @@ class _ChatInputBar extends StatelessWidget {
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                    : const Icon(Icons.send),
+                    : const HugeIcon(icon: HugeIcons.strokeRoundedSent),
           ),
         ],
       ),
@@ -634,7 +635,7 @@ class _SessionListDialogState extends State<_SessionListDialog> {
                   const Spacer(),
                   TextButton.icon(
                     onPressed: widget.onCreateNew,
-                    icon: const Icon(Icons.add, size: 18),
+                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
                     label: const Text('新建会话'),
                   ),
                 ],
@@ -669,10 +670,10 @@ class _SessionListDialogState extends State<_SessionListDialog> {
                     ).format(session.updatedAt);
 
                     return ListTile(
-                      leading: Icon(
-                        isCurrent
-                            ? Icons.chat_bubble
-                            : Icons.chat_bubble_outline,
+                      leading: HugeIcon(
+                        icon: isCurrent
+                            ? HugeIcons.strokeRoundedMessage01
+                            : HugeIcons.strokeRoundedMessage01,
                         color:
                             isCurrent
                                 ? Theme.of(context).colorScheme.primary
@@ -686,7 +687,7 @@ class _SessionListDialogState extends State<_SessionListDialog> {
                       subtitle: Text('${session.messageCount} 条消息 · $date'),
                       selected: isCurrent,
                       trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 20),
+                        icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 20),
                         onPressed: () => _deleteSession(session),
                       ),
                       onTap: () => widget.onSelect(session),

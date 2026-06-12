@@ -2,6 +2,7 @@
 // 展示友链列表，支持新增、编辑和删除
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/api_providers.dart';
@@ -146,7 +147,7 @@ class _FriendList extends StatelessWidget {
         SectionToolbar(
           title: '朋友管理',
           actionLabel: '新增朋友',
-          actionIcon: Icons.add,
+          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
           onAction: () => onOpenEditor(null),
         ),
         if (items.isEmpty) ...[
@@ -246,10 +247,10 @@ class _FriendAdminRow extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Chip(
-          avatar: Icon(
-            friend.visible
-                ? Icons.visibility_outlined
-                : Icons.visibility_off_outlined,
+          avatar: HugeIcon(
+            icon: friend.visible
+                ? HugeIcons.strokeRoundedView
+                : HugeIcons.strokeRoundedViewOff,
             size: 18,
           ),
           label: Text(friend.visible ? '公开' : '隐藏'),
@@ -257,12 +258,12 @@ class _FriendAdminRow extends StatelessWidget {
         Chip(label: Text('排序 ${friend.sortOrder}')),
         OutlinedButton.icon(
           onPressed: onEdit,
-          icon: const Icon(Icons.edit_outlined, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
           label: const Text('编辑'),
         ),
         OutlinedButton.icon(
           onPressed: onDelete,
-          icon: const Icon(Icons.delete_outline, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
           label: const Text('删除'),
         ),
       ],

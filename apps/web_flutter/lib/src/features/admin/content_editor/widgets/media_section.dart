@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../../../core/media_url.dart';
 import '../../../../core/models.dart';
@@ -61,7 +62,7 @@ class MediaSection extends StatelessWidget {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.upload_file),
+              : const HugeIcon(icon: HugeIcons.strokeRoundedUpload01),
           label: Text(isUploading ? '上传中...' : '上传文件'),
         ),
       ],
@@ -74,8 +75,8 @@ class MediaSection extends StatelessWidget {
         padding: const EdgeInsets.all(32),
         child: Column(
           children: [
-            Icon(
-              isImage ? Icons.image_outlined : Icons.videocam_outlined,
+            HugeIcon(
+              icon: isImage ? HugeIcons.strokeRoundedImage01 : HugeIcons.strokeRoundedVideo01,
               size: 64,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -170,7 +171,7 @@ class _MediaCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.broken_image, size: 32),
+              const HugeIcon(icon: HugeIcons.strokeRoundedImageNotFound01, size: 32),
               const SizedBox(height: 4),
               Text(
                 '加载失败',
@@ -186,7 +187,7 @@ class _MediaCard extends StatelessWidget {
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: const Center(
-        child: Icon(Icons.videocam, size: 48),
+        child: HugeIcon(icon: HugeIcons.strokeRoundedVideo01, size: 48),
       ),
     );
   }
@@ -229,7 +230,7 @@ class _MediaCard extends StatelessWidget {
           children: [
             if (!isCover)
               IconButton(
-                icon: const Icon(Icons.image, color: AppColors.onOverlay, size: 20),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, color: AppColors.onOverlay, size: 20),
                 tooltip: '设为封面',
                 onPressed: onSetCover,
                 constraints: const BoxConstraints(
@@ -239,7 +240,7 @@ class _MediaCard extends StatelessWidget {
                 padding: EdgeInsets.zero,
               ),
             IconButton(
-              icon: Icon(Icons.delete, color: Theme.of(context).colorScheme.error, size: 20),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, color: Theme.of(context).colorScheme.error, size: 20),
               tooltip: '删除',
               onPressed: onRemove,
               constraints: const BoxConstraints(

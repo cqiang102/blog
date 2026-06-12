@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api_providers.dart';
@@ -51,10 +52,10 @@ class _HomePageState extends ConsumerState<HomePage>
                       Theme.of(context).colorScheme.primaryContainer,
                   foregroundColor:
                       Theme.of(context).colorScheme.onPrimaryContainer,
-                  child: Icon(
-                    auth.isAuthenticated
-                        ? Icons.person_outline_rounded
-                        : Icons.login_rounded,
+                  child: HugeIcon(
+                    icon: auth.isAuthenticated
+                        ? HugeIcons.strokeRoundedUser
+                        : HugeIcons.strokeRoundedLogin01,
                     size: 20,
                   ),
                 ),
@@ -412,8 +413,8 @@ class _HeroPlaceholder extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
       ),
       child: Center(
-        child: Icon(
-          Icons.edit_note_rounded,
+        child: HugeIcon(
+          icon: HugeIcons.strokeRoundedEdit01,
           size: 72,
           color: scheme.primary.withValues(alpha: 0.55),
         ),
@@ -661,7 +662,7 @@ class _PopularRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.md),
-            Icon(Icons.favorite_rounded, size: 16, color: scheme.secondary),
+            HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 16, color: scheme.secondary),
             const SizedBox(width: AppSpacing.xs),
             Text(
               '${content.likeCount}',
@@ -688,15 +689,15 @@ class _ContentStats extends StatelessWidget {
     ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant);
     return Row(
       children: [
-        Icon(
-          Icons.favorite_border_rounded,
+        HugeIcon(
+          icon: HugeIcons.strokeRoundedFavourite,
           size: 16,
           color: scheme.onSurfaceVariant,
         ),
         const SizedBox(width: AppSpacing.xs),
         Text('$likeCount', style: style),
         const SizedBox(width: AppSpacing.sm + 4),
-        Icon(Icons.schedule_rounded, size: 16, color: scheme.onSurfaceVariant),
+        HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 16, color: scheme.onSurfaceVariant),
         const SizedBox(width: AppSpacing.xs),
         Text(date, style: style),
       ],
@@ -730,8 +731,8 @@ class _CoverPlaceholder extends StatelessWidget {
     return ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Center(
-        child: Icon(
-          Icons.auto_stories_outlined,
+        child: HugeIcon(
+          icon: HugeIcons.strokeRoundedBook01,
           size: 48,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
@@ -754,7 +755,7 @@ class _HomeFooter extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.lightbulb_outline_rounded, color: scheme.secondary),
+          HugeIcon(icon: HugeIcons.strokeRoundedIdea01, color: scheme.secondary),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
@@ -809,8 +810,8 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.cloud_off_outlined,
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedCloudOff,
               size: 48,
               color: Theme.of(context).colorScheme.error,
             ),
