@@ -345,53 +345,40 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
           onChanged: (value) => _getController().updateSlug(value),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            SizedBox(
-              width: 200,
-              child: DropdownButtonFormField<ContentType>(
-                key: ValueKey('type_${state.type}'),
-                initialValue: state.type,
-                decoration: const InputDecoration(labelText: '类型'),
-                items: ContentType.values.map((type) {
-                  return DropdownMenuItem(
+        Text('类型', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 4),
+        SegmentedButton<ContentType>(
+          segments: ContentType.values
+              .map((type) => ButtonSegment<ContentType>(
                     value: type,
-                    child: Text(type.label),
-                  );
-                }).toList(),
-                onChanged: (value) async {
-                  if (value == null) return;
-                  final controller = _getController();
-                  final success = await controller.updateType(value);
-                  if (!success && mounted) {
-                    // ignore: use_build_context_synchronously
-                    _showTypeChangeConfirm(context, value);
-                  }
-                },
-              ),
-            ),
-            SizedBox(
-              width: 200,
-              child: DropdownButtonFormField<ContentStatus>(
-                key: ValueKey('status_${state.status}'),
-                initialValue: state.status,
-                decoration: const InputDecoration(labelText: '状态'),
-                items: ContentStatus.values.map((status) {
-                  return DropdownMenuItem(
+                    label: Text(type.label),
+                  ))
+              .toList(),
+          selected: {state.type},
+          onSelectionChanged: (selected) async {
+            final value = selected.first;
+            final controller = _getController();
+            final success = await controller.updateType(value);
+            if (!success && mounted) {
+              // ignore: use_build_context_synchronously
+              _showTypeChangeConfirm(context, value);
+            }
+          },
+        ),
+        const SizedBox(height: 12),
+        Text('状态', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 4),
+        SegmentedButton<ContentStatus>(
+          segments: ContentStatus.values
+              .map((status) => ButtonSegment<ContentStatus>(
                     value: status,
-                    child: Text(status.label),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    _getController().updateStatus(value);
-                  }
-                },
-              ),
-            ),
-          ],
+                    label: Text(status.label),
+                  ))
+              .toList(),
+          selected: {state.status},
+          onSelectionChanged: (selected) {
+            _getController().updateStatus(selected.first);
+          },
         ),
         const SizedBox(height: 12),
         SwitchListTile(
