@@ -807,7 +807,7 @@ class _HomeFooter extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => context.go('/about'),
-            child: const Text('关于我'),
+            child: const Text('关于'),
           ),
         ],
       ),

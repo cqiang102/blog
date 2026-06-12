@@ -583,7 +583,7 @@ final _friendsDestination = _Destination(
 );
 final _aboutDestination = _Destination(
   '/about',
-  '关于我',
+  '关于',
   const HugeIcon(icon: HugeIcons.strokeRoundedUserCircle),
   const HugeIcon(icon: HugeIcons.strokeRoundedUserCircle),
 );

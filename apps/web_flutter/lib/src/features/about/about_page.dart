@@ -138,7 +138,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       child: CustomScrollView(
       slivers: [
         const SliverAppBar(
-          title: Text('关于我'),
+          title: Text('关于'),
           actions: [AppThemeToggle(), SizedBox(width: AppSpacing.sm)],
         ),
         SliverPadding(
