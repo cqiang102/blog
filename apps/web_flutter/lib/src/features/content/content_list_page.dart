@@ -227,12 +227,12 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
             sliver: SliverToBoxAdapter(
               child: Row(
                 children: [
-                  Text(
-                    pagination.items.isEmpty
-                        ? '内容列表'
-                        : '已加载 ${pagination.items.length} 篇',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  // Text(
+                  //   pagination.items.isEmpty
+                  //       ? '内容列表'
+                  //       : '已加载 ${pagination.items.length} 篇',
+                  //   style: Theme.of(context).textTheme.titleMedium,
+                  // ),
                   const Spacer(),
                   if (pagination.isLoading && pagination.items.isNotEmpty)
                     const SizedBox.square(
@@ -681,7 +681,7 @@ class _TimelineContentList extends StatelessWidget {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         theme: TimelineThemeData(
-          nodePosition: 0.12,
+          nodePosition: 0.08,
           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
           connectorTheme: ConnectorThemeData(
             thickness: 2,
@@ -720,7 +720,7 @@ class _TimelineContentList extends StatelessWidget {
               final item = flatItems[index];
               if (item is _TimelineDate) {
                 return Padding(
-                  padding: const EdgeInsets.only(right: 16, bottom: 8),
+                  padding: const EdgeInsets.only(right: 8, bottom: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
