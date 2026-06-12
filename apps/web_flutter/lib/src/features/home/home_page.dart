@@ -33,7 +33,6 @@ class _HomePageState extends ConsumerState<HomePage>
   Widget build(BuildContext context) {
     super.build(context);
     final recommendations = ref.watch(recommendationsProvider);
-    final auth = ref.watch(authControllerProvider);
 
     return AppPageFrame(
       child: CustomScrollView(
@@ -43,26 +42,6 @@ class _HomePageState extends ConsumerState<HomePage>
             title: const Text('首页'),
             actions: [
               const AppThemeToggle(),
-              IconButton(
-                tooltip: auth.isAuthenticated ? '个人中心' : '登录',
-                onPressed:
-                    () => context.go(
-                      auth.isAuthenticated ? '/profile' : '/login',
-                    ),
-                icon: CircleAvatar(
-                  radius: 18,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primaryContainer,
-                  foregroundColor:
-                      Theme.of(context).colorScheme.onPrimaryContainer,
-                  child: HugeIcon(
-                    icon: auth.isAuthenticated
-                        ? HugeIcons.strokeRoundedUser
-                        : HugeIcons.strokeRoundedLogin01,
-                    size: 20,
-                  ),
-                ),
-              ),
               const SizedBox(width: AppSpacing.sm),
             ],
           ),
