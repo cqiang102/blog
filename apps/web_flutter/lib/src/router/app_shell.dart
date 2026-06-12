@@ -189,7 +189,7 @@ class _BrandSidebar extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeInOutCubic,
-      width: expanded ? 200 : 68,
+      width: expanded ? 180 : 56,
       child: ClipRect(
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
@@ -205,7 +205,7 @@ class _BrandSidebar extends StatelessWidget {
       child: SafeArea(
         child: Padding(
           padding: EdgeInsets.symmetric(
-            horizontal: showText ? AppSpacing.md : AppSpacing.sm,
+            horizontal: showText ? AppSpacing.sm + 4 : AppSpacing.sm,
             vertical: AppSpacing.md,
           ),
           child: Column(
@@ -380,7 +380,7 @@ class _SidebarItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         height: 44,
-        padding: EdgeInsets.symmetric(horizontal: showText ? 14 : 0),
+        padding: EdgeInsets.symmetric(horizontal: showText ? 10 : 0),
         decoration: BoxDecoration(
           color: selected ? selectedBg : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
@@ -404,7 +404,7 @@ class _SidebarItem extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 10),
                   Text(
                     item.label,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -449,7 +449,7 @@ class _SidebarCapsuleButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         child: Container(
           height: 44,
-          padding: EdgeInsets.symmetric(horizontal: showText ? 16 : 0),
+          padding: EdgeInsets.symmetric(horizontal: showText ? 12 : 0),
           child: Row(
             mainAxisAlignment:
                 showText ? MainAxisAlignment.start : MainAxisAlignment.center,
@@ -467,7 +467,7 @@ class _SidebarCapsuleButton extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 10),
                     Text(
                       item.label,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -508,7 +508,7 @@ class _SidebarExpandToggle extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         height: 44,
-        padding: EdgeInsets.symmetric(horizontal: showText ? 14 : 0),
+        padding: EdgeInsets.symmetric(horizontal: showText ? 10 : 0),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -531,7 +531,7 @@ class _SidebarExpandToggle extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 10),
                   Text(
                     '收起',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
