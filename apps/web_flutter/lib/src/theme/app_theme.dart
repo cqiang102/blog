@@ -215,13 +215,6 @@ ThemeData _buildTheme({
       textStyle: TextStyle(color: scheme.onInverseSurface),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(color: scheme.primary),
-    scrollbarTheme: ScrollbarThemeData(
-      thumbColor: WidgetStatePropertyAll(
-        scheme.onSurfaceVariant.withValues(alpha: 0.35),
-      ),
-      radius: const Radius.circular(8),
-      thickness: const WidgetStatePropertyAll(6),
-    ),
   );
 }
 

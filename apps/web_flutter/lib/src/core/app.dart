@@ -9,6 +9,12 @@ import '../router/app_router.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_controller.dart';
 
+/// Web 平台隐藏滚动条，保留触摸板和鼠标滚轮滚动
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Scrollbars getScrollbars(BuildContext context) => Scrollbars.none;
+}
+
 /// 博客应用根 Widget
 /// 使用 Riverpod 进行状态管理，集成 GoRouter 路由
 class BlogApp extends ConsumerWidget {
@@ -24,6 +30,7 @@ class BlogApp extends ConsumerWidget {
     return MaterialApp.router(
       title: '沐凉·日记',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: _AppScrollBehavior(),
 
       // 中文本地化配置
       localizationsDelegates: const [
