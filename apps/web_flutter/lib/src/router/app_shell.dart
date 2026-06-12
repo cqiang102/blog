@@ -2,7 +2,6 @@
 // 包含 BlogShell、Sidebar 和导航目的地配置
 
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -150,62 +149,63 @@ class _BrandSidebar extends StatelessWidget {
       if (!authenticated) _destinations[6],
     ];
 
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          width: expanded ? 232 : 88,
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLow.withValues(alpha: 0.82),
-            border: Border(right: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+    return Container(
+      width: expanded ? 232 : 88,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        border: Border(
+          right: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.5),
           ),
-          child: SafeArea(
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: expanded ? AppSpacing.md : AppSpacing.sm,
-                vertical: AppSpacing.md,
+        ),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: expanded ? AppSpacing.md : AppSpacing.sm,
+            vertical: AppSpacing.md,
+          ),
+          child: Column(
+            children: [
+              _SidebarIdentity(
+                expanded: expanded,
+                avatarText: avatarText,
+                avatarUrl: avatarUrl,
+                nickname: nickname,
               ),
-              child: Column(
-                children: [
-                  _SidebarIdentity(
+              const SizedBox(height: AppSpacing.xl),
+              for (final item in _publicDestinations)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: _SidebarItem(
+                    item: item,
                     expanded: expanded,
-                    avatarText: avatarText,
-                    avatarUrl: avatarUrl,
-                    nickname: nickname,
+                    selected: currentPath == item.path,
+                    onTap: () => onNavigate(item),
                   ),
-                  const SizedBox(height: AppSpacing.xl),
-                  for (final item in _publicDestinations)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                      child: _SidebarItem(
-                        item: item,
-                        expanded: expanded,
-                        selected: currentPath == item.path,
-                        onTap: () => onNavigate(item),
-                      ),
-                    ),
-                  const Spacer(),
-                  Divider(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-                  const SizedBox(height: AppSpacing.sm),
-                  for (final item in accountItems)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                      child: item == _destinations[6]
-                          ? _SidebarCapsuleButton(
-                              item: item,
-                              expanded: expanded,
-                              onTap: () => onNavigate(item),
-                            )
-                          : _SidebarItem(
-                              item: item,
-                              expanded: expanded,
-                              selected: currentPath == item.path,
-                              onTap: () => onNavigate(item),
-                            ),
-                    ),
-                ],
+                ),
+              const Spacer(),
+              Divider(
+                color: scheme.outlineVariant.withValues(alpha: 0.5),
               ),
-            ),
+              const SizedBox(height: AppSpacing.sm),
+              for (final item in accountItems)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: item == _destinations[6]
+                      ? _SidebarCapsuleButton(
+                          item: item,
+                          expanded: expanded,
+                          onTap: () => onNavigate(item),
+                        )
+                      : _SidebarItem(
+                          item: item,
+                          expanded: expanded,
+                          selected: currentPath == item.path,
+                          onTap: () => onNavigate(item),
+                        ),
+                ),
+            ],
           ),
         ),
       ),
@@ -297,8 +297,7 @@ class _SidebarItem extends StatelessWidget {
     final child = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: AppAnimations.fast,
+      child: Container(
         height: 44,
         padding: EdgeInsets.symmetric(horizontal: expanded ? 14 : 0),
         decoration: BoxDecoration(
