@@ -2,6 +2,7 @@
 // 包含 BlogShell、Sidebar 和导航目的地配置
 
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,20 +66,26 @@ class _BlogShellState extends ConsumerState<BlogShell> {
         if (wide) {
           final expanded = constraints.maxWidth >= kDesktopBreakpoint;
           return Scaffold(
-            body: Row(
-              children: [
-                _BrandSidebar(
-                  expanded: expanded,
-                  currentPath: currentPath,
-                  authenticated: auth.isAuthenticated,
-                  isAdmin: auth.user?.isAdmin ?? false,
-                  nickname: nickname,
-                  avatarText: avatarText,
-                  avatarUrl: auth.user?.avatarUrl,
-                  onNavigate: _goTo,
-                ),
-                Expanded(child: widget.navigationShell),
-              ],
+            body: CustomPaint(
+              painter: _GridPatternPainter(
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.03),
+              ),
+              size: Size.infinite,
+              child: Row(
+                children: [
+                  _BrandSidebar(
+                    expanded: expanded,
+                    currentPath: currentPath,
+                    authenticated: auth.isAuthenticated,
+                    isAdmin: auth.user?.isAdmin ?? false,
+                    nickname: nickname,
+                    avatarText: avatarText,
+                    avatarUrl: auth.user?.avatarUrl,
+                    onNavigate: _goTo,
+                  ),
+                  Expanded(child: widget.navigationShell),
+                ],
+              ),
             ),
           );
         }
@@ -88,7 +95,13 @@ class _BlogShellState extends ConsumerState<BlogShell> {
         );
         final showBottomNavigation = selectedIndex >= 0;
         return Scaffold(
-          body: widget.navigationShell,
+          body: CustomPaint(
+            painter: _GridPatternPainter(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.03),
+            ),
+            size: Size.infinite,
+            child: widget.navigationShell,
+          ),
           bottomNavigationBar:
               showBottomNavigation
                   ? NavigationBar(
@@ -149,10 +162,13 @@ class _BrandSidebar extends StatelessWidget {
       if (!authenticated) _destinations[6],
     ];
 
-    return Container(
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
       width: expanded ? 232 : 88,
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
+        color: scheme.surfaceContainerLow.withValues(alpha: 0.72),
         border: Border(
           right: BorderSide(
             color: scheme.outlineVariant.withValues(alpha: 0.5),
@@ -209,6 +225,8 @@ class _BrandSidebar extends StatelessWidget {
           ),
         ),
       ),
+    ),
+    ),
     );
   }
 }
@@ -354,7 +372,7 @@ class _SidebarCapsuleButton extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     final child = Material(
-      color: scheme.primary,
+      color: scheme.primary.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,
@@ -372,7 +390,7 @@ class _SidebarCapsuleButton extends StatelessWidget {
                 child: HugeIcon(
                   icon: (item.icon as HugeIcon).icon,
                   size: 22,
-                  color: scheme.onPrimary,
+                  color: scheme.primary,
                 ),
               ),
               if (expanded) ...[
@@ -380,7 +398,7 @@ class _SidebarCapsuleButton extends StatelessWidget {
                 Text(
                   item.label,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: scheme.onPrimary,
+                    color: scheme.primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -465,3 +483,30 @@ final _publicDestinations = <_Destination>[
   _friendsDestination,
   _aboutDestination,
 ];
+
+class _GridPatternPainter extends CustomPainter {
+  _GridPatternPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 0.5
+      ..style = PaintingStyle.stroke;
+
+    const step = 40.0;
+
+    for (double x = 0; x <= size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = 0; y <= size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GridPatternPainter oldDelegate) =>
+      oldDelegate.color != color;
+}

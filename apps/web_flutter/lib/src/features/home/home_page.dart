@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -172,55 +174,97 @@ class _HomeHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            scheme.primaryContainer,
-            scheme.secondaryContainer.withValues(alpha: 0.78),
-          ],
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final wide = constraints.maxWidth >= kTabletBreakpoint;
-          final intro = _HeroIntro(hasFeatured: featured != null);
-          final story =
-              featured == null
-                  ? const _HeroPlaceholder()
-                  : _FeaturedStory(content: featured!);
-
-          if (!wide) {
-            return Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  intro,
-                  const SizedBox(height: AppSpacing.md),
-                  SizedBox(height: 240, child: story),
-                ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: Stack(
+        children: [
+          // 底层渐变
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    scheme.primaryContainer,
+                    scheme.secondaryContainer.withValues(alpha: 0.78),
+                  ],
+                ),
               ),
-            );
-          }
-
-          return Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Row(
-              children: [
-                Expanded(flex: 5, child: intro),
-                const SizedBox(width: AppSpacing.lg),
-                Expanded(flex: 6, child: SizedBox(height: 280, child: story)),
-              ],
             ),
-          );
-        },
+          ),
+          // 弥散光晕
+          Positioned.fill(
+            child: CustomPaint(painter: _DiffuseCirclePainter()),
+          ),
+          // 原有内容
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= kTabletBreakpoint;
+              final intro = _HeroIntro(hasFeatured: featured != null);
+              final story =
+                  featured == null
+                      ? const _HeroPlaceholder()
+                      : _FeaturedStory(content: featured!);
+
+              if (!wide) {
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      intro,
+                      const SizedBox(height: AppSpacing.md),
+                      SizedBox(height: 240, child: story),
+                    ],
+                  ),
+                );
+              }
+
+              return Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Row(
+                  children: [
+                    Expanded(flex: 5, child: intro),
+                    const SizedBox(width: AppSpacing.lg),
+                    Expanded(
+                      flex: 6,
+                      child: SizedBox(height: 280, child: story),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
+}
+
+class _DiffuseCirclePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 左上淡蓝光晕
+    canvas.drawCircle(
+      const Offset(80, 60),
+      180,
+      Paint()
+        ..color = const Color(0x1860A5FA)
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 80),
+    );
+    // 右下淡粉光晕
+    canvas.drawCircle(
+      Offset(size.width - 60, size.height - 40),
+      160,
+      Paint()
+        ..color = const Color(0x14F472B6)
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 80),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _HeroIntro extends StatelessWidget {

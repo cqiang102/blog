@@ -26,6 +26,7 @@ class _AppInteractiveCardState extends State<AppInteractiveCard> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final radius = BorderRadius.circular(widget.borderRadius);
 
     return MouseRegion(
@@ -36,21 +37,26 @@ class _AppInteractiveCardState extends State<AppInteractiveCard> {
         curve: Curves.easeOutCubic,
         transform: Matrix4.translationValues(0, _hovered ? -2 : 0, 0),
         decoration: BoxDecoration(
-          color: scheme.surfaceContainerLow,
+          color: isDark ? scheme.surfaceContainerLow : Colors.white,
           borderRadius: radius,
           border: Border.all(
             color: _hovered ? scheme.primary : scheme.outlineVariant,
           ),
-          boxShadow:
-              _hovered
-                  ? [
-                    BoxShadow(
-                      color: scheme.shadow.withValues(alpha: 0.10),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    ),
-                  ]
-                  : const [],
+          boxShadow: _hovered
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
         ),
         clipBehavior: widget.clipBehavior,
         child: Material(
