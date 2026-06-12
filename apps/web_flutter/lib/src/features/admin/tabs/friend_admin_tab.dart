@@ -123,9 +123,10 @@ class _FriendList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
+    return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: items.length + 1,
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm + 4),
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildHeader(context);

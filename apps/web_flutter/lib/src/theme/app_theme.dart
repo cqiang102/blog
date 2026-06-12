@@ -110,7 +110,6 @@ ThemeData _buildTheme({
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -146,7 +145,7 @@ ThemeData _buildTheme({
     chipTheme: ChipThemeData(
       backgroundColor: scheme.primaryContainer,
       selectedColor: scheme.primary.withValues(alpha: 0.15),
-      side: BorderSide(color: scheme.outlineVariant),
+      side: BorderSide.none,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
