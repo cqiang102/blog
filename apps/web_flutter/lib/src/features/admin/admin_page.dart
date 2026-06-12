@@ -102,7 +102,7 @@ class _AdminPageState extends ConsumerState<AdminPage>
     final selectedIndex = _selectedIndex.clamp(0, tabs.length - 1);
 
     return AppPageFrame(
-      maxWidth: 1480,
+      maxWidth: 1280,
       child: Column(
         children: [
           AppPageHeader(

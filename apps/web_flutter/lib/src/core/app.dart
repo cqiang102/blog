@@ -12,7 +12,7 @@ import '../theme/theme_controller.dart';
 /// Web 平台隐藏滚动条，保留触摸板和鼠标滚轮滚动
 class _AppScrollBehavior extends MaterialScrollBehavior {
   @override
-  Scrollbars getScrollbars(BuildContext context) => Scrollbars.none;
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) => child;
 }
 
 /// 博客应用根 Widget
