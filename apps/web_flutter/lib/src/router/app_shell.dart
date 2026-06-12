@@ -12,6 +12,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../state/state.dart';
 import '../core/constants.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/animated_bubbles.dart';
 
 /// 响应式 Shell 布局组件
 /// 使用 StatefulNavigationShell 保持页面状态，避免切换标签时销毁重建
@@ -59,55 +60,75 @@ class _BlogShellState extends ConsumerState<BlogShell> {
         nickname == null || nickname.isEmpty ? 'C' : nickname.characters.first;
     final currentPath = _destinations[widget.navigationShell.currentIndex].path;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= kWideBreakpoint;
+    final scheme = Theme.of(context).colorScheme;
 
-        if (wide) {
-          final expanded = constraints.maxWidth >= kDesktopBreakpoint;
-          return Scaffold(
-            body: Row(
-              children: [
-                _BrandSidebar(
-                  expanded: expanded,
-                  currentPath: currentPath,
-                  authenticated: auth.isAuthenticated,
-                  isAdmin: auth.user?.isAdmin ?? false,
-                  nickname: nickname,
-                  avatarText: avatarText,
-                  avatarUrl: auth.user?.avatarUrl,
-                  onNavigate: _goTo,
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: AnimatedBubbles(
+            colors: [
+              scheme.primary.withValues(alpha: 0.08),
+              scheme.secondary.withValues(alpha: 0.08),
+              scheme.tertiary.withValues(alpha: 0.06),
+            ],
+            bubbleCount: 6,
+            maxRadius: 250,
+            speed: 0.01,
+          ),
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= kWideBreakpoint;
+
+            if (wide) {
+              final expanded = constraints.maxWidth >= kDesktopBreakpoint;
+              return Scaffold(
+                backgroundColor: Colors.transparent,
+                body: Row(
+                  children: [
+                    _BrandSidebar(
+                      expanded: expanded,
+                      currentPath: currentPath,
+                      authenticated: auth.isAuthenticated,
+                      isAdmin: auth.user?.isAdmin ?? false,
+                      nickname: nickname,
+                      avatarText: avatarText,
+                      avatarUrl: auth.user?.avatarUrl,
+                      onNavigate: _goTo,
+                    ),
+                    Expanded(child: widget.navigationShell),
+                  ],
                 ),
-                Expanded(child: widget.navigationShell),
-              ],
-            ),
-          );
-        }
+              );
+            }
 
-        final selectedIndex = _publicDestinations.indexWhere(
-          (item) => item.path == currentPath,
-        );
-        final showBottomNavigation = selectedIndex >= 0;
-        return Scaffold(
-          body: widget.navigationShell,
-          bottomNavigationBar:
-              showBottomNavigation
-                  ? NavigationBar(
-                    selectedIndex: selectedIndex,
-                    onDestinationSelected:
-                        (index) => _goTo(_publicDestinations[index]),
-                    destinations: [
-                      for (final item in _publicDestinations)
-                        NavigationDestination(
-                          icon: item.icon,
-                          selectedIcon: item.selectedIcon,
-                          label: item.label,
-                        ),
-                    ],
-                  )
-                  : null,
-        );
-      },
+            final selectedIndex = _publicDestinations.indexWhere(
+              (item) => item.path == currentPath,
+            );
+            final showBottomNavigation = selectedIndex >= 0;
+            return Scaffold(
+              backgroundColor: Colors.transparent,
+              body: widget.navigationShell,
+              bottomNavigationBar:
+                  showBottomNavigation
+                      ? NavigationBar(
+                        selectedIndex: selectedIndex,
+                        onDestinationSelected:
+                            (index) => _goTo(_publicDestinations[index]),
+                        destinations: [
+                          for (final item in _publicDestinations)
+                            NavigationDestination(
+                              icon: item.icon,
+                              selectedIcon: item.selectedIcon,
+                              label: item.label,
+                            ),
+                        ],
+                      )
+                      : null,
+            );
+          },
+        ),
+      ],
     );
   }
 

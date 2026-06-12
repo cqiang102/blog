@@ -568,6 +568,13 @@ class _StoryBody extends StatelessWidget {
                 ),
               ),
             ],
+            const Spacer(),
+            HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 14, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 4),
+            Text(
+              date,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -587,7 +594,7 @@ class _StoryBody extends StatelessWidget {
           ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
         ),
         const Spacer(),
-        _ContentStats(likeCount: content.likeCount, date: date),
+        _ContentStats(likeCount: content.likeCount),
       ],
     );
   }
@@ -677,10 +684,9 @@ class _PopularRow extends StatelessWidget {
 }
 
 class _ContentStats extends StatelessWidget {
-  const _ContentStats({required this.likeCount, required this.date});
+  const _ContentStats({required this.likeCount});
 
   final int likeCount;
-  final String date;
 
   @override
   Widget build(BuildContext context) {
@@ -697,10 +703,6 @@ class _ContentStats extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.xs),
         Text('$likeCount', style: style),
-        const SizedBox(width: AppSpacing.sm + 4),
-        HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 16, color: scheme.onSurfaceVariant),
-        const SizedBox(width: AppSpacing.xs),
-        Text(date, style: style),
       ],
     );
   }

@@ -1,4 +1,5 @@
 export 'animate_extensions.dart';
+export 'animated_bubbles.dart';
 export 'app_horizontal_tabs.dart';
 export 'app_interactive_card.dart';
 export 'app_page_frame.dart';

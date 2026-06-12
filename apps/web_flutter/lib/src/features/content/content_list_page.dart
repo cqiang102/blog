@@ -832,6 +832,7 @@ class _ContentSummary extends StatelessWidget {
     final visibleTags = content.tags.take(compact ? 1 : 3);
     final isArchived = content.status == ContentStatus.archived;
     final isDraft = content.status == ContentStatus.draft;
+    final date = DateFormat('yyyy-MM-dd').format(content.publishedAt);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -865,6 +866,13 @@ class _ContentSummary extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
+            const SizedBox(width: AppSpacing.sm),
+            HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 14, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 4),
+            Text(
+              date,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -875,13 +883,6 @@ class _ContentSummary extends StatelessWidget {
           style: Theme.of(
             context,
           ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          DateFormat('yyyy-MM-dd').format(content.publishedAt),
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: AppSpacing.sm),
         Wrap(
