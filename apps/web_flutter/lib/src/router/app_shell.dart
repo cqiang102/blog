@@ -189,7 +189,7 @@ class _BrandSidebar extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeInOutCubic,
-      width: expanded ? 180 : 56,
+      width: expanded ? 164 : 56,
       child: ClipRect(
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
