@@ -339,11 +339,11 @@ class _SearchAndFilterBarState extends State<_SearchAndFilterBar> {
       children: [
         Expanded(
           child: Container(
-            height: 52,
+            height: 50,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               children: [

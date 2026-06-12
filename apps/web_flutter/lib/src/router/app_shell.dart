@@ -292,8 +292,8 @@ class _SidebarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     // 浅绿色选中效果
-    final selectedBg = const Color(0xFF27665A).withValues(alpha: 0.1);
-    final selectedFg = const Color(0xFF27665A);
+    final selectedBg = scheme.primary.withValues(alpha: 0.1);
+    final selectedFg = scheme.primary;
     final foreground = selected ? selectedFg : scheme.onSurfaceVariant;
 
     final child = InkWell(
