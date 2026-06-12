@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/media_url.dart';
 import '../../../state/state.dart';
 import '../../../core/models.dart';
 import '../../../theme/app_spacing.dart';
@@ -429,7 +430,7 @@ class _AdminUserAvatar extends StatelessWidget {
     }
     return CircleAvatar(
       radius: 24,
-      backgroundImage: NetworkImage(user.avatarUrl),
+      backgroundImage: NetworkImage(resolveMediaUrl(user.avatarUrl)),
       onBackgroundImageError: (_, _) {},
       child: null,
     );
