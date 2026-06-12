@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import 'constants.dart';
-import 'models.dart';
+import '../core/constants.dart';
+import '../core/models.dart';
 
 /// 通用分页列表 Mixin
 /// 提供分页加载、滚动监听、重置加载等通用逻辑

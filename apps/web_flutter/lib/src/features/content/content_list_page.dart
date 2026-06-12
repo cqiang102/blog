@@ -9,13 +9,13 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 import 'package:timelines_plus/timelines_plus.dart';
 
-import '../../core/api_providers.dart';
-import '../../core/app_ui.dart';
+import '../../state/state.dart';
+import '../../widgets/widgets.dart';
 import '../../core/constants.dart';
-import '../../core/content_filter_state.dart';
+import '../../state/content_filter_state.dart';
 import '../../core/media_url.dart';
 import '../../core/models.dart';
-import '../../core/theme.dart';
+import '../../theme/app_spacing.dart';
 
 class ContentListPage extends ConsumerStatefulWidget {
   const ContentListPage({super.key});
@@ -661,8 +661,9 @@ class _TimelineContentList extends StatelessWidget {
     final List<_TimelineItem> flatItems = [];
     for (final monthKey in sortedMonths) {
       final parts = monthKey.split('-');
-      final monthLabel = '${parts[0]} 年 ${int.parse(parts[1])} 月';
-      flatItems.add(_TimelineDate(date: monthLabel, count: grouped[monthKey]!.length));
+      final year = parts[0];
+      final month = '${int.parse(parts[1])} 月';
+      flatItems.add(_TimelineDate(year: year, month: month, count: grouped[monthKey]!.length));
       final monthItems = grouped[monthKey]!;
       for (int i = 0; i < monthItems.length; i++) {
         flatItems.add(_TimelineContent(
@@ -675,31 +676,94 @@ class _TimelineContentList extends StatelessWidget {
 
     final totalItems = flatItems.length + (isLoading ? 1 : 0) + (!hasMore && items.isNotEmpty ? 1 : 0);
 
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          if (index < flatItems.length) {
-            final item = flatItems[index];
-            if (item is _TimelineDate) {
-              return _TimelineDateHeader(date: item.date, count: item.count)
-                  .fadeSlideIn(delay: (index * 60).ms);
-            } else if (item is _TimelineContent) {
-              return _TimelineContentCard(
-                key: ValueKey(item.content.id),
-                content: item.content,
-                isLast: item.isLastInMonth && item.isLastMonth && !isLoading,
-              ).fadeSlideFromLeft(delay: (index * 60).ms);
+    return SliverToBoxAdapter(
+      child: Timeline.tileBuilder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        theme: TimelineThemeData(
+          nodePosition: 0.12,
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+          connectorTheme: ConnectorThemeData(
+            thickness: 2,
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+          ),
+          indicatorTheme: const IndicatorThemeData(size: 12),
+        ),
+        builder: TimelineTileBuilder.connected(
+          itemCount: totalItems,
+          contentsBuilder: (context, index) {
+            if (index < flatItems.length) {
+              final item = flatItems[index];
+              if (item is _TimelineDate) {
+                return Padding(
+                  padding: const EdgeInsets.only(left: 16, bottom: 8),
+                  child: Text(
+                    '${item.count} 篇',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                );
+              } else if (item is _TimelineContent) {
+                return Padding(
+                  padding: const EdgeInsets.only(left: 16, bottom: 8),
+                  child: _ContentRow(content: item.content),
+                );
+              }
             }
-          }
-          if (isLoading) {
-            return const _LoadingIndicator();
-          }
-          if (!hasMore && items.isNotEmpty) {
-            return const _NoMoreContent();
-          }
-          return const SizedBox.shrink();
-        },
-        childCount: totalItems,
+            if (isLoading) return const _LoadingIndicator();
+            if (!hasMore && items.isNotEmpty) return const _NoMoreContent();
+            return const SizedBox.shrink();
+          },
+          oppositeContentsBuilder: (context, index) {
+            if (index < flatItems.length) {
+              final item = flatItems[index];
+              if (item is _TimelineDate) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 16, bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(item.year, style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      )),
+                      const SizedBox(height: 2),
+                      Text(item.month, style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      )),
+                    ],
+                  ),
+                );
+              }
+            }
+            return const SizedBox.shrink();
+          },
+          indicatorBuilder: (context, index) {
+            if (index < flatItems.length) {
+              final item = flatItems[index];
+              if (item is _TimelineDate) {
+                return DotIndicator(
+                  size: 12,
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+                );
+              } else if (item is _TimelineContent) {
+                return OutlinedDotIndicator(
+                  size: 8,
+                  borderWidth: 2,
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+                );
+              }
+            }
+            return const SizedBox.shrink();
+          },
+          connectorBuilder: (context, index, type) {
+            return SolidLineConnector(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+            );
+          },
+        ),
       ),
     );
   }
@@ -709,9 +773,10 @@ class _TimelineContentList extends StatelessWidget {
 abstract class _TimelineItem {}
 
 class _TimelineDate extends _TimelineItem {
-  final String date;
+  final String year;
+  final String month;
   final int count;
-  _TimelineDate({required this.date, required this.count});
+  _TimelineDate({required this.year, required this.month, required this.count});
 }
 
 class _TimelineContent extends _TimelineItem {
@@ -721,93 +786,6 @@ class _TimelineContent extends _TimelineItem {
   _TimelineContent({required this.content, required this.isLastInMonth, required this.isLastMonth});
 }
 
-class _TimelineDateHeader extends StatelessWidget {
-  const _TimelineDateHeader({required this.date, required this.count});
-
-  final String date;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return TimelineTile(
-      mainAxisExtent: 48,
-      nodeAlign: TimelineNodeAlign.start,
-      node: TimelineNode.simple(
-        color: scheme.primary,
-        indicatorSize: 12,
-        drawStartConnector: false,
-        drawEndConnector: true,
-      ),
-      oppositeContents: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(
-          date,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: scheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      contents: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        child: Text(
-          '$count 篇',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TimelineContentCard extends StatelessWidget {
-  const _TimelineContentCard({
-    super.key,
-    required this.content,
-    required this.isLast,
-  });
-
-  final BlogContent content;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    // 日期头 nodeAlign: start, indicatorSize: 12 → 节点中心 x=6
-    const nodeCenter = 6.0;
-    return Stack(
-      children: [
-        // 左侧竖线：向上延伸 8px 与上一个元素的底线重叠，保证连线
-        Positioned(
-          left: nodeCenter - 1, // 2px 宽度居中于节点中心
-          top: -8,
-          bottom: isLast ? 8.0 : 0.0,
-          child: Container(
-            width: 2,
-            color: scheme.primary,
-          ),
-        ),
-        // 圆点
-        Positioned(
-          left: nodeCenter - 4, // 8px 圆点居中于节点中心
-          top: 12,
-          child: DotIndicator(
-            size: 8,
-            color: scheme.primary,
-          ),
-        ),
-        // 内容卡片
-        Padding(
-          padding: const EdgeInsets.only(left: 40, bottom: 8),
-          child: _ContentRow(content: content),
-        ),
-      ],
-    );
-  }
-}
-
 class _ContentRow extends StatelessWidget {
   const _ContentRow({super.key, required this.content});
 
@@ -815,33 +793,29 @@ class _ContentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 560;
-        return AppInteractiveCard(
-          onTap: () => context.go('/contents/${content.id}'),
-          child: Padding(
-            padding: EdgeInsets.all(compact ? 12 : AppSpacing.md),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: _Thumb(
-                    url: content.coverUrl,
-                    width: compact ? 112 : 180,
-                    height: compact ? 126 : 118,
-                  ),
-                ),
-                SizedBox(width: compact ? 12 : AppSpacing.md),
-                Expanded(
-                  child: _ContentSummary(content: content, compact: compact),
-                ),
-              ],
+    final compact = MediaQuery.sizeOf(context).width < 560;
+    return AppInteractiveCard(
+      onTap: () => context.go('/contents/${content.id}'),
+      child: Padding(
+        padding: EdgeInsets.all(compact ? 12 : AppSpacing.md),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: _Thumb(
+                url: content.coverUrl,
+                width: compact ? 112 : 180,
+                height: compact ? 126 : 118,
+              ),
             ),
-          ),
-        );
-      },
+            SizedBox(width: compact ? 12 : AppSpacing.md),
+            Expanded(
+              child: _ContentSummary(content: content, compact: compact),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

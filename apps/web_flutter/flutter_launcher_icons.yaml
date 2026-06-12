@@ -1,0 +1,7 @@
+flutter_launcher_icons:
+  image_path: "assets/images/lacia.png"
+  web:
+    generate: true
+    image_path: "assets/images/lacia.png"
+    background_color: "#F7FAF8"
+    theme_color: "#1F6F64"

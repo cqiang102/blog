@@ -4,7 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../core/api_providers.dart';
+import '../../../state/state.dart';
 import '../../../core/constants.dart';
 import '../../../core/media_url.dart';
 import '../../../core/models.dart';

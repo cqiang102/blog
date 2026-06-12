@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../core/api_providers.dart';
-import '../../core/app_ui.dart';
+import '../../state/state.dart';
+import '../../widgets/widgets.dart';
 import 'tabs/ai_chat_admin_tab.dart';
 import 'tabs/audit_log_admin_tab.dart';
 import 'tabs/comment_admin_tab.dart';

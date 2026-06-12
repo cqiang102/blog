@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/api_client.dart';
-import '../../core/api_providers.dart';
+import '../../state/state.dart';
 
 /// GitHub OAuth 回调页面
 /// GitHub 授权后会跳转到 /login/oauth2/code/github?code=...&state=...

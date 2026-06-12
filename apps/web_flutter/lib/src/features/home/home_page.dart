@@ -7,12 +7,13 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/api_providers.dart';
-import '../../core/app_ui.dart';
+import '../../state/state.dart';
+import '../../widgets/widgets.dart';
 import '../../core/constants.dart';
 import '../../core/media_url.dart';
 import '../../core/models.dart';
-import '../../core/theme.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_colors.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});

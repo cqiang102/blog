@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
-import '../../../core/api_providers.dart';
+import '../../../state/state.dart';
 import '../../../core/models.dart';
-import '../../../core/theme.dart';
+import '../../../theme/app_spacing.dart';
 import '../admin_widgets.dart';
 import '../user_editor_dialog.dart';
 

@@ -1,92 +1,10 @@
-// Riverpod Provider 定义
-// 全局状态管理，提供 API 客户端、认证控制器和各业务数据 Provider
+// 管理后台 Provider
 
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
-import 'ai_chat_state.dart';
-import 'api_client.dart';
-import 'auth_controller.dart';
-import 'content_filter_state.dart';
-import 'models.dart';
-import 'pagination_state.dart';
-
-/// API 客户端 Provider
-final apiClientProvider = Provider<BlogApiClient>((ref) {
-  final dio = Dio();
-  ref.onDispose(dio.close); // 销毁时关闭 Dio 实例
-  return BlogApiClient(dio: dio);
-});
-
-/// 认证控制器 Provider
-final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
-  final controller = AuthController(ref.watch(apiClientProvider));
-  controller.load(); // 初始化时加载认证状态
-  return controller;
-});
-
-/// 首页推荐内容 Provider
-final recommendationsProvider = FutureProvider<Recommendations>((ref) {
-  return ref.watch(apiClientProvider).fetchRecommendations();
-});
-
-/// 标签列表 Provider
-final tagsProvider = FutureProvider<List<TagItem>>((ref) {
-  return ref.watch(apiClientProvider).fetchTags();
-});
-
-/// 内容列表 Provider（支持查询参数）
-final contentListProvider =
-    FutureProvider.family<PageResult<BlogContent>, ContentListQuery>((
-      ref,
-      query,
-    ) {
-      return ref.watch(apiClientProvider).fetchContents(query);
-    });
-
-/// 内容详情 Provider
-/// 使用 ref.read 获取 token，避免 auth 状态变化导致连锁刷新
-final contentDetailProvider = FutureProvider.family<BlogContent, String>((
-  ref,
-  id,
-) {
-  final token = ref.read(authControllerProvider).accessToken;
-  return ref.watch(apiClientProvider).fetchContent(id, accessToken: token);
-});
-
-/// 评论列表 Provider
-final commentsProvider = FutureProvider.family<PageResult<CommentItem>, String>(
-  (ref, contentId) {
-    return ref.watch(apiClientProvider).fetchComments(contentId);
-  },
-);
-
-/// 友情链接 Provider
-final friendsProvider = FutureProvider<List<FriendLink>>((ref) {
-  return ref.watch(apiClientProvider).fetchFriends();
-});
-
-/// 用户活动记录 Provider
-final userActivityProvider =
-    FutureProvider.family<PageResult<UserActivity>, String>((ref, type) {
-      final token = ref.watch(authControllerProvider).accessToken;
-      if (token == null) {
-        throw const ApiException('请先登录');
-      }
-      return ref
-          .watch(apiClientProvider)
-          .fetchMyActivity(accessToken: token, type: type);
-    });
-
-/// AI 配额 Provider
-final aiQuotaProvider = FutureProvider<AiQuota>((ref) {
-  final token = ref.watch(authControllerProvider).accessToken;
-  if (token == null) {
-    throw const ApiException('请先登录');
-  }
-  return ref.watch(apiClientProvider).fetchAiQuota(token);
-});
+import '../core/api_client.dart';
+import '../core/models.dart';
+import 'api_providers.dart';
 
 /// 管理后台仪表盘 Provider
 final adminDashboardProvider = FutureProvider<AdminDashboard>((ref) {
@@ -237,36 +155,3 @@ final adminAuditLogsProvider =
           .watch(apiClientProvider)
           .fetchAdminAuditLogs(accessToken: token, query: query);
     });
-
-/// 内容筛选状态 Provider
-final contentFilterProvider =
-    StateNotifierProvider<ContentFilterNotifier, ContentFilterState>((ref) {
-  return ContentFilterNotifier();
-});
-
-/// 内容分页状态 Provider
-/// 根据筛选条件动态创建分页状态
-final contentPaginationProvider = StateNotifierProvider.family<
-    PaginationNotifier<BlogContent>,
-    PaginationState<BlogContent>,
-    ContentListQuery>((ref, query) {
-  final api = ref.watch(apiClientProvider);
-  return PaginationNotifier<BlogContent>((page, size) {
-    final q = ContentListQuery(
-      query: query.query,
-      tag: query.tag,
-      type: query.type,
-      startDate: query.startDate,
-      endDate: query.endDate,
-      page: page,
-      size: size,
-    );
-    return api.fetchContents(q);
-  });
-});
-
-/// AI 聊天状态 Provider
-final aiChatProvider =
-    StateNotifierProvider<AiChatNotifier, AiChatState>((ref) {
-  return AiChatNotifier();
-});

@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants.dart';
 import '../../core/media_url.dart';
 import '../../core/models.dart';
-import '../../core/theme.dart';
+import '../../theme/app_spacing.dart';
 
 class AdminEditorDialog extends StatelessWidget {
   const AdminEditorDialog({

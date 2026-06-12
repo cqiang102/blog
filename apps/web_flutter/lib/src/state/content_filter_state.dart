@@ -3,7 +3,7 @@
 
 import 'package:flutter_riverpod/legacy.dart';
 
-import 'models.dart';
+import '../core/models.dart';
 
 /// 内容筛选状态类
 /// 包含内容列表的所有筛选条件

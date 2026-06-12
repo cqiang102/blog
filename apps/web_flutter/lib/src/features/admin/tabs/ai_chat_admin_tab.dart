@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
-import '../../../core/api_providers.dart';
+import '../../../state/state.dart';
 import '../../../core/models.dart';
-import '../../../core/theme.dart';
+import '../../../theme/app_spacing.dart';
 import '../admin_widgets.dart';
 
 /// 管理后台 - AI 聊天管理标签页
@@ -297,9 +297,10 @@ class _AiChatAdminRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        HugeIcon(
-          icon: HugeIcons.strokeRoundedRobot01,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        CircleAvatar(
+          radius: 16,
+          backgroundImage: const AssetImage('assets/images/lacia.png'),
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         ),
         const SizedBox(width: AppSpacing.sm + 4),
         Expanded(

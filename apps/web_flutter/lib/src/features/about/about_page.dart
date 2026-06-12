@@ -11,13 +11,12 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/ai_chat_state.dart';
 import '../../core/api_client.dart';
-import '../../core/api_providers.dart';
-import '../../core/app_ui.dart';
-import '../../core/auth_controller.dart';
+import '../../state/state.dart';
+import '../../widgets/widgets.dart';
+import '../../auth/auth_controller.dart';
 import '../../core/models.dart';
-import '../../core/theme.dart';
+import '../../theme/app_spacing.dart';
 
 /// AI 聊天页 Widget
 /// 提供与 AI 助手的对话界面，支持流式响应和会话切换
@@ -403,9 +402,10 @@ class _ChatHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: HugeIcon(
-        icon: HugeIcons.strokeRoundedRobot01,
-        color: Theme.of(context).colorScheme.primary,
+      leading: CircleAvatar(
+        radius: 20,
+        backgroundImage: AssetImage('assets/images/lacia.png'),
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       ),
       title: const Text('AI 助手'),
       subtitle: Text(

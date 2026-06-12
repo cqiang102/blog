@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
-import '../../../core/api_providers.dart';
+import '../../../state/state.dart';
 import '../../../core/models.dart';
 import '../admin_widgets.dart';
 

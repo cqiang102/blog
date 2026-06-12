@@ -1,53 +1,7 @@
 import 'package:flutter/material.dart';
 
-class AppSpacing {
-  AppSpacing._();
-
-  static const double xs = 4;
-  static const double sm = 8;
-  static const double md = 16;
-  static const double lg = 24;
-  static const double xl = 32;
-  static const double xxl = 48;
-}
-
-class AppAnimations {
-  AppAnimations._();
-
-  static const Duration fast = Duration(milliseconds: 180);
-  static const Duration normal = Duration(milliseconds: 240);
-  static const Duration slow = Duration(milliseconds: 500);
-
-  static const Curve defaultCurve = Curves.easeInOut;
-  static const Curve playfulCurve = Curves.elasticOut;
-  static const Curve slideCurve = Curves.easeOutCubic;
-}
-
-class AppColors {
-  AppColors._();
-
-  static const Color seed = Color(0xFF27665A);
-  static const Color accent = Color(0xFFB77924);
-
-  static const Color lightBackground = Color(0xFFF5F3ED);
-  static const Color lightSurface = Color(0xFFFCFBF8);
-  static const Color lightSurfaceMuted = Color(0xFFEEEDE7);
-  static const Color lightInk = Color(0xFF18201D);
-  static const Color lightMutedInk = Color(0xFF65706B);
-  static const Color lightBorder = Color(0xFFD9DDD8);
-
-  static const Color darkPrimary = Color(0xFF78B7A7);
-  static const Color darkBackground = Color(0xFF111614);
-  static const Color darkSurface = Color(0xFF181E1B);
-  static const Color darkSurfaceMuted = Color(0xFF202824);
-  static const Color darkInk = Color(0xFFEDF2EF);
-  static const Color darkMutedInk = Color(0xFFAAB5B0);
-  static const Color darkBorder = Color(0xFF34403B);
-
-  static const Color overlayDark = Color(0xB0000000);
-  static const Color onOverlay = Colors.white;
-  static const Color onOverlayMuted = Color(0xC7FFFFFF);
-}
+import 'app_colors.dart';
+import 'app_spacing.dart';
 
 ThemeData buildAppTheme() {
   final scheme = ColorScheme.fromSeed(
@@ -135,8 +89,6 @@ ThemeData _buildTheme({
       'Segoe UI',
       'Helvetica Neue',
       'Arial',
-      'Noto Sans',
-      'Noto Sans SC',
       'sans-serif',
       'Apple Color Emoji',
       'Segoe UI Emoji',

@@ -4,7 +4,7 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../../../core/media_url.dart';
 import '../../../../core/models.dart';
-import '../../../../core/theme.dart';
+import '../../../../theme/app_colors.dart';
 
 /// 媒体资源区域
 /// 显示已上传的媒体文件，支持删除和设置封面

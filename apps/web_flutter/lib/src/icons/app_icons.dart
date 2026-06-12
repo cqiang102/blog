@@ -67,9 +67,17 @@ class AppIcons {
   static const Widget italic = HugeIcon(icon: HugeIcons.strokeRoundedTextItalic);
   static const Widget list = HugeIcon(icon: HugeIcons.strokeRoundedLeftToRightListBullet);
   static const Widget quote = HugeIcon(icon: HugeIcons.strokeRoundedLeftToRightBlockQuote);
-  static const Widget robot = HugeIcon(icon: HugeIcons.strokeRoundedRobot01);
   static const Widget settings = HugeIcon(icon: HugeIcons.strokeRoundedSettings01);
   static const Widget archive = HugeIcon(icon: HugeIcons.strokeRoundedArchive);
   static const Widget pin = HugeIcon(icon: HugeIcons.strokeRoundedPin);
   static const Widget schedule = HugeIcon(icon: HugeIcons.strokeRoundedClock01);
+
+  // ── AI 头像 ──
+  static Widget robot({double radius = 20, Color? backgroundColor}) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundImage: const AssetImage('assets/images/lacia.png'),
+      backgroundColor: backgroundColor,
+    );
+  }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:personal_blog_web/src/core/theme.dart';
+import 'package:personal_blog_web/src/theme/app_theme.dart';
 import 'package:personal_blog_web/src/features/auth/auth_page.dart';
 
 void main() {

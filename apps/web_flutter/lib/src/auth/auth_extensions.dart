@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'api_client.dart';
+import '../core/api_client.dart';
 
 /// BuildContext 扩展，提供通用的 SnackBar 提示方法
 extension SnackbarContextX on BuildContext {

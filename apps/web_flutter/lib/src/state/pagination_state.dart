@@ -3,8 +3,8 @@
 
 import 'package:flutter_riverpod/legacy.dart';
 
-import 'constants.dart';
-import 'models.dart';
+import '../core/constants.dart';
+import '../core/models.dart';
 
 /// 分页状态类
 /// 包含分页列表的所有状态信息

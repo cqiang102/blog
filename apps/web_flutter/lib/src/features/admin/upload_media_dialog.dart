@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/models.dart';
-import '../../core/theme.dart';
+import '../../theme/app_spacing.dart';
 import 'admin_widgets.dart';
 
 /// 上传媒体草稿数据

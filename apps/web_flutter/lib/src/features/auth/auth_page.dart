@@ -10,9 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
-import '../../core/api_providers.dart';
-import '../../core/app_ui.dart';
-import '../../core/theme.dart';
+import '../../state/state.dart';
+import '../../widgets/widgets.dart';
+import '../../theme/app_spacing.dart';
 
 class AuthPage extends ConsumerStatefulWidget {
   const AuthPage({super.key});

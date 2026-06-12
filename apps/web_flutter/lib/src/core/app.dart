@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'router.dart';
-import 'theme.dart';
-import 'theme_controller.dart';
+import '../router/app_router.dart';
+import '../theme/app_theme.dart';
+import '../theme/theme_controller.dart';
 
 /// 博客应用根 Widget
 /// 使用 Riverpod 进行状态管理，集成 GoRouter 路由

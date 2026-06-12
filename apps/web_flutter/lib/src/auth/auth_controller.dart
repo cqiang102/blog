@@ -7,8 +7,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'api_client.dart';
-import 'models.dart';
+import '../core/api_client.dart';
+import '../core/models.dart';
 
 /// 认证状态控制器
 /// 使用 ChangeNotifier 通知 UI 更新

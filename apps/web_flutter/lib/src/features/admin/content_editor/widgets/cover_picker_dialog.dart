@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../../core/media_url.dart';
-import '../../../../core/theme.dart';
+import '../../../../theme/app_colors.dart';
 
 /// 封面图选择器对话框
 class CoverPickerDialog extends StatelessWidget {

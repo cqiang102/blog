@@ -10,13 +10,14 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/api_client.dart';
-import '../../core/api_providers.dart';
-import '../../core/app_ui.dart';
-import '../../core/auth_controller.dart';
+import '../../state/state.dart';
+import '../../widgets/widgets.dart';
+import '../../auth/auth_controller.dart';
 import '../../core/constants.dart';
 import '../../core/media_url.dart';
 import '../../core/models.dart';
-import '../../core/theme.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_colors.dart';
 
 /// 内容详情页 Widget
 class ContentDetailPage extends ConsumerStatefulWidget {

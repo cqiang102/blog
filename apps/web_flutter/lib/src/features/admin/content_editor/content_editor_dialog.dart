@@ -7,7 +7,7 @@ import 'package:hugeicons/hugeicons.dart';
 import '../../../core/constants.dart';
 import '../../../core/media_url.dart';
 import '../../../core/models.dart';
-import '../../../core/theme.dart';
+import '../../../theme/app_spacing.dart';
 import '../admin_widgets.dart';
 import 'content_editor.dart';
 

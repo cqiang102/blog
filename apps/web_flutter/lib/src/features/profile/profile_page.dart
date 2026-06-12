@@ -10,13 +10,13 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
-import '../../core/api_providers.dart';
-import '../../core/app_ui.dart';
-import '../../core/auth_controller.dart';
+import '../../state/state.dart';
+import '../../widgets/widgets.dart';
+import '../../auth/auth_controller.dart';
 import '../../core/constants.dart';
 import '../../core/models.dart';
-import '../../core/pagination_mixin.dart';
-import '../../core/theme.dart';
+import '../../state/pagination_mixin.dart';
+import '../../theme/app_spacing.dart';
 
 /// 个人中心 Widget
 /// 使用 TabBar 展示资料、评论、点赞、浏览四个标签页
