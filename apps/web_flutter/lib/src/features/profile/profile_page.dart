@@ -58,7 +58,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
     final auth = ref.watch(authControllerProvider);
 
     return AppPageFrame(
-      maxWidth: 1280,
       child: Column(
         children: [
           AppPageHeader(
