@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -27,6 +28,7 @@ class BlogShell extends ConsumerStatefulWidget {
 
 class _BlogShellState extends ConsumerState<BlogShell> {
   bool? _sidebarExpandedOverride;
+  bool _sidebarShowText = true;
 
   @override
   void initState() {
@@ -69,6 +71,7 @@ class _BlogShellState extends ConsumerState<BlogShell> {
         if (wide) {
           final autoExpanded = constraints.maxWidth >= kDesktopBreakpoint;
           final expanded = _sidebarExpandedOverride ?? autoExpanded;
+          final showText = expanded ? _sidebarShowText : false;
           return Scaffold(
             body: CustomPaint(
               painter: _GridPatternPainter(
@@ -79,6 +82,7 @@ class _BlogShellState extends ConsumerState<BlogShell> {
                 children: [
                   _BrandSidebar(
                     expanded: expanded,
+                    showText: showText,
                     currentPath: currentPath,
                     authenticated: auth.isAuthenticated,
                     isAdmin: auth.user?.isAdmin ?? false,
@@ -87,9 +91,16 @@ class _BlogShellState extends ConsumerState<BlogShell> {
                     avatarUrl: auth.user?.avatarUrl,
                     onNavigate: _goTo,
                     onToggleExpand: () {
+                      final willExpand = !expanded;
                       setState(() {
-                        _sidebarExpandedOverride = !(expanded);
+                        _sidebarExpandedOverride = willExpand;
+                        _sidebarShowText = false;
                       });
+                      if (willExpand) {
+                        Future.delayed(const Duration(milliseconds: 280), () {
+                          if (mounted) setState(() => _sidebarShowText = true);
+                        });
+                      }
                     },
                   ),
                   Expanded(child: widget.navigationShell),
@@ -144,6 +155,7 @@ class _BlogShellState extends ConsumerState<BlogShell> {
 class _BrandSidebar extends StatelessWidget {
   const _BrandSidebar({
     required this.expanded,
+    required this.showText,
     required this.currentPath,
     required this.authenticated,
     required this.isAdmin,
@@ -155,6 +167,7 @@ class _BrandSidebar extends StatelessWidget {
   });
 
   final bool expanded;
+  final bool showText;
   final String currentPath;
   final bool authenticated;
   final bool isAdmin;
@@ -173,11 +186,14 @@ class _BrandSidebar extends StatelessWidget {
       if (!authenticated) _destinations[6],
     ];
 
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-      width: expanded ? 232 : 88,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeInOutCubic,
+      width: expanded ? 200 : 68,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow.withValues(alpha: 0.72),
         border: Border(
@@ -189,13 +205,15 @@ class _BrandSidebar extends StatelessWidget {
       child: SafeArea(
         child: Padding(
           padding: EdgeInsets.symmetric(
-            horizontal: expanded ? AppSpacing.md : AppSpacing.sm,
+            horizontal: showText ? AppSpacing.md : AppSpacing.sm,
             vertical: AppSpacing.md,
           ),
           child: Column(
             children: [
               _SidebarIdentity(
                 expanded: expanded,
+                showText: showText,
+                avatarExpanded: showText,
                 avatarText: avatarText,
                 avatarUrl: avatarUrl,
                 nickname: nickname,
@@ -207,6 +225,7 @@ class _BrandSidebar extends StatelessWidget {
                   child: _SidebarItem(
                     item: item,
                     expanded: expanded,
+                    showText: showText,
                     selected: currentPath == item.path,
                     onTap: () => onNavigate(item),
                   ),
@@ -223,11 +242,13 @@ class _BrandSidebar extends StatelessWidget {
                       ? _SidebarCapsuleButton(
                           item: item,
                           expanded: expanded,
+                          showText: showText,
                           onTap: () => onNavigate(item),
                         )
                       : _SidebarItem(
                           item: item,
                           expanded: expanded,
+                          showText: showText,
                           selected: currentPath == item.path,
                           onTap: () => onNavigate(item),
                         ),
@@ -238,6 +259,7 @@ class _BrandSidebar extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                     child: _SidebarExpandToggle(
                       expanded: expanded,
+                      showText: showText,
                       onTap: onToggleExpand,
                     ),
                   ),
@@ -248,6 +270,7 @@ class _BrandSidebar extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                   child: _SidebarExpandToggle(
                     expanded: expanded,
+                    showText: showText,
                     onTap: onToggleExpand,
                   ),
                 ),
@@ -255,7 +278,8 @@ class _BrandSidebar extends StatelessWidget {
           ),
         ),
       ),
-    ),
+      ),
+      ),
     ),
     );
   }
@@ -264,12 +288,16 @@ class _BrandSidebar extends StatelessWidget {
 class _SidebarIdentity extends StatelessWidget {
   const _SidebarIdentity({
     required this.expanded,
+    required this.showText,
+    required this.avatarExpanded,
     required this.avatarText,
     this.avatarUrl,
     this.nickname,
   });
 
   final bool expanded;
+  final bool showText;
+  final bool avatarExpanded;
   final String avatarText;
   final String? avatarUrl;
   final String? nickname;
@@ -278,9 +306,10 @@ class _SidebarIdentity extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final hasNetworkAvatar = avatarUrl != null && avatarUrl!.isNotEmpty;
+    final avatarSize = avatarExpanded ? 64.0 : 40.0;
     final avatar = Container(
-      width: 52,
-      height: 52,
+      width: avatarSize,
+      height: avatarSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         image: DecorationImage(
@@ -292,30 +321,32 @@ class _SidebarIdentity extends StatelessWidget {
       ),
     );
 
-    if (!expanded) {
-      return Tooltip(message: '沐凉·日记', child: avatar);
-    }
-
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         avatar,
-        const SizedBox(width: AppSpacing.sm + 4),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        if (showText)
+          Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text('沐凉·日记', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '沐凉·日记',
+                style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 2),
               Text(
                 nickname?.isNotEmpty == true ? nickname! : '写代码，也记录生活',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
               ),
             ],
-          ),
-        ),
+          ).animate().fade(begin: 0, duration: 200.ms, curve: Curves.easeOut),
       ],
     );
   }
@@ -325,12 +356,14 @@ class _SidebarItem extends StatelessWidget {
   const _SidebarItem({
     required this.item,
     required this.expanded,
+    required this.showText,
     required this.selected,
     required this.onTap,
   });
 
   final _Destination item;
   final bool expanded;
+  final bool showText;
   final bool selected;
   final VoidCallback onTap;
 
@@ -347,14 +380,14 @@ class _SidebarItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         height: 44,
-        padding: EdgeInsets.symmetric(horizontal: expanded ? 14 : 0),
+        padding: EdgeInsets.symmetric(horizontal: showText ? 14 : 0),
         decoration: BoxDecoration(
           color: selected ? selectedBg : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           mainAxisAlignment:
-              expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+              showText ? MainAxisAlignment.start : MainAxisAlignment.center,
           children: [
             SizedBox(
               width: 22,
@@ -367,16 +400,21 @@ class _SidebarItem extends StatelessWidget {
                 color: foreground,
               ),
             ),
-            if (expanded) ...[
-              const SizedBox(width: 14),
-              Text(
-                item.label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: foreground,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-            ],
+            if (showText)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(width: 14),
+                  Text(
+                    item.label,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: foreground,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                  ),
+                ],
+              ).animate().fade(begin: 0, duration: 200.ms, curve: Curves.easeOut),
           ],
         ),
       ),
@@ -390,11 +428,13 @@ class _SidebarCapsuleButton extends StatelessWidget {
   const _SidebarCapsuleButton({
     required this.item,
     required this.expanded,
+    required this.showText,
     required this.onTap,
   });
 
   final _Destination item;
   final bool expanded;
+  final bool showText;
   final VoidCallback onTap;
 
   @override
@@ -409,10 +449,10 @@ class _SidebarCapsuleButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         child: Container(
           height: 44,
-          padding: EdgeInsets.symmetric(horizontal: expanded ? 16 : 0),
+          padding: EdgeInsets.symmetric(horizontal: showText ? 16 : 0),
           child: Row(
             mainAxisAlignment:
-                expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+                showText ? MainAxisAlignment.start : MainAxisAlignment.center,
             children: [
               SizedBox(
                 width: 22,
@@ -423,16 +463,20 @@ class _SidebarCapsuleButton extends StatelessWidget {
                   color: scheme.primary,
                 ),
               ),
-              if (expanded) ...[
-                const SizedBox(width: 14),
-                Text(
-                  item.label,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+              if (showText)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(width: 14),
+                    Text(
+                      item.label,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
+                ).animate().fade(begin: 0, duration: 200.ms, curve: Curves.easeOut),
             ],
           ),
         ),
@@ -446,10 +490,12 @@ class _SidebarCapsuleButton extends StatelessWidget {
 class _SidebarExpandToggle extends StatelessWidget {
   const _SidebarExpandToggle({
     required this.expanded,
+    required this.showText,
     required this.onTap,
   });
 
   final bool expanded;
+  final bool showText;
   final VoidCallback onTap;
 
   @override
@@ -462,13 +508,13 @@ class _SidebarExpandToggle extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         height: 44,
-        padding: EdgeInsets.symmetric(horizontal: expanded ? 14 : 0),
+        padding: EdgeInsets.symmetric(horizontal: showText ? 14 : 0),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           mainAxisAlignment:
-              expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+              showText ? MainAxisAlignment.start : MainAxisAlignment.center,
           children: [
             SizedBox(
               width: 22,
@@ -481,16 +527,20 @@ class _SidebarExpandToggle extends StatelessWidget {
                 color: foreground,
               ),
             ),
-            if (expanded) ...[
-              const SizedBox(width: 14),
-              Text(
-                '收起',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: foreground,
-                      fontWeight: FontWeight.w500,
-                    ),
-              ),
-            ],
+            if (showText)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(width: 14),
+                  Text(
+                    '收起',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: foreground,
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                ],
+              ).animate().fade(begin: 0, duration: 200.ms, curve: Curves.easeOut),
           ],
         ),
       ),
