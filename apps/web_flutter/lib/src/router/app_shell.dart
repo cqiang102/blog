@@ -194,21 +194,11 @@ class _BrandSidebar extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _SidebarIdentity(
-                      expanded: expanded,
-                      avatarText: avatarText,
-                      avatarUrl: avatarUrl,
-                      nickname: nickname,
-                    ),
-                  ),
-                  _SidebarToggleButton(
-                    expanded: expanded,
-                    onTap: onToggleExpand,
-                  ),
-                ],
+              _SidebarIdentity(
+                expanded: expanded,
+                avatarText: avatarText,
+                avatarUrl: avatarUrl,
+                nickname: nickname,
               ),
               const SizedBox(height: AppSpacing.xl),
               for (final item in _publicDestinations)
@@ -226,7 +216,7 @@ class _BrandSidebar extends StatelessWidget {
                 color: scheme.outlineVariant.withValues(alpha: 0.5),
               ),
               const SizedBox(height: AppSpacing.sm),
-              for (final item in accountItems)
+              for (final item in accountItems) ...[
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                   child: item == _destinations[6]
@@ -241,6 +231,25 @@ class _BrandSidebar extends StatelessWidget {
                           selected: currentPath == item.path,
                           onTap: () => onNavigate(item),
                         ),
+                ),
+                // 管理按钮下方插入收起/展开按钮
+                if (isAdmin && item == _destinations[5])
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                    child: _SidebarExpandToggle(
+                      expanded: expanded,
+                      onTap: onToggleExpand,
+                    ),
+                  ),
+              ],
+              // 非管理员时，收起/展开按钮放在最底部
+              if (!isAdmin)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: _SidebarExpandToggle(
+                    expanded: expanded,
+                    onTap: onToggleExpand,
+                  ),
                 ),
             ],
           ),
@@ -434,8 +443,8 @@ class _SidebarCapsuleButton extends StatelessWidget {
   }
 }
 
-class _SidebarToggleButton extends StatelessWidget {
-  const _SidebarToggleButton({
+class _SidebarExpandToggle extends StatelessWidget {
+  const _SidebarExpandToggle({
     required this.expanded,
     required this.onTap,
   });
@@ -446,33 +455,50 @@ class _SidebarToggleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return InkWell(
+    final foreground = scheme.onSurfaceVariant;
+
+    final child = InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        height: 36,
+        height: 44,
+        padding: EdgeInsets.symmetric(horizontal: expanded ? 14 : 0),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           mainAxisAlignment:
               expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
           children: [
             SizedBox(
-              width: 20,
-              height: 20,
+              width: 22,
+              height: 22,
               child: HugeIcon(
                 icon: expanded
                     ? HugeIcons.strokeRoundedSidebarLeft01
                     : HugeIcons.strokeRoundedSidebarRight01,
-                size: 20,
-                color: scheme.onSurfaceVariant,
+                size: 22,
+                color: foreground,
               ),
             ),
+            if (expanded) ...[
+              const SizedBox(width: 14),
+              Text(
+                '收起',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: foreground,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ],
           ],
         ),
       ),
     );
+
+    return expanded
+        ? child
+        : Tooltip(message: expanded ? '收起' : '展开', child: child);
   }
 }
 
