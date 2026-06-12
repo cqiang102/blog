@@ -13,6 +13,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     });
 
-    expect(find.text('推荐阅读'), findsOneWidget);
+    expect(find.text('首页'), findsOneWidget);
   });
 }

@@ -67,9 +67,9 @@ class _BlogShellState extends ConsumerState<BlogShell> {
         Positioned.fill(
           child: AnimatedBubbles(
             colors: [
-              scheme.primary.withValues(alpha: 0.08),
-              scheme.secondary.withValues(alpha: 0.08),
-              scheme.tertiary.withValues(alpha: 0.06),
+              scheme.primary.withValues(alpha: 0.04),
+              scheme.secondary.withValues(alpha: 0.04),
+              scheme.tertiary.withValues(alpha: 0.03),
             ],
             bubbleCount: 6,
             maxRadius: 250,
@@ -430,7 +430,7 @@ class _Destination {
 /// 所有导航目的地配置列表
 final _recommendDestination = _Destination(
   '/',
-  '推荐',
+  '首页',
   const HugeIcon(icon: HugeIcons.strokeRoundedHome01),
   const HugeIcon(icon: HugeIcons.strokeRoundedHome01),
 );

@@ -728,11 +728,12 @@ class _TimelineContentList extends StatelessWidget {
                       Text(item.year, style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       )),
-                      const SizedBox(height: 2),
-                      Text(item.month, style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      )),
+                      Flexible(
+                        child: Text(item.month, style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        )),
+                      ),
                     ],
                   ),
                 );

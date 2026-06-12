@@ -38,7 +38,7 @@ class _HomePageState extends ConsumerState<HomePage>
         slivers: [
           SliverAppBar(
             toolbarHeight: 72,
-            title: const Text('推荐阅读'),
+            title: const Text('首页'),
             actions: [
               const AppThemeToggle(),
               IconButton(
@@ -195,25 +195,25 @@ class _HomeHero extends StatelessWidget {
 
           if (!wide) {
             return Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   intro,
-                  const SizedBox(height: AppSpacing.lg),
-                  SizedBox(height: 280, child: story),
+                  const SizedBox(height: AppSpacing.md),
+                  SizedBox(height: 240, child: story),
                 ],
               ),
             );
           }
 
           return Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             child: Row(
               children: [
                 Expanded(flex: 5, child: intro),
-                const SizedBox(width: AppSpacing.xl),
-                Expanded(flex: 6, child: SizedBox(height: 340, child: story)),
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(flex: 6, child: SizedBox(height: 280, child: story)),
               ],
             ),
           );
@@ -239,7 +239,7 @@ class _HeroIntro extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.sm + 4,
-            vertical: 6,
+            vertical: 5,
           ),
           decoration: BoxDecoration(
             color: scheme.surface.withValues(alpha: 0.72),
@@ -252,8 +252,9 @@ class _HeroIntro extends StatelessWidget {
               ColorizeAnimatedText(
                 'PERSONAL NOTES · CODE & LIFE',
                 textStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontSize: 12,
                   letterSpacing: 1.1,
-                ) ?? const TextStyle(letterSpacing: 1.1),
+                ) ?? const TextStyle(fontSize: 12, letterSpacing: 1.1),
                 colors: [
                   scheme.primary,
                   scheme.secondary,
@@ -265,29 +266,31 @@ class _HeroIntro extends StatelessWidget {
             ],
           ),
         ).fadeSlideIn(delay: 0.ms, duration: 500.ms),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm + 4),
         AnimatedTextKit(
           isRepeatingAnimation: false,
           totalRepeatCount: 1,
           animatedTexts: [
             TypewriterAnimatedText(
-              '写代码，\n也记录生活。',
+              '写代码，记生活。',
               speed: const Duration(milliseconds: 80),
-              textStyle: Theme.of(context).textTheme.displaySmall?.copyWith(
+              textStyle: Theme.of(context).textTheme.displayMedium?.copyWith(
                 color: scheme.onPrimaryContainer,
+                height: 1.15,
               ),
               cursor: '|',
             ),
           ],
         ).fadeSlideIn(delay: 200.ms, duration: 500.ms),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm + 4),
         Text(
-          '这里收藏工程实践、AI 探索，以及值得被记住的普通日子。',
+          '工程实践、AI 探索，以及值得记住的普通日子。',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: scheme.onPrimaryContainer.withValues(alpha: 0.78),
+            fontSize: 15,
+            color: scheme.onPrimaryContainer.withValues(alpha: 0.72),
           ),
         ).fadeSlideIn(delay: 400.ms),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
         Wrap(
           spacing: AppSpacing.sm,
           runSpacing: AppSpacing.sm,
@@ -608,15 +611,31 @@ class _PopularList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visible = contents.take(5).toList();
-    return Column(
-      children: [
-        for (var index = 0; index < visible.length; index++) ...[
-          _PopularRow(rank: index + 1, content: visible[index])
-              .fadeSlideIn(delay: (index * 80).ms),
-          if (index != visible.length - 1)
-            const SizedBox(height: AppSpacing.sm),
-        ],
-      ],
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          children: [
+            for (var index = 0; index < visible.length; index++) ...[
+              _PopularRow(rank: index + 1, content: visible[index])
+                  .fadeSlideIn(delay: (index * 80).ms),
+              if (index != visible.length - 1)
+                Divider(
+                  height: 1,
+                  indent: AppSpacing.md,
+                  endIndent: AppSpacing.md,
+                  color: scheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -630,51 +649,43 @@ class _PopularRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return AppInteractiveCard(
+    final isTop = rank <= 3;
+    return InkWell(
       onTap: () => context.go('/contents/${content.id}'),
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm + 4,
+          vertical: 10,
         ),
         child: Row(
           children: [
             SizedBox(
-              width: 44,
+              width: 28,
               child: Text(
                 rank.toString().padLeft(2, '0'),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: rank <= 3 ? scheme.secondary : scheme.onSurfaceVariant,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: isTop ? scheme.secondary : scheme.onSurfaceVariant,
+                  fontWeight: isTop ? FontWeight.w700 : FontWeight.w500,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    content.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Text(
-                    content.summary,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+              child: Text(
+                content.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
-            const SizedBox(width: AppSpacing.md),
-            HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 16, color: scheme.secondary),
-            const SizedBox(width: AppSpacing.xs),
+            const SizedBox(width: AppSpacing.sm),
             Text(
               '${content.likeCount}',
-              style: Theme.of(context).textTheme.bodySmall,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ],
         ),
@@ -753,7 +764,6 @@ class _HomeFooter extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(

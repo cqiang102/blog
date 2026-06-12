@@ -132,8 +132,8 @@ class _BubblesPainter extends CustomPainter {
       final paint = Paint()
         ..shader = RadialGradient(
           colors: [
-            color.withValues(alpha: 0.8),
-            color.withValues(alpha: 0.3),
+            color.withValues(alpha: 0.5),
+            color.withValues(alpha: 0.15),
             color.withValues(alpha: 0),
           ],
           stops: const [0.0, 0.4, 1.0],
