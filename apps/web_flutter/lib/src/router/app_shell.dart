@@ -231,8 +231,8 @@ class _SidebarIdentity extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final hasNetworkAvatar = avatarUrl != null && avatarUrl!.isNotEmpty;
     final avatar = Container(
-      width: 48,
-      height: 48,
+      width: 52,
+      height: 52,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         image: DecorationImage(
