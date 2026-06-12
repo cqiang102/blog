@@ -88,9 +88,6 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
       }
 
       setState(() => _loading = false);
-
-      // 初始化 Riverpod 控制器状态
-      _initEditorState();
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -100,23 +97,11 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
     }
   }
 
-  void _initEditorState() {
-    if (!_initialized) {
-      _initialized = true;
-      final controller = _getController();
-      if (_content != null) {
-        controller.initFromContent(_content);
-      } else {
-        controller.loadDraft().then((_) {
-          if (!mounted) return;
-          final state = _getState();
-          _titleController.text = state.title;
-          _slugController.text = state.slug;
-          _summaryController.text = state.summary;
-          _bodyController.text = state.bodyMarkdown;
-        });
-      }
-    }
+  /// 检查 Riverpod 状态是否已初始化（避免显示默认值闪烁）
+  bool _isStateReady(ContentEditorState state) {
+    if (_content == null) return true; // 新增内容，直接就绪
+    // 编辑已有内容时，检查关键字段是否已回填
+    return state.title == _content!.title || state.hasUnsavedChanges;
   }
 
   ContentEditorController _getController() {
@@ -138,7 +123,40 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
       );
     }
 
+    // 延迟到 build 完成后初始化 Riverpod 状态
+    if (!_initialized) {
+      _initialized = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_content != null) {
+          ref.read(contentEditorControllerProvider(widget.contentId).notifier)
+              .initFromContent(_content);
+        } else {
+          ref.read(contentEditorControllerProvider(widget.contentId).notifier)
+              .loadDraft()
+              .then((_) {
+            if (!mounted) return;
+            final s = ref.read(
+              contentEditorControllerProvider(widget.contentId),
+            );
+            _titleController.text = s.title;
+            _slugController.text = s.slug;
+            _summaryController.text = s.summary;
+            _bodyController.text = s.bodyMarkdown;
+          });
+        }
+      });
+    }
+
     final state = _getState();
+
+    // 等待 Riverpod 状态初始化完成，避免显示默认值闪烁
+    if (!_isStateReady(state)) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('加载中...')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return PopScope(
       canPop: !state.hasUnsavedChanges,
@@ -179,13 +197,7 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AdminFormSection(
-              title: '发布信息',
-              subtitle: state.hasUnsavedChanges
-                  ? '有尚未保存的更改'
-                  : '设置标题、类型、状态和摘要',
-              child: _buildBasicFields(context, state),
-            ),
+            _buildPublishSection(context, state),
             const SizedBox(height: AppSpacing.md),
             _buildEditorPane(context, state, fillAvailable: false),
             if (_tags.isNotEmpty) ...[
@@ -193,13 +205,6 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
               AdminFormSection(
                 title: '内容标签',
                 child: _buildTagSelector(context, state, showTitle: false),
-              ),
-            ],
-            if (state.isMediaType) ...[
-              const SizedBox(height: AppSpacing.md),
-              AdminFormSection(
-                title: '媒体资源',
-                child: _buildMediaSection(context, state),
               ),
             ],
           ],
@@ -222,25 +227,12 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                AdminFormSection(
-                  title: '发布信息',
-                  subtitle: state.hasUnsavedChanges
-                      ? '有尚未保存的更改'
-                      : '设置标题、类型、状态和摘要',
-                  child: _buildBasicFields(context, state),
-                ),
+                _buildPublishSection(context, state),
                 if (_tags.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.md),
                   AdminFormSection(
                     title: '内容标签',
                     child: _buildTagSelector(context, state, showTitle: false),
-                  ),
-                ],
-                if (state.isMediaType) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  AdminFormSection(
-                    title: '媒体资源',
-                    child: _buildMediaSection(context, state),
                   ),
                 ],
               ],
@@ -269,6 +261,49 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
     required bool fillAvailable,
   }) {
     final scheme = Theme.of(context).colorScheme;
+
+    // 图片/视频类型 → 显示媒体上传区域
+    if (state.isMediaType) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: fillAvailable ? MainAxisSize.max : MainAxisSize.min,
+          children: [
+            Text(
+              state.type == ContentType.image ? '图片资源' : '视频资源',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              state.type == ContentType.image
+                  ? '上传图片素材，支持多张'
+                  : '上传视频文件',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (fillAvailable)
+              Expanded(
+                child: SingleChildScrollView(
+                  child: _buildMediaSection(context, state),
+                ),
+              )
+            else
+              _buildMediaSection(context, state),
+          ],
+        ),
+      );
+    }
+
+    // Markdown 类型 → 显示编辑器
     final editor = _buildContentSection(
       context,
       state,
@@ -289,18 +324,14 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
           Text('正文内容', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            state.isPreviewable
-                ? '支持 Markdown，可随时切换源码、分屏和预览'
-                : '补充内容说明',
+            '支持 Markdown，可随时切换源码、分屏和预览',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
                 ?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          if (state.isPreviewable) ...[
-            const SizedBox(height: AppSpacing.md),
-            _buildToolbar(context, state),
-          ],
+          const SizedBox(height: AppSpacing.md),
+          _buildToolbar(context, state),
           const SizedBox(height: AppSpacing.md),
           if (fillAvailable) Expanded(child: editor) else editor,
         ],
@@ -315,6 +346,68 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
       onSetEditMode: (mode) => _getController().setEditMode(mode),
       onInsertImage: _showImagePicker,
       mediaUrls: state.mediaUrls,
+    );
+  }
+
+  Widget _buildPublishSection(BuildContext context, ContentEditorState state) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '发布信息',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      state.hasUnsavedChanges
+                          ? '有尚未保存的更改'
+                          : '设置标题、类型、状态和摘要',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '置顶',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                  const SizedBox(width: 2),
+                  Switch(
+                    value: state.pinned,
+                    onChanged: (value) =>
+                        _getController().updatePinned(value),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildBasicFields(context, state),
+        ],
+      ),
     );
   }
 
@@ -345,9 +438,20 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
           onChanged: (value) => _getController().updateSlug(value),
         ),
         const SizedBox(height: 12),
-        Text('类型', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: 4),
+        Text('类型', style: Theme.of(context).textTheme.labelSmall),
+        const SizedBox(height: 2),
         SegmentedButton<ContentType>(
+          showSelectedIcon: false,
+          style: ButtonStyle(
+            textStyle: WidgetStatePropertyAll(
+              Theme.of(context).textTheme.labelSmall,
+            ),
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
           segments: ContentType.values
               .map((type) => ButtonSegment<ContentType>(
                     value: type,
@@ -365,10 +469,21 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
             }
           },
         ),
-        const SizedBox(height: 12),
-        Text('状态', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: 4),
+        const SizedBox(height: 10),
+        Text('状态', style: Theme.of(context).textTheme.labelSmall),
+        const SizedBox(height: 2),
         SegmentedButton<ContentStatus>(
+          showSelectedIcon: false,
+          style: ButtonStyle(
+            textStyle: WidgetStatePropertyAll(
+              Theme.of(context).textTheme.labelSmall,
+            ),
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
           segments: ContentStatus.values
               .map((status) => ButtonSegment<ContentStatus>(
                     value: status,
@@ -379,14 +494,6 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
           onSelectionChanged: (selected) {
             _getController().updateStatus(selected.first);
           },
-        ),
-        const SizedBox(height: 12),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('置顶'),
-          subtitle: const Text('置顶内容会显示在推荐列表最前面'),
-          value: state.pinned,
-          onChanged: (value) => _getController().updatePinned(value),
         ),
         const SizedBox(height: 12),
         TextFormField(

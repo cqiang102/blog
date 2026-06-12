@@ -26,6 +26,8 @@ class BlogShell extends ConsumerStatefulWidget {
 }
 
 class _BlogShellState extends ConsumerState<BlogShell> {
+  bool? _sidebarExpandedOverride;
+
   @override
   void initState() {
     super.initState();
@@ -65,7 +67,8 @@ class _BlogShellState extends ConsumerState<BlogShell> {
         final wide = constraints.maxWidth >= kWideBreakpoint;
 
         if (wide) {
-          final expanded = constraints.maxWidth >= kDesktopBreakpoint;
+          final autoExpanded = constraints.maxWidth >= kDesktopBreakpoint;
+          final expanded = _sidebarExpandedOverride ?? autoExpanded;
           return Scaffold(
             body: CustomPaint(
               painter: _GridPatternPainter(
@@ -83,6 +86,11 @@ class _BlogShellState extends ConsumerState<BlogShell> {
                     avatarText: avatarText,
                     avatarUrl: auth.user?.avatarUrl,
                     onNavigate: _goTo,
+                    onToggleExpand: () {
+                      setState(() {
+                        _sidebarExpandedOverride = !(expanded);
+                      });
+                    },
                   ),
                   Expanded(child: widget.navigationShell),
                 ],
@@ -141,6 +149,7 @@ class _BrandSidebar extends StatelessWidget {
     required this.isAdmin,
     required this.avatarText,
     required this.onNavigate,
+    required this.onToggleExpand,
     this.nickname,
     this.avatarUrl,
   });
@@ -153,6 +162,7 @@ class _BrandSidebar extends StatelessWidget {
   final String avatarText;
   final String? avatarUrl;
   final ValueChanged<_Destination> onNavigate;
+  final VoidCallback onToggleExpand;
 
   @override
   Widget build(BuildContext context) {
@@ -184,11 +194,21 @@ class _BrandSidebar extends StatelessWidget {
           ),
           child: Column(
             children: [
-              _SidebarIdentity(
-                expanded: expanded,
-                avatarText: avatarText,
-                avatarUrl: avatarUrl,
-                nickname: nickname,
+              Row(
+                children: [
+                  Expanded(
+                    child: _SidebarIdentity(
+                      expanded: expanded,
+                      avatarText: avatarText,
+                      avatarUrl: avatarUrl,
+                      nickname: nickname,
+                    ),
+                  ),
+                  _SidebarToggleButton(
+                    expanded: expanded,
+                    onTap: onToggleExpand,
+                  ),
+                ],
               ),
               const SizedBox(height: AppSpacing.xl),
               for (final item in _publicDestinations)
@@ -411,6 +431,48 @@ class _SidebarCapsuleButton extends StatelessWidget {
     );
 
     return expanded ? child : Tooltip(message: item.label, child: child);
+  }
+}
+
+class _SidebarToggleButton extends StatelessWidget {
+  const _SidebarToggleButton({
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: 36,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisAlignment:
+              expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: HugeIcon(
+                icon: expanded
+                    ? HugeIcons.strokeRoundedSidebarLeft01
+                    : HugeIcons.strokeRoundedSidebarRight01,
+                size: 20,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
