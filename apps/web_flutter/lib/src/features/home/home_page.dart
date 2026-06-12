@@ -284,7 +284,7 @@ class _HeroIntro extends StatelessWidget {
         ).fadeSlideIn(delay: 200.ms, duration: 500.ms),
         const SizedBox(height: AppSpacing.sm + 4),
         Text(
-          '工程实践、AI 探索，以及值得记住的普通日子。',
+          '代码开发、AI 学习，以及值得记住的普通日子。',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             fontSize: 15,
             color: scheme.onPrimaryContainer.withValues(alpha: 0.72),
