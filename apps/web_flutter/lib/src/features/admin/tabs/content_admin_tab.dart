@@ -1,5 +1,5 @@
 // 管理后台 - 内容管理标签页
-// 展示内容列表，支持 CRUD 操作和编辑对话框
+// 展示内容列表，支持 CRUD 操作，通过独立页面编辑内容
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,7 +10,6 @@ import '../../../state/state.dart';
 import '../../../core/models.dart';
 import '../../../theme/app_spacing.dart';
 import '../admin_widgets.dart';
-import '../content_editor/content_editor.dart';
 
 /// 内容管理标签页
 /// 添加 AutomaticKeepAliveClientMixin 保持状态
@@ -31,10 +30,6 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab>
     super.build(context);
     final contents = ref.watch(adminContentsProvider);
     final tagsValue = ref.watch(adminTagsProvider);
-    final tags = tagsValue.maybeWhen(
-      data: (items) => items,
-      orElse: () => const <TagItem>[],
-    );
     final tagError = tagsValue.maybeWhen(
       error: (error, stackTrace) => error.toString(),
       orElse: () => null,
@@ -48,52 +43,27 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab>
       ),
       data: (page) => _ContentList(
         page: page,
-        tags: tags,
         tagError: tagError,
-        onOpenEditor: (content) => _openContentEditor(context, ref, tags, content: content),
+        onCreate: () => _navigateToEditor(context),
+        onEdit: (content) => _navigateToEditor(context, contentId: content.id),
         onArchive: (content) => _archiveContent(context, ref, content),
       ),
     );
   }
 
-  Future<void> _openContentEditor(
-    BuildContext context,
-    WidgetRef ref,
-    List<TagItem> tags, {
-    AdminContentItem? content,
+  Future<void> _navigateToEditor(
+    BuildContext context, {
+    String? contentId,
   }) async {
-    final result = await showDialog<ContentEditorSubmitResult>(
-      context: context,
-      builder: (context) => ContentEditorDialog(content: content, tags: tags),
-    );
-    if (result == null || !context.mounted) return;
-
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      final api = ref.read(apiClientProvider);
-      if (content == null) {
-        await api.createAdminContent(accessToken: token, draft: result.draft);
-      } else {
-        await api.updateAdminContent(
-          accessToken: token,
-          id: content.id,
-          draft: result.draft,
-        );
-      }
-      result.onSuccess();
+    final path = contentId != null
+        ? '/admin/contents/$contentId/edit'
+        : '/admin/contents/new';
+    await context.push(path);
+    // 页面返回后刷新列表
+    if (mounted) {
       ref.invalidate(adminContentsProvider);
       ref.invalidate(adminDashboardProvider);
       ref.invalidate(recommendationsProvider);
-      if (!context.mounted) return;
-      showAdminSnack(context, content == null ? '内容已创建' : '内容已保存');
-    } on ApiException catch (error) {
-      result.onFailure();
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      result.onFailure();
-      showAdminSnack(context, error.toString());
     }
   }
 
@@ -135,16 +105,16 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab>
 class _ContentList extends StatelessWidget {
   const _ContentList({
     required this.page,
-    required this.tags,
     required this.tagError,
-    required this.onOpenEditor,
+    required this.onCreate,
+    required this.onEdit,
     required this.onArchive,
   });
 
   final PageResult<AdminContentItem> page;
-  final List<TagItem> tags;
   final String? tagError;
-  final ValueChanged<AdminContentItem?> onOpenEditor;
+  final VoidCallback onCreate;
+  final ValueChanged<AdminContentItem> onEdit;
   final ValueChanged<AdminContentItem> onArchive;
 
   @override
@@ -159,7 +129,7 @@ class _ContentList extends StatelessWidget {
         final content = page.items[index - 1];
         return _ContentAdminRow(
           content: content,
-          onEdit: () => onOpenEditor(content),
+          onEdit: () => onEdit(content),
           onArchive: content.archived ? null : () => onArchive(content),
         );
       },
@@ -174,7 +144,7 @@ class _ContentList extends StatelessWidget {
           title: '内容管理',
           actionLabel: '新增内容',
           actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
-          onAction: () => onOpenEditor(null),
+          onAction: onCreate,
         ),
         if (tagError != null) ...[
           const SizedBox(height: AppSpacing.sm + 4),

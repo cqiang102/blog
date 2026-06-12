@@ -7,6 +7,7 @@ import '../state/state.dart';
 import 'app_shell.dart';
 import '../features/about/about_page.dart';
 import '../features/admin/admin_page.dart';
+import '../features/admin/content_editor/content_editor_page.dart';
 import '../features/auth/auth_page.dart';
 import '../features/content/content_detail_page.dart';
 import '../features/content/content_list_page.dart';
@@ -143,6 +144,18 @@ final routerProvider = Provider<GoRouter>((ref) {
                       key: state.pageKey,
                       child: const AdminPage(),
                     ),
+                routes: [
+                  GoRoute(
+                    path: 'contents/new',
+                    builder: (context, state) => const ContentEditorPage(),
+                  ),
+                  GoRoute(
+                    path: 'contents/:id/edit',
+                    builder: (context, state) => ContentEditorPage(
+                      contentId: state.pathParameters['id'],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

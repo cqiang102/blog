@@ -347,6 +347,15 @@ mixin AdminApi on ApiClientBase {
     return pageResult(data, AdminContentItem.fromJson);
   }
 
+  /// 获取单个管理后台内容
+  Future<AdminContentItem> fetchAdminContent({
+    required String accessToken,
+    required String id,
+  }) async {
+    final data = await get('/admin/contents/$id', accessToken: accessToken);
+    return AdminContentItem.fromJson((data as Map).cast<String, dynamic>());
+  }
+
   /// 创建管理后台内容
   Future<AdminContentItem> createAdminContent({
     required String accessToken,
