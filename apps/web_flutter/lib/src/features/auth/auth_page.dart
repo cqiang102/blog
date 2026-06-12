@@ -124,7 +124,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                   child:
                       wide
                           ? SizedBox(
-                            height: _register ? 720 : 620,
+                            height: 640,
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -320,13 +320,15 @@ class _AuthBrandPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: scheme.primary,
-                foregroundColor: scheme.onPrimary,
-                child: const Text(
-                  'C',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  image: DecorationImage(
+                    image: AssetImage('assets/images/lacia.png'),
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm + 4),
@@ -513,7 +515,7 @@ class _AuthForm extends StatelessWidget {
               autofillHints: const [AutofillHints.email],
               decoration: const InputDecoration(
                 labelText: '邮箱',
-                prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedMail01),
+                prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 20),
               ),
               validator: (value) {
                 final email = value?.trim() ?? '';
@@ -529,7 +531,7 @@ class _AuthForm extends StatelessWidget {
                 autofillHints: const [AutofillHints.nickname],
                 decoration: const InputDecoration(
                   labelText: '昵称（可选）',
-                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedUser),
+                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 20),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm + 4),
@@ -542,7 +544,7 @@ class _AuthForm extends StatelessWidget {
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         labelText: '邮箱验证码',
-                        prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedTick01),
+                        prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedTick01, size: 20),
                       ),
                       validator: (value) {
                         if ((value ?? '').trim().isEmpty) return '请输入验证码';
@@ -550,7 +552,7 @@ class _AuthForm extends StatelessWidget {
                       },
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
+                  const SizedBox(width: AppSpacing.sm + 4),
                   FilledButton.tonal(
                     onPressed: countdown > 0 ? null : onSendCode,
                     child: Text(countdown > 0 ? '${countdown}s' : '获取验证码'),
@@ -567,7 +569,7 @@ class _AuthForm extends StatelessWidget {
               ],
               decoration: InputDecoration(
                 labelText: '密码',
-                prefixIcon: const HugeIcon(icon: HugeIcons.strokeRoundedLock),
+                prefixIcon: const HugeIcon(icon: HugeIcons.strokeRoundedLock, size: 20),
                 suffixIcon: IconButton(
                   tooltip: obscurePassword ? '显示密码' : '隐藏密码',
                   onPressed: onTogglePassword,
@@ -575,6 +577,7 @@ class _AuthForm extends StatelessWidget {
                     icon: obscurePassword
                         ? HugeIcons.strokeRoundedView
                         : HugeIcons.strokeRoundedViewOff,
+                    size: 20,
                   ),
                 ),
               ),
@@ -588,13 +591,22 @@ class _AuthForm extends StatelessWidget {
             ),
             if (!register) ...[
               const SizedBox(height: AppSpacing.xs),
-              CheckboxListTile(
-                value: rememberMe,
-                onChanged: (value) => onRememberChanged(value ?? false),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('记住邮箱'),
-                dense: true,
+              Row(
+                children: [
+                  Checkbox(
+                    value: rememberMe,
+                    onChanged: (value) => onRememberChanged(value ?? false),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => onRememberChanged(!rememberMe),
+                    child: Text(
+                      '记住邮箱',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
               ),
             ],
             const SizedBox(height: AppSpacing.md),
