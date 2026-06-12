@@ -50,9 +50,12 @@ public class UserAdminService {
 
     /** 用户数据访问层 */
     private final UserRepository userRepository;
+    /** 个人资料服务，用于生成预签名头像 URL */
+    private final ProfileService profileService;
 
-    public UserAdminService(UserRepository userRepository) {
+    public UserAdminService(UserRepository userRepository, ProfileService profileService) {
         this.userRepository = userRepository;
+        this.profileService = profileService;
     }
 
     /**
@@ -72,7 +75,9 @@ public class UserAdminService {
                 pageRequest(page, size)
         );
         return new PageResponse<>(
-                result.getContent().stream().map(AdminUserResponse::from).toList(),
+                result.getContent().stream()
+                        .map(u -> AdminUserResponse.from(u, profileService.generatePresignedAvatarUrl(u.getAvatarUrl())))
+                        .toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements()
@@ -88,7 +93,8 @@ public class UserAdminService {
      */
     @Transactional(readOnly = true)
     public AdminUserResponse detail(UUID id) {
-        return AdminUserResponse.from(findUser(id));
+        User user = findUser(id);
+        return AdminUserResponse.from(user, profileService.generatePresignedAvatarUrl(user.getAvatarUrl()));
     }
 
     /**
@@ -127,7 +133,7 @@ public class UserAdminService {
                 role,
                 status
         );
-        return AdminUserResponse.from(user);
+        return AdminUserResponse.from(user, profileService.generatePresignedAvatarUrl(user.getAvatarUrl()));
     }
 
     /**

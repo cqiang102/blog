@@ -46,11 +46,22 @@ public record AdminUserResponse(
      * @return 管理端用户响应 DTO
      */
     public static AdminUserResponse from(User user) {
+        return from(user, user.getAvatarUrl());
+    }
+
+    /**
+     * 从用户实体创建管理端响应 DTO（使用预签名头像 URL）
+     *
+     * @param user               用户实体
+     * @param presignedAvatarUrl 预签名头像 URL
+     * @return 管理端用户响应 DTO
+     */
+    public static AdminUserResponse from(User user, String presignedAvatarUrl) {
         return new AdminUserResponse(
                 user.getId(),
                 user.getEmail(),
                 user.getNickname(),
-                user.getAvatarUrl(),
+                presignedAvatarUrl,
                 user.getBio(),
                 user.getBlogUrl(),
                 user.getRole(),
