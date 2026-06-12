@@ -134,7 +134,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     final chatState = ref.watch(aiChatProvider);
     final remaining = chatState.remainingQuestions ?? quotaRemaining;
 
-    return CustomScrollView(
+    return AppPageFrame(
+      child: CustomScrollView(
       slivers: [
         const SliverAppBar(
           title: Text('关于我'),
@@ -154,6 +155,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
           ),
         ),
       ],
+      ),
     );
   }
 

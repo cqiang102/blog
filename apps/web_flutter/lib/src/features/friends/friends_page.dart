@@ -22,7 +22,8 @@ class FriendsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final friends = ref.watch(friendsProvider); // 获取友链数据
 
-    return CustomScrollView(
+    return AppPageFrame(
+      child: CustomScrollView(
       slivers: [
         const SliverAppBar(
           title: Text('朋友们'),
@@ -47,7 +48,7 @@ class FriendsPage extends ConsumerWidget {
               );
             }
             return SliverPadding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               sliver: SliverGrid.builder(
                 itemCount: items.length,
                 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -65,6 +66,7 @@ class FriendsPage extends ConsumerWidget {
           },
         ),
       ],
+      ),
     );
   }
 }
