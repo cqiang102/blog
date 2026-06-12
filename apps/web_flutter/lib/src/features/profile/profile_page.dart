@@ -14,6 +14,7 @@ import '../../state/state.dart';
 import '../../widgets/widgets.dart';
 import '../../auth/auth_controller.dart';
 import '../../core/constants.dart';
+import '../../core/media_url.dart';
 import '../../core/models.dart';
 import '../../state/pagination_mixin.dart';
 import '../../theme/app_spacing.dart';
@@ -679,7 +680,7 @@ class _AvatarSection extends StatelessWidget {
               CircleAvatar(
                 radius: 44,
                 backgroundImage:
-                    avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+                    avatarUrl != null ? NetworkImage(resolveMediaUrl(avatarUrl!)) : null,
                 child:
                     avatarUrl == null
                         ? const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 44)

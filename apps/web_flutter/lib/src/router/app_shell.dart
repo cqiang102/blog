@@ -11,6 +11,7 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../state/state.dart';
 import '../core/constants.dart';
+import '../core/media_url.dart';
 import '../theme/app_spacing.dart';
 
 /// 响应式 Shell 布局组件
@@ -255,7 +256,7 @@ class _SidebarIdentity extends StatelessWidget {
         shape: BoxShape.circle,
         image: DecorationImage(
           image: hasNetworkAvatar
-              ? NetworkImage(avatarUrl!)
+              ? NetworkImage(resolveMediaUrl(avatarUrl!))
               : const AssetImage('assets/images/lacia.png'),
           fit: BoxFit.cover,
         ),
