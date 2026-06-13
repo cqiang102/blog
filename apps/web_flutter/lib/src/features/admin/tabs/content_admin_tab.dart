@@ -32,6 +32,28 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
     super.dispose();
   }
 
+  /// 用当前筛选条件重建 _query 并刷新
+  void _applyFilters() {
+    setState(() {
+      _query = AdminContentQuery(
+        query: _searchController.text.trim(),
+        status: _statusFilter,
+        type: _typeFilter,
+        includeDeleted: _includeDeleted,
+      );
+    });
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    _statusFilter = null;
+    _typeFilter = null;
+    _includeDeleted = false;
+    setState(() {
+      _query = const AdminContentQuery();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final contents = ref.watch(adminContentsProvider(_query));
@@ -49,15 +71,15 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
         typeFilter: _typeFilter,
         includeDeleted: _includeDeleted,
         onStatusFilterChanged: (value) {
-          setState(() => _statusFilter = value);
+          _statusFilter = value;
           _applyFilters();
         },
         onTypeFilterChanged: (value) {
-          setState(() => _typeFilter = value);
+          _typeFilter = value;
           _applyFilters();
         },
         onToggleIncludeDeleted: (value) {
-          setState(() => _includeDeleted = value);
+          _includeDeleted = value;
           _applyFilters();
         },
         onApply: _applyFilters,
@@ -68,27 +90,6 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
         onRestore: (content) => _restoreContent(context, content),
       ),
     );
-  }
-
-  void _applyFilters() {
-    setState(() {
-      _query = AdminContentQuery(
-        query: _searchController.text.trim(),
-        status: _statusFilter,
-        type: _typeFilter,
-        includeDeleted: _includeDeleted,
-      );
-    });
-  }
-
-  void _clearFilters() {
-    setState(() {
-      _searchController.clear();
-      _statusFilter = null;
-      _typeFilter = null;
-      _includeDeleted = false;
-      _query = const AdminContentQuery();
-    });
   }
 
   Future<void> _navigateToEditor(
