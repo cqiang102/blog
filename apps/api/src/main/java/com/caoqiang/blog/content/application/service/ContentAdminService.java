@@ -150,6 +150,9 @@ public class ContentAdminService {
                 ));
             }
 
+            if (predicates.isEmpty()) {
+                return criteriaBuilder.conjunction();
+            }
             return criteriaBuilder.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
         };
     }

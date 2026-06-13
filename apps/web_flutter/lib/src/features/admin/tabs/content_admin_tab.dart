@@ -48,11 +48,18 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
         statusFilter: _statusFilter,
         typeFilter: _typeFilter,
         includeDeleted: _includeDeleted,
-        onStatusFilterChanged: (value) =>
-            setState(() => _statusFilter = value),
-        onTypeFilterChanged: (value) => setState(() => _typeFilter = value),
-        onToggleIncludeDeleted: (value) =>
-            setState(() => _includeDeleted = value),
+        onStatusFilterChanged: (value) {
+          setState(() => _statusFilter = value);
+          _applyFilters();
+        },
+        onTypeFilterChanged: (value) {
+          setState(() => _typeFilter = value);
+          _applyFilters();
+        },
+        onToggleIncludeDeleted: (value) {
+          setState(() => _includeDeleted = value);
+          _applyFilters();
+        },
         onApply: _applyFilters,
         onClear: _clearFilters,
         onCreate: () => _navigateToEditor(context),
