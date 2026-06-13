@@ -19,16 +19,12 @@ class AdminContentTab extends ConsumerStatefulWidget {
   ConsumerState<AdminContentTab> createState() => _AdminContentTabState();
 }
 
-class _AdminContentTabState extends ConsumerState<AdminContentTab>
-    with AutomaticKeepAliveClientMixin {
+class _AdminContentTabState extends ConsumerState<AdminContentTab> {
   final _searchController = TextEditingController();
-  String _searchQuery = '';
   ContentStatus? _statusFilter;
   ContentType? _typeFilter;
   bool _includeDeleted = false;
-
-  @override
-  bool get wantKeepAlive => true;
+  AdminContentQuery _query = const AdminContentQuery();
 
   @override
   void dispose() {
@@ -36,22 +32,9 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab>
     super.dispose();
   }
 
-  AdminContentQuery get _query => AdminContentQuery(
-        query: _searchQuery,
-        status: _statusFilter,
-        type: _typeFilter,
-        includeDeleted: _includeDeleted,
-      );
-
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     final contents = ref.watch(adminContentsProvider(_query));
-    final tagsValue = ref.watch(adminTagsProvider);
-    final tagError = tagsValue.maybeWhen(
-      error: (error, stackTrace) => error.toString(),
-      orElse: () => null,
-    );
 
     return contents.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -61,36 +44,44 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab>
       ),
       data: (page) => _ContentList(
         page: page,
-        tagError: tagError,
         searchController: _searchController,
-        searchQuery: _searchQuery,
         statusFilter: _statusFilter,
         typeFilter: _typeFilter,
         includeDeleted: _includeDeleted,
-        onSearchChanged: (value) {
-          setState(() => _searchQuery = value);
-        },
-        onSearchSubmitted: (_) {
-          ref.invalidate(adminContentsProvider(_query));
-        },
-        onStatusFilterChanged: (value) {
-          setState(() => _statusFilter = value);
-          ref.invalidate(adminContentsProvider(_query));
-        },
-        onTypeFilterChanged: (value) {
-          setState(() => _typeFilter = value);
-          ref.invalidate(adminContentsProvider(_query));
-        },
-        onToggleIncludeDeleted: (value) {
-          setState(() => _includeDeleted = value);
-          ref.invalidate(adminContentsProvider(_query));
-        },
+        onStatusFilterChanged: (value) =>
+            setState(() => _statusFilter = value),
+        onTypeFilterChanged: (value) => setState(() => _typeFilter = value),
+        onToggleIncludeDeleted: (value) =>
+            setState(() => _includeDeleted = value),
+        onApply: _applyFilters,
+        onClear: _clearFilters,
         onCreate: () => _navigateToEditor(context),
         onEdit: (content) => _navigateToEditor(context, contentId: content.id),
-        onDelete: (content) => _deleteContent(context, ref, content),
-        onRestore: (content) => _restoreContent(context, ref, content),
+        onDelete: (content) => _deleteContent(context, content),
+        onRestore: (content) => _restoreContent(context, content),
       ),
     );
+  }
+
+  void _applyFilters() {
+    setState(() {
+      _query = AdminContentQuery(
+        query: _searchController.text.trim(),
+        status: _statusFilter,
+        type: _typeFilter,
+        includeDeleted: _includeDeleted,
+      );
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _searchController.clear();
+      _statusFilter = null;
+      _typeFilter = null;
+      _includeDeleted = false;
+      _query = const AdminContentQuery();
+    });
   }
 
   Future<void> _navigateToEditor(
@@ -110,7 +101,6 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab>
 
   Future<void> _deleteContent(
     BuildContext context,
-    WidgetRef ref,
     AdminContentItem content,
   ) async {
     if (!context.mounted) return;
@@ -143,7 +133,6 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab>
 
   Future<void> _restoreContent(
     BuildContext context,
-    WidgetRef ref,
     AdminContentItem content,
   ) async {
     if (!context.mounted) return;
@@ -179,17 +168,15 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab>
 class _ContentList extends StatelessWidget {
   const _ContentList({
     required this.page,
-    required this.tagError,
     required this.searchController,
-    required this.searchQuery,
     required this.statusFilter,
     required this.typeFilter,
     required this.includeDeleted,
-    required this.onSearchChanged,
-    required this.onSearchSubmitted,
     required this.onStatusFilterChanged,
     required this.onTypeFilterChanged,
     required this.onToggleIncludeDeleted,
+    required this.onApply,
+    required this.onClear,
     required this.onCreate,
     required this.onEdit,
     required this.onDelete,
@@ -197,17 +184,15 @@ class _ContentList extends StatelessWidget {
   });
 
   final PageResult<AdminContentItem> page;
-  final String? tagError;
   final TextEditingController searchController;
-  final String searchQuery;
   final ContentStatus? statusFilter;
   final ContentType? typeFilter;
   final bool includeDeleted;
-  final ValueChanged<String> onSearchChanged;
-  final ValueChanged<String> onSearchSubmitted;
   final ValueChanged<ContentStatus?> onStatusFilterChanged;
   final ValueChanged<ContentType?> onTypeFilterChanged;
   final ValueChanged<bool> onToggleIncludeDeleted;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
   final VoidCallback onCreate;
   final ValueChanged<AdminContentItem> onEdit;
   final ValueChanged<AdminContentItem> onDelete;
@@ -215,186 +200,176 @@ class _ContentList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _buildToolbar(context),
-        if (tagError != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: AdminInlineError(message: tagError!),
-          ),
-        Expanded(
-          child: page.items.isEmpty
-              ? const AdminEmptyPane(message: '暂无内容')
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.sm,
-                  ),
-                  itemCount: page.items.length,
-                  separatorBuilder: (_, __) =>
-                      const SizedBox(height: AppSpacing.sm + 4),
-                  itemBuilder: (context, index) {
-                    final content = page.items[index];
-                    return _ContentAdminRow(
-                      content: content,
-                      onEdit: content.deleted
-                          ? null
-                          : () => onEdit(content),
-                      onDelete: content.deleted
-                          ? null
-                          : () => onDelete(content),
-                      onRestore: content.deleted
-                          ? () => onRestore(content)
-                          : null,
-                    );
-                  },
-                ),
-        ),
-      ],
+    return ListView.separated(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      itemCount: page.items.length + 1,
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm + 4),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildHeader(context);
+        }
+        final content = page.items[index - 1];
+        return _ContentAdminRow(
+          content: content,
+          onEdit: content.deleted ? null : () => onEdit(content),
+          onDelete: content.deleted ? null : () => onDelete(content),
+          onRestore: content.deleted ? () => onRestore(content) : null,
+        );
+      },
     );
   }
 
-  Widget _buildToolbar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 第一行：标题 + 新增按钮
-          SectionToolbar(
-            title: '内容管理',
-            actionLabel: '新增内容',
-            actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
-            onAction: onCreate,
-          ),
-          const SizedBox(height: AppSpacing.sm + 4),
-          // 第二行：搜索框
-          TextField(
-            controller: searchController,
-            decoration: InputDecoration(
-              hintText: '搜索标题或摘要...',
-              prefixIcon: const HugeIcon(
-                icon: HugeIcons.strokeRoundedSearch01,
-                size: 20,
-              ),
-              suffixIcon: searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const HugeIcon(
-                        icon: HugeIcons.strokeRoundedCancel01,
-                        size: 18,
-                      ),
-                      onPressed: () {
-                        searchController.clear();
-                        onSearchChanged('');
-                        onSearchSubmitted('');
-                      },
-                    )
-                  : null,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onSubmitted: onSearchSubmitted,
-            onChanged: onSearchChanged,
-          ),
-          const SizedBox(height: AppSpacing.sm + 4),
-          // 第三行：筛选器
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              // 状态筛选
-              _FilterDropdown<ContentStatus>(
-                label: '状态',
-                value: statusFilter,
-                items: ContentStatus.values,
-                labelBuilder: (v) => v.label,
-                onChanged: onStatusFilterChanged,
-              ),
-              // 类型筛选
-              _FilterDropdown<ContentType>(
-                label: '类型',
-                value: typeFilter,
-                items: ContentType.values,
-                labelBuilder: (v) => v.label,
-                onChanged: onTypeFilterChanged,
-              ),
-              // 显示已删除
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '显示已删除',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  Switch(
-                    value: includeDeleted,
-                    onChanged: onToggleIncludeDeleted,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ],
-              ),
-            ],
-          ),
+  Widget _buildHeader(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionToolbar(
+          title: '内容管理',
+          actionLabel: '新增内容',
+          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
+          onAction: onCreate,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        _ContentFilters(
+          searchController: searchController,
+          statusFilter: statusFilter,
+          typeFilter: typeFilter,
+          includeDeleted: includeDeleted,
+          onStatusFilterChanged: onStatusFilterChanged,
+          onTypeFilterChanged: onTypeFilterChanged,
+          onToggleIncludeDeleted: onToggleIncludeDeleted,
+          onApply: onApply,
+          onClear: onClear,
+        ),
+        const SizedBox(height: AppSpacing.sm + 4),
+        Text(
+          '共 ${page.total} 条内容',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        if (page.items.isEmpty) ...[
+          const SizedBox(height: AppSpacing.xl),
+          const AdminEmptyPane(message: '暂无内容'),
         ],
-      ),
+        const SizedBox(height: AppSpacing.sm + 4),
+      ],
     );
   }
 }
 
-/// 通用筛选下拉框
-class _FilterDropdown<T> extends StatelessWidget {
-  const _FilterDropdown({
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.labelBuilder,
-    required this.onChanged,
+/// 内容筛选组件
+class _ContentFilters extends StatelessWidget {
+  const _ContentFilters({
+    required this.searchController,
+    required this.statusFilter,
+    required this.typeFilter,
+    required this.includeDeleted,
+    required this.onStatusFilterChanged,
+    required this.onTypeFilterChanged,
+    required this.onToggleIncludeDeleted,
+    required this.onApply,
+    required this.onClear,
   });
 
-  final String label;
-  final T? value;
-  final List<T> items;
-  final String Function(T) labelBuilder;
-  final ValueChanged<T?> onChanged;
+  final TextEditingController searchController;
+  final ContentStatus? statusFilter;
+  final ContentType? typeFilter;
+  final bool includeDeleted;
+  final ValueChanged<ContentStatus?> onStatusFilterChanged;
+  final ValueChanged<ContentType?> onTypeFilterChanged;
+  final ValueChanged<bool> onToggleIncludeDeleted;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          isDense: true,
-          value: value,
-          hint: Text(label, style: Theme.of(context).textTheme.bodySmall),
-          items: [
-            DropdownMenuItem<T>(
-              value: null,
-              child: Text('全部$label',
-                  style: Theme.of(context).textTheme.bodySmall),
+    return Wrap(
+      spacing: AppSpacing.sm + 4,
+      runSpacing: AppSpacing.sm + 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 260,
+          child: TextField(
+            controller: searchController,
+            decoration: const InputDecoration(
+              labelText: '搜索标题或摘要',
+              prefixIcon: HugeIcon(
+                icon: HugeIcons.strokeRoundedSearch01,
+                size: 20,
+              ),
             ),
-            ...items.map((item) => DropdownMenuItem<T>(
-                  value: item,
-                  child: Text(labelBuilder(item),
-                      style: Theme.of(context).textTheme.bodySmall),
-                )),
-          ],
-          onChanged: onChanged,
+            onSubmitted: (_) => onApply(),
+          ),
         ),
-      ),
+        SizedBox(
+          width: 150,
+          child: DropdownButtonFormField<ContentStatus?>(
+            value: statusFilter,
+            decoration: const InputDecoration(labelText: '状态'),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('全部状态')),
+              DropdownMenuItem(
+                value: ContentStatus.draft,
+                child: Text('草稿'),
+              ),
+              DropdownMenuItem(
+                value: ContentStatus.published,
+                child: Text('已发布'),
+              ),
+              DropdownMenuItem(
+                value: ContentStatus.archived,
+                child: Text('已归档'),
+              ),
+            ],
+            onChanged: onStatusFilterChanged,
+          ),
+        ),
+        SizedBox(
+          width: 150,
+          child: DropdownButtonFormField<ContentType?>(
+            value: typeFilter,
+            decoration: const InputDecoration(labelText: '类型'),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('全部类型')),
+              DropdownMenuItem(
+                value: ContentType.markdown,
+                child: Text('文章'),
+              ),
+              DropdownMenuItem(
+                value: ContentType.image,
+                child: Text('图片'),
+              ),
+              DropdownMenuItem(
+                value: ContentType.video,
+                child: Text('视频'),
+              ),
+            ],
+            onChanged: onTypeFilterChanged,
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('显示已删除',
+                style: Theme.of(context).textTheme.bodySmall),
+            Switch(
+              value: includeDeleted,
+              onChanged: onToggleIncludeDeleted,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ],
+        ),
+        FilledButton.icon(
+          onPressed: onApply,
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
+          label: const Text('筛选'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onClear,
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
+          label: const Text('清空'),
+        ),
+      ],
     );
   }
 }
@@ -508,9 +483,7 @@ class _ContentAdminRow extends StatelessWidget {
       runSpacing: AppSpacing.sm,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        // 始终显示状态标签
         AdminStatusChip(status: content.status),
-        // 已删除时额外显示删除标记
         if (content.deleted)
           Chip(
             label: const Text('已删除'),
