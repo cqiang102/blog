@@ -108,6 +108,11 @@ public class ContentAdminService {
         );
         Specification<Content> spec = adminContentSpec(includeDeleted, query, status, type);
         Page<Content> result = contentRepository.findAll(spec, pageRequest);
+        // 在事务内触碰懒加载关联，避免序列化时 LazyInitializationException
+        for (Content content : result.getContent()) {
+            content.getTags().size();
+            content.getCoverMedia();
+        }
         return new PageResponse<>(
                 result.getContent().stream().map(AdminContentResponse::from).toList(),
                 result.getNumber(),
