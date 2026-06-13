@@ -145,7 +145,7 @@ class _AdminPageState extends ConsumerState<AdminPage>
   /// 使所有管理相关的 Provider 失效，触发重新加载
   void _refresh(WidgetRef ref) {
     ref.invalidate(adminDashboardProvider);
-    ref.invalidate(adminContentsProvider(const AdminContentQuery()));
+    ref.invalidate(adminContentsProvider);
 
     ref.invalidate(adminFriendsProvider);
     ref.invalidate(adminTagsProvider);

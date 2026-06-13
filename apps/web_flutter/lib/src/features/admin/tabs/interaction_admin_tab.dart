@@ -136,7 +136,7 @@ class AdminLikeTabState extends ConsumerState<AdminLikeTab> {
   void _refreshLikeState(String contentId) {
     ref.invalidate(adminLikesProvider(_query));
     ref.invalidate(adminDashboardProvider);
-    ref.invalidate(adminContentsProvider(const AdminContentQuery()));
+    ref.invalidate(adminContentsProvider);
     ref.invalidate(contentDetailProvider(contentId));
     ref.invalidate(recommendationsProvider);
   }
@@ -271,7 +271,7 @@ class AdminViewTabState extends ConsumerState<AdminViewTab> {
   void _refreshViewState(String contentId) {
     ref.invalidate(adminViewsProvider(_query));
     ref.invalidate(adminDashboardProvider);
-    ref.invalidate(adminContentsProvider(const AdminContentQuery()));
+    ref.invalidate(adminContentsProvider);
     ref.invalidate(contentDetailProvider(contentId));
   }
 }

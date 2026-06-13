@@ -24,7 +24,6 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
   ContentStatus? _statusFilter;
   ContentType? _typeFilter;
   bool _includeDeleted = false;
-  AdminContentQuery _query = const AdminContentQuery();
 
   @override
   void dispose() {
@@ -32,16 +31,14 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
     super.dispose();
   }
 
-  /// 用当前筛选条件重建 _query 并刷新
+  /// 用当前筛选条件更新 provider 并触发 refetch
   void _applyFilters() {
-    setState(() {
-      _query = AdminContentQuery(
-        query: _searchController.text.trim(),
-        status: _statusFilter,
-        type: _typeFilter,
-        includeDeleted: _includeDeleted,
-      );
-    });
+    ref.read(adminContentQueryProvider.notifier).update(AdminContentQuery(
+      query: _searchController.text.trim(),
+      status: _statusFilter,
+      type: _typeFilter,
+      includeDeleted: _includeDeleted,
+    ));
   }
 
   void _clearFilters() {
@@ -49,20 +46,20 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
     _statusFilter = null;
     _typeFilter = null;
     _includeDeleted = false;
-    setState(() {
-      _query = const AdminContentQuery();
-    });
+    ref.read(adminContentQueryProvider.notifier).update(
+          const AdminContentQuery(),
+        );
   }
 
   @override
   Widget build(BuildContext context) {
-    final contents = ref.watch(adminContentsProvider(_query));
+    final contents = ref.watch(adminContentsProvider);
 
     return contents.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => AdminErrorPane(
         message: error.toString(),
-        onRetry: () => ref.invalidate(adminContentsProvider(_query)),
+        onRetry: () => ref.invalidate(adminContentsProvider),
       ),
       data: (page) => _ContentList(
         page: page,
@@ -71,15 +68,15 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
         typeFilter: _typeFilter,
         includeDeleted: _includeDeleted,
         onStatusFilterChanged: (value) {
-          _statusFilter = value;
+          setState(() => _statusFilter = value);
           _applyFilters();
         },
         onTypeFilterChanged: (value) {
-          _typeFilter = value;
+          setState(() => _typeFilter = value);
           _applyFilters();
         },
         onToggleIncludeDeleted: (value) {
-          _includeDeleted = value;
+          setState(() => _includeDeleted = value);
           _applyFilters();
         },
         onApply: _applyFilters,
@@ -101,7 +98,7 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
         : '/admin/contents/new';
     await context.push(path);
     if (mounted) {
-      ref.invalidate(adminContentsProvider(_query));
+      ref.invalidate(adminContentsProvider);
       ref.invalidate(adminDashboardProvider);
       ref.invalidate(recommendationsProvider);
     }
@@ -127,7 +124,7 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
       await ref
           .read(apiClientProvider)
           .archiveAdminContent(accessToken: token, id: content.id);
-      ref.invalidate(adminContentsProvider(_query));
+      ref.invalidate(adminContentsProvider);
       ref.invalidate(adminDashboardProvider);
       ref.invalidate(recommendationsProvider);
       if (!context.mounted) return;
@@ -159,7 +156,7 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
       await ref
           .read(apiClientProvider)
           .restoreAdminContent(accessToken: token, id: content.id);
-      ref.invalidate(adminContentsProvider(_query));
+      ref.invalidate(adminContentsProvider);
       ref.invalidate(adminDashboardProvider);
       ref.invalidate(recommendationsProvider);
       if (!context.mounted) return;

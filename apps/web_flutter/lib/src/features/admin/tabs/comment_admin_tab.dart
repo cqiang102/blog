@@ -136,7 +136,7 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
   void _refreshCommentState(String contentId) {
     ref.invalidate(adminCommentsProvider(_query));
     ref.invalidate(adminDashboardProvider);
-    ref.invalidate(adminContentsProvider(const AdminContentQuery()));
+    ref.invalidate(adminContentsProvider);
     ref.invalidate(contentDetailProvider(contentId));
     ref.invalidate(commentsProvider(contentId));
   }

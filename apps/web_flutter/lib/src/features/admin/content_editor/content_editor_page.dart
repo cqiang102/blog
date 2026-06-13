@@ -1035,7 +1035,7 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
       }
 
       await controller.onSubmitSuccess();
-      ref.invalidate(adminContentsProvider(const AdminContentQuery()));
+      ref.invalidate(adminContentsProvider);
       ref.invalidate(adminDashboardProvider);
       ref.invalidate(recommendationsProvider);
 

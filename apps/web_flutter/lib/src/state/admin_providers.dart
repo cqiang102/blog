@@ -121,12 +121,25 @@ final adminKnowledgeDocsProvider = FutureProvider.family<
       .fetchAdminKnowledgeDocs(accessToken: token, query: query);
 });
 
+/// 内容列表查询条件 Notifier
+class AdminContentQueryNotifier extends Notifier<AdminContentQuery> {
+  @override
+  AdminContentQuery build() => const AdminContentQuery();
+
+  void update(AdminContentQuery query) => state = query;
+}
+
+/// 管理后台内容列表查询条件
+final adminContentQueryProvider = NotifierProvider<
+    AdminContentQueryNotifier, AdminContentQuery>(
+  AdminContentQueryNotifier.new,
+);
+
 /// 管理后台内容列表 Provider
+/// 自动 watch 查询条件，条件变化时自动 refetch
 final adminContentsProvider =
-    FutureProvider.family<PageResult<AdminContentItem>, AdminContentQuery>((
-      ref,
-      query,
-    ) {
+    FutureProvider<PageResult<AdminContentItem>>((ref) {
+      final query = ref.watch(adminContentQueryProvider);
       final token = ref.watch(authControllerProvider).accessToken;
       if (token == null) {
         throw const ApiException('请先登录');
