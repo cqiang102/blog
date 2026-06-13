@@ -263,7 +263,7 @@ class AdminContentItem {
   final int commentCount;
   @SafeDateTimeJsonConverter()
   final DateTime publishedAt;
-  @SafeDateTimeJsonConverter()
+  @NullableSafeDateTimeJsonConverter()
   final DateTime? deletedAt;
   final List<TagItem> tags;
 
