@@ -23,6 +23,8 @@ import com.caoqiang.blog.content.domain.repository.TagRepository;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
 import java.time.Clock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -58,6 +60,8 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @Service
 public class MediaAdminService {
+
+    private static final Logger log = LoggerFactory.getLogger(MediaAdminService.class);
 
     /** 最大每页条数 */
     private static final int MAX_PAGE_SIZE = 80;
@@ -174,12 +178,19 @@ public class MediaAdminService {
         MediaAsset mediaAsset = mediaAssetRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "媒体资源不存在"));
         if (EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
+            log.debug("External media, returning publicUrl: {}", mediaAsset.getPublicUrl());
             return mediaAsset.getPublicUrl();
         }
         FileInfo fileInfo = buildFileInfo(mediaAsset);
         LocalDateTime expiry = LocalDateTime.now(clock).plusDays(7);
         Date expiryDate = Date.from(expiry.atZone(ZoneId.systemDefault()).toInstant());
+        log.debug("Generating presignedUrl for platform={}, path={}, filename={}, expiry={}",
+                fileInfo.getPlatform(), fileInfo.getPath(), fileInfo.getFilename(), expiryDate);
         String url = fileStorageService.generatePresignedUrl(fileInfo, expiryDate);
+        log.debug("generatePresignedUrl returned: {}", url);
+        if (url == null) {
+            log.warn("generatePresignedUrl returned null for media {}, falling back to publicUrl: {}", id, mediaAsset.getPublicUrl());
+        }
         return url != null ? url : mediaAsset.getPublicUrl();
     }
 
