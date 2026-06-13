@@ -101,6 +101,8 @@ public class ContentAdminService {
             int page, int size, boolean includeDeleted,
             String query, ContentStatus status, ContentType type
     ) {
+        log.info("Admin content list: includeDeleted={}, query={}, status={}, type={}",
+                includeDeleted, query, status, type);
         PageRequest pageRequest = PageRequest.of(
                 Math.max(0, page),
                 Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
@@ -108,6 +110,7 @@ public class ContentAdminService {
         );
         Specification<Content> spec = adminContentSpec(includeDeleted, query, status, type);
         Page<Content> result = contentRepository.findAll(spec, pageRequest);
+        log.info("Admin content list result: {} items, {} total", result.getContent().size(), result.getTotalElements());
         // 在事务内触碰懒加载关联，避免序列化时 LazyInitializationException
         for (Content content : result.getContent()) {
             content.getTags().size();

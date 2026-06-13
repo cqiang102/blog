@@ -81,15 +81,6 @@ public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpec
     Optional<Content> findById(UUID id);
 
     /**
-     * 基于 Specification 的分页查询。
-     * <p>
-     * 注意：不使用 @EntityGraph，避免与 Specification 冲突导致 WHERE 条件丢失。
-     * tags 和 coverMedia 通过 Hibernate.initialize() 在 Service 层事务内加载。
-     */
-    @Override
-    Page<Content> findAll(Specification<Content> spec, Pageable pageable);
-
-    /**
      * 检查 slug 是否已存在。
      *
      * @param slug URL 标识符
