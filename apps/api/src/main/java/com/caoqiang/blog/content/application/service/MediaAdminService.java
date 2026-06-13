@@ -25,6 +25,7 @@ import com.caoqiang.blog.shared.response.PageResponse;
 import java.time.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -73,17 +74,20 @@ public class MediaAdminService {
     private final ContentRepository contentRepository;
     private final FileStorageService fileStorageService;
     private final Clock clock;
+    private final String minioEndpoint;
 
     public MediaAdminService(
             MediaAssetRepository mediaAssetRepository,
             ContentRepository contentRepository,
             FileStorageService fileStorageService,
-            Clock clock
+            Clock clock,
+            @Value("${dromara.x-file-storage.minio[0].end-point:http://localhost:9000}") String minioEndpoint
     ) {
         this.mediaAssetRepository = mediaAssetRepository;
         this.contentRepository = contentRepository;
         this.fileStorageService = fileStorageService;
         this.clock = clock;
+        this.minioEndpoint = minioEndpoint;
     }
 
     /**
@@ -177,21 +181,80 @@ public class MediaAdminService {
     public String getPresignedUrl(UUID id) {
         MediaAsset mediaAsset = mediaAssetRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "媒体资源不存在"));
-        if (EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
-            log.debug("External media, returning publicUrl: {}", mediaAsset.getPublicUrl());
-            return mediaAsset.getPublicUrl();
+
+        // 内部存储媒体：直接生成预签名
+        if (!EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
+            return generatePresignedUrl(buildFileInfo(mediaAsset), mediaAsset.getPublicUrl());
         }
-        FileInfo fileInfo = buildFileInfo(mediaAsset);
+
+        // 外链媒体：尝试用默认平台生成预签名（URL 指向本机 MinIO 的场景）
+        String publicUrl = mediaAsset.getPublicUrl();
+        if (publicUrl != null) {
+            String presigned = tryPresignExternalUrl(publicUrl);
+            if (presigned != null) {
+                return presigned;
+            }
+        }
+        return publicUrl;
+    }
+
+    /**
+     * 为外链 URL 生成预签名。
+     * 如果 URL 指向本机 MinIO，提取路径后用默认平台生成预签名。
+     */
+    private String tryPresignExternalUrl(String url) {
+        try {
+            java.net.URI uri = java.net.URI.create(url);
+            String host = uri.getHost();
+            int port = uri.getPort() > 0 ? uri.getPort() : ("https".equals(uri.getScheme()) ? 443 : 80);
+            // 比较 endpoint 的 host:port
+            java.net.URI endpointUri = java.net.URI.create(minioEndpoint);
+            String endpointHost = endpointUri.getHost();
+            int endpointPort = endpointUri.getPort() > 0 ? endpointUri.getPort()
+                    : ("https".equals(endpointUri.getScheme()) ? 443 : 80);
+
+            if (!equalsIgnoreCase(host, endpointHost) || port != endpointPort) {
+                return null; // 非本机 MinIO，无法生成预签名
+            }
+
+            String path = uri.getPath(); // e.g. /uploads/2026/06/10/file.jpeg
+            if (path == null || path.isEmpty()) return null;
+            // 去掉开头的 /
+            if (path.startsWith("/")) path = path.substring(1);
+            int lastSlash = path.lastIndexOf('/');
+            if (lastSlash < 0) return null;
+
+            String dir = path.substring(0, lastSlash + 1);
+            String filename = path.substring(lastSlash + 1);
+
+            FileInfo fileInfo = new FileInfo();
+            fileInfo.setPlatform("minio-1");
+            fileInfo.setPath(dir);
+            fileInfo.setFilename(filename);
+            fileInfo.setUrl(url);
+
+            String presigned = generatePresignedUrl(fileInfo, null);
+            log.debug("Presigned external URL: {} -> {}", url, presigned);
+            return presigned;
+        } catch (Exception e) {
+            log.debug("Failed to presign external URL: {}", url, e);
+            return null;
+        }
+    }
+
+    private String generatePresignedUrl(FileInfo fileInfo, String fallbackUrl) {
         LocalDateTime expiry = LocalDateTime.now(clock).plusDays(7);
         Date expiryDate = Date.from(expiry.atZone(ZoneId.systemDefault()).toInstant());
-        log.debug("Generating presignedUrl for platform={}, path={}, filename={}, expiry={}",
-                fileInfo.getPlatform(), fileInfo.getPath(), fileInfo.getFilename(), expiryDate);
         String url = fileStorageService.generatePresignedUrl(fileInfo, expiryDate);
-        log.debug("generatePresignedUrl returned: {}", url);
         if (url == null) {
-            log.warn("generatePresignedUrl returned null for media {}, falling back to publicUrl: {}", id, mediaAsset.getPublicUrl());
+            log.warn("generatePresignedUrl returned null, platform={}, path={}, filename={}",
+                    fileInfo.getPlatform(), fileInfo.getPath(), fileInfo.getFilename());
         }
-        return url != null ? url : mediaAsset.getPublicUrl();
+        return url != null ? url : fallbackUrl;
+    }
+
+    private static boolean equalsIgnoreCase(String a, String b) {
+        return a != null && b != null && a.equalsIgnoreCase(b);
     }
 
     /**

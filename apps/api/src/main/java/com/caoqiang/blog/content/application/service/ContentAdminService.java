@@ -70,19 +70,23 @@ public class ContentAdminService {
     private final KnowledgeIndexService knowledgeIndexService;
     /** 领域事件发布器 */
     private final DomainEventPublisher domainEventPublisher;
+    /** 媒体服务，用于生成预签名 URL */
+    private final MediaAdminService mediaAdminService;
 
     public ContentAdminService(
             ContentRepository contentRepository,
             TagRepository tagRepository,
             MediaAssetRepository mediaAssetRepository,
             KnowledgeIndexService knowledgeIndexService,
-            DomainEventPublisher domainEventPublisher
+            DomainEventPublisher domainEventPublisher,
+            MediaAdminService mediaAdminService
     ) {
         this.contentRepository = contentRepository;
         this.tagRepository = tagRepository;
         this.mediaAssetRepository = mediaAssetRepository;
         this.knowledgeIndexService = knowledgeIndexService;
         this.domainEventPublisher = domainEventPublisher;
+        this.mediaAdminService = mediaAdminService;
     }
 
     /**
@@ -117,7 +121,9 @@ public class ContentAdminService {
             content.getCoverMedia();
         }
         return new PageResponse<>(
-                result.getContent().stream().map(AdminContentResponse::from).toList(),
+                result.getContent().stream()
+                        .map(c -> AdminContentResponse.from(c, mediaAdminService))
+                        .toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements()
@@ -175,7 +181,7 @@ public class ContentAdminService {
     @Transactional(readOnly = true)
     public AdminContentResponse detail(UUID id) {
         return contentRepository.findById(id)
-                .map(AdminContentResponse::from)
+                .map(c -> AdminContentResponse.from(c, mediaAdminService))
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
     }
 
@@ -321,7 +327,7 @@ public class ContentAdminService {
             }
         }
 
-        return AdminContentResponse.from(content);
+        return AdminContentResponse.from(content, mediaAdminService);
     }
 
     /**

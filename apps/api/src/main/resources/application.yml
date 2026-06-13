@@ -114,5 +114,5 @@ dromara:
         secret-key: ${MINIO_SECRET_KEY:blog_minio_password}
         end-point: ${MINIO_ENDPOINT:http://localhost:9000}
         bucket-name: ${MINIO_BUCKET:blog-media}
-        domain: ${MINIO_PUBLIC_ENDPOINT:http://localhost:9000}/${MINIO_BUCKET:blog-media}/
+        domain: ${MINIO_PUBLIC_ENDPOINT:http://localhost:9000}/
         base-path: uploads/
