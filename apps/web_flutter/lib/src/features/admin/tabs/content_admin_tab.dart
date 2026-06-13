@@ -31,7 +31,7 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
     super.dispose();
   }
 
-  /// 用当前筛选条件更新 provider 并触发 refetch
+  /// 用当前筛选条件更新查询状态并强制 refetch
   void _applyFilters() {
     ref.read(adminContentQueryProvider.notifier).update(AdminContentQuery(
       query: _searchController.text.trim(),
@@ -39,6 +39,7 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
       type: _typeFilter,
       includeDeleted: _includeDeleted,
     ));
+    ref.invalidate(adminContentsProvider);
   }
 
   void _clearFilters() {
@@ -49,6 +50,7 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
     ref.read(adminContentQueryProvider.notifier).update(
           const AdminContentQuery(),
         );
+    ref.invalidate(adminContentsProvider);
   }
 
   @override
