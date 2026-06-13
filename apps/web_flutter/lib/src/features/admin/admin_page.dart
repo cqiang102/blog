@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/models.dart';
 import '../../state/state.dart';
 import '../../widgets/widgets.dart';
 import 'tabs/ai_chat_admin_tab.dart';
@@ -144,7 +145,7 @@ class _AdminPageState extends ConsumerState<AdminPage>
   /// 使所有管理相关的 Provider 失效，触发重新加载
   void _refresh(WidgetRef ref) {
     ref.invalidate(adminDashboardProvider);
-    ref.invalidate(adminContentsProvider);
+    ref.invalidate(adminContentsProvider(const AdminContentQuery()));
 
     ref.invalidate(adminFriendsProvider);
     ref.invalidate(adminTagsProvider);

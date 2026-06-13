@@ -173,6 +173,40 @@ class ContentListQuery {
       Object.hash(query, tag, type, startDate, endDate, page, size);
 }
 
+/// 管理后台内容列表查询参数
+class AdminContentQuery {
+  const AdminContentQuery({
+    this.query = '',
+    this.status,
+    this.type,
+    this.includeDeleted = false,
+    this.page = 0,
+    this.size = 50,
+  });
+
+  final String query;
+  final ContentStatus? status;
+  final ContentType? type;
+  final bool includeDeleted;
+  final int page;
+  final int size;
+
+  @override
+  bool operator ==(Object other) {
+    return other is AdminContentQuery &&
+        other.query == query &&
+        other.status == status &&
+        other.type == type &&
+        other.includeDeleted == includeDeleted &&
+        other.page == page &&
+        other.size == size;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(query, status, type, includeDeleted, page, size);
+}
+
 /// 管理后台内容项模型
 @JsonSerializable()
 class AdminContentItem {
@@ -194,6 +228,7 @@ class AdminContentItem {
     required this.commentCount,
     required this.publishedAt,
     required this.tags,
+    this.deletedAt,
   });
 
   @SafeStringJsonConverter()
@@ -228,10 +263,15 @@ class AdminContentItem {
   final int commentCount;
   @SafeDateTimeJsonConverter()
   final DateTime publishedAt;
+  @SafeDateTimeJsonConverter()
+  final DateTime? deletedAt;
   final List<TagItem> tags;
 
   /// 是否已归档
   bool get archived => status == ContentStatus.archived;
+
+  /// 是否已被逻辑删除
+  bool get deleted => deletedAt != null;
 
   factory AdminContentItem.fromJson(Map<String, dynamic> json) =>
       _$AdminContentItemFromJson(json);
@@ -253,6 +293,7 @@ class AdminContentDraft {
     required this.tagSlugs,
     this.mediaUrls = const [],
     this.coverUrl,
+    this.publishedAt,
   });
 
   final String title;
@@ -265,6 +306,7 @@ class AdminContentDraft {
   final List<String> tagSlugs;
   final List<String> mediaUrls;
   final String? coverUrl;
+  final DateTime? publishedAt;
 
   /// 从 AdminContentItem 创建草稿
   factory AdminContentDraft.fromItem(AdminContentItem item) {
@@ -279,6 +321,7 @@ class AdminContentDraft {
       tagSlugs: item.tags.map((tag) => tag.slug).toList(),
       mediaUrls: item.mediaUrls,
       coverUrl: item.coverUrl,
+      publishedAt: item.publishedAt,
     );
   }
 
@@ -295,6 +338,7 @@ class AdminContentDraft {
       'tagSlugs': tagSlugs,
       'mediaUrls': mediaUrls,
       if (coverUrl != null) 'coverUrl': coverUrl,
+      if (publishedAt != null) 'publishedAt': publishedAt!.toUtc().toIso8601String(),
     };
   }
 }

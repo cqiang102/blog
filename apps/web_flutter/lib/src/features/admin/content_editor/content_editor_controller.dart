@@ -145,6 +145,15 @@ class ContentEditorController extends Notifier<ContentEditorState> {
     );
   }
 
+  /// 更新发布时间
+  void updatePublishedAt(DateTime? publishedAt) {
+    state = state.copyWith(
+      publishedAt: publishedAt,
+      clearPublishedAt: publishedAt == null,
+      hasUnsavedChanges: true,
+    );
+  }
+
   /// 更新摘要
   void updateSummary(String summary) {
     state = state.copyWith(

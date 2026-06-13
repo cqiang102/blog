@@ -25,10 +25,10 @@ AdminContentItem _$AdminContentItemFromJson(
   viewCount: const SafeIntJsonConverter().fromJson(json['viewCount']),
   commentCount: const SafeIntJsonConverter().fromJson(json['commentCount']),
   publishedAt: const SafeDateTimeJsonConverter().fromJson(json['publishedAt']),
-  tags:
-      (json['tags'] as List<dynamic>)
-          .map((e) => TagItem.fromJson(e as Map<String, dynamic>))
-          .toList(),
+  tags: (json['tags'] as List<dynamic>)
+      .map((e) => TagItem.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  deletedAt: const SafeDateTimeJsonConverter().fromJson(json['deletedAt']),
 );
 
 Map<String, dynamic> _$AdminContentItemToJson(
@@ -50,5 +50,14 @@ Map<String, dynamic> _$AdminContentItemToJson(
   'viewCount': const SafeIntJsonConverter().toJson(instance.viewCount),
   'commentCount': const SafeIntJsonConverter().toJson(instance.commentCount),
   'publishedAt': const SafeDateTimeJsonConverter().toJson(instance.publishedAt),
+  'deletedAt': _$JsonConverterToJson<Object?, DateTime>(
+    instance.deletedAt,
+    const SafeDateTimeJsonConverter().toJson,
+  ),
   'tags': instance.tags,
 };
+
+Json? _$JsonConverterToJson<Json, Value>(
+  Value? value,
+  Json? Function(Value value) toJson,
+) => value == null ? null : toJson(value);

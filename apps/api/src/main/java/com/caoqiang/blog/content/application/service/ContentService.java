@@ -220,9 +220,10 @@ public class ContentService {
     ) {
         return (root, criteriaQuery, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
-            // 基础条件：已发布且有发布时间
+            // 基础条件：已发布、有发布时间、未被逻辑删除
             predicates.add(criteriaBuilder.equal(root.get("status"), ContentStatus.PUBLISHED));
             predicates.add(criteriaBuilder.isNotNull(root.get("publishedAt")));
+            predicates.add(criteriaBuilder.isNull(root.get("deletedAt")));
 
             if (type != null) {
                 predicates.add(criteriaBuilder.equal(root.get("type"), type));

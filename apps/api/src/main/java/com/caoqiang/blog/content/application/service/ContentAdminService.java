@@ -34,6 +34,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -85,26 +86,72 @@ public class ContentAdminService {
     }
 
     /**
-     * 分页查询所有内容（管理端，不过滤状态），按创建时间倒序。
+     * 分页查询所有内容（管理端），支持搜索、状态/类型筛选和逻辑删除过滤。
      *
-     * @param page 页码，从 0 开始
-     * @param size 每页条数，上限 {@link #MAX_PAGE_SIZE}
+     * @param page           页码，从 0 开始
+     * @param size           每页条数，上限 {@link #MAX_PAGE_SIZE}
+     * @param includeDeleted 是否包含已逻辑删除的内容
+     * @param query          搜索关键词（模糊匹配标题、摘要）
+     * @param status         内容状态过滤（可为 null）
+     * @param type           内容类型过滤（可为 null）
      * @return 分页内容响应
      */
     @Transactional(readOnly = true)
-    public PageResponse<AdminContentResponse> list(int page, int size) {
+    public PageResponse<AdminContentResponse> list(
+            int page, int size, boolean includeDeleted,
+            String query, ContentStatus status, ContentType type
+    ) {
         PageRequest pageRequest = PageRequest.of(
                 Math.max(0, page),
                 Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
                 Sort.by(Sort.Direction.DESC, "createdAt")
         );
-        Page<Content> result = contentRepository.findAll(pageRequest);
+        Specification<Content> spec = adminContentSpec(includeDeleted, query, status, type);
+        Page<Content> result = contentRepository.findAll(spec, pageRequest);
         return new PageResponse<>(
                 result.getContent().stream().map(AdminContentResponse::from).toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements()
         );
+    }
+
+    /**
+     * 构建管理端内容列表的动态查询条件。
+     */
+    private Specification<Content> adminContentSpec(
+            boolean includeDeleted, String query,
+            ContentStatus status, ContentType type
+    ) {
+        return (root, criteriaQuery, criteriaBuilder) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+
+            // 逻辑删除过滤
+            if (!includeDeleted) {
+                predicates.add(criteriaBuilder.isNull(root.get("deletedAt")));
+            }
+
+            // 状态过滤
+            if (status != null) {
+                predicates.add(criteriaBuilder.equal(root.get("status"), status));
+            }
+
+            // 类型过滤
+            if (type != null) {
+                predicates.add(criteriaBuilder.equal(root.get("type"), type));
+            }
+
+            // 关键词搜索：匹配标题、摘要
+            if (StringUtils.hasText(query)) {
+                String keyword = "%" + query.trim().toLowerCase(Locale.ROOT) + "%";
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), keyword),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("summary")), keyword)
+                ));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        };
     }
 
     /**
@@ -291,6 +338,52 @@ public class ContentAdminService {
 
         // 发布领域事件
         domainEventPublisher.publishEvent(new ContentArchivedEvent(content.getId()));
+    }
+
+    /**
+     * 逻辑删除内容。
+     * <p>
+     * 设置 deletedAt 字段，并删除对应的向量索引和推荐缓存。
+     *
+     * @param id 内容 UUID
+     * @throws BusinessException 内容不存在时抛出 404
+     */
+    @Transactional
+    @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
+    public void softDelete(UUID id) {
+        Content content = contentRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
+        content.softDelete();
+
+        // 删除向量索引
+        try {
+            knowledgeIndexService.deleteContentIndex(content.getId());
+        } catch (Exception e) {
+            log.error("Failed to delete content index {}: {}", content.getId(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 恢复已逻辑删除的内容。
+     *
+     * @param id 内容 UUID
+     * @throws BusinessException 内容不存在时抛出 404
+     */
+    @Transactional
+    @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
+    public void restore(UUID id) {
+        Content content = contentRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
+        content.restore();
+
+        // 如果是已发布状态，重新索引
+        if (content.getStatus() == ContentStatus.PUBLISHED) {
+            try {
+                knowledgeIndexService.indexContent(content);
+            } catch (Exception e) {
+                log.error("Failed to reindex content {}: {}", content.getId(), e.getMessage(), e);
+            }
+        }
     }
 
     private List<MediaAsset> synchronizeMedia(

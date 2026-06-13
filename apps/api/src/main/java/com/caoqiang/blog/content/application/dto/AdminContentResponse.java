@@ -50,6 +50,8 @@ public record AdminContentResponse(
         long commentCount,
         /** 发布时间 */
         Instant publishedAt,
+        /** 逻辑删除时间，null 表示未删除 */
+        Instant deletedAt,
         /** 关联标签列表 */
         List<TagResponse> tags
 ) {
@@ -83,6 +85,7 @@ public record AdminContentResponse(
                 content.getViewCount(),
                 content.getCommentCount(),
                 content.getPublishedAt(),
+                content.getDeletedAt(),
                 content.getTags().stream().map(TagResponse::from).toList()
         );
     }

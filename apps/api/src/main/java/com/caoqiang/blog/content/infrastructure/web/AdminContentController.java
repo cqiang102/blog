@@ -59,18 +59,26 @@ public class AdminContentController {
     }
 
     /**
-     * 获取内容列表（分页）
+     * 获取内容列表（分页），支持搜索和筛选
      *
-     * @param page 页码，从 0 开始
-     * @param size 每页大小，默认 20
+     * @param page           页码，从 0 开始
+     * @param size           每页大小，默认 20
+     * @param includeDeleted 是否包含已逻辑删除的内容，默认 false
+     * @param query          搜索关键词（模糊匹配标题、摘要）
+     * @param status         内容状态过滤
+     * @param type           内容类型过滤
      * @return 内容列表分页响应
      */
     @GetMapping
     public ApiResponse<PageResponse<AdminContentResponse>> list(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "false") boolean includeDeleted,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) ContentStatus status,
+            @RequestParam(required = false) ContentType type
     ) {
-        return ApiResponse.ok(contentAdminService.list(page, size));
+        return ApiResponse.ok(contentAdminService.list(page, size, includeDeleted, query, status, type));
     }
 
     /**
@@ -111,16 +119,28 @@ public class AdminContentController {
     }
 
     /**
-     * 归档内容（软删除）
+     * 逻辑删除内容
      * <p>
-     * 将内容状态设置为已归档，不会物理删除数据。
+     * 设置 deletedAt 字段，实现逻辑删除。与归档操作分离。
      *
      * @param id 内容 ID
      * @return 操作结果
      */
     @DeleteMapping("/{id}")
-    public ApiResponse<OperationResult> archive(@PathVariable UUID id) {
-        contentAdminService.archive(id);
-        return ApiResponse.ok(OperationResult.archived(id));
+    public ApiResponse<OperationResult> softDelete(@PathVariable UUID id) {
+        contentAdminService.softDelete(id);
+        return ApiResponse.ok(OperationResult.deleted(id));
+    }
+
+    /**
+     * 恢复已逻辑删除的内容
+     *
+     * @param id 内容 ID
+     * @return 操作结果
+     */
+    @PutMapping("/{id}/restore")
+    public ApiResponse<OperationResult> restore(@PathVariable UUID id) {
+        contentAdminService.restore(id);
+        return ApiResponse.ok(OperationResult.restored(id));
     }
 }

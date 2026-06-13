@@ -46,6 +46,7 @@ class ContentEditorState {
     required this.tagSlugs,
     this.mediaUrls = const [],
     this.coverUrl,
+    this.publishedAt,
     this.isUploading = false,
     this.isSubmitting = false,
     this.hasUnsavedChanges = false,
@@ -62,6 +63,7 @@ class ContentEditorState {
   final List<String> tagSlugs;
   final List<String> mediaUrls;
   final String? coverUrl;
+  final DateTime? publishedAt;
   final bool isUploading;
   final bool isSubmitting;
   final bool hasUnsavedChanges;
@@ -92,6 +94,7 @@ class ContentEditorState {
       tagSlugs: content.tags.map((tag) => tag.slug).toList(),
       mediaUrls: content.mediaUrls,
       coverUrl: content.coverUrl,
+      publishedAt: content.publishedAt,
     );
   }
 
@@ -108,6 +111,9 @@ class ContentEditorState {
       tagSlugs: List<String>.from(json['tagSlugs'] ?? []),
       mediaUrls: List<String>.from(json['mediaUrls'] ?? []),
       coverUrl: json['coverUrl'] as String?,
+      publishedAt: json['publishedAt'] != null
+          ? DateTime.tryParse(json['publishedAt'] as String)
+          : null,
     );
   }
 
@@ -124,6 +130,7 @@ class ContentEditorState {
       'tagSlugs': tagSlugs,
       'mediaUrls': mediaUrls,
       if (coverUrl != null) 'coverUrl': coverUrl,
+      if (publishedAt != null) 'publishedAt': publishedAt!.toUtc().toIso8601String(),
     };
   }
 
@@ -140,6 +147,7 @@ class ContentEditorState {
       tagSlugs: [...tagSlugs]..sort(),
       mediaUrls: mediaUrls,
       coverUrl: coverUrl,
+      publishedAt: publishedAt,
     );
   }
 
@@ -163,6 +171,8 @@ class ContentEditorState {
     List<String>? mediaUrls,
     String? coverUrl,
     bool clearCoverUrl = false,
+    DateTime? publishedAt,
+    bool clearPublishedAt = false,
     bool? isUploading,
     bool? isSubmitting,
     bool? hasUnsavedChanges,
@@ -179,6 +189,7 @@ class ContentEditorState {
       tagSlugs: tagSlugs ?? this.tagSlugs,
       mediaUrls: mediaUrls ?? this.mediaUrls,
       coverUrl: clearCoverUrl ? null : (coverUrl ?? this.coverUrl),
+      publishedAt: clearPublishedAt ? null : (publishedAt ?? this.publishedAt),
       isUploading: isUploading ?? this.isUploading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
@@ -200,6 +211,7 @@ class ContentEditorState {
         listEquals(other.tagSlugs, tagSlugs) &&
         listEquals(other.mediaUrls, mediaUrls) &&
         other.coverUrl == coverUrl &&
+        other.publishedAt == publishedAt &&
         other.isUploading == isUploading &&
         other.isSubmitting == isSubmitting &&
         other.hasUnsavedChanges == hasUnsavedChanges &&
@@ -219,6 +231,7 @@ class ContentEditorState {
       Object.hashAll(tagSlugs),
       Object.hashAll(mediaUrls),
       coverUrl,
+      publishedAt,
       isUploading,
       isSubmitting,
       hasUnsavedChanges,

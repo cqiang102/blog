@@ -122,15 +122,19 @@ final adminKnowledgeDocsProvider = FutureProvider.family<
 });
 
 /// 管理后台内容列表 Provider
-final adminContentsProvider = FutureProvider<PageResult<AdminContentItem>>((
-  ref,
-) {
-  final token = ref.watch(authControllerProvider).accessToken;
-  if (token == null) {
-    throw const ApiException('请先登录');
-  }
-  return ref.watch(apiClientProvider).fetchAdminContents(accessToken: token);
-});
+final adminContentsProvider =
+    FutureProvider.family<PageResult<AdminContentItem>, AdminContentQuery>((
+      ref,
+      query,
+    ) {
+      final token = ref.watch(authControllerProvider).accessToken;
+      if (token == null) {
+        throw const ApiException('请先登录');
+      }
+      return ref
+          .watch(apiClientProvider)
+          .fetchAdminContents(accessToken: token, query: query);
+    });
 
 /// 管理后台媒体列表 Provider
 final adminMediaProvider = FutureProvider<PageResult<AdminMediaItem>>((ref) {

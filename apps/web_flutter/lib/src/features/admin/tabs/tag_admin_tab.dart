@@ -120,7 +120,7 @@ class AdminTagTab extends ConsumerWidget {
         await api.updateAdminTag(accessToken: token, id: tag.id, draft: draft);
       }
       ref.invalidate(adminTagsProvider);
-      ref.invalidate(adminContentsProvider);
+      ref.invalidate(adminContentsProvider(const AdminContentQuery()));
       if (!context.mounted) return;
       showAdminSnack(context, tag == null ? '标签已创建' : '标签已保存');
     } on ApiException catch (error) {
@@ -154,7 +154,7 @@ class AdminTagTab extends ConsumerWidget {
           .read(apiClientProvider)
           .deleteAdminTag(accessToken: token, id: tag.id);
       ref.invalidate(adminTagsProvider);
-      ref.invalidate(adminContentsProvider);
+      ref.invalidate(adminContentsProvider(const AdminContentQuery()));
       if (!context.mounted) return;
       showAdminSnack(context, '标签已删除');
     } on ApiException catch (error) {

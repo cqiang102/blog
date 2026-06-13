@@ -495,6 +495,11 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
             _getController().updateStatus(selected.first);
           },
         ),
+        // 发版时间选择器：仅当状态为 PUBLISHED 时显示
+        if (state.status == ContentStatus.published) ...[
+          const SizedBox(height: 12),
+          _buildPublishedAtPicker(context, state),
+        ],
         const SizedBox(height: 12),
         TextFormField(
           controller: _summaryController,
@@ -508,6 +513,87 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
         ),
       ],
     );
+  }
+
+  Widget _buildPublishedAtPicker(
+      BuildContext context, ContentEditorState state) {
+    final displayText = state.publishedAt != null
+        ? _formatDateTime(state.publishedAt!)
+        : '默认（发布时自动取当前时间）';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('发版时间', style: Theme.of(context).textTheme.labelSmall),
+        const SizedBox(height: 2),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _pickPublishedAt(context, state),
+                icon: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedCalendar01,
+                  size: 18,
+                ),
+                label: Text(displayText),
+                style: OutlinedButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+            ),
+            if (state.publishedAt != null) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: '清除（使用默认时间）',
+                onPressed: () =>
+                    _getController().updatePublishedAt(null),
+                icon: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedCancel01,
+                  size: 18,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickPublishedAt(
+      BuildContext context, ContentEditorState state) async {
+    final initialDate = state.publishedAt ?? DateTime.now();
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initialDate),
+    );
+    if (time == null || !mounted) return;
+
+    final dateTime = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    _getController().updatePublishedAt(dateTime);
+  }
+
+  String _formatDateTime(DateTime dt) {
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   Widget _buildContentSection(
@@ -949,7 +1035,7 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
       }
 
       await controller.onSubmitSuccess();
-      ref.invalidate(adminContentsProvider);
+      ref.invalidate(adminContentsProvider(const AdminContentQuery()));
       ref.invalidate(adminDashboardProvider);
       ref.invalidate(recommendationsProvider);
 

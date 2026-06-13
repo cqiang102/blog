@@ -98,6 +98,10 @@ public class Content extends AggregateRoot {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** 逻辑删除时间，null 表示未删除 */
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     /** 最后更新时间 */
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
@@ -214,6 +218,27 @@ public class Content extends AggregateRoot {
     }
 
     /**
+     * 逻辑删除：设置 deletedAt 为当前时间。
+     */
+    public void softDelete() {
+        this.deletedAt = Instant.now();
+    }
+
+    /**
+     * 恢复已删除内容：清除 deletedAt。
+     */
+    public void restore() {
+        this.deletedAt = null;
+    }
+
+    /**
+     * 判断内容是否已被逻辑删除。
+     */
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
+    /**
      * 设置封面媒体资源。
      *
      * @param coverMedia 封面媒体实体（可为 null 清除封面）
@@ -268,6 +293,10 @@ public class Content extends AggregateRoot {
 
     public Instant getPublishedAt() {
         return publishedAt;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
     }
 
     public Set<Tag> getTags() {

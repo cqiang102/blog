@@ -61,6 +61,16 @@ public record OperationResult(
     }
 
     /**
+     * 创建成功的恢复操作结果。
+     *
+     * @param id 被恢复资源的 ID
+     * @return 操作结果
+     */
+    public static OperationResult restored(UUID id) {
+        return new OperationResult(true, "恢复成功", id, id.toString());
+    }
+
+    /**
      * 创建带自定义消息的成功操作结果。
      *
      * @param message 自定义消息

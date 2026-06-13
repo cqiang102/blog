@@ -65,6 +65,15 @@ public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpec
     Optional<Content> findByIdAndStatus(UUID id, ContentStatus status);
 
     /**
+     * 根据 ID 查询未删除的内容，预加载 tags 和 coverMedia。
+     *
+     * @param id 内容 UUID
+     * @return 内容实体（若存在且未被逻辑删除）
+     */
+    @EntityGraph(attributePaths = {"tags", "coverMedia"})
+    Optional<Content> findByIdAndDeletedAtIsNull(UUID id);
+
+    /**
      * 根据 ID 查询内容，预加载 tags 和 coverMedia。
      */
     @Override
