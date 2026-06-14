@@ -41,7 +41,11 @@ class RateLimitFilterTest {
 
     @Test
     void allowsRequestsWithinLimit() throws ServletException, IOException {
-        when(redisTemplate.execute(any(DefaultRedisScript.class), anyList(), anyString())).thenReturn(1L);
+        when(redisTemplate.execute(
+                org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                anyList(),
+                anyString()
+        )).thenReturn(1L);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("GET");
@@ -57,7 +61,11 @@ class RateLimitFilterTest {
 
     @Test
     void blocksRequestsOverLimit() throws ServletException, IOException {
-        when(redisTemplate.execute(any(DefaultRedisScript.class), anyList(), anyString())).thenReturn(61L);
+        when(redisTemplate.execute(
+                org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                anyList(),
+                anyString()
+        )).thenReturn(61L);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("GET");
@@ -99,7 +107,11 @@ class RateLimitFilterTest {
 
     @Test
     void usesStricterLimitForLoginEndpoint() throws ServletException, IOException {
-        when(redisTemplate.execute(any(DefaultRedisScript.class), anyList(), anyString())).thenReturn(1L);
+        when(redisTemplate.execute(
+                org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                anyList(),
+                anyString()
+        )).thenReturn(1L);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
@@ -114,7 +126,11 @@ class RateLimitFilterTest {
 
     @Test
     void usesStricterLimitForRegisterEndpoint() throws ServletException, IOException {
-        when(redisTemplate.execute(any(DefaultRedisScript.class), anyList(), anyString())).thenReturn(1L);
+        when(redisTemplate.execute(
+                org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                anyList(),
+                anyString()
+        )).thenReturn(1L);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
@@ -125,5 +141,25 @@ class RateLimitFilterTest {
 
         verify(filterChain).doFilter(request, response);
         assertEquals("3", response.getHeader("X-RateLimit-Limit"));
+    }
+
+    @Test
+    void allowsRequestWhenRedisIsUnavailable() throws ServletException, IOException {
+        when(redisTemplate.execute(
+                org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                anyList(),
+                anyString()
+        ))
+                .thenThrow(new IllegalStateException("redis unavailable"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setRequestURI("/api/v1/contents");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        rateLimitFilter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain).doFilter(request, response);
+        assertEquals("unavailable", response.getHeader("X-RateLimit-Policy"));
     }
 }

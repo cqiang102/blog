@@ -79,15 +79,15 @@ class AuthController extends ChangeNotifier {
               _user = await _apiClient.me(newToken);
               await _saveUser(preferences);
               notifyListeners();
-            } catch (_) {
-              await logout();
+            } on ApiException catch (retryError) {
+              if (retryError.statusCode == 401) {
+                await logout();
+              }
             }
           }
-        } else {
-          await logout();
         }
       } catch (_) {
-        await logout();
+        // 网络或服务短暂不可用时保留本地会话，避免误登出。
       }
     }
   }
@@ -216,35 +216,6 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 使用已有令牌登录（用于 Spring Security OAuth 重定向等场景）
-  Future<void> loginWithTokens({
-    required String accessToken,
-    required String refreshToken,
-    int? expiresAtMs,
-  }) async {
-    _accessToken = accessToken;
-    if (expiresAtMs != null) {
-      _expiresAt = DateTime.fromMillisecondsSinceEpoch(expiresAtMs, isUtc: true);
-    }
-
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_accessTokenKey, accessToken);
-    await preferences.setString(_refreshTokenKey, refreshToken);
-    if (expiresAtMs != null) {
-      await preferences.setInt(_expiresAtKey, expiresAtMs);
-    }
-    notifyListeners();
-
-    // 尝试获取用户信息
-    try {
-      _user = await _apiClient.me(accessToken);
-      await _saveUser(preferences);
-      notifyListeners();
-    } catch (_) {
-      // 忽略，后续请求会刷新
-    }
-  }
-
   /// 执行认证请求（登录/注册）
   Future<void> _authenticate(Future<AuthSession> Function() request) async {
     _setBusy(true);
@@ -317,8 +288,14 @@ class AuthController extends ChangeNotifier {
 
       _refreshCompleter!.complete(session.accessToken);
       return session.accessToken;
+    } on ApiException catch (error) {
+      if (error.statusCode == 400 || error.statusCode == 401) {
+        await logout();
+      }
+      _refreshCompleter!.complete(null);
+      return null;
     } catch (_) {
-      await logout();
+      // 临时网络故障不应销毁仍可恢复的本地会话。
       _refreshCompleter!.complete(null);
       return null;
     } finally {

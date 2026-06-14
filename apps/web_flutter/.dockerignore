@@ -1,0 +1,10 @@
+.dart_tool
+.fvm
+.git
+.idea
+.vscode
+build
+coverage
+test
+*.iml
+*.log

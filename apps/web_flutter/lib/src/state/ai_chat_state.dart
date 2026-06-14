@@ -75,7 +75,8 @@ class AiChatState {
       remainingQuestions: remainingQuestions ?? this.remainingQuestions,
       remainingMessages: remainingMessages ?? this.remainingMessages,
       isSending: isSending ?? this.isSending,
-      isSessionLimitReached: isSessionLimitReached ?? this.isSessionLimitReached,
+      isSessionLimitReached:
+          isSessionLimitReached ?? this.isSessionLimitReached,
       error: clearError ? null : (error ?? this.error),
     );
   }
@@ -89,7 +90,11 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   /// 添加用户消息并开始发送
   void addUserMessage(String text) {
     state = state.copyWith(
-      messages: [...state.messages, ChatMessage.user(text), ChatMessage.aiPlaceholder()],
+      messages: [
+        ...state.messages,
+        ChatMessage.user(text),
+        ChatMessage.aiPlaceholder(),
+      ],
       isSending: true,
       clearError: true,
     );
@@ -122,10 +127,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
 
   /// 设置错误状态
   void setError(String error) {
-    state = state.copyWith(
-      error: error,
-      isSending: false,
-    );
+    state = state.copyWith(error: error, isSending: false);
   }
 
   /// 设置会话限制已达到
@@ -136,10 +138,23 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   /// 移除空的 AI 占位符消息
   void removeAiPlaceholder() {
     final messages = List<ChatMessage>.from(state.messages);
-    if (messages.isNotEmpty && !messages.last.isMine && messages.last.text.isEmpty) {
+    if (messages.isNotEmpty &&
+        !messages.last.isMine &&
+        messages.last.text.isEmpty) {
       messages.removeLast();
       state = state.copyWith(messages: messages);
     }
+  }
+
+  void cancelSending() {
+    if (!state.isSending) return;
+    final messages = List<ChatMessage>.from(state.messages);
+    if (messages.isNotEmpty &&
+        !messages.last.isMine &&
+        messages.last.text.isEmpty) {
+      messages.removeLast();
+    }
+    state = state.copyWith(messages: messages, isSending: false);
   }
 
   /// 清除错误状态
@@ -157,6 +172,8 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     state = state.copyWith(
       messages: messages,
       sessionId: sessionId,
+      isSending: false,
+      clearError: true,
     );
   }
 }

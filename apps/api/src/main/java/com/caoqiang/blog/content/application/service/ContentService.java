@@ -77,11 +77,11 @@ public class ContentService {
     @Cacheable(value = CacheNames.RECOMMENDATIONS, key = "'all'")
     public RecommendationResponse recommendations() {
         return new RecommendationResponse(
-                contentRepository.findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullOrderByPublishedAtDesc(ContentStatus.PUBLISHED)
+                contentRepository.findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(ContentStatus.PUBLISHED)
                         .stream().map(this::toSummary).toList(),
-                contentRepository.findTop10ByStatusAndPublishedAtIsNotNullOrderByPublishedAtDesc(ContentStatus.PUBLISHED)
+                contentRepository.findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(ContentStatus.PUBLISHED)
                         .stream().map(this::toSummary).toList(),
-                contentRepository.findTop10ByStatusAndPublishedAtIsNotNullOrderByLikeCountDescPublishedAtDesc(ContentStatus.PUBLISHED)
+                contentRepository.findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(ContentStatus.PUBLISHED)
                         .stream().map(this::toSummary).toList()
         );
     }
@@ -142,9 +142,9 @@ public class ContentService {
     public ContentDetailResponse detail(UUID id, AuthenticatedUser currentUser) {
         boolean isAdmin = currentUser != null && currentUser.role() == Role.ADMIN;
         Content content = isAdmin
-                ? contentRepository.findById(id)
+                ? contentRepository.findByIdAndDeletedAtIsNull(id)
                         .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"))
-                : contentRepository.findByIdAndStatus(id, ContentStatus.PUBLISHED)
+                : contentRepository.findByIdAndStatusAndDeletedAtIsNull(id, ContentStatus.PUBLISHED)
                         .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
         // 查询当前用户是否已点赞该内容
         boolean liked = currentUser != null && likeRepository.existsByContentIdAndUserId(id, currentUser.id());
@@ -182,7 +182,7 @@ public class ContentService {
                         content.getBodyMarkdown(),
                         content.getMediaAssets()
                 ),
-                presignedCoverUrl(content),
+                coverUrl,
                 tagNames(content),
                 mediaAssets,
                 liked,

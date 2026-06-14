@@ -36,13 +36,17 @@ mixin AiApi on ApiClientBase {
     required String message,
     String? sessionId,
   }) {
-    final controller = StreamController<SseEvent>();
+    final cancellationToken = SseCancellationToken();
+    final controller = StreamController<SseEvent>(
+      onCancel: cancellationToken.cancel,
+    );
 
     _postSseWithRetry(
       accessToken: accessToken,
       message: message,
       sessionId: sessionId,
       controller: controller,
+      cancellationToken: cancellationToken,
     );
 
     return controller.stream;
@@ -53,6 +57,7 @@ mixin AiApi on ApiClientBase {
     required String message,
     required String? sessionId,
     required StreamController<SseEvent> controller,
+    required SseCancellationToken cancellationToken,
   }) async {
     try {
       await postSse(
@@ -63,14 +68,23 @@ mixin AiApi on ApiClientBase {
         onEvent: (event) {
           if (!controller.isClosed) controller.add(event);
         },
+        cancellationToken: cancellationToken,
       );
       if (!controller.isClosed) controller.close();
-    } on Exception catch (e) {
-      if (e.toString().contains('401') && onUnauthorized != null) {
+    } catch (e, stackTrace) {
+      if (cancellationToken.isCancelled) {
+        if (!controller.isClosed) await controller.close();
+        return;
+      }
+      if (e is SseRequestException &&
+          e.statusCode == 401 &&
+          onUnauthorized != null) {
         // 等待一小段时间，让可能正在进行的刷新完成
         await Future<void>.delayed(const Duration(milliseconds: 200));
         final newToken = await onUnauthorized!();
-        if (newToken != null && !controller.isClosed) {
+        if (newToken != null &&
+            !controller.isClosed &&
+            !cancellationToken.isCancelled) {
           try {
             await postSse(
               dio: dio,
@@ -80,17 +94,22 @@ mixin AiApi on ApiClientBase {
               onEvent: (event) {
                 if (!controller.isClosed) controller.add(event);
               },
+              cancellationToken: cancellationToken,
             );
             if (!controller.isClosed) controller.close();
-          } on Exception catch (retryError) {
-            if (!controller.isClosed) controller.addError(retryError);
-            controller.close();
+          } catch (retryError, retryStackTrace) {
+            if (!controller.isClosed) {
+              controller.addError(retryError, retryStackTrace);
+              await controller.close();
+            }
           }
           return;
         }
       }
-      if (!controller.isClosed) controller.addError(e);
-      controller.close();
+      if (!controller.isClosed) {
+        controller.addError(e, stackTrace);
+        await controller.close();
+      }
     }
   }
 

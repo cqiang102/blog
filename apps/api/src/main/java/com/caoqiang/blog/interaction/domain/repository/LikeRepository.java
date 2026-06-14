@@ -1,9 +1,6 @@
 package com.caoqiang.blog.interaction.domain.repository;
 
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
 import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -12,6 +9,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.domain.Specification;
 
 /**
@@ -65,6 +65,31 @@ public interface LikeRepository extends JpaRepository<Like, UUID>, JpaSpecificat
      * @return 如果已点赞返回 true
      */
     boolean existsByContentIdAndUserId(UUID contentId, UUID userId);
+
+    /**
+     * 原子创建点赞记录。并发请求命中唯一约束时返回 0，而不是抛出冲突异常。
+     */
+    @Modifying
+    @Query(value = """
+            insert into likes (id, content_id, user_id, created_at)
+            values (:id, :contentId, :userId, now())
+            on conflict do nothing
+            """, nativeQuery = true)
+    int insertIfAbsent(
+            @Param("id") UUID id,
+            @Param("contentId") UUID contentId,
+            @Param("userId") UUID userId
+    );
+
+    /**
+     * 原子删除点赞记录，返回实际删除行数。
+     */
+    @Modifying
+    @Query("delete from Like l where l.content.id = :contentId and l.user.id = :userId")
+    int deleteByContentIdAndUserId(
+            @Param("contentId") UUID contentId,
+            @Param("userId") UUID userId
+    );
 
     /**
      * 根据内容 ID 和用户 ID 查询点赞记录

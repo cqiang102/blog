@@ -4,7 +4,9 @@ import com.caoqiang.blog.auth.domain.model.RefreshToken;
 
 import java.util.Optional;
 import java.util.UUID;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 
 /**
  * 刷新令牌仓库接口
@@ -34,5 +36,6 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
      * @param tokenHash 令牌的 SHA-256 哈希值
      * @return 包含 RefreshToken 的 Optional，如果不存在或已撤销则为空
      */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<RefreshToken> findByTokenHashAndRevokedAtIsNull(String tokenHash);
 }

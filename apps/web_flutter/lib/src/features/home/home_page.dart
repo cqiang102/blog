@@ -37,12 +37,12 @@ class _HomePageState extends ConsumerState<HomePage>
     return AppPageFrame(
       child: CustomScrollView(
         slivers: [
-          SliverAppBar(
+          const SliverAppBar(
             toolbarHeight: 72,
-            title: const Text('首页'),
+            title: Text('首页'),
             actions: [
-              const AppThemeToggle(),
-              const SizedBox(width: AppSpacing.sm),
+              AppThemeToggle(),
+              SizedBox(width: AppSpacing.sm),
             ],
           ),
           ...recommendations.when(

@@ -4,6 +4,7 @@ import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeChunk;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -36,11 +37,13 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
             SELECT kc.id, kc.doc_id, kc.content_id, kc.chunk_index, kc.content, kc.metadata,
                    1 - (kc.embedding <=> :queryEmbedding::vector) AS score
             FROM knowledge_chunks kc
-            LEFT JOIN knowledge_docs kd ON kc.doc_id = kd.id
-            LEFT JOIN contents c ON kc.content_id = c.id
-            WHERE (kd.id IS NULL OR kd.enabled = true)
-              AND (c.id IS NULL OR c.status = 'PUBLISHED')
-              AND kc.embedding IS NOT NULL
+            WHERE kc.embedding IS NOT NULL
+              AND (
+                    (kc.doc_id IS NOT NULL AND EXISTS (
+                        SELECT 1 FROM knowledge_docs kd WHERE kd.id = kc.doc_id AND kd.enabled = true))
+                 OR (kc.content_id IS NOT NULL AND EXISTS (
+                        SELECT 1 FROM contents c WHERE c.id = kc.content_id AND c.status = 'PUBLISHED' AND c.deleted_at IS NULL))
+              )
             ORDER BY kc.embedding <=> :queryEmbedding::vector
             LIMIT :limit
             """, nativeQuery = true)
@@ -59,15 +62,25 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
 
     /**
      * 删除指定文档的所有分块。
+     * <p>
+     * 使用 {@code @Modifying @Query} 直接执行 DELETE SQL，
+     * 避免派生删除（derived delete）延迟 flush 导致的唯一约束冲突。
      *
      * @param docId 文档 ID
      */
-    void deleteByDocId(UUID docId);
+    @Modifying(flushAutomatically = true)
+    @Query("DELETE FROM KnowledgeChunk k WHERE k.doc.id = :docId")
+    void deleteByDocId(@Param("docId") UUID docId);
 
     /**
      * 删除指定博客内容的所有分块。
+     * <p>
+     * 使用 {@code @Modifying @Query} 直接执行 DELETE SQL，
+     * 避免派生删除（derived delete）延迟 flush 导致的唯一约束冲突。
      *
      * @param contentId 博客内容 ID
      */
-    void deleteByContentId(UUID contentId);
+    @Modifying(flushAutomatically = true)
+    @Query("DELETE FROM KnowledgeChunk k WHERE k.contentId = :contentId")
+    void deleteByContentId(@Param("contentId") UUID contentId);
 }

@@ -39,30 +39,30 @@ public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpec
      * 预加载 tags 和 coverMedia 以避免 N+1 查询。
      */
     @EntityGraph(attributePaths = {"tags", "coverMedia"})
-    List<Content> findTop10ByStatusAndPublishedAtIsNotNullOrderByPublishedAtDesc(ContentStatus status);
+    List<Content> findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(ContentStatus status);
 
     /**
      * 查询最热门的 10 条内容，按点赞数降序、发布时间降序排列（用于"最热"分组）。
      */
     @EntityGraph(attributePaths = {"tags", "coverMedia"})
-    List<Content> findTop10ByStatusAndPublishedAtIsNotNullOrderByLikeCountDescPublishedAtDesc(ContentStatus status);
+    List<Content> findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(ContentStatus status);
 
     /**
      * 查询置顶的 10 条内容，按发布时间降序排列（用于"置顶"分组）。
      */
     @EntityGraph(attributePaths = {"tags", "coverMedia"})
-    List<Content> findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullOrderByPublishedAtDesc(ContentStatus status);
+    List<Content> findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(ContentStatus status);
 
     /**
-     * 根据 ID 和状态查询内容详情，预加载 tags 和 coverMedia。
+     * 根据 ID、状态和未删除条件查询内容详情，预加载 tags 和 coverMedia。
      * mediaAssets 保持懒加载，由详情服务在事务内单独查询，避免多集合联表时重复。
      *
      * @param id     内容 UUID
      * @param status 内容状态
-     * @return 内容实体（若存在且状态匹配）
+     * @return 内容实体（若存在、状态匹配且未被逻辑删除）
      */
     @EntityGraph(attributePaths = {"tags", "coverMedia"})
-    Optional<Content> findByIdAndStatus(UUID id, ContentStatus status);
+    Optional<Content> findByIdAndStatusAndDeletedAtIsNull(UUID id, ContentStatus status);
 
     /**
      * 根据 ID 查询未删除的内容，预加载 tags 和 coverMedia。

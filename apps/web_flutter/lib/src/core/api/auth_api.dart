@@ -34,6 +34,12 @@ mixin AuthApi on ApiClientBase {
     return AuthSession.fromJson((data as Map).cast<String, dynamic>());
   }
 
+  /// 使用 Spring OAuth 回调生成的一次性代码兑换会话。
+  Future<AuthSession> exchangeOAuthLoginCode(String code) async {
+    final data = await post('/auth/oauth/exchange', body: {'code': code});
+    return AuthSession.fromJson((data as Map).cast<String, dynamic>());
+  }
+
   /// 用户登录
   Future<AuthSession> login({
     required String email,

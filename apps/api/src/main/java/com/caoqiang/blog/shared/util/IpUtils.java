@@ -17,20 +17,20 @@ public final class IpUtils {
     /**
      * 获取客户端真实 IP 地址。
      * <p>
-     * 优先从 {@code X-Forwarded-For} 头部取第一个 IP（经过多级代理时），
-     * 其次取 {@code X-Real-IP}，最后回退到 {@code getRemoteAddr()}。
+     * 优先使用反向代理规范化后的 {@code X-Real-IP}，
+     * 其次从 {@code X-Forwarded-For} 取第一个 IP，最后回退到连接地址。
      *
      * @param request HTTP 请求
      * @return 客户端 IP 地址
      */
     public static String getClientIp(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isEmpty()) {
-            return xff.split(",")[0].trim();
-        }
         String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.isEmpty()) {
-            return realIp;
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return xff.split(",")[0].trim();
         }
         return request.getRemoteAddr();
     }

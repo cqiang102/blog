@@ -2,8 +2,12 @@ import 'package:dio/dio.dart';
 
 import 'sse_client_stub.dart'
     if (dart.library.html) 'sse_client_web.dart'
-    if (dart.library.io) 'sse_client_io.dart' as impl;
+    if (dart.library.io) 'sse_client_io.dart'
+    as impl;
 import 'sse_event.dart';
+import 'sse_request.dart';
+
+export 'sse_request.dart';
 
 /// 按平台选择 SSE POST 实现
 ///
@@ -15,6 +19,7 @@ Future<List<SseEvent>> postSse({
   required Map<String, dynamic> body,
   required String accessToken,
   required void Function(SseEvent event) onEvent,
+  SseCancellationToken? cancellationToken,
 }) {
   return impl.postSse(
     dio: dio,
@@ -22,5 +27,6 @@ Future<List<SseEvent>> postSse({
     body: body,
     accessToken: accessToken,
     onEvent: onEvent,
+    cancellationToken: cancellationToken,
   );
 }

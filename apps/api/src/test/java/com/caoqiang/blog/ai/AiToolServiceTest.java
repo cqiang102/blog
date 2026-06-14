@@ -20,6 +20,7 @@ import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
 import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
+import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
 import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
 import java.time.Instant;
@@ -40,13 +41,20 @@ class AiToolServiceTest {
     @Mock
     private InteractionCommandService interactionCommandService;
 
+    @Mock
+    private InteractionQueryService interactionQueryService;
+
     private AiToolService aiToolService;
 
     private AuthenticatedUser currentUser;
 
     @BeforeEach
     void setUp() {
-        aiToolService = new AiToolService(contentService, interactionCommandService);
+        aiToolService = new AiToolService(
+                contentService,
+                interactionCommandService,
+                interactionQueryService
+        );
         currentUser = new AuthenticatedUser(UUID.randomUUID(), "test@example.com", "测试用户", Role.USER);
     }
 
@@ -54,7 +62,7 @@ class AiToolServiceTest {
     void searchContentSuccessfully() {
         ContentSummaryResponse summary = new ContentSummaryResponse(
                 UUID.randomUUID(), "测试标题", "test-slug", ContentType.ARTICLE,
-                "测试摘要", "", false, 10, Instant.now(), List.of("tag1")
+                ContentStatus.PUBLISHED, "测试摘要", "", false, 10, Instant.now(), List.of("tag1")
         );
         PageResponse<ContentSummaryResponse> page = new PageResponse<>(List.of(summary), 0, 10, 1);
 

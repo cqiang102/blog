@@ -75,6 +75,7 @@ public class MediaAdminService {
     private final FileStorageService fileStorageService;
     private final Clock clock;
     private final String minioEndpoint;
+    private final String minioPublicEndpoint;
     private final String bucketName;
     private final String basePath;
 
@@ -84,6 +85,7 @@ public class MediaAdminService {
             FileStorageService fileStorageService,
             Clock clock,
             @Value("${dromara.x-file-storage.minio[0].end-point:http://localhost:9000}") String minioEndpoint,
+            @Value("${MINIO_PUBLIC_ENDPOINT:}") String minioPublicEndpoint,
             @Value("${dromara.x-file-storage.minio[0].bucket-name:blog-media}") String bucketName,
             @Value("${dromara.x-file-storage.minio[0].base-path:uploads/}") String basePath
     ) {
@@ -92,6 +94,7 @@ public class MediaAdminService {
         this.fileStorageService = fileStorageService;
         this.clock = clock;
         this.minioEndpoint = minioEndpoint;
+        this.minioPublicEndpoint = minioPublicEndpoint;
         this.bucketName = bucketName;
         this.basePath = basePath;
     }
@@ -309,7 +312,29 @@ public class MediaAdminService {
             log.warn("generatePresignedUrl returned null, platform={}, path={}, filename={}",
                     fileInfo.getPlatform(), fileInfo.getPath(), fileInfo.getFilename());
         }
-        return url != null ? url : fallbackUrl;
+        return url != null ? publicPresignedUrl(url) : fallbackUrl;
+    }
+
+    private String publicPresignedUrl(String signedUrl) {
+        if (!StringUtils.hasText(minioPublicEndpoint)) {
+            return signedUrl;
+        }
+        try {
+            java.net.URI signedUri = java.net.URI.create(signedUrl);
+            java.net.URI endpointUri = java.net.URI.create(minioEndpoint);
+            if (!equalsIgnoreCase(signedUri.getHost(), endpointUri.getHost())
+                    || effectivePort(signedUri) != effectivePort(endpointUri)) {
+                return signedUrl;
+            }
+
+            String publicBase = minioPublicEndpoint.replaceAll("/+$", "");
+            String path = signedUri.getRawPath();
+            String query = signedUri.getRawQuery();
+            return publicBase + path + (query == null ? "" : "?" + query);
+        } catch (Exception exception) {
+            log.warn("Unable to rewrite MinIO presigned URL to public endpoint", exception);
+            return signedUrl;
+        }
     }
 
     /**
@@ -322,6 +347,13 @@ public class MediaAdminService {
 
     private static boolean equalsIgnoreCase(String a, String b) {
         return a != null && b != null && a.equalsIgnoreCase(b);
+    }
+
+    private static int effectivePort(java.net.URI uri) {
+        if (uri.getPort() > 0) {
+            return uri.getPort();
+        }
+        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
     }
 
     /**

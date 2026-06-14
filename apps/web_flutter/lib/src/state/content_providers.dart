@@ -20,7 +20,7 @@ final tagsProvider = FutureProvider<List<TagItem>>((ref) {
 
 /// 内容列表 Provider（支持查询参数）
 final contentListProvider =
-    FutureProvider.family<PageResult<BlogContent>, ContentListQuery>((
+    FutureProvider.autoDispose.family<PageResult<BlogContent>, ContentListQuery>((
       ref,
       query,
     ) {
@@ -28,17 +28,19 @@ final contentListProvider =
     });
 
 /// 内容详情 Provider
-/// 使用 ref.read 获取 token，避免 auth 状态变化导致连锁刷新
-final contentDetailProvider = FutureProvider.family<BlogContent, String>((
+final contentDetailProvider = FutureProvider.autoDispose.family<BlogContent, String>((
   ref,
   id,
 ) {
-  final token = ref.read(authControllerProvider).accessToken;
+  final token = ref.watch(
+    authControllerProvider.select((auth) => auth.accessToken),
+  );
   return ref.watch(apiClientProvider).fetchContent(id, accessToken: token);
 });
 
 /// 评论列表 Provider
-final commentsProvider = FutureProvider.family<PageResult<CommentItem>, String>(
+final commentsProvider =
+    FutureProvider.autoDispose.family<PageResult<CommentItem>, String>(
   (ref, contentId) {
     return ref.watch(apiClientProvider).fetchComments(contentId);
   },
@@ -57,7 +59,7 @@ final contentFilterProvider =
 
 /// 内容分页状态 Provider
 /// 根据筛选条件动态创建分页状态
-final contentPaginationProvider = StateNotifierProvider.family<
+final contentPaginationProvider = StateNotifierProvider.autoDispose.family<
     PaginationNotifier<BlogContent>,
     PaginationState<BlogContent>,
     ContentListQuery>((ref, query) {

@@ -26,8 +26,13 @@ cp .env.example .env
 | `MINIO_SECRET_KEY` | MinIO 密钥 | ✅ |
 | `OPENAI_API_KEY` | OpenAI API Key | ✅ |
 | `OPENAI_BASE_URL` | OpenAI API 地址 | ✅ |
+| `FRONTEND_BASE_URL` | 前端公开访问地址 | ✅ |
 | `GITHUB_CLIENT_ID` | GitHub OAuth Client ID | ✅ |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth Client Secret | ✅ |
+| `MAIL_HOST` | SMTP 服务器地址 | ✅ |
+| `MAIL_PORT` | SMTP 服务器端口 | ✅ |
+| `MAIL_USERNAME` | SMTP 登录账号/发件邮箱 | ✅ |
+| `MAIL_PASSWORD` | SMTP 密码或授权码 | ✅ |
 | `JWT_SECRET` | JWT 密钥（至少32字符） | ✅ |
 | `ADMIN_EMAIL` | 管理员邮箱 | ✅ |
 | `ADMIN_PASSWORD` | 管理员密码 | ✅ |
@@ -50,9 +55,10 @@ docker compose -f docker-compose.prod.yml logs -f
 
 ### 4. 访问应用
 
-- 前端：`http://localhost:80` 或您的域名
-- API：`http://localhost:8080`
-- MinIO 控制台：`http://localhost:9001`
+- 前端容器：仅宿主机可访问 `http://127.0.0.1:8080`
+- 对外访问：通过下方宿主机 Nginx 配置使用您的域名
+- API：通过前端同源地址的 `/api/` 访问
+- MinIO：仅在 Compose 内网开放，通过 `/minio/` 提供媒体文件
 
 ## SSL/HTTPS 配置
 
@@ -82,20 +88,13 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
 
     location / {
-        proxy_pass http://localhost:80;
+        proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location /api/ {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
 }
 ```
 
@@ -113,7 +112,7 @@ sudo certbot --nginx -d yourdomain.com
 3. 填写信息：
    - Application name: 您的博客名称
    - Homepage URL: `https://yourdomain.com`
-   - Authorization callback URL: `https://yourdomain.com/oauth2/authorization/github`
+   - Authorization callback URL: `https://yourdomain.com/login/oauth2/code/github`
 4. 获取 Client ID 和 Client Secret
 5. 填入 `.env` 文件
 
@@ -148,11 +147,12 @@ mc mirror local/blog-media ./backup/minio/
 
 ```bash
 # API 健康检查
-curl http://localhost:8080/actuator/health
+docker compose -f docker-compose.prod.yml exec api \
+  curl --fail http://localhost:8080/actuator/health/readiness
 
 # 详细信息
-curl http://localhost:8080/actuator/info
-curl http://localhost:8080/actuator/metrics
+docker compose -f docker-compose.prod.yml exec api \
+  curl --fail http://localhost:8080/actuator/info
 ```
 
 ### 日志查看
@@ -195,7 +195,8 @@ docker compose -f docker-compose.prod.yml exec postgres psql -U blog blog
 
 ```bash
 # 检查 MinIO 状态
-curl http://localhost:9000/minio/health/live
+docker compose -f docker-compose.prod.yml exec minio \
+  curl --fail http://localhost:9000/minio/health/live
 ```
 
 ## 回滚流程

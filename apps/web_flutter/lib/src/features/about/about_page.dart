@@ -1,6 +1,7 @@
 // AI 聊天页模块
 // 支持 SSE 流式响应、会话管理、配额显示和 40 条消息限制
 // 使用 Riverpod 管理状态，替代 setState
+import 'dart:async';
 import 'dart:convert';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api_client.dart';
+import '../../core/sse/sse_event.dart';
 import '../../state/state.dart';
 import '../../widgets/widgets.dart';
 import '../../auth/auth_controller.dart';
@@ -27,10 +29,18 @@ class AboutPage extends ConsumerStatefulWidget {
   ConsumerState<AboutPage> createState() => _AboutPageState();
 }
 
+class _ActiveChatRequest {
+  final completion = Completer<void>();
+  StreamSubscription<SseEvent>? subscription;
+  bool terminalEventReceived = false;
+  bool cancelled = false;
+}
+
 /// AI 聊天页状态管理
 class _AboutPageState extends ConsumerState<AboutPage> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+  _ActiveChatRequest? _activeChat;
   bool _loadingHistory = false;
 
   @override
@@ -41,6 +51,19 @@ class _AboutPageState extends ConsumerState<AboutPage> {
 
   @override
   void dispose() {
+    final activeChat = _activeChat;
+    _activeChat = null;
+    if (activeChat != null) {
+      activeChat.cancelled = true;
+      final subscription = activeChat.subscription;
+      if (subscription != null) {
+        unawaited(subscription.cancel());
+      }
+      if (!activeChat.completion.isCompleted) {
+        activeChat.completion.complete();
+      }
+      ref.read(aiChatProvider.notifier).cancelSending();
+    }
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -74,6 +97,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
 
   /// 加载会话历史消息
   Future<void> _loadHistory(String sessionId) async {
+    await _cancelActiveChat();
+    if (!mounted) return;
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
 
@@ -88,17 +113,14 @@ class _AboutPageState extends ConsumerState<AboutPage> {
           );
       if (!mounted) return;
 
-      final messages =
-          page.items
-              .map(
-                (msg) => ChatMessage(
-                  isMine: msg.role == 'USER',
-                  text: msg.auditStatus == 'BLOCKED'
-                      ? '该内容不适合展示'
-                      : msg.content,
-                ),
-              )
-              .toList();
+      final messages = page.items
+          .map(
+            (msg) => ChatMessage(
+              isMine: msg.role == 'USER',
+              text: msg.auditStatus == 'BLOCKED' ? '该内容不适合展示' : msg.content,
+            ),
+          )
+          .toList();
 
       ref.read(aiChatProvider.notifier).loadHistory(messages, sessionId);
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -111,6 +133,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
 
   /// 创建新会话
   Future<void> _createNewSession() async {
+    await _cancelActiveChat();
+    if (!mounted) return;
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
 
@@ -136,25 +160,28 @@ class _AboutPageState extends ConsumerState<AboutPage> {
 
     return AppPageFrame(
       child: CustomScrollView(
-      slivers: [
-        const SliverAppBar(
-          title: Text('关于'),
-          actions: [AppThemeToggle(), SizedBox(width: AppSpacing.sm)],
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          sliver: SliverList.list(
-            children: [
-              // 介绍文字
-              // _buildIntro(context),
-              // const SizedBox(height: AppSpacing.lg),
-
-              // AI 聊天卡片
-              _buildChatCard(auth, remaining, chatState),
+        slivers: [
+          const SliverAppBar(
+            title: Text('关于'),
+            actions: [
+              AppThemeToggle(),
+              SizedBox(width: AppSpacing.sm),
             ],
           ),
-        ),
-      ],
+          SliverPadding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            sliver: SliverList.list(
+              children: [
+                // 介绍文字
+                // _buildIntro(context),
+                // const SizedBox(height: AppSpacing.lg),
+
+                // AI 聊天卡片
+                _buildChatCard(auth, remaining, chatState),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -243,14 +270,13 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       controller: _scrollController,
       padding: const EdgeInsets.all(AppSpacing.md),
       itemCount: chatState.messages.length,
-      itemBuilder:
-          (context, index) => _ChatBubble(
-            message: chatState.messages[index],
-            isStreaming:
-                chatState.isSending &&
-                index == chatState.messages.length - 1 &&
-                !chatState.messages[index].isMine,
-          ),
+      itemBuilder: (context, index) => _ChatBubble(
+        message: chatState.messages[index],
+        isStreaming:
+            chatState.isSending &&
+            index == chatState.messages.length - 1 &&
+            !chatState.messages[index].isMine,
+      ),
     );
   }
 
@@ -266,36 +292,32 @@ class _AboutPageState extends ConsumerState<AboutPage> {
       final chatState = ref.read(aiChatProvider);
       showDialog(
         context: context,
-        builder:
-            (context) => _SessionListDialog(
-              sessions: sessions,
-              currentSessionId: chatState.sessionId,
-              onSelect: (session) {
-                Navigator.of(context).pop();
-                _loadHistory(session.id);
-              },
-              onCreateNew: () {
-                Navigator.of(context).pop();
-                _createNewSession();
-              },
-              onDelete: (session) async {
-                try {
-                  await ref
-                      .read(apiClientProvider)
-                      .deleteAiSession(
-                        accessToken: token,
-                        sessionId: session.id,
-                      );
-                  if (!mounted) return;
-                  // 如果删除的是当前会话，重置聊天状态
-                  if (chatState.sessionId == session.id) {
-                    ref.read(aiChatProvider.notifier).reset();
-                  }
-                } on ApiException catch (error) {
-                  _showError(error.message);
-                }
-              },
-            ),
+        builder: (context) => _SessionListDialog(
+          sessions: sessions,
+          currentSessionId: chatState.sessionId,
+          onSelect: (session) {
+            Navigator.of(context).pop();
+            _loadHistory(session.id);
+          },
+          onCreateNew: () {
+            Navigator.of(context).pop();
+            _createNewSession();
+          },
+          onDelete: (session) async {
+            try {
+              await ref
+                  .read(apiClientProvider)
+                  .deleteAiSession(accessToken: token, sessionId: session.id);
+              if (!mounted) return;
+              // 如果删除的是当前会话，重置聊天状态
+              if (chatState.sessionId == session.id) {
+                ref.read(aiChatProvider.notifier).reset();
+              }
+            } on ApiException catch (error) {
+              _showError(error.message);
+            }
+          },
+        ),
       );
     } on ApiException catch (error) {
       _showError(error.message);
@@ -304,6 +326,8 @@ class _AboutPageState extends ConsumerState<AboutPage> {
 
   /// 发送消息
   Future<void> _send() async {
+    if (ref.read(aiChatProvider).isSending) return;
+
     final auth = ref.read(authControllerProvider);
     final token = await auth.getValidAccessToken();
     if (!mounted) return;
@@ -315,6 +339,9 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    await _cancelActiveChat();
+    if (!mounted) return;
+
     final chatState = ref.read(aiChatProvider);
     if (chatState.remainingQuestions != null &&
         chatState.remainingQuestions! <= 0) {
@@ -325,6 +352,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     ref.read(aiChatProvider.notifier).addUserMessage(text);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 
+    _ActiveChatRequest? activeChat;
     try {
       final stream = ref
           .read(apiClientProvider)
@@ -334,43 +362,108 @@ class _AboutPageState extends ConsumerState<AboutPage> {
             message: text,
           );
 
-      await for (final event in stream) {
-        if (!mounted) return;
-        if (event.type == 'token') {
-          ref.read(aiChatProvider.notifier).appendAiToken(event.data);
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _scrollToBottom(),
-          );
-        } else if (event.type == 'done') {
-          final reply = AiChatReply.fromJson(
-            (jsonDecode(event.data) as Map).cast<String, dynamic>(),
-          );
-          ref
-              .read(aiChatProvider.notifier)
-              .completeAiReply(
-                sessionId: reply.sessionId,
-                remainingQuestions: reply.remainingQuestions,
-                remainingMessages: reply.remainingMessages,
+      final request = _ActiveChatRequest();
+      activeChat = request;
+      _activeChat = request;
+      request.subscription = stream.listen(
+        (event) {
+          if (!mounted || request.cancelled) return;
+          try {
+            if (event.type == 'token') {
+              ref.read(aiChatProvider.notifier).appendAiToken(event.data);
+              WidgetsBinding.instance.addPostFrameCallback(
+                (_) => _scrollToBottom(),
               );
-          ref.invalidate(aiQuotaProvider);
-        } else if (event.type == 'error') {
-          final errorMsg = event.data;
-          if (errorMsg.contains('提问次数') || errorMsg.contains('配额')) {
-            ref.read(aiChatProvider.notifier).setError('今日提问次数已用完');
-          } else {
-            ref.read(aiChatProvider.notifier).setError(errorMsg);
+            } else if (event.type == 'done') {
+              request.terminalEventReceived = true;
+              final reply = AiChatReply.fromJson(
+                (jsonDecode(event.data) as Map).cast<String, dynamic>(),
+              );
+              ref
+                  .read(aiChatProvider.notifier)
+                  .completeAiReply(
+                    sessionId: reply.sessionId,
+                    remainingQuestions: reply.remainingQuestions,
+                    remainingMessages: reply.remainingMessages,
+                  );
+              ref.invalidate(aiQuotaProvider);
+            } else if (event.type == 'error') {
+              request.terminalEventReceived = true;
+              final errorMsg = event.data;
+              ref.read(aiChatProvider.notifier).removeAiPlaceholder();
+              final displayMessage =
+                  errorMsg.contains('提问次数') || errorMsg.contains('配额')
+                  ? '今日提问次数已用完'
+                  : errorMsg;
+              if (errorMsg.contains('提问次数') || errorMsg.contains('配额')) {
+                ref.read(aiChatProvider.notifier).setError(displayMessage);
+              } else {
+                ref.read(aiChatProvider.notifier).setError(displayMessage);
+              }
+              _showError(displayMessage);
+            }
+          } catch (error, stackTrace) {
+            request.terminalEventReceived = true;
+            if (!request.completion.isCompleted) {
+              request.completion.completeError(error, stackTrace);
+            }
+            final subscription = request.subscription;
+            if (subscription != null) {
+              unawaited(subscription.cancel());
+            }
           }
-        }
-      }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          request.terminalEventReceived = true;
+          if (!request.completion.isCompleted) {
+            request.completion.completeError(error, stackTrace);
+          }
+        },
+        onDone: () {
+          if (!request.cancelled && !request.terminalEventReceived && mounted) {
+            const message = '连接提前中断，请重试';
+            ref.read(aiChatProvider.notifier).removeAiPlaceholder();
+            ref.read(aiChatProvider.notifier).setError(message);
+            _showError(message);
+          }
+          if (!request.completion.isCompleted) {
+            request.completion.complete();
+          }
+        },
+        cancelOnError: true,
+      );
+      await request.completion.future;
     } on ApiException catch (error) {
       if (error.message.contains('会话消息数已达上限')) {
         ref.read(aiChatProvider.notifier).setSessionLimitReached();
       }
       ref.read(aiChatProvider.notifier).removeAiPlaceholder();
+      ref.read(aiChatProvider.notifier).setError(error.message);
       _showError(error.message);
     } catch (error) {
       ref.read(aiChatProvider.notifier).removeAiPlaceholder();
-      _showError(error.toString());
+      final message = error.toString();
+      ref.read(aiChatProvider.notifier).setError(message);
+      _showError(message);
+    } finally {
+      if (identical(_activeChat, activeChat)) {
+        _activeChat = null;
+      }
+    }
+  }
+
+  Future<void> _cancelActiveChat() async {
+    final activeChat = _activeChat;
+    if (activeChat == null) return;
+
+    _activeChat = null;
+    activeChat.cancelled = true;
+    await activeChat.subscription?.cancel();
+    if (!activeChat.completion.isCompleted) {
+      activeChat.completion.complete();
+    }
+    if (mounted) {
+      ref.read(aiChatProvider.notifier).cancelSending();
     }
   }
 
@@ -406,36 +499,35 @@ class _ChatHeader extends StatelessWidget {
     return ListTile(
       leading: CircleAvatar(
         radius: 20,
-        backgroundImage: AssetImage('assets/images/lacia.png'),
+        backgroundImage: const AssetImage('assets/images/lacia.png'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       ),
       title: const Text('AI 助手'),
       subtitle: Text(
         auth.isAuthenticated
             ? remaining != null
-                ? '今日剩余 $remaining 次 · 会话剩余 $remainingMessages 条'
-                : '正在加载...'
+                  ? '今日剩余 $remaining 次 · 会话剩余 $remainingMessages 条'
+                  : '正在加载...'
             : '登录后每天可以提问 10 次',
         style: Theme.of(context).textTheme.bodySmall,
       ),
-      trailing:
-          auth.isAuthenticated
-              ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: '历史会话',
-                    onPressed: onShowHistory,
-                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01),
-                  ),
-                  IconButton(
-                    tooltip: '新建会话',
-                    onPressed: onCreateNew,
-                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
-                  ),
-                ],
-              )
-              : null,
+      trailing: auth.isAuthenticated
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: '历史会话',
+                  onPressed: onShowHistory,
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01),
+                ),
+                IconButton(
+                  tooltip: '新建会话',
+                  onPressed: onCreateNew,
+                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
+                ),
+              ],
+            )
+          : null,
     );
   }
 }
@@ -528,13 +620,12 @@ class _ChatInputBar extends StatelessWidget {
           IconButton.filled(
             tooltip: auth.isAuthenticated ? '发送' : '登录',
             onPressed: canSend ? onSend : null,
-            icon:
-                sending
-                    ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const HugeIcon(icon: HugeIcons.strokeRoundedSent),
+            icon: sending
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const HugeIcon(icon: HugeIcons.strokeRoundedSent),
           ),
         ],
       ),
@@ -584,21 +675,20 @@ class _SessionListDialogState extends State<_SessionListDialog> {
   Future<void> _deleteSession(AiSessionItem session) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('删除会话'),
-            content: Text('确定删除会话"${session.title}"吗？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('删除'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('删除会话'),
+        content: Text('确定删除会话"${session.title}"吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
     );
 
     if (confirmed != true) return;
@@ -637,7 +727,10 @@ class _SessionListDialogState extends State<_SessionListDialog> {
                   const Spacer(),
                   TextButton.icon(
                     onPressed: widget.onCreateNew,
-                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
+                    icon: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedAdd01,
+                      size: 18,
+                    ),
                     label: const Text('新建会话'),
                   ),
                 ],
@@ -676,10 +769,9 @@ class _SessionListDialogState extends State<_SessionListDialog> {
                         icon: isCurrent
                             ? HugeIcons.strokeRoundedMessage01
                             : HugeIcons.strokeRoundedMessage01,
-                        color:
-                            isCurrent
-                                ? Theme.of(context).colorScheme.primary
-                                : null,
+                        color: isCurrent
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
                       ),
                       title: Text(
                         session.title,
@@ -689,7 +781,10 @@ class _SessionListDialogState extends State<_SessionListDialog> {
                       subtitle: Text('${session.messageCount} 条消息 · $date'),
                       selected: isCurrent,
                       trailing: IconButton(
-                        icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 20),
+                        icon: const HugeIcon(
+                          icon: HugeIcons.strokeRoundedDelete01,
+                          size: 20,
+                        ),
                         onPressed: () => _deleteSession(session),
                       ),
                       onTap: () => widget.onSelect(session),
@@ -719,74 +814,73 @@ class _ChatBubble extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Align(
-      alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 520),
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color:
-              message.isMine
+          alignment: message.isMine
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 520),
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: message.isMine
                   ? colorScheme.primary
                   : colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border:
-              message.isMine
+              borderRadius: BorderRadius.circular(12),
+              border: message.isMine
                   ? null
                   : Border.all(color: colorScheme.outlineVariant),
-        ),
-        child:
-            message.text.isEmpty && isStreaming
+            ),
+            child: message.text.isEmpty && isStreaming
                 ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    AnimatedTextKit(
-                      isRepeatingAnimation: true,
-                      repeatForever: true,
-                      animatedTexts: [
-                        WavyAnimatedText(
-                          '思考中...',
-                          textStyle: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 14,
-                          ),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colorScheme.primary,
                         ),
-                      ],
-                    ),
-                  ],
-                )
+                      ),
+                      const SizedBox(width: 8),
+                      AnimatedTextKit(
+                        isRepeatingAnimation: true,
+                        repeatForever: true,
+                        animatedTexts: [
+                          WavyAnimatedText(
+                            '思考中...',
+                            textStyle: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
                 : message.isMine
                 ? Text(
-                  message.text,
-                  style: TextStyle(color: colorScheme.onPrimary),
-                )
+                    message.text,
+                    style: TextStyle(color: colorScheme.onPrimary),
+                  )
                 : MarkdownBody(
-                  data: '${message.text}${isStreaming ? '▍' : ''}',
-                  selectable: true,
-                  styleSheet: MarkdownStyleSheet(
-                    p: TextStyle(color: colorScheme.onSurface),
-                    code: TextStyle(
-                      backgroundColor: colorScheme.surfaceContainerHighest,
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                    ),
-                    codeblockDecoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
+                    data: '${message.text}${isStreaming ? '▍' : ''}',
+                    selectable: true,
+                    styleSheet: MarkdownStyleSheet(
+                      p: TextStyle(color: colorScheme.onSurface),
+                      code: TextStyle(
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                      ),
+                      codeblockDecoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                ),
-      ),
-    )
+          ),
+        )
         .animate()
         .fadeIn(duration: 300.ms, curve: Curves.easeOutCubic)
         .slideX(

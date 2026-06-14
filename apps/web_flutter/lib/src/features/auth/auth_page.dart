@@ -9,6 +9,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../auth/oauth_state_storage.dart';
 import '../../core/api_client.dart';
 import '../../state/state.dart';
 import '../../widgets/widgets.dart';
@@ -106,102 +107,86 @@ class _AuthPageState extends ConsumerState<AuthPage> {
               child: Center(
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 1040),
-                  decoration:
-                      wide
-                          ? BoxDecoration(
-                            color:
-                                Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerLow,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color:
-                                  Theme.of(context).colorScheme.outlineVariant,
-                            ),
-                          )
-                          : null,
+                  decoration: wide
+                      ? BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                        )
+                      : null,
                   clipBehavior: wide ? Clip.antiAlias : Clip.none,
-                  child:
-                      wide
-                          ? SizedBox(
-                            height: 640,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                const Expanded(
-                                  flex: 5,
-                                  child: _AuthBrandPanel(),
-                                ),
-                                Expanded(
-                                  flex: 5,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(
-                                      AppSpacing.xl,
-                                    ),
-                                    child: _AuthForm(
-                                      formKey: _formKey,
-                                      register: _register,
-                                      rememberMe: _rememberMe,
-                                      obscurePassword: _obscurePassword,
-                                      countdown: _countdown,
-                                      formError: _formError,
-                                      busy: auth.isBusy,
-                                      emailController: _emailController,
-                                      passwordController: _passwordController,
-                                      nicknameController: _nicknameController,
-                                      codeController: _codeController,
-                                      onModeChanged: _switchMode,
-                                      onRememberChanged:
-                                          (value) => setState(
-                                            () => _rememberMe = value,
-                                          ),
-                                      onTogglePassword:
-                                          () => setState(
-                                            () =>
-                                                _obscurePassword =
-                                                    !_obscurePassword,
-                                          ),
-                                      onSendCode: _sendCode,
-                                      onSubmit: _submit,
-                                      onGithubLogin: _openGithubLogin,
-                                    ).fadeSlideIn(delay: 200.ms),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                          : Column(
+                  child: wide
+                      ? SizedBox(
+                          height: 640,
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const _MobileAuthBrand(),
-                              const SizedBox(height: AppSpacing.xl),
-                              _AuthForm(
-                                formKey: _formKey,
-                                register: _register,
-                                rememberMe: _rememberMe,
-                                obscurePassword: _obscurePassword,
-                                countdown: _countdown,
-                                formError: _formError,
-                                busy: auth.isBusy,
-                                emailController: _emailController,
-                                passwordController: _passwordController,
-                                nicknameController: _nicknameController,
-                                codeController: _codeController,
-                                onModeChanged: _switchMode,
-                                onRememberChanged:
-                                    (value) =>
+                              const Expanded(flex: 5, child: _AuthBrandPanel()),
+                              Expanded(
+                                flex: 5,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(AppSpacing.xl),
+                                  child: _AuthForm(
+                                    formKey: _formKey,
+                                    register: _register,
+                                    rememberMe: _rememberMe,
+                                    obscurePassword: _obscurePassword,
+                                    countdown: _countdown,
+                                    formError: _formError,
+                                    busy: auth.isBusy,
+                                    emailController: _emailController,
+                                    passwordController: _passwordController,
+                                    nicknameController: _nicknameController,
+                                    codeController: _codeController,
+                                    onModeChanged: _switchMode,
+                                    onRememberChanged: (value) =>
                                         setState(() => _rememberMe = value),
-                                onTogglePassword:
-                                    () => setState(
+                                    onTogglePassword: () => setState(
                                       () =>
                                           _obscurePassword = !_obscurePassword,
                                     ),
-                                onSendCode: _sendCode,
-                                onSubmit: _submit,
-                                onGithubLogin: _openGithubLogin,
-                              ).fadeSlideIn(delay: 200.ms),
+                                    onSendCode: _sendCode,
+                                    onSubmit: _submit,
+                                    onGithubLogin: _openGithubLogin,
+                                  ).fadeSlideIn(delay: 200.ms),
+                                ),
+                              ),
                             ],
                           ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const _MobileAuthBrand(),
+                            const SizedBox(height: AppSpacing.xl),
+                            _AuthForm(
+                              formKey: _formKey,
+                              register: _register,
+                              rememberMe: _rememberMe,
+                              obscurePassword: _obscurePassword,
+                              countdown: _countdown,
+                              formError: _formError,
+                              busy: auth.isBusy,
+                              emailController: _emailController,
+                              passwordController: _passwordController,
+                              nicknameController: _nicknameController,
+                              codeController: _codeController,
+                              onModeChanged: _switchMode,
+                              onRememberChanged: (value) =>
+                                  setState(() => _rememberMe = value),
+                              onTogglePassword: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                              onSendCode: _sendCode,
+                              onSubmit: _submit,
+                              onGithubLogin: _openGithubLogin,
+                            ).fadeSlideIn(delay: 200.ms),
+                          ],
+                        ),
                 ),
               ),
             );
@@ -288,7 +273,17 @@ class _AuthPageState extends ConsumerState<AuthPage> {
     try {
       final data = await ref.read(apiClientProvider).fetchProviders();
       final githubLoginUrl = data['githubLoginUrl'] as String;
-      await launchUrl(Uri.parse(githubLoginUrl), webOnlyWindowName: '_self');
+      final uri = Uri.parse(githubLoginUrl);
+      final state = uri.queryParameters['state'];
+      if (state == null || state.isEmpty) {
+        throw const ApiException('GitHub 登录状态初始化失败');
+      }
+      storeOAuthState(state);
+      final launched = await launchUrl(uri, webOnlyWindowName: '_self');
+      if (!launched) {
+        clearOAuthState();
+        throw const ApiException('无法打开 GitHub 登录页面');
+      }
     } catch (error) {
       _setFormError('获取 GitHub 登录地址失败：$error');
     }
@@ -360,14 +355,13 @@ class _AuthBrandPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-          const _BrandFeature(label: '参与文章讨论')
-              .fadeSlideIn(delay: 400.ms),
+          const _BrandFeature(label: '参与文章讨论').fadeSlideIn(delay: 400.ms),
           const SizedBox(height: AppSpacing.sm + 4),
-          const _BrandFeature(label: '保存你的阅读足迹')
-              .fadeSlideIn(delay: 500.ms),
+          const _BrandFeature(label: '保存你的阅读足迹').fadeSlideIn(delay: 500.ms),
           const SizedBox(height: AppSpacing.sm + 4),
-          const _BrandFeature(label: '使用个人知识库 AI 助手')
-              .fadeSlideIn(delay: 600.ms),
+          const _BrandFeature(
+            label: '使用个人知识库 AI 助手',
+          ).fadeSlideIn(delay: 600.ms),
           const Spacer(),
           Text(
             '写代码，也记录生活。',
@@ -500,8 +494,9 @@ class _AuthForm extends StatelessWidget {
                 ButtonSegment(value: true, label: Text('注册')),
               ],
               selected: {register},
-              onSelectionChanged:
-                  busy ? null : (selection) => onModeChanged(selection.first),
+              onSelectionChanged: busy
+                  ? null
+                  : (selection) => onModeChanged(selection.first),
               showSelectedIcon: false,
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -515,7 +510,10 @@ class _AuthForm extends StatelessWidget {
               autofillHints: const [AutofillHints.email],
               decoration: const InputDecoration(
                 labelText: '邮箱',
-                prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 20),
+                prefixIcon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedMail01,
+                  size: 20,
+                ),
               ),
               validator: (value) {
                 final email = value?.trim() ?? '';
@@ -531,7 +529,10 @@ class _AuthForm extends StatelessWidget {
                 autofillHints: const [AutofillHints.nickname],
                 decoration: const InputDecoration(
                   labelText: '昵称（可选）',
-                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 20),
+                  prefixIcon: HugeIcon(
+                    icon: HugeIcons.strokeRoundedUser,
+                    size: 20,
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm + 4),
@@ -544,7 +545,10 @@ class _AuthForm extends StatelessWidget {
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         labelText: '邮箱验证码',
-                        prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedTick01, size: 20),
+                        prefixIcon: HugeIcon(
+                          icon: HugeIcons.strokeRoundedTick01,
+                          size: 20,
+                        ),
                       ),
                       validator: (value) {
                         if ((value ?? '').trim().isEmpty) return '请输入验证码';
@@ -569,7 +573,10 @@ class _AuthForm extends StatelessWidget {
               ],
               decoration: InputDecoration(
                 labelText: '密码',
-                prefixIcon: const HugeIcon(icon: HugeIcons.strokeRoundedLock, size: 20),
+                prefixIcon: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedLock,
+                  size: 20,
+                ),
                 suffixIcon: IconButton(
                   tooltip: obscurePassword ? '显示密码' : '隐藏密码',
                   onPressed: onTogglePassword,
@@ -614,18 +621,17 @@ class _AuthForm extends StatelessWidget {
               onPressed: busy ? null : onSubmit,
               child: AnimatedSwitcher(
                 duration: AppAnimations.fast,
-                child:
-                    busy
-                        ? const SizedBox.square(
-                          key: ValueKey('loading'),
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                        : Row(
-                          key: ValueKey(register),
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [Text(register ? '注册并登录' : '登录')],
-                        ),
+                child: busy
+                    ? const SizedBox.square(
+                        key: ValueKey('loading'),
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Row(
+                        key: ValueKey(register),
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [Text(register ? '注册并登录' : '登录')],
+                      ),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -675,7 +681,10 @@ class _FormError extends StatelessWidget {
       ),
       child: Row(
         children: [
-          HugeIcon(icon: HugeIcons.strokeRoundedAlert01, color: scheme.onErrorContainer),
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedAlert01,
+            color: scheme.onErrorContainer,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(

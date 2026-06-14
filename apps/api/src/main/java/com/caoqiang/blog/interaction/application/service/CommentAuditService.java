@@ -22,8 +22,8 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -79,7 +79,6 @@ public class CommentAuditService {
      *
      * @param commentId 要审核的评论 ID
      */
-    @Async("commentAuditExecutor")
     public void audit(UUID commentId) {
         try {
             commentRepository.findById(commentId).ifPresent(comment -> {
@@ -98,7 +97,11 @@ public class CommentAuditService {
                 if (result != null) {
                     try {
                         String json = extractJson(result.trim());
-                        Map<String, Object> auditResult = objectMapper.readValue(json, Map.class);
+                        Map<String, Object> auditResult = objectMapper.readValue(
+                                json,
+                                new TypeReference<>() {
+                                }
+                        );
                         Object statusObj = auditResult.get("status");
                         Object reasonObj = auditResult.get("reason");
                         if (statusObj != null) {

@@ -563,47 +563,47 @@ class _Destination {
 }
 
 /// 所有导航目的地配置列表
-final _recommendDestination = _Destination(
+final _recommendDestination = const _Destination(
   '/',
   '首页',
-  const HugeIcon(icon: HugeIcons.strokeRoundedHome01),
-  const HugeIcon(icon: HugeIcons.strokeRoundedHome01),
+  HugeIcon(icon: HugeIcons.strokeRoundedHome01),
+  HugeIcon(icon: HugeIcons.strokeRoundedHome01),
 );
-final _contentsDestination = _Destination(
+final _contentsDestination = const _Destination(
   '/contents',
   '全部',
-  const HugeIcon(icon: HugeIcons.strokeRoundedBook01),
-  const HugeIcon(icon: HugeIcons.strokeRoundedBook01),
+  HugeIcon(icon: HugeIcons.strokeRoundedBook01),
+  HugeIcon(icon: HugeIcons.strokeRoundedBook01),
 );
-final _friendsDestination = _Destination(
+final _friendsDestination = const _Destination(
   '/friends',
   '朋友',
-  const HugeIcon(icon: HugeIcons.strokeRoundedLink01),
-  const HugeIcon(icon: HugeIcons.strokeRoundedLink01),
+  HugeIcon(icon: HugeIcons.strokeRoundedLink01),
+  HugeIcon(icon: HugeIcons.strokeRoundedLink01),
 );
-final _aboutDestination = _Destination(
+final _aboutDestination = const _Destination(
   '/about',
   '关于',
-  const HugeIcon(icon: HugeIcons.strokeRoundedUserCircle),
-  const HugeIcon(icon: HugeIcons.strokeRoundedUserCircle),
+  HugeIcon(icon: HugeIcons.strokeRoundedUserCircle),
+  HugeIcon(icon: HugeIcons.strokeRoundedUserCircle),
 );
-final _profileDestination = _Destination(
+final _profileDestination = const _Destination(
   '/profile',
   '我的',
-  const HugeIcon(icon: HugeIcons.strokeRoundedUser),
-  const HugeIcon(icon: HugeIcons.strokeRoundedUser),
+  HugeIcon(icon: HugeIcons.strokeRoundedUser),
+  HugeIcon(icon: HugeIcons.strokeRoundedUser),
 );
-final _adminDestination = _Destination(
+final _adminDestination = const _Destination(
   '/admin',
   '管理',
-  const HugeIcon(icon: HugeIcons.strokeRoundedSettings01),
-  const HugeIcon(icon: HugeIcons.strokeRoundedSettings01),
+  HugeIcon(icon: HugeIcons.strokeRoundedSettings01),
+  HugeIcon(icon: HugeIcons.strokeRoundedSettings01),
 );
-final _loginDestination = _Destination(
+final _loginDestination = const _Destination(
   '/login',
   '登录',
-  const HugeIcon(icon: HugeIcons.strokeRoundedLogin01),
-  const HugeIcon(icon: HugeIcons.strokeRoundedLogin01),
+  HugeIcon(icon: HugeIcons.strokeRoundedLogin01),
+  HugeIcon(icon: HugeIcons.strokeRoundedLogin01),
 );
 
 final _destinations = <_Destination>[

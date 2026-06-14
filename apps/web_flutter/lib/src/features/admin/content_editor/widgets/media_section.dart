@@ -230,7 +230,11 @@ class _MediaCard extends StatelessWidget {
           children: [
             if (!isCover)
               IconButton(
-                icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, color: AppColors.onOverlay, size: 20),
+                icon: const HugeIcon(
+                  icon: HugeIcons.strokeRoundedImage01,
+                  color: AppColors.onOverlay,
+                  size: 20,
+                ),
                 tooltip: '设为封面',
                 onPressed: onSetCover,
                 constraints: const BoxConstraints(

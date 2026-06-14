@@ -143,7 +143,7 @@ class _EditModeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SegmentedButton<EditorEditMode>(
-      segments: [
+      segments: const [
         ButtonSegment(
           value: EditorEditMode.source,
           icon: HugeIcon(icon: HugeIcons.strokeRoundedCode, size: 16),
@@ -183,13 +183,13 @@ class _HeadingMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<int>(
       tooltip: '标题',
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             HugeIcon(icon: HugeIcons.strokeRoundedText, size: 20),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 16),
           ],
         ),
@@ -238,13 +238,13 @@ class _TableMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       tooltip: '表格',
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             HugeIcon(icon: HugeIcons.strokeRoundedTable, size: 20),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01, size: 16),
           ],
         ),

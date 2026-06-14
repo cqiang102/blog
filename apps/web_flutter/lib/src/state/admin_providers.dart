@@ -35,7 +35,7 @@ final adminFriendsProvider = FutureProvider<List<FriendLink>>((ref) {
 
 /// 管理后台评论列表 Provider
 final adminCommentsProvider =
-    FutureProvider.family<PageResult<AdminCommentItem>, AdminCommentQuery>((
+    FutureProvider.autoDispose.family<PageResult<AdminCommentItem>, AdminCommentQuery>((
       ref,
       query,
     ) {
@@ -50,7 +50,7 @@ final adminCommentsProvider =
 
 /// 管理后台点赞列表 Provider
 final adminLikesProvider =
-    FutureProvider.family<PageResult<AdminLikeItem>, AdminRecordQuery>((
+    FutureProvider.autoDispose.family<PageResult<AdminLikeItem>, AdminRecordQuery>((
       ref,
       query,
     ) {
@@ -65,7 +65,7 @@ final adminLikesProvider =
 
 /// 管理后台浏览记录列表 Provider
 final adminViewsProvider =
-    FutureProvider.family<PageResult<AdminViewRecordItem>, AdminRecordQuery>((
+    FutureProvider.autoDispose.family<PageResult<AdminViewRecordItem>, AdminRecordQuery>((
       ref,
       query,
     ) {
@@ -80,7 +80,7 @@ final adminViewsProvider =
 
 /// 管理后台用户列表 Provider
 final adminUsersProvider =
-    FutureProvider.family<PageResult<AdminUserItem>, AdminUserQuery>((
+    FutureProvider.autoDispose.family<PageResult<AdminUserItem>, AdminUserQuery>((
       ref,
       query,
     ) {
@@ -95,7 +95,7 @@ final adminUsersProvider =
 
 /// 管理后台 AI 聊天会话列表 Provider
 final adminAiChatsProvider =
-    FutureProvider.family<PageResult<AdminAiChatSessionItem>, AdminAiChatQuery>(
+    FutureProvider.autoDispose.family<PageResult<AdminAiChatSessionItem>, AdminAiChatQuery>(
       (ref, query) {
         final token = ref.watch(authControllerProvider).accessToken;
         if (token == null) {
@@ -108,7 +108,7 @@ final adminAiChatsProvider =
     );
 
 /// 管理后台知识库文档列表 Provider
-final adminKnowledgeDocsProvider = FutureProvider.family<
+final adminKnowledgeDocsProvider = FutureProvider.autoDispose.family<
   PageResult<AdminKnowledgeDocItem>,
   AdminKnowledgeDocQuery
 >((ref, query) {
@@ -160,7 +160,7 @@ final adminMediaProvider = FutureProvider<PageResult<AdminMediaItem>>((ref) {
 
 /// 管理后台审计日志列表 Provider
 final adminAuditLogsProvider =
-    FutureProvider.family<PageResult<AuditLogItem>, AuditLogQuery>((
+    FutureProvider.autoDispose.family<PageResult<AuditLogItem>, AuditLogQuery>((
       ref,
       query,
     ) {

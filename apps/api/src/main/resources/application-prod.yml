@@ -30,6 +30,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/plain
@@ -44,10 +45,19 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis
     shutdown:
       enabled: true
 
 blog:
+  admin:
+    bootstrap:
+      enabled: ${ADMIN_BOOTSTRAP_ENABLED:false}
+      email: ${ADMIN_EMAIL:}
+      password: ${ADMIN_PASSWORD:}
+      nickname: ${ADMIN_NICKNAME:站长}
   ai:
     daily-question-limit: ${AI_DAILY_QUESTION_LIMIT:10}
   security:

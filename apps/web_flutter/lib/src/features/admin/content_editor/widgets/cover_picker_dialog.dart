@@ -56,8 +56,11 @@ class CoverPickerDialog extends StatelessWidget {
                       CachedNetworkImage(
                         imageUrl: resolveMediaUrl(url),
                         fit: BoxFit.cover,
-                        errorWidget: (context, url, error) =>
-                            Center(child: HugeIcon(icon: HugeIcons.strokeRoundedImageNotFound01)),
+                        errorWidget: (context, url, error) => const Center(
+                          child: HugeIcon(
+                            icon: HugeIcons.strokeRoundedImageNotFound01,
+                          ),
+                        ),
                       ),
                       if (isCover)
                         const ColoredBox(

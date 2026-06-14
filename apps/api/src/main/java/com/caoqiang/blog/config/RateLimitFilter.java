@@ -15,6 +15,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -33,6 +35,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * @author caoqiang
  */
 public class RateLimitFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -103,7 +107,24 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         String key = "rate:" + matchedPattern.replace("*", "_") + ":" + clientIp;
 
-        Long count = redisTemplate.execute(incrExpireScript, java.util.Collections.singletonList(key), String.valueOf(config.windowSeconds()));
+        Long count;
+        try {
+            count = redisTemplate.execute(
+                    incrExpireScript,
+                    java.util.Collections.singletonList(key),
+                    String.valueOf(config.windowSeconds())
+            );
+        } catch (RuntimeException exception) {
+            log.warn(
+                    "Redis rate limiter unavailable; allowing request {} {}: {}",
+                    method,
+                    path,
+                    exception.getMessage()
+            );
+            response.setHeader("X-RateLimit-Policy", "unavailable");
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         if (count == null) {
             count = 1L;

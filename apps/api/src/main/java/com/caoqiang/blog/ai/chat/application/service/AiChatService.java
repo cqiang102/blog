@@ -6,15 +6,10 @@ import com.caoqiang.blog.ai.chat.application.dto.AiChatResponse;
 import com.caoqiang.blog.ai.chat.application.dto.AiChatSessionResponse;
 import com.caoqiang.blog.ai.chat.application.dto.AiCreateSessionRequest;
 import com.caoqiang.blog.ai.chat.application.dto.AiQuotaResponse;
-import com.caoqiang.blog.ai.chat.application.dto.ToolSuggestion;
 import com.caoqiang.blog.ai.chat.domain.model.AiChatMessage;
 import com.caoqiang.blog.ai.chat.domain.model.AiChatSession;
-import com.caoqiang.blog.ai.chat.domain.model.AiDailyQuota;
-import com.caoqiang.blog.ai.chat.domain.model.AiMessageRole;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatMessageRepository;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
-import com.caoqiang.blog.ai.chat.domain.repository.AiDailyQuotaRepository;
-import com.caoqiang.blog.ai.chat.context.AiUserContext;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
@@ -24,11 +19,12 @@ import com.caoqiang.blog.user.domain.repository.UserRepository;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -37,13 +33,13 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import reactor.core.scheduler.Schedulers;
+import reactor.core.Disposable;
 
 /**
  * AI 聊天核心服务。
@@ -54,10 +50,10 @@ import reactor.core.scheduler.Schedulers;
  * 关键特性：
  * <ul>
  *   <li>会话管理：自动创建或复用会话，限制单会话最大消息数（{@value #MAX_MESSAGES_PER_SESSION}）</li>
- *   <li>配额控制：基于 Redis 缓存 + 数据库双重保障的每日提问次数限制</li>
+ *   <li>配额控制：通过数据库原子预留实现每日提问次数限制</li>
  *   <li>同步对话：通过 {@link #chat} 一次性返回完整回答</li>
  *   <li>流式对话：通过 {@link #streamChat} 使用 SSE 逐 token 推送回答</li>
- *   <li>工具调用上下文：通过 {@link AiUserContext} 将当前用户传递给 AI 工具层</li>
+ *   <li>工具调用上下文：通过 Spring AI ToolContext 将当前用户显式传递给工具层</li>
  * </ul>
  */
 @Service
@@ -73,8 +69,6 @@ public class AiChatService {
     private static final int MAX_SESSION_TITLE_LENGTH = 40;
     /** 默认会话标题 */
     private static final String DEFAULT_SESSION_TITLE = "新会话";
-    /** Redis 中每日配额缓存的 key 前缀 */
-    private static final String QUOTA_CACHE_PREFIX = "ai:quota:";
     /** 配额重置时区：UTC+8，与国内用户习惯一致 */
     private static final ZoneOffset QUOTA_ZONE = ZoneOffset.ofHours(8);
     /** SSE 事件名称：token 片段 */
@@ -89,12 +83,11 @@ public class AiChatService {
     private final UserRepository userRepository;
     private final AiChatSessionRepository sessionRepository;
     private final AiChatMessageRepository messageRepository;
-    private final AiDailyQuotaRepository quotaRepository;
     private final ChatClient chatClient;
     private final AiBlogTools blogTools;
-    private final StringRedisTemplate redisTemplate;
     private final Executor aiStreamExecutor;
-    private final AiChatAuditService aiChatAuditService;
+    private final AiQuotaService quotaService;
+    private final AiChatPersistenceService persistenceService;
 
     public AiChatService(
             BlogProperties blogProperties,
@@ -102,74 +95,72 @@ public class AiChatService {
             UserRepository userRepository,
             AiChatSessionRepository sessionRepository,
             AiChatMessageRepository messageRepository,
-            AiDailyQuotaRepository quotaRepository,
             ChatClient chatClient,
             AiBlogTools blogTools,
-            StringRedisTemplate redisTemplate,
             @Qualifier("aiStreamExecutor") Executor aiStreamExecutor,
-            AiChatAuditService aiChatAuditService
+            AiQuotaService quotaService,
+            AiChatPersistenceService persistenceService
     ) {
         this.blogProperties = blogProperties;
         this.clock = clock;
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
         this.messageRepository = messageRepository;
-        this.quotaRepository = quotaRepository;
         this.chatClient = chatClient;
         this.blogTools = blogTools;
-        this.redisTemplate = redisTemplate;
         this.aiStreamExecutor = aiStreamExecutor;
-        this.aiChatAuditService = aiChatAuditService;
+        this.quotaService = quotaService;
+        this.persistenceService = persistenceService;
     }
 
     /**
      * 同步对话接口。发送用户消息并一次性返回完整 AI 回答。
      * <p>
-     * 处理流程：校验配额 → 解析会话 → 调用 AI 生成回答 → 保存用户消息和助手消息 → 更新配额。
-     * AI 调用成功后才持久化消息和配额，保证数据一致性。
+     * 处理流程：预留配额 → 解析会话 → 调用 AI 生成回答 → 保存用户消息和助手消息。
+     * 任何失败都会释放已预留配额。
      *
      * @param currentUser 当前登录用户
      * @param request     聊天请求，包含消息内容和可选的会话 ID
      * @return 包含会话 ID、回答文本、剩余提问次数、剩余消息数的响应
      */
-    @Transactional
     public AiChatResponse chat(AuthenticatedUser currentUser, AiChatRequest request) {
         User user = activeUser(currentUser);
         int dailyLimit = blogProperties.getAi().getDailyQuestionLimit();
-        int currentCount = getCachedQuotaCount(user.getId());
 
-        if (currentCount >= dailyLimit) {
-            throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS, "今日 AI 提问次数已用完");
-        }
-
-        AiChatSession session = resolveSession(user, request.sessionId());
-        long messageCount = messageRepository.countBySessionId(session.getId());
-        if (messageCount >= MAX_MESSAGES_PER_SESSION) {
-            throw new BusinessException(HttpStatus.CONFLICT, "该会话消息数已达上限，请创建新会话");
-        }
-
-        String userMessageText = request.message().trim();
-        // AiUserContext 必须在当前线程（事务线程）上 set/clear 配对，避免 ThreadLocal 泄漏
-        AiUserContext.set(currentUser);
-        String answer;
+        AiQuotaService.Reservation reservation = quotaService.reserve(user.getId(), dailyLimit);
+        boolean completed = false;
         try {
-            answer = generateAnswer(userMessageText, session.getId().toString());
+            AiChatSession session = resolveSession(user, request.sessionId());
+            long messageCount = messageRepository.countBySessionIdAndDeletedFalse(session.getId());
+            if (messageCount + 2 > MAX_MESSAGES_PER_SESSION) {
+                throw new BusinessException(HttpStatus.CONFLICT, "该会话消息数已达上限，请创建新会话");
+            }
+
+            String userMessageText = request.message().trim();
+            String answer = generateAnswer(
+                    userMessageText,
+                    session.getId().toString(),
+                    currentUser
+            );
+            long finalMessageCount = persistenceService.persistExchange(
+                    user.getId(),
+                    session.getId(),
+                    userMessageText,
+                    answer,
+                    MAX_MESSAGES_PER_SESSION
+            );
+            completed = true;
+            return new AiChatResponse(
+                    session.getId(),
+                    answer,
+                    Math.max(0, dailyLimit - reservation.used()),
+                    (int) (MAX_MESSAGES_PER_SESSION - finalMessageCount)
+            );
         } finally {
-            AiUserContext.clear();
+            if (!completed) {
+                releaseReservation(reservation);
+            }
         }
-
-        // AI 调用成功后才持久化消息和配额，失败则整个事务回滚，保证数据一致性
-        AiChatMessage userMsg = messageRepository.save(new AiChatMessage(session, AiMessageRole.USER, userMessageText));
-        AiChatMessage assistantMsg = messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, answer));
-        aiChatAuditService.audit(userMsg.getId());
-        aiChatAuditService.audit(assistantMsg.getId());
-        incrementQuota(user);
-
-        return new AiChatResponse(
-                session.getId(), answer,
-                Math.max(0, dailyLimit - (currentCount + 1)),
-                (int) (MAX_MESSAGES_PER_SESSION - messageCount - 2)
-        );
     }
 
     /**
@@ -187,8 +178,7 @@ public class AiChatService {
      * @return SSE 发射器，客户端通过此对象接收流式数据
      */
     public SseEmitter streamChat(AuthenticatedUser currentUser, AiChatRequest request) {
-        SseEmitter emitter = new SseEmitter(0L);
-        // 通过 lambda 捕获 currentUser 引用传递到异步线程，而非依赖 ThreadLocal（ThreadLocal 不跨线程传播）
+        SseEmitter emitter = new SseEmitter(600_000L);
         aiStreamExecutor.execute(() -> doStreamChat(currentUser, request, emitter));
         return emitter;
     }
@@ -197,8 +187,7 @@ public class AiChatService {
      * 流式对话的实际执行逻辑（在 aiStreamExecutor 线程中运行）。
      * <p>
      * 流程：预检查 → 向量搜索知识库 → 流式调用 AI → 持久化结果。
-     * AiUserContext 在 aiStreamExecutor 线程上设置和清除，保证 ThreadLocal 配对执行。
-     * subscribe 的 error/complete 回调运行在 boundedElastic 线程上，不操作此 ThreadLocal。
+     * 用户身份通过请求级 ToolContext 显式传递，线程切换不会丢失或串用身份。
      */
     private void doStreamChat(AuthenticatedUser currentUser, AiChatRequest request, SseEmitter emitter) {
         User user;
@@ -211,10 +200,13 @@ public class AiChatService {
         }
 
         int dailyLimit = blogProperties.getAi().getDailyQuestionLimit();
-        int currentCount = getCachedQuotaCount(user.getId());
-        if (currentCount >= dailyLimit) {
-            log.warn("streamChat 配额用完: userId={}, used={}/{}", user.getId(), currentCount, dailyLimit);
-            sendSseError(emitter, "今日 AI 提问次数已用完");
+
+        AiQuotaService.Reservation reservation;
+        try {
+            reservation = quotaService.reserve(user.getId(), dailyLimit);
+        } catch (BusinessException exception) {
+            log.warn("streamChat 配额用完: userId={}", user.getId());
+            sendSseError(emitter, exception.getMessage());
             return;
         }
 
@@ -222,65 +214,80 @@ public class AiChatService {
         try {
             session = resolveSession(user, request.sessionId());
         } catch (Exception e) {
+            releaseReservation(reservation);
             log.warn("streamChat 会话解析失败: userId={}, error={}", user.getId(), e.getMessage());
             sendSseError(emitter, "会话不存在");
             return;
         }
 
-        long messageCount = messageRepository.countBySessionId(session.getId());
-        if (messageCount >= MAX_MESSAGES_PER_SESSION) {
+        long messageCount = messageRepository.countBySessionIdAndDeletedFalse(session.getId());
+        if (messageCount + 2 > MAX_MESSAGES_PER_SESSION) {
+            releaseReservation(reservation);
             log.warn("streamChat 会话消息数达上限: sessionId={}, count={}", session.getId(), messageCount);
             sendSseError(emitter, "该会话消息数已达上限，请创建新会话");
             return;
         }
 
         String userMessageText = request.message().trim();
-        log.info("streamChat 开始: userId={}, sessionId={}, message={}", user.getId(), session.getId(), userMessageText);
+        log.info("streamChat 开始: userId={}, sessionId={}, messageLength={}",
+                user.getId(), session.getId(), userMessageText.length());
 
-        StringBuilder fullAnswer = new StringBuilder();
+        StringBuffer fullAnswer = new StringBuffer();
+        AtomicBoolean quotaFinalized = new AtomicBoolean();
+        AtomicReference<Disposable> subscriptionRef = new AtomicReference<>();
+        Runnable cancelStream = () -> {
+            Disposable subscription = subscriptionRef.get();
+            if (subscription != null && !subscription.isDisposed()) {
+                subscription.dispose();
+            }
+            releaseReservedQuota(reservation, quotaFinalized);
+        };
+        emitter.onCompletion(cancelStream);
+        emitter.onTimeout(cancelStream);
+        emitter.onError(error -> cancelStream.run());
+
         try {
-            // 在 aiStreamExecutor 线程上设置 AiUserContext，供 AI 工具层获取当前用户
-            AiUserContext.set(currentUser);
             String conversationId = session.getId().toString();
-            chatClient.prompt()
+            Disposable subscription = chatClient.prompt()
                     .user(userMessageText)
                     .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                     .tools(blogTools)
+                    .toolContext(Map.of(
+                            AiBlogTools.AUTHENTICATED_USER_CONTEXT_KEY,
+                            currentUser
+                    ))
                     .stream()
                     .chatResponse()
                     .publishOn(Schedulers.boundedElastic())
                     .subscribe(
                             response -> {
-                                // token 回调在 boundedElastic 线程上，无需操作 AiUserContext
                                 String token = extractToken(response);
                                 if (token != null) {
                                     fullAnswer.append(token);
                                     try {
                                         emitter.send(SseEmitter.event().name(SSE_EVENT_TOKEN).data(token));
-                                    } catch (Exception ignored) {
-                                        // 客户端可能已断开连接
+                                    } catch (Exception sendError) {
+                                        log.debug("SSE client disconnected: sessionId={}", session.getId());
+                                        cancelStream.run();
                                     }
                                 }
                             },
                             error -> {
-                                // error 回调在 boundedElastic 线程上，无需操作 AiUserContext（未在此线程设置）
                                 log.error("streamChat AI 流式调用失败: userId={}, sessionId={}, error={}",
                                         user.getId(), session.getId(), error.getMessage(), error);
-                                sendSseError(emitter, "AI 服务暂时不可用: " + error.getMessage());
+                                releaseReservedQuota(reservation, quotaFinalized);
+                                sendSseError(emitter, "AI 服务暂时不可用，请稍后重试");
                             },
                             () -> {
-                                // complete 回调在 boundedElastic 线程上，无需操作 AiUserContext
-                                // AI 调用成功后才持久化消息和配额
                                 persistStreamResult(fullAnswer, userMessageText, user, session,
-                                        messageCount, dailyLimit, emitter);
+                                        dailyLimit, reservation, quotaFinalized, emitter);
                             }
                     );
+            subscriptionRef.set(subscription);
         } catch (Exception e) {
             log.error("streamChat 异常: userId={}, error={}", user.getId(), e.getMessage(), e);
-            sendSseError(emitter, "AI 服务暂时不可用: " + e.getMessage());
-        } finally {
-            // 必须在设置 AiUserContext 的同一线程（aiStreamExecutor）上清除
-            AiUserContext.clear();
+            releaseReservedQuota(reservation, quotaFinalized);
+            sendSseError(emitter, "AI 服务暂时不可用，请稍后重试");
         }
     }
 
@@ -300,55 +307,57 @@ public class AiChatService {
     }
 
     /**
-     * �式调用完成后持久化消息和配额，发送 done 事件。
+     * 流式调用完成后持久化消息和配额，发送 done 事件。
      * <p>
      * 此方法在 Schedulers.boundedElastic 线程上执行。
      * 只有在 AI 调用成功完成后才持久化数据，保证数据一致性。
      */
     private void persistStreamResult(
-            StringBuilder fullAnswer,
+            StringBuffer fullAnswer,
             String userMessageText,
             User user,
             AiChatSession session,
-            long messageCount,
             int dailyLimit,
+            AiQuotaService.Reservation reservation,
+            AtomicBoolean quotaFinalized,
             SseEmitter emitter
     ) {
         String answerText = fullAnswer.toString();
         log.info("streamChat 完成: userId={}, sessionId={}, answerLen={}",
                 user.getId(), session.getId(), answerText.length());
 
+        if (!quotaFinalized.compareAndSet(false, true)) {
+            return;
+        }
+        long finalMessageCount;
         try {
-            AiChatMessage userMsg = messageRepository.save(new AiChatMessage(session, AiMessageRole.USER, userMessageText));
-            AiChatMessage assistantMsg = messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, answerText));
-            aiChatAuditService.audit(userMsg.getId());
-            aiChatAuditService.audit(assistantMsg.getId());
+            finalMessageCount = persistenceService.persistExchange(
+                    user.getId(),
+                    session.getId(),
+                    userMessageText,
+                    answerText,
+                    MAX_MESSAGES_PER_SESSION
+            );
         } catch (Exception e) {
-            log.error("Failed to save AI chat message", e);
+            log.error("Failed to persist AI chat stream", e);
+            releaseReservation(reservation);
+            sendSseError(emitter, "保存对话失败，请稍后重试");
+            return;
         }
 
         try {
-            incrementQuota(user);
-        } catch (Exception e) {
-            log.error("Failed to update quota after successful AI call", e);
-        }
-
-        try {
-            int remainingQuota = Math.max(0, dailyLimit - getCachedQuotaCount(user.getId()));
             emitter.send(SseEmitter.event()
                     .name(SSE_EVENT_DONE)
                     .data(new AiChatResponse(
-                            session.getId(), answerText, remainingQuota,
-                            (int) (MAX_MESSAGES_PER_SESSION - messageCount - 2)
+                            session.getId(),
+                            answerText,
+                            Math.max(0, dailyLimit - reservation.used()),
+                            (int) (MAX_MESSAGES_PER_SESSION - finalMessageCount)
                     )));
         } catch (Exception e) {
-            log.error("Failed to send done event", e);
+            log.debug("SSE client disconnected before done event: sessionId={}", session.getId());
         } finally {
-            try {
-                emitter.complete();
-            } catch (Exception ignored) {
-                // 发射器可能已经完成
-            }
+            emitter.complete();
         }
     }
 
@@ -358,9 +367,13 @@ public class AiChatService {
     @Transactional(readOnly = true)
     public AiQuotaResponse quota(AuthenticatedUser currentUser) {
         User user = activeUser(currentUser);
-        int used = getCachedQuotaCount(user.getId());
+        int used = quotaService.used(user.getId());
         int dailyLimit = blogProperties.getAi().getDailyQuestionLimit();
-        return new AiQuotaResponse(LocalDate.now(QUOTA_ZONE), dailyLimit, used);
+        return new AiQuotaResponse(
+                LocalDate.now(clock.withZone(QUOTA_ZONE)),
+                dailyLimit,
+                used
+        );
     }
 
     /**
@@ -448,72 +461,48 @@ public class AiChatService {
     /**
      * 调用 Spring AI ChatClient 生成同步回答。
      * <p>
-     * AiUserContext 必须在调用此方法前由调用方设置，调用完成后由调用方清除。
-     * 此方法运行在调用方线程上，ThreadLocal 的 set/clear 保证在同一事务线程中配对。
+     * 用户身份通过 ToolContext 与本次请求绑定。
      */
-    private String generateAnswer(String userMessage, String conversationId) {
+    private String generateAnswer(
+            String userMessage,
+            String conversationId,
+            AuthenticatedUser currentUser
+    ) {
         try {
             return chatClient.prompt()
                     .user(userMessage)
                     .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                     .tools(blogTools)
+                    .toolContext(Map.of(
+                            AiBlogTools.AUTHENTICATED_USER_CONTEXT_KEY,
+                            currentUser
+                    ))
                     .call()
                     .content();
         } catch (Exception e) {
-            return "抱歉，AI 服务暂时不可用。错误信息: " + e.getMessage();
+            throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "AI 服务暂时不可用");
         }
     }
 
-    /**
-     * 递增用户的每日 AI 配额计数，并清除 Redis 缓存以强制下次回源。
-     */
-    private void incrementQuota(User user) {
-        AiDailyQuota quota = quotaFor(user);
-        quota.increase();
-        quotaRepository.save(quota);
-        String cacheKey = QUOTA_CACHE_PREFIX + user.getId() + ":" + LocalDate.now(QUOTA_ZONE);
-        redisTemplate.delete(cacheKey);
-    }
-
-    /**
-     * 获取或创建用户今日的配额记录（按 UTC+8 时区计算）。
-     */
-    private AiDailyQuota quotaFor(User user) {
-        LocalDate today = LocalDate.now(QUOTA_ZONE);
-        return quotaRepository.findByUserIdAndQuotaDate(user.getId(), today)
-                .orElseGet(() -> quotaRepository.save(new AiDailyQuota(user, today)));
-    }
-
-    /**
-     * 获取用户今日已使用的提问次数（优先从 Redis 缓存读取，缓存未命中时回源数据库）。
-     * 配额按 UTC+8 时区计算，每天 0 点重置。
-     */
-    private int getCachedQuotaCount(UUID userId) {
-        String cacheKey = QUOTA_CACHE_PREFIX + userId + ":" + LocalDate.now(QUOTA_ZONE);
-        String cached = redisTemplate.opsForValue().get(cacheKey);
-        if (cached != null) {
-            return Integer.parseInt(cached);
+    private void releaseReservedQuota(
+            AiQuotaService.Reservation reservation,
+            AtomicBoolean quotaFinalized
+    ) {
+        if (quotaFinalized.compareAndSet(false, true)) {
+            releaseReservation(reservation);
         }
-
-        LocalDate today = LocalDate.now(QUOTA_ZONE);
-        int count = quotaRepository.findByUserIdAndQuotaDate(userId, today)
-                .map(AiDailyQuota::getQuestionCount)
-                .orElse(0);
-
-        redisTemplate.opsForValue().set(cacheKey, String.valueOf(count));
-        redisTemplate.expire(cacheKey, getSecondsUntilMidnight(), TimeUnit.SECONDS);
-        return count;
     }
 
-    /**
-     * 计算距离 UTC+8 午夜的秒数，用于设置 Redis 缓存过期时间。
-     */
-    private long getSecondsUntilMidnight() {
-        LocalDate today = LocalDate.now(QUOTA_ZONE);
-        return java.time.Duration.between(
-                ZonedDateTime.now(QUOTA_ZONE),
-                today.plusDays(1).atStartOfDay(QUOTA_ZONE)
-        ).getSeconds();
+    private void releaseReservation(AiQuotaService.Reservation reservation) {
+        try {
+            quotaService.release(reservation);
+        } catch (Exception exception) {
+            log.error(
+                    "Failed to release AI quota reservation for user {}",
+                    reservation.userId(),
+                    exception
+            );
+        }
     }
 
     /**
@@ -535,9 +524,14 @@ public class AiChatService {
     private void sendSseError(SseEmitter emitter, String message) {
         try {
             emitter.send(SseEmitter.event().name(SSE_EVENT_ERROR).data(message));
-            emitter.complete();
         } catch (Exception ignored) {
             // 发射器可能已关闭
+        } finally {
+            try {
+                emitter.complete();
+            } catch (Exception ignored) {
+                // 发射器可能已经完成
+            }
         }
     }
 }

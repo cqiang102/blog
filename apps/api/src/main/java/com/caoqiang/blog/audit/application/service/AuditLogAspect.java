@@ -55,7 +55,11 @@ public class AuditLogAspect {
      * @param joinPoint 方法连接点
      * @param result    方法返回结果
      */
-    @AfterReturning(pointcut = "execution(* com.caoqiang.blog.admin.*Controller.*(..))", returning = "result")
+    @AfterReturning(
+            pointcut = "execution(* com.caoqiang.blog..infrastructure.web.Admin*Controller.*(..))"
+                    + " || execution(* com.caoqiang.blog.admin.AdminController.*(..))",
+            returning = "result"
+    )
     public void logAdminAction(JoinPoint joinPoint, Object result) {
         try {
             MethodSignature signature = (MethodSignature) joinPoint.getSignature();

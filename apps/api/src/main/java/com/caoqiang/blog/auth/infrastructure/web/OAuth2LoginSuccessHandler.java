@@ -3,15 +3,15 @@ package com.caoqiang.blog.auth.infrastructure.web;
 import com.caoqiang.blog.auth.application.dto.GithubOAuth2User;
 import com.caoqiang.blog.auth.application.dto.AuthTokenResponse;
 import com.caoqiang.blog.auth.application.service.JwtService;
+import com.caoqiang.blog.auth.application.service.OAuthLoginCodeService;
 import com.caoqiang.blog.auth.application.service.RefreshTokenService;
 
 import com.caoqiang.blog.user.domain.model.User;
+import com.caoqiang.blog.user.application.dto.UserProfileResponse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -26,14 +26,17 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final OAuthLoginCodeService oAuthLoginCodeService;
     private final String frontendBaseUrl;
 
     public OAuth2LoginSuccessHandler(
             JwtService jwtService,
             RefreshTokenService refreshTokenService,
+            OAuthLoginCodeService oAuthLoginCodeService,
             @Value("${blog.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
+        this.oAuthLoginCodeService = oAuthLoginCodeService;
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
@@ -46,10 +49,14 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         JwtService.JwtToken accessToken = jwtService.createAccessToken(user);
         RefreshTokenService.RawRefreshToken refreshToken = refreshTokenService.createFor(user);
 
-        String redirectUrl = frontendBaseUrl + "/login/oauth2/code/github"
-                + "?token=" + URLEncoder.encode(accessToken.value(), StandardCharsets.UTF_8)
-                + "&refresh=" + URLEncoder.encode(refreshToken.value(), StandardCharsets.UTF_8)
-                + "&expires=" + accessToken.expiresAt().toEpochMilli();
+        AuthTokenResponse session = new AuthTokenResponse(
+                accessToken.value(),
+                refreshToken.value(),
+                accessToken.expiresAt(),
+                UserProfileResponse.from(user)
+        );
+        String loginCode = oAuthLoginCodeService.create(session);
+        String redirectUrl = frontendBaseUrl + "/login/oauth2/code/github?login_code=" + loginCode;
 
         response.sendRedirect(redirectUrl);
     }

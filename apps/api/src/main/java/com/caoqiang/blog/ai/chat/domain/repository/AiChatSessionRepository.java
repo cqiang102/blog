@@ -5,8 +5,10 @@ import com.caoqiang.blog.ai.chat.domain.model.AiChatSession;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -36,6 +38,16 @@ public interface AiChatSessionRepository extends JpaRepository<AiChatSession, UU
      * @return 匹配的未删除会话
      */
     Optional<AiChatSession> findByIdAndUserIdAndDeletedFalse(UUID id, UUID userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT s FROM AiChatSession s
+            WHERE s.id = :id AND s.user.id = :userId AND s.deleted = false
+            """)
+    Optional<AiChatSession> findForUpdate(
+            @Param("id") UUID id,
+            @Param("userId") UUID userId
+    );
 
     /**
      * 获取指定用户最近更新的 20 个会话。

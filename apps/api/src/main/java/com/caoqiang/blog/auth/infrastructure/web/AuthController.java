@@ -1,6 +1,7 @@
 package com.caoqiang.blog.auth.infrastructure.web;
 
 import com.caoqiang.blog.auth.application.dto.AuthTokenResponse;
+import com.caoqiang.blog.auth.application.dto.OAuthExchangeRequest;
 import com.caoqiang.blog.auth.application.dto.OAuthProvidersResponse;
 import com.caoqiang.blog.auth.application.dto.LoginRequest;
 import com.caoqiang.blog.auth.application.dto.RegisterRequest;
@@ -9,6 +10,8 @@ import com.caoqiang.blog.auth.domain.model.VerificationCode;
 import com.caoqiang.blog.auth.domain.model.OAuthProvider;
 import com.caoqiang.blog.auth.application.dto.RefreshTokenRequest;
 import com.caoqiang.blog.auth.application.service.AuthService;
+import com.caoqiang.blog.auth.application.service.JwtService;
+import com.caoqiang.blog.auth.application.service.OAuthLoginCodeService;
 import com.caoqiang.blog.auth.application.service.VerificationService;
 import com.caoqiang.blog.shared.util.EmailNormalizer;
 
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * 认证 REST 控制器
@@ -45,6 +49,8 @@ public class AuthController {
     private final AuthService authService;
     /** 验证码服务，处理邮箱验证码的发送和校验 */
     private final VerificationService verificationService;
+    private final JwtService jwtService;
+    private final OAuthLoginCodeService oAuthLoginCodeService;
     /** GitHub OAuth 客户端 ID */
     private final String clientId;
     /** 前端基础地址 */
@@ -53,10 +59,14 @@ public class AuthController {
     public AuthController(
             AuthService authService,
             VerificationService verificationService,
+            JwtService jwtService,
+            OAuthLoginCodeService oAuthLoginCodeService,
             @Value("${spring.security.oauth2.client.registration.github.client-id:}") String clientId,
             @Value("${blog.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
         this.authService = authService;
         this.verificationService = verificationService;
+        this.jwtService = jwtService;
+        this.oAuthLoginCodeService = oAuthLoginCodeService;
         this.clientId = clientId;
         this.frontendBaseUrl = frontendBaseUrl;
     }
@@ -110,6 +120,13 @@ public class AuthController {
         return ApiResponse.ok(authService.refresh(request));
     }
 
+    @PostMapping("/oauth/exchange")
+    public ApiResponse<AuthTokenResponse> exchangeOAuthLogin(
+            @Valid @RequestBody OAuthExchangeRequest request
+    ) {
+        return ApiResponse.ok(oAuthLoginCodeService.consume(request.code()));
+    }
+
     /**
      * 查询可用的 OAuth 提供者
      * 返回当前系统支持的 OAuth 登录方式及其授权 URL。
@@ -119,10 +136,15 @@ public class AuthController {
     @GetMapping("/providers")
     public ApiResponse<OAuthProvidersResponse> providers() {
         String callbackUrl = frontendBaseUrl + "/login/oauth2/code/github";
-        String githubLoginUrl = "https://github.com/login/oauth/authorize"
-                + "?client_id=" + clientId
-                + "&redirect_uri=" + callbackUrl
-                + "&scope=read:user,user:email";
+        String githubLoginUrl = UriComponentsBuilder
+                .fromUriString("https://github.com/login/oauth/authorize")
+                .queryParam("client_id", clientId)
+                .queryParam("redirect_uri", callbackUrl)
+                .queryParam("scope", "read:user,user:email")
+                .queryParam("state", jwtService.createOAuthLoginState())
+                .build()
+                .encode()
+                .toUriString();
         return ApiResponse.ok(new OAuthProvidersResponse(
                 List.of(OAuthProvider.GITHUB),
                 List.of(OAuthProvider.QQ),

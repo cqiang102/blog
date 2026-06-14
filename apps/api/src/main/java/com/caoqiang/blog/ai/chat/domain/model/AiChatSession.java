@@ -76,6 +76,10 @@ public class AiChatSession {
         this.deleted = true;
     }
 
+    public void touch() {
+        this.updatedAt = Instant.now();
+    }
+
     public UUID getId() {
         return id;
     }

@@ -5,7 +5,6 @@ import com.caoqiang.blog.ai.chat.domain.repository.AiChatMessageRepository;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 /**
@@ -35,7 +34,6 @@ public class AiChatAuditService {
      *
      * @param messageId 消息 ID
      */
-    @Async("aiChatAuditExecutor")
     public void audit(UUID messageId) {
         try {
             messageRepository.findById(messageId).ifPresent(message -> {

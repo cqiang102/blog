@@ -6,12 +6,17 @@ import com.caoqiang.blog.shared.domain.event.content.ContentPublishedEvent;
 import com.caoqiang.blog.shared.domain.event.interaction.CommentCreatedEvent;
 import com.caoqiang.blog.shared.domain.event.interaction.LikeAddedEvent;
 import com.caoqiang.blog.shared.domain.event.user.UserCreatedEvent;
+import com.caoqiang.blog.interaction.application.service.CommentAuditService;
+import com.caoqiang.blog.ai.chat.application.service.AiChatAuditService;
+import com.caoqiang.blog.shared.domain.event.ai.AiChatMessagesCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
  * 领域事件监听器
@@ -36,6 +41,16 @@ import org.springframework.stereotype.Component;
 public class DomainEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(DomainEventListener.class);
+    private final CommentAuditService commentAuditService;
+    private final AiChatAuditService aiChatAuditService;
+
+    public DomainEventListener(
+            CommentAuditService commentAuditService,
+            AiChatAuditService aiChatAuditService
+    ) {
+        this.commentAuditService = commentAuditService;
+        this.aiChatAuditService = aiChatAuditService;
+    }
 
     /**
      * 处理用户创建事件
@@ -85,11 +100,18 @@ public class DomainEventListener {
      *
      * @param event 评论创建事件
      */
-    @EventListener
-    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async("commentAuditExecutor")
     public void onCommentCreated(CommentCreatedEvent event) {
+        commentAuditService.audit(event.getCommentId());
         log.info("Comment created: commentId={}, contentId={}, userId={}", 
                 event.getCommentId(), event.getContentId(), event.getUserId());
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async("aiChatAuditExecutor")
+    public void onAiChatMessagesCreated(AiChatMessagesCreatedEvent event) {
+        event.getMessageIds().forEach(aiChatAuditService::audit);
     }
 
     /**

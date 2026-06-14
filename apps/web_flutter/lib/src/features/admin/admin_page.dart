@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../core/models.dart';
 import '../../state/state.dart';
 import '../../widgets/widgets.dart';
 import 'tabs/ai_chat_admin_tab.dart';

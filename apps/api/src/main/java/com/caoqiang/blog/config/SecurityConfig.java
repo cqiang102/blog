@@ -79,6 +79,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(SecurityConfig::handleAuthenticationFailure)
                 )
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/github/bind").authenticated()
                         // 公开接口：健康检查、API 文档、认证接口
                         .requestMatchers(
                                 "/actuator/health/**",

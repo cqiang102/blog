@@ -17,10 +17,7 @@ const apiBaseUrl = String.fromEnvironment(
 /// API 客户端基类
 /// 基于 Dio 封装所有 HTTP 请求，支持 401 自动刷新令牌
 class ApiClientBase {
-  ApiClientBase({
-    required Dio dio,
-    this.baseUrl = apiBaseUrl,
-  }) : _dio = dio {
+  ApiClientBase({required Dio dio, this.baseUrl = apiBaseUrl}) : _dio = dio {
     _dio.options.baseUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
     _dio.options.headers = {'Accept': 'application/json'};
   }
@@ -106,43 +103,55 @@ class ApiClientBase {
         final newToken = await onUnauthorized!();
         if (newToken != null) {
           headers['Authorization'] = 'Bearer $newToken';
-          final retryResponse = await _dio.request<Object?>(
-            path,
-            data: formData ?? (body != null ? jsonEncode(body) : null),
-            queryParameters: queryParameters,
-            options: Options(
-              method: method,
-              headers: headers,
-              contentType: formData != null
-                  ? null
-                  : (body != null ? 'application/json' : null),
-            ),
-          );
-          return extractData(retryResponse);
+          try {
+            final retryResponse = await _dio.request<Object?>(
+              path,
+              data: formData ?? (body != null ? jsonEncode(body) : null),
+              queryParameters: queryParameters,
+              options: Options(
+                method: method,
+                headers: headers,
+                contentType: formData != null
+                    ? null
+                    : (body != null ? 'application/json' : null),
+              ),
+            );
+            return extractData(retryResponse);
+          } on DioException catch (retryError) {
+            final apiError = _apiException(retryError);
+            if (apiError != null) throw apiError;
+            rethrow;
+          }
         }
       }
-      // 处理业务错误响应（4xx/5xx 可能包含业务错误消息）
-      if (e.response?.data is Map) {
-        final envelope = (e.response!.data as Map).cast<String, dynamic>();
-        if (envelope['success'] == false) {
-          throw ApiException(
-            envelope['message']?.toString() ?? '请求失败',
-            statusCode: e.response?.statusCode,
-          );
-        }
-      }
+      final apiError = _apiException(e);
+      if (apiError != null) throw apiError;
       rethrow;
     }
+  }
+
+  ApiException? _apiException(DioException error) {
+    final response = error.response;
+    if (response == null) return null;
+
+    if (response.data is Map) {
+      final envelope = (response.data as Map).cast<String, dynamic>();
+      return ApiException(
+        envelope['message']?.toString() ?? '请求失败',
+        statusCode: response.statusCode,
+      );
+    }
+    return ApiException(
+      error.message ?? '请求失败',
+      statusCode: response.statusCode,
+    );
   }
 
   /// 从 Dio 响应中提取业务数据
   Object? extractData(Response<Object?> response) {
     final decoded = response.data;
     if (decoded is! Map) {
-      throw ApiException(
-        '后端响应格式不正确',
-        statusCode: response.statusCode,
-      );
+      throw ApiException('后端响应格式不正确', statusCode: response.statusCode);
     }
 
     final envelope = decoded.cast<String, dynamic>();

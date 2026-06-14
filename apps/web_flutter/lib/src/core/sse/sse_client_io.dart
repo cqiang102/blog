@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
 import 'sse_event.dart';
 import 'sse_parser.dart';
+import 'sse_request.dart';
 
 /// SSE 请求超时时间
 const _sseTimeout = Duration(minutes: 10);
@@ -18,6 +18,7 @@ Future<List<SseEvent>> postSse({
   required Map<String, dynamic> body,
   required String accessToken,
   required void Function(SseEvent event) onEvent,
+  SseCancellationToken? cancellationToken,
 }) async {
   final events = <SseEvent>[];
   var buffer = '';
@@ -34,46 +35,46 @@ Future<List<SseEvent>> postSse({
     );
   }
 
-  final response = await dio.post<ResponseBody>(
-    path,
-    data: body,
-    options: Options(
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-        'Authorization': 'Bearer $accessToken',
-      },
-      responseType: ResponseType.stream,
-      receiveTimeout: _sseTimeout,
-    ),
-  );
+  final dioCancelToken = CancelToken();
+  cancellationToken?.bind(() => dioCancelToken.cancel('SSE request cancelled'));
 
-  final responseBody = response.data;
-  if (responseBody == null) return events;
-
-  final stream = responseBody.stream.cast<Uint8List>();
-  await for (final chunk in stream.transform(const _SseByteTransformer())) {
-    consume(chunk);
-  }
-  consume('', flush: true);
-  return events;
-}
-
-/// 立即把字节转换为字符串的流转换器
-class _SseByteTransformer extends StreamTransformerBase<Uint8List, String> {
-  const _SseByteTransformer();
-
-  @override
-  Stream<String> bind(Stream<Uint8List> stream) {
-    final controller = StreamController<String>();
-    stream.listen(
-      (chunk) {
-        final text = utf8.decode(chunk, allowMalformed: true);
-        if (text.isNotEmpty) controller.add(text);
-      },
-      onError: controller.addError,
-      onDone: controller.close,
+  try {
+    final response = await dio.post<ResponseBody>(
+      path,
+      data: body,
+      cancelToken: dioCancelToken,
+      options: Options(
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+          'Authorization': 'Bearer $accessToken',
+        },
+        responseType: ResponseType.stream,
+        receiveTimeout: _sseTimeout,
+      ),
     );
-    return controller.stream;
+
+    final responseBody = response.data;
+    if (responseBody == null) return events;
+
+    await for (final chunk in responseBody.stream.cast<List<int>>().transform(
+      utf8.decoder,
+    )) {
+      if (cancellationToken?.isCancelled ?? false) break;
+      consume(chunk);
+    }
+    consume('', flush: true);
+    return events;
+  } on DioException catch (error) {
+    if (CancelToken.isCancel(error) &&
+        (cancellationToken?.isCancelled ?? false)) {
+      return events;
+    }
+    throw SseRequestException(
+      error.response?.data?.toString() ?? error.message ?? 'SSE 请求失败',
+      statusCode: error.response?.statusCode,
+    );
+  } finally {
+    cancellationToken?.bind(null);
   }
 }

@@ -7,8 +7,8 @@ import com.caoqiang.blog.ai.chat.application.dto.AiContentItem;
 import com.caoqiang.blog.ai.chat.application.dto.AiSearchContentResult;
 
 import com.caoqiang.blog.ai.chat.application.dto.AiActionResult;
-import com.caoqiang.blog.ai.chat.context.AiUserContext;
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeSearchResult;
+import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
@@ -31,6 +31,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
@@ -45,10 +46,12 @@ import org.springframework.stereotype.Component;
  *   <li>对文章点赞/取消点赞</li>
  *   <li>对文章发表评论/查询评论/删除评论</li>
  * </ul>
- * 需要用户身份的操作通过 {@link AiUserContext} 获取当前登录用户。
+ * 需要用户身份的操作通过 Spring AI 的请求级 {@link ToolContext} 获取当前登录用户。
  */
 @Component
 public class AiBlogTools {
+
+    public static final String AUTHENTICATED_USER_CONTEXT_KEY = "authenticatedUser";
 
     private static final Logger log = LoggerFactory.getLogger(AiBlogTools.class);
 
@@ -149,9 +152,15 @@ public class AiBlogTools {
             List<Object[]> similarChunks = knowledgeChunkRepository.findSimilarChunks(embeddingStr, 5);
 
             if (!similarChunks.isEmpty()) {
-                // 收集所有 contentId，批量查询
+                // 收集所有 contentId 和 docId，批量查询
                 List<UUID> contentIds = similarChunks.stream()
                         .map(chunk -> chunk[2] != null ? (UUID) chunk[2] : null)
+                        .filter(java.util.Objects::nonNull)
+                        .distinct()
+                        .toList();
+
+                List<UUID> docIds = similarChunks.stream()
+                        .map(chunk -> chunk[1] != null ? (UUID) chunk[1] : null)
                         .filter(java.util.Objects::nonNull)
                         .distinct()
                         .toList();
@@ -159,19 +168,27 @@ public class AiBlogTools {
                 Map<UUID, Content> contentMap = contentRepository.findAllById(contentIds).stream()
                         .collect(java.util.stream.Collectors.toMap(Content::getId, c -> c));
 
+                Map<UUID, KnowledgeDoc> docMap = knowledgeDocRepository.findAllById(docIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(KnowledgeDoc::getId, d -> d));
+
                 List<KnowledgeSearchResult> results = new ArrayList<>();
                 for (Object[] chunk : similarChunks) {
+                    UUID docId = chunk[1] != null ? (UUID) chunk[1] : null;
                     UUID contentId = chunk[2] != null ? (UUID) chunk[2] : null;
-                    String content = (String) chunk[3];
-                    double score = chunk[5] != null ? ((Number) chunk[5]).doubleValue() : 0;
+                    String content = (String) chunk[4];
+                    double score = chunk[6] != null ? ((Number) chunk[6]).doubleValue() : 0;
 
                     String title = null;
+                    String sourceId = null;
                     if (contentId != null && contentMap.containsKey(contentId)) {
                         title = contentMap.get(contentId).getTitle();
+                        sourceId = contentId.toString();
+                    } else if (docId != null && docMap.containsKey(docId)) {
+                        title = docMap.get(docId).getTitle();
+                        sourceId = docId.toString();
                     }
 
-                    results.add(new KnowledgeSearchResult(content, score,
-                            contentId != null ? contentId.toString() : null, title));
+                    results.add(new KnowledgeSearchResult(content, score, sourceId, title));
                 }
                 return results;
             }
@@ -203,9 +220,10 @@ public class AiBlogTools {
      */
     @Tool(description = "对博客文章点赞。当用户表示喜欢某篇文章或想给文章点赞时调用。")
     public AiActionResult likeContent(
-            @ToolParam(description = "文章的UUID") UUID contentId
+            @ToolParam(description = "文章的UUID") UUID contentId,
+            ToolContext toolContext
     ) {
-        AuthenticatedUser currentUser = AiUserContext.get();
+        AuthenticatedUser currentUser = currentUser(toolContext);
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
         }
@@ -225,9 +243,10 @@ public class AiBlogTools {
      */
     @Tool(description = "取消对博客文章的点赞。当用户想取消之前的点赞时调用。")
     public AiActionResult unlikeContent(
-            @ToolParam(description = "文章的UUID") UUID contentId
+            @ToolParam(description = "文章的UUID") UUID contentId,
+            ToolContext toolContext
     ) {
-        AuthenticatedUser currentUser = AiUserContext.get();
+        AuthenticatedUser currentUser = currentUser(toolContext);
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
         }
@@ -249,9 +268,10 @@ public class AiBlogTools {
     @Tool(description = "对博客文章发表评论。当用户想对某篇文章发表评论或留言时调用。")
     public AiActionResult commentContent(
             @ToolParam(description = "文章的UUID") UUID contentId,
-            @ToolParam(description = "评论内容") String body
+            @ToolParam(description = "评论内容") String body,
+            ToolContext toolContext
     ) {
-        AuthenticatedUser currentUser = AiUserContext.get();
+        AuthenticatedUser currentUser = currentUser(toolContext);
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
         }
@@ -273,9 +293,10 @@ public class AiBlogTools {
     @Tool(description = "查询文章的评论列表。返回评论的ID、内容、作者和时间信息。当用户想查看某篇文章的评论、查找自己的评论、或需要获取评论ID以便删除评论时调用。")
     public AiCommentListResult listComments(
             @ToolParam(description = "文章的UUID") UUID contentId,
-            @ToolParam(description = "返回结果数量上限，最大20") int limit
+            @ToolParam(description = "返回结果数量上限，最大20") int limit,
+            ToolContext toolContext
     ) {
-        AuthenticatedUser currentUser = AiUserContext.get();
+        AuthenticatedUser currentUser = currentUser(toolContext);
         UUID currentUserId = currentUser != null ? currentUser.id() : null;
         try {
             PageResponse<CommentResponse> result = interactionQueryService.comments(
@@ -303,9 +324,10 @@ public class AiBlogTools {
      */
     @Tool(description = "删除自己的评论。当用户想删除之前发表的评论时调用。只能删除自己发布的评论。")
     public AiActionResult deleteComment(
-            @ToolParam(description = "评论的UUID") UUID commentId
+            @ToolParam(description = "评论的UUID") UUID commentId,
+            ToolContext toolContext
     ) {
-        AuthenticatedUser currentUser = AiUserContext.get();
+        AuthenticatedUser currentUser = currentUser(toolContext);
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
         }
@@ -315,6 +337,11 @@ public class AiBlogTools {
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
         }
+    }
+
+    private AuthenticatedUser currentUser(ToolContext toolContext) {
+        Object value = toolContext.getContext().get(AUTHENTICATED_USER_CONTEXT_KEY);
+        return value instanceof AuthenticatedUser user ? user : null;
     }
 
 }

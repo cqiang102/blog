@@ -15,6 +15,7 @@ import static org.mockito.Mockito.*;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
 import java.time.Instant;
@@ -65,11 +66,11 @@ class ContentServiceTest {
 
     @Test
     void recommendations_returnsThreeLists() {
-        when(contentRepository.findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullOrderByPublishedAtDesc(any()))
+        when(contentRepository.findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(any()))
                 .thenReturn(List.of(publishedContent));
-        when(contentRepository.findTop10ByStatusAndPublishedAtIsNotNullOrderByPublishedAtDesc(any()))
+        when(contentRepository.findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(any()))
                 .thenReturn(List.of(publishedContent));
-        when(contentRepository.findTop10ByStatusAndPublishedAtIsNotNullOrderByLikeCountDescPublishedAtDesc(any()))
+        when(contentRepository.findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(any()))
                 .thenReturn(List.of(publishedContent));
 
         RecommendationResponse response = contentService.recommendations();
@@ -83,7 +84,11 @@ class ContentServiceTest {
     @Test
     void list_returnsPaginatedResults() {
         Page<Content> page = new PageImpl<>(List.of(publishedContent));
-        when(contentRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
+        when(contentRepository.findAll(
+                org.mockito.ArgumentMatchers
+                        .<org.springframework.data.jpa.domain.Specification<Content>>any(),
+                any(Pageable.class)
+        ))
                 .thenReturn(page);
 
         PageResponse<ContentSummaryResponse> result = contentService.list(
@@ -97,7 +102,10 @@ class ContentServiceTest {
 
     @Test
     void detail_returnsContentWithLikeStatus() {
-        when(contentRepository.findByIdAndStatus(eq(contentId), eq(ContentStatus.PUBLISHED)))
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                eq(contentId),
+                eq(ContentStatus.PUBLISHED)
+        ))
                 .thenReturn(Optional.of(publishedContent));
         when(likeRepository.existsByContentIdAndUserId(eq(contentId), any(UUID.class)))
                 .thenReturn(true);
@@ -112,12 +120,33 @@ class ContentServiceTest {
 
     @Test
     void detail_returnsContentWithoutLikeForAnonymous() {
-        when(contentRepository.findByIdAndStatus(eq(contentId), eq(ContentStatus.PUBLISHED)))
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                eq(contentId),
+                eq(ContentStatus.PUBLISHED)
+        ))
                 .thenReturn(Optional.of(publishedContent));
 
         ContentDetailResponse detail = contentService.detail(contentId, null);
 
         assertNotNull(detail);
         assertFalse(detail.likedByCurrentUser());
+    }
+
+    @Test
+    void detail_doesNotExposeLogicallyDeletedContentToAdmin() {
+        AuthenticatedUser admin = new AuthenticatedUser(
+                UUID.randomUUID(),
+                "admin@example.com",
+                "Admin",
+                Role.ADMIN
+        );
+        when(contentRepository.findByIdAndDeletedAtIsNull(contentId))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                BusinessException.class,
+                () -> contentService.detail(contentId, admin)
+        );
+        verify(contentRepository, never()).findById(contentId);
     }
 }

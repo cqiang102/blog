@@ -2,7 +2,6 @@ import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -12,7 +11,6 @@ import 'package:timelines_plus/timelines_plus.dart';
 import '../../state/state.dart';
 import '../../widgets/widgets.dart';
 import '../../core/constants.dart';
-import '../../state/content_filter_state.dart';
 import '../../core/media_url.dart';
 import '../../core/models.dart';
 import '../../theme/app_spacing.dart';
@@ -788,7 +786,7 @@ class _TimelineContent extends _TimelineItem {
 }
 
 class _ContentRow extends StatelessWidget {
-  const _ContentRow({super.key, required this.content});
+  const _ContentRow({required this.content});
 
   final BlogContent content;
 

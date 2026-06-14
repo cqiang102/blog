@@ -7,6 +7,7 @@ import 'package:web/web.dart' as web;
 
 import 'sse_event.dart';
 import 'sse_parser.dart';
+import 'sse_request.dart';
 
 /// SSE 请求超时时间
 const _sseTimeout = Duration(minutes: 10);
@@ -19,6 +20,7 @@ Future<List<SseEvent>> postSse({
   required Map<String, dynamic> body,
   required String accessToken,
   required void Function(SseEvent event) onEvent,
+  SseCancellationToken? cancellationToken,
 }) async {
   final events = <SseEvent>[];
   var buffer = '';
@@ -43,6 +45,7 @@ Future<List<SseEvent>> postSse({
 
   // 使用 AbortController 实现超时控制
   final abortController = web.AbortController();
+  cancellationToken?.bind(() => abortController.abort());
   final timer = Timer(_sseTimeout, () => abortController.abort());
 
   try {
@@ -52,11 +55,13 @@ Future<List<SseEvent>> postSse({
           web.RequestInit(
             method: 'POST',
             body: jsonEncode(body).toJS,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'text/event-stream',
-              'Authorization': 'Bearer $accessToken',
-            }.jsify()! as JSObject,
+            headers:
+                {
+                      'Content-Type': 'application/json',
+                      'Accept': 'text/event-stream',
+                      'Authorization': 'Bearer $accessToken',
+                    }.jsify()!
+                    as JSObject,
             signal: abortController.signal,
           ),
         )
@@ -64,8 +69,11 @@ Future<List<SseEvent>> postSse({
 
     if (!response.ok) {
       final status = response.status;
-      final text = await response.text().toDart;
-      throw Exception('SSE请求失败 [$status] $text');
+      final text = (await response.text().toDart).toDart;
+      throw SseRequestException(
+        text.isEmpty ? 'SSE 请求失败' : text,
+        statusCode: status,
+      );
     }
 
     final bodyStream = response.body;
@@ -76,13 +84,19 @@ Future<List<SseEvent>> postSse({
 
     final reader = bodyStream.getReader() as web.ReadableStreamDefaultReader;
     try {
-      while (true) {
-        final result = await reader.read().toDart;
-        if (result.done) break;
+      Stream<List<int>> readBytes() async* {
+        while (true) {
+          if (cancellationToken?.isCancelled ?? false) return;
+          final result = await reader.read().toDart;
+          if (result.done) return;
+          yield (result.value! as JSUint8Array).toDart;
+        }
+      }
 
-        final bytes = (result.value! as JSUint8Array).toDart;
-        final chunk = utf8.decode(bytes, allowMalformed: true);
-        if (chunk.isNotEmpty) consume(chunk);
+      await for (final chunk in readBytes().transform(utf8.decoder)) {
+        if (chunk.isNotEmpty) {
+          consume(chunk);
+        }
       }
       consume('', flush: true);
     } finally {
@@ -90,6 +104,7 @@ Future<List<SseEvent>> postSse({
     }
   } finally {
     timer.cancel();
+    cancellationToken?.bind(null);
   }
 
   return events;

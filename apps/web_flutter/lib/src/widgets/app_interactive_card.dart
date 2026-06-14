@@ -39,9 +39,6 @@ class _AppInteractiveCardState extends State<AppInteractiveCard> {
         decoration: BoxDecoration(
           color: isDark ? scheme.surfaceContainerLow : Colors.white,
           borderRadius: radius,
-          border: _hovered
-              ? Border.all(color: scheme.primary)
-              : null,
           boxShadow: _hovered
               ? [
                   BoxShadow(

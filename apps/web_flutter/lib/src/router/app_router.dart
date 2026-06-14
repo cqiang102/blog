@@ -180,9 +180,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             (context, state) => OAuthCallbackPage(
               code: state.uri.queryParameters['code'],
               state: state.uri.queryParameters['state'],
-              token: state.uri.queryParameters['token'],
-              refresh: state.uri.queryParameters['refresh'],
-              expires: state.uri.queryParameters['expires'],
+              loginCode: state.uri.queryParameters['login_code'],
             ),
       ),
     ],

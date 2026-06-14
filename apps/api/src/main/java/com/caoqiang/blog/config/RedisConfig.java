@@ -9,7 +9,7 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
@@ -24,7 +24,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  *     <li>{@code knowledgeDocs} — 知识库文档缓存，30 分钟过期</li>
  * </ul>
  * <p>
- * 序列化策略：Key 使用 {@link StringRedisSerializer}，Value 使用 {@link GenericJackson2JsonRedisSerializer}，
+ * 序列化策略：Key 使用 {@link StringRedisSerializer}，Value 使用 {@link GenericJacksonJsonRedisSerializer}，
  * 并禁用 null 值缓存以避免缓存穿透。
  * <p>
  * TTL 配置可通过 {@code blog.cache.*} 外部化配置覆盖。
@@ -71,23 +71,28 @@ public class RedisConfig {
                 .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()))
+                        RedisSerializationContext.SerializationPair.fromSerializer(
+                                GenericJacksonJsonRedisSerializer.builder().build()
+                        ))
                 .disableCachingNullValues();
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
                 // 推荐内容缓存
                 .withCacheConfiguration(CacheNames.RECOMMENDATIONS,
-                        RedisCacheConfiguration.defaultCacheConfig()
-                                .entryTtl(Duration.ofMinutes(cacheConfig.getRecommendationsTtlMinutes())))
+                        defaultConfig.entryTtl(
+                                Duration.ofMinutes(cacheConfig.getRecommendationsTtlMinutes())
+                        ))
                 // AI 每日配额缓存
                 .withCacheConfiguration(CacheNames.AI_QUOTA,
-                        RedisCacheConfiguration.defaultCacheConfig()
-                                .entryTtl(Duration.ofHours(cacheConfig.getAiQuotaTtlHours())))
+                        defaultConfig.entryTtl(
+                                Duration.ofHours(cacheConfig.getAiQuotaTtlHours())
+                        ))
                 // 知识库文档缓存
                 .withCacheConfiguration(CacheNames.KNOWLEDGE_DOCS,
-                        RedisCacheConfiguration.defaultCacheConfig()
-                                .entryTtl(Duration.ofMinutes(cacheConfig.getKnowledgeDocsTtlMinutes())))
+                        defaultConfig.entryTtl(
+                                Duration.ofMinutes(cacheConfig.getKnowledgeDocsTtlMinutes())
+                        ))
                 .build();
     }
 }

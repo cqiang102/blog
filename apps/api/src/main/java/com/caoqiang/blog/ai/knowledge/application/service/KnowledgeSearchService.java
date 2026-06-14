@@ -1,7 +1,9 @@
 package com.caoqiang.blog.ai.knowledge.application.service;
 
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeSearchResult;
+import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
+import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.shared.util.VectorUtils;
 import com.caoqiang.blog.content.domain.model.Content;
@@ -44,17 +46,20 @@ public class KnowledgeSearchService {
     private final ContentService contentService;
     private final ContentRepository contentRepository;
     private final KnowledgeChunkRepository knowledgeChunkRepository;
+    private final KnowledgeDocRepository knowledgeDocRepository;
     private final EmbeddingModel embeddingModel;
 
     public KnowledgeSearchService(
             ContentService contentService,
             ContentRepository contentRepository,
             KnowledgeChunkRepository knowledgeChunkRepository,
+            KnowledgeDocRepository knowledgeDocRepository,
             EmbeddingModel embeddingModel
     ) {
         this.contentService = contentService;
         this.contentRepository = contentRepository;
         this.knowledgeChunkRepository = knowledgeChunkRepository;
+        this.knowledgeDocRepository = knowledgeDocRepository;
         this.embeddingModel = embeddingModel;
     }
 
@@ -71,22 +76,36 @@ public class KnowledgeSearchService {
                         .distinct()
                         .toList();
 
+                List<UUID> docIds = similarChunks.stream()
+                        .map(chunk -> chunk[1] != null ? (UUID) chunk[1] : null)
+                        .filter(java.util.Objects::nonNull)
+                        .distinct()
+                        .toList();
+
                 Map<UUID, Content> contentMap = contentRepository.findAllById(contentIds).stream()
                         .collect(java.util.stream.Collectors.toMap(Content::getId, c -> c));
 
+                Map<UUID, KnowledgeDoc> docMap = knowledgeDocRepository.findAllById(docIds).stream()
+                        .collect(java.util.stream.Collectors.toMap(KnowledgeDoc::getId, d -> d));
+
                 List<KnowledgeSearchResult> results = new ArrayList<>();
                 for (Object[] chunk : similarChunks) {
+                    UUID docId = chunk[1] != null ? (UUID) chunk[1] : null;
                     UUID contentId = chunk[2] != null ? (UUID) chunk[2] : null;
-                    String content = (String) chunk[3];
-                    double score = chunk[5] != null ? ((Number) chunk[5]).doubleValue() : 0;
+                    String content = (String) chunk[4];
+                    double score = chunk[6] != null ? ((Number) chunk[6]).doubleValue() : 0;
 
                     String title = null;
+                    String sourceId = null;
                     if (contentId != null && contentMap.containsKey(contentId)) {
                         title = contentMap.get(contentId).getTitle();
+                        sourceId = contentId.toString();
+                    } else if (docId != null && docMap.containsKey(docId)) {
+                        title = docMap.get(docId).getTitle();
+                        sourceId = docId.toString();
                     }
 
-                    results.add(new KnowledgeSearchResult(content, score,
-                            contentId != null ? contentId.toString() : null, title));
+                    results.add(new KnowledgeSearchResult(content, score, sourceId, title));
                 }
                 return results;
             }

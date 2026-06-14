@@ -61,6 +61,7 @@ class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
 
     try {
       final result = await _fetchPage(state.currentPage, _pageSize);
+      if (!mounted) return;
       state = state.copyWith(
         items: [...state.items, ...result.items],
         currentPage: state.currentPage + 1,
@@ -69,6 +70,7 @@ class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
         isLoading: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         error: e.toString(),
         isLoading: false,
@@ -81,6 +83,7 @@ class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
     state = const PaginationState(isLoading: true);
     try {
       final result = await _fetchPage(0, _pageSize);
+      if (!mounted) return;
       state = PaginationState(
         items: result.items,
         currentPage: 1,
@@ -89,6 +92,7 @@ class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
         isLoading: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = PaginationState(
         error: e.toString(),
         isLoading: false,

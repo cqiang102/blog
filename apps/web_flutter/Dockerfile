@@ -1,4 +1,4 @@
-FROM ghcr.io/cirruslabs/flutter:stable AS build
+FROM ghcr.io/cirruslabs/flutter:3.35.4 AS build
 
 WORKDIR /app
 
@@ -7,7 +7,6 @@ RUN flutter pub get
 
 COPY . .
 RUN flutter build web --release \
-    --web-renderer canvaskit \
     --tree-shake-icons \
     --dart-define=API_BASE_URL=/api/v1
 

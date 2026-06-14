@@ -8,6 +8,7 @@ import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
 import com.caoqiang.blog.user.application.service.ProfileService;
+import com.caoqiang.blog.content.application.service.MediaAdminService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -45,6 +46,9 @@ class ProfileServiceTest {
     @Mock
     private OAuthAccountRepository oauthAccountRepository;
 
+    @Mock
+    private MediaAdminService mediaAdminService;
+
     private ProfileService profileService;
 
     private User testUser;
@@ -53,7 +57,8 @@ class ProfileServiceTest {
     @BeforeEach
     void setUp() {
         profileService = new ProfileService(userRepository, passwordEncoder,
-                fileStorageService, oauthAccountRepository, Clock.systemUTC(), "minio-1");
+                fileStorageService, oauthAccountRepository, Clock.systemUTC(), "minio-1",
+                mediaAdminService);
         testUser = User.register("test@example.com", "hashedPassword", "测试用户");
         currentUser = new AuthenticatedUser(testUser.getId(), "test@example.com", "测试用户", Role.USER);
     }

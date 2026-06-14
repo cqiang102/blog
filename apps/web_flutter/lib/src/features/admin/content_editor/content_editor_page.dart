@@ -573,13 +573,13 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
     );
-    if (date == null || !mounted) return;
+    if (date == null || !context.mounted) return;
 
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(initialDate),
     );
-    if (time == null || !mounted) return;
+    if (time == null || !context.mounted) return;
 
     final dateTime = DateTime(
       date.year,

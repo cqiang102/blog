@@ -37,13 +37,16 @@ public class KnowledgeAdminService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final KnowledgeDocRepository knowledgeDocRepository;
+    private final KnowledgeChunkRepository knowledgeChunkRepository;
     private final KnowledgeIndexService knowledgeIndexService;
 
     public KnowledgeAdminService(
             KnowledgeDocRepository knowledgeDocRepository,
+            KnowledgeChunkRepository knowledgeChunkRepository,
             KnowledgeIndexService knowledgeIndexService
     ) {
         this.knowledgeDocRepository = knowledgeDocRepository;
+        this.knowledgeChunkRepository = knowledgeChunkRepository;
         this.knowledgeIndexService = knowledgeIndexService;
     }
 
@@ -153,6 +156,7 @@ public class KnowledgeAdminService {
         if (!knowledgeDocRepository.existsById(id)) {
             throw new BusinessException(HttpStatus.NOT_FOUND, "知识库文档不存在");
         }
+        knowledgeChunkRepository.deleteByDocId(id);
         knowledgeDocRepository.deleteById(id);
     }
 

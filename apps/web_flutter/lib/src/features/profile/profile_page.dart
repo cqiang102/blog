@@ -9,6 +9,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../auth/oauth_state_storage.dart';
 import '../../core/api_client.dart';
 import '../../state/state.dart';
 import '../../widgets/widgets.dart';
@@ -16,7 +17,6 @@ import '../../auth/auth_controller.dart';
 import '../../core/constants.dart';
 import '../../core/media_url.dart';
 import '../../core/models.dart';
-import '../../state/pagination_mixin.dart';
 import '../../theme/app_spacing.dart';
 
 /// 个人中心 Widget
@@ -69,10 +69,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 const AppThemeToggle(),
                 IconButton(
                   tooltip: '退出登录',
-                  onPressed:
-                      auth.isBusy
-                          ? null
-                          : () => ref.read(authControllerProvider).logout(),
+                  onPressed: auth.isBusy
+                      ? null
+                      : () => ref.read(authControllerProvider).logout(),
                   icon: const HugeIcon(icon: HugeIcons.strokeRoundedLogout01),
                 ),
               ],
@@ -244,13 +243,12 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
           alignment: Alignment.centerLeft,
           child: FilledButton(
             onPressed: auth.isBusy ? null : _save,
-            child:
-                auth.isBusy
-                    ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Text('保存修改'),
+            child: auth.isBusy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('保存修改'),
           ),
         ),
       ],
@@ -288,19 +286,15 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
         Align(
           alignment: Alignment.centerLeft,
           child: OutlinedButton(
-            onPressed:
-                _changingPassword
-                    ? null
-                    : (user?.hasPassword == true
-                        ? _changePassword
-                        : _setPassword),
-            child:
-                _changingPassword
-                    ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : Text(user?.hasPassword == true ? '修改密码' : '设置密码'),
+            onPressed: _changingPassword
+                ? null
+                : (user?.hasPassword == true ? _changePassword : _setPassword),
+            child: _changingPassword
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(user?.hasPassword == true ? '修改密码' : '设置密码'),
           ),
         ),
       ],
@@ -325,16 +319,15 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                       ? '已绑定: ${_oauthAccounts.firstWhere((a) => a.provider == 'GITHUB').providerUsername}'
                       : '未绑定',
                 ),
-                trailing:
-                    hasGithub
-                        ? TextButton(
-                          onPressed: () => _unbindOAuth('github'),
-                          child: const Text('解绑'),
-                        )
-                        : TextButton(
-                          onPressed: _bindGithub,
-                          child: const Text('绑定'),
-                        ),
+                trailing: hasGithub
+                    ? TextButton(
+                        onPressed: () => _unbindOAuth('github'),
+                        child: const Text('解绑'),
+                      )
+                    : TextButton(
+                        onPressed: _bindGithub,
+                        child: const Text('绑定'),
+                      ),
               ),
             ],
           ),
@@ -383,7 +376,17 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       final githubUrl = await ref
           .read(apiClientProvider)
           .fetchGithubBindUrl(token);
-      await launchUrl(Uri.parse(githubUrl), webOnlyWindowName: '_self');
+      final uri = Uri.parse(githubUrl);
+      final state = uri.queryParameters['state'];
+      if (state == null || state.isEmpty) {
+        throw const ApiException('GitHub 绑定状态初始化失败');
+      }
+      storeOAuthState(state);
+      final launched = await launchUrl(uri, webOnlyWindowName: '_self');
+      if (!launched) {
+        clearOAuthState();
+        throw const ApiException('无法打开 GitHub 绑定页面');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -398,21 +401,20 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('确认解绑'),
-            content: Text('确定要解绑 ${provider.toUpperCase()} 账号吗？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('确定'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('确认解绑'),
+        content: Text('确定要解绑 ${provider.toUpperCase()} 账号吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
     );
 
     if (confirmed != true) return;
@@ -452,8 +454,9 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
 
       setState(() => _uploadingAvatar = true);
 
-      final token =
-          await ref.read(authControllerProvider).getValidAccessToken();
+      final token = await ref
+          .read(authControllerProvider)
+          .getValidAccessToken();
       if (token == null) {
         if (!mounted) return;
         context.go('/login?from=/profile');
@@ -678,12 +681,15 @@ class _AvatarSection extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 44,
-                backgroundImage:
-                    avatarUrl != null ? NetworkImage(resolveMediaUrl(avatarUrl!)) : null,
-                child:
-                    avatarUrl == null
-                        ? const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 44)
-                        : null,
+                backgroundImage: avatarUrl != null
+                    ? NetworkImage(resolveMediaUrl(avatarUrl!))
+                    : null,
+                child: avatarUrl == null
+                    ? const HugeIcon(
+                        icon: HugeIcons.strokeRoundedUser,
+                        size: 44,
+                      )
+                    : null,
               ),
               Positioned(
                 bottom: 0,
@@ -697,16 +703,16 @@ class _AvatarSection extends StatelessWidget {
                     onTap: uploading ? null : onUpload,
                     child: Padding(
                       padding: const EdgeInsets.all(AppSpacing.sm),
-                      child:
-                          uploading
-                              ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                              : const HugeIcon(icon: HugeIcons.strokeRoundedCamera01, size: 20),
+                      child: uploading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const HugeIcon(
+                              icon: HugeIcons.strokeRoundedCamera01,
+                              size: 20,
+                            ),
                     ),
                   ),
                 ),

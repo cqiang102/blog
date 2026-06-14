@@ -29,11 +29,18 @@ class KnowledgeAdminServiceTest {
     private KnowledgeDocRepository knowledgeDocRepository;
 
     @Mock
+    private KnowledgeChunkRepository knowledgeChunkRepository;
+
+    @Mock
     private KnowledgeIndexService knowledgeIndexService;
 
     @Test
     void createTrimsTextAndKeepsEnabledFlag() {
-        KnowledgeAdminService service = new KnowledgeAdminService(knowledgeDocRepository, knowledgeIndexService);
+        KnowledgeAdminService service = new KnowledgeAdminService(
+                knowledgeDocRepository,
+                knowledgeChunkRepository,
+                knowledgeIndexService
+        );
         KnowledgeDocRequest request = new KnowledgeDocRequest(
                 " 关于我 ",
                 KnowledgeSourceType.MANUAL,
@@ -55,7 +62,11 @@ class KnowledgeAdminServiceTest {
     @Test
     void updateRejectsMissingDoc() {
         UUID id = UUID.randomUUID();
-        KnowledgeAdminService service = new KnowledgeAdminService(knowledgeDocRepository, knowledgeIndexService);
+        KnowledgeAdminService service = new KnowledgeAdminService(
+                knowledgeDocRepository,
+                knowledgeChunkRepository,
+                knowledgeIndexService
+        );
         KnowledgeDocRequest request = new KnowledgeDocRequest(
                 "关于我",
                 KnowledgeSourceType.MANUAL,
@@ -75,11 +86,16 @@ class KnowledgeAdminServiceTest {
     @Test
     void deleteRemovesExistingDoc() {
         UUID id = UUID.randomUUID();
-        KnowledgeAdminService service = new KnowledgeAdminService(knowledgeDocRepository, knowledgeIndexService);
+        KnowledgeAdminService service = new KnowledgeAdminService(
+                knowledgeDocRepository,
+                knowledgeChunkRepository,
+                knowledgeIndexService
+        );
         when(knowledgeDocRepository.existsById(id)).thenReturn(true);
 
         service.delete(id);
 
+        verify(knowledgeChunkRepository).deleteByDocId(id);
         verify(knowledgeDocRepository).deleteById(id);
     }
 }

@@ -311,7 +311,7 @@ class _ContentFilters extends StatelessWidget {
         SizedBox(
           width: 150,
           child: DropdownButtonFormField<ContentStatus?>(
-            value: statusFilter,
+            initialValue: statusFilter,
             decoration: const InputDecoration(labelText: '状态'),
             items: const [
               DropdownMenuItem(value: null, child: Text('全部状态')),
@@ -334,7 +334,7 @@ class _ContentFilters extends StatelessWidget {
         SizedBox(
           width: 150,
           child: DropdownButtonFormField<ContentType?>(
-            value: typeFilter,
+            initialValue: typeFilter,
             decoration: const InputDecoration(labelText: '类型'),
             items: const [
               DropdownMenuItem(value: null, child: Text('全部类型')),

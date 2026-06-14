@@ -43,6 +43,20 @@ class JwtServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void validatesOnlyUnexpiredOAuthLoginState() {
+        JwtService issuer = jwtService(Clock.fixed(NOW, ZoneOffset.UTC), 30);
+        String state = issuer.createOAuthLoginState();
+
+        assertThat(issuer.isValidOAuthLoginState(state)).isTrue();
+
+        JwtService expiredValidator = jwtService(
+                Clock.fixed(NOW.plusSeconds(301), ZoneOffset.UTC),
+                30
+        );
+        assertThat(expiredValidator.isValidOAuthLoginState(state)).isFalse();
+    }
+
     private JwtService jwtService(Clock clock, int accessTokenMinutes) {
         BlogProperties blogProperties = new BlogProperties();
         blogProperties.getSecurity().setJwtSecret("unit-test-secret-with-enough-length");

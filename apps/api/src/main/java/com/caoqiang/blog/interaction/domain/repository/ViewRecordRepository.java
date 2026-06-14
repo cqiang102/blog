@@ -1,8 +1,5 @@
 package com.caoqiang.blog.interaction.domain.repository;
 
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
 import com.caoqiang.blog.interaction.domain.model.ViewRecord;
 
 import java.util.Optional;
@@ -12,6 +9,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.domain.Specification;
 
 /**
@@ -94,4 +94,33 @@ public interface ViewRecordRepository extends JpaRepository<ViewRecord, UUID>, J
      * @return 如果已浏览返回 true
      */
     boolean existsByContentIdAndUserId(UUID contentId, UUID userId);
+
+    /**
+     * 原子创建浏览记录。数据库唯一索引负责并发去重。
+     */
+    @Modifying
+    @Query(value = """
+            insert into view_records (
+                id, content_id, user_id, anonymous_id, ip_hash, user_agent, created_at
+            )
+            values (
+                :id, :contentId, :userId, :anonymousId, :ipHash, :userAgent, now()
+            )
+            on conflict do nothing
+            """, nativeQuery = true)
+    int insertIfAbsent(
+            @Param("id") UUID id,
+            @Param("contentId") UUID contentId,
+            @Param("userId") UUID userId,
+            @Param("anonymousId") String anonymousId,
+            @Param("ipHash") String ipHash,
+            @Param("userAgent") String userAgent
+    );
+
+    /**
+     * 原子删除用户自己的浏览记录，返回实际删除行数。
+     */
+    @Modifying
+    @Query("delete from ViewRecord v where v.id = :id and v.user.id = :userId")
+    int deleteByIdAndUserId(@Param("id") UUID id, @Param("userId") UUID userId);
 }

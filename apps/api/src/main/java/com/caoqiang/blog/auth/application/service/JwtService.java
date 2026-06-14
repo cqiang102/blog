@@ -138,7 +138,7 @@ public class JwtService {
         try {
             // 解析并验证头部
             JsonNode header = objectMapper.readTree(BASE64_URL_DECODER.decode(parts[0]));
-            if (!"HS256".equals(header.path("alg").asText())) {
+            if (!"HS256".equals(header.path("alg").asString())) {
                 throw new IllegalArgumentException("JWT algorithm is unsupported");
             }
 
@@ -152,10 +152,10 @@ public class JwtService {
 
             // 提取用户声明
             return new JwtClaims(
-                    UUID.fromString(payload.path("sub").asText()),
-                    payload.path("email").asText(),
-                    payload.path("nickname").asText(),
-                    Role.valueOf(payload.path("role").asText()),
+                    UUID.fromString(payload.path("sub").asString()),
+                    payload.path("email").asString(),
+                    payload.path("nickname").asString(),
+                    Role.valueOf(payload.path("role").asString()),
                     expiresAt
             );
         } catch (JacksonException exception) {
@@ -187,6 +187,49 @@ public class JwtService {
     }
 
     /**
+     * 创建 OAuth 登录 state，防止攻击者把自己的授权结果注入受害者会话。
+     */
+    public String createOAuthLoginState() {
+        Instant issuedAt = clock.instant();
+        Instant expiresAt = issuedAt.plusSeconds(BINDING_TOKEN_EXPIRE_SECONDS);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("nonce", UUID.randomUUID().toString());
+        payload.put("typ", "oauth-login");
+        payload.put("iat", issuedAt.getEpochSecond());
+        payload.put("exp", expiresAt.getEpochSecond());
+
+        String signingInput = BASE64_URL_ENCODER.encodeToString(
+                "{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8)
+        ) + "." + encodeJson(payload);
+        return signingInput + "." + sign(signingInput);
+    }
+
+    /**
+     * 校验 OAuth 登录 state 的签名、类型和有效期。
+     */
+    public boolean isValidOAuthLoginState(String token) {
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length != 3) return false;
+
+            String signingInput = parts[0] + "." + parts[1];
+            byte[] expectedSignature = signBytes(signingInput);
+            byte[] actualSignature = BASE64_URL_DECODER.decode(parts[2]);
+            if (!MessageDigest.isEqual(expectedSignature, actualSignature)) return false;
+
+            JsonNode payload = objectMapper.readTree(BASE64_URL_DECODER.decode(parts[1]));
+            if (!"oauth-login".equals(payload.path("typ").asString())) return false;
+
+            Instant expiresAt = Instant.ofEpochSecond(payload.path("exp").asLong());
+            return expiresAt.isAfter(clock.instant())
+                    && StringUtils.hasText(payload.path("nonce").asString());
+        } catch (Exception exception) {
+            return false;
+        }
+    }
+
+    /**
      * 解析 OAuth 绑定令牌
      * 验证签名和有效期，提取用户 ID。
      *
@@ -204,12 +247,12 @@ public class JwtService {
             if (!MessageDigest.isEqual(expectedSignature, actualSignature)) return null;
 
             JsonNode payload = objectMapper.readTree(BASE64_URL_DECODER.decode(parts[1]));
-            if (!"oauth-bind".equals(payload.path("typ").asText())) return null;
+            if (!"oauth-bind".equals(payload.path("typ").asString())) return null;
 
             Instant expiresAt = Instant.ofEpochSecond(payload.path("exp").asLong());
             if (!expiresAt.isAfter(clock.instant())) return null;
 
-            return UUID.fromString(payload.path("sub").asText());
+            return UUID.fromString(payload.path("sub").asString());
         } catch (Exception e) {
             return null;
         }
@@ -267,6 +310,9 @@ public class JwtService {
         String secret = blogProperties.getSecurity().getJwtSecret();
         if (!StringUtils.hasText(secret)) {
             throw new IllegalStateException("blog.security.jwt-secret must not be blank");
+        }
+        if (secret.length() < 32) {
+            throw new IllegalStateException("blog.security.jwt-secret must contain at least 32 characters");
         }
         return secret;
     }

@@ -12,7 +12,6 @@ import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
 import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
 import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
 import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
-import com.caoqiang.blog.interaction.application.service.CommentAuditService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -60,9 +59,6 @@ class InteractionCommandServiceTest {
     private ViewRecordRepository viewRecordRepository;
 
     @Mock
-    private CommentAuditService commentAuditService;
-
-    @Mock
     private DomainEventPublisher domainEventPublisher;
 
     private InteractionCommandService interactionCommandService;
@@ -74,7 +70,8 @@ class InteractionCommandServiceTest {
     @BeforeEach
     void setUp() {
         interactionCommandService = new InteractionCommandService(
-                contentRepository, userRepository, commentRepository, likeRepository, viewRecordRepository, commentAuditService, domainEventPublisher
+                contentRepository, userRepository, commentRepository, likeRepository,
+                viewRecordRepository, domainEventPublisher
         );
 
         testContent = new Content(
@@ -95,71 +92,116 @@ class InteractionCommandServiceTest {
 
     @Test
     void recordViewForAuthenticatedUser() {
-        when(contentRepository.findByIdAndStatus(testContent.getId(), ContentStatus.PUBLISHED))
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                testContent.getId(),
+                ContentStatus.PUBLISHED
+        ))
                 .thenReturn(Optional.of(testContent));
         when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
-        when(viewRecordRepository.existsByContentIdAndUserId(testContent.getId(), testUser.getId()))
-                .thenReturn(false);
+        when(viewRecordRepository.insertIfAbsent(
+                any(UUID.class),
+                eq(testContent.getId()),
+                eq(testUser.getId()),
+                any(),
+                any(),
+                eq("Mozilla/5.0")
+        )).thenReturn(1);
 
         ViewStateResponse response = interactionCommandService.recordView(
                 currentUser, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
         );
 
         assertThat(response.recorded()).isTrue();
-        verify(viewRecordRepository).save(any(ViewRecord.class));
+        verify(viewRecordRepository).insertIfAbsent(
+                any(UUID.class),
+                eq(testContent.getId()),
+                eq(testUser.getId()),
+                any(),
+                any(),
+                eq("Mozilla/5.0")
+        );
         verify(contentRepository).incrementViewCount(testContent.getId(), 1);
     }
 
     @Test
     void skipDuplicateViewForAuthenticatedUser() {
-        when(contentRepository.findByIdAndStatus(testContent.getId(), ContentStatus.PUBLISHED))
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                testContent.getId(),
+                ContentStatus.PUBLISHED
+        ))
                 .thenReturn(Optional.of(testContent));
         when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
-        when(viewRecordRepository.existsByContentIdAndUserId(testContent.getId(), testUser.getId()))
-                .thenReturn(true);
+        when(viewRecordRepository.insertIfAbsent(
+                any(UUID.class),
+                eq(testContent.getId()),
+                eq(testUser.getId()),
+                any(),
+                any(),
+                eq("Mozilla/5.0")
+        )).thenReturn(0);
 
         ViewStateResponse response = interactionCommandService.recordView(
                 currentUser, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
         );
 
         assertThat(response.recorded()).isTrue();
-        verify(viewRecordRepository, never()).save(any(ViewRecord.class));
         verify(contentRepository, never()).incrementViewCount(any(UUID.class), anyLong());
     }
 
     @Test
     void recordViewForAnonymousUser() {
-        when(contentRepository.findByIdAndStatus(testContent.getId(), ContentStatus.PUBLISHED))
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                testContent.getId(),
+                ContentStatus.PUBLISHED
+        ))
                 .thenReturn(Optional.of(testContent));
-        when(viewRecordRepository.existsByContentIdAndAnonymousId(eq(testContent.getId()), any()))
-                .thenReturn(false);
+        when(viewRecordRepository.insertIfAbsent(
+                any(UUID.class),
+                eq(testContent.getId()),
+                eq(null),
+                any(),
+                any(),
+                eq("Mozilla/5.0")
+        )).thenReturn(1);
 
         ViewStateResponse response = interactionCommandService.recordView(
                 null, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
         );
 
         assertThat(response.recorded()).isTrue();
-        verify(viewRecordRepository).save(any(ViewRecord.class));
+        verify(contentRepository).incrementViewCount(testContent.getId(), 1);
     }
 
     @Test
     void skipDuplicateViewForAnonymousUser() {
-        when(contentRepository.findByIdAndStatus(testContent.getId(), ContentStatus.PUBLISHED))
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                testContent.getId(),
+                ContentStatus.PUBLISHED
+        ))
                 .thenReturn(Optional.of(testContent));
-        when(viewRecordRepository.existsByContentIdAndAnonymousId(eq(testContent.getId()), any()))
-                .thenReturn(true);
+        when(viewRecordRepository.insertIfAbsent(
+                any(UUID.class),
+                eq(testContent.getId()),
+                eq(null),
+                any(),
+                any(),
+                eq("Mozilla/5.0")
+        )).thenReturn(0);
 
         ViewStateResponse response = interactionCommandService.recordView(
                 null, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
         );
 
         assertThat(response.recorded()).isTrue();
-        verify(viewRecordRepository, never()).save(any(ViewRecord.class));
+        verify(contentRepository, never()).incrementViewCount(any(UUID.class), anyLong());
     }
 
     @Test
     void skipViewWhenContentIsNotPublished() {
-        when(contentRepository.findByIdAndStatus(testContent.getId(), ContentStatus.PUBLISHED))
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                testContent.getId(),
+                ContentStatus.PUBLISHED
+        ))
                 .thenReturn(Optional.empty());
 
         ViewStateResponse response = interactionCommandService.recordView(
@@ -168,7 +210,40 @@ class InteractionCommandServiceTest {
 
         assertThat(response.recorded()).isFalse();
         assertThat(response.viewCount()).isZero();
-        verify(viewRecordRepository, never()).save(any(ViewRecord.class));
         verify(contentRepository, never()).incrementViewCount(any(UUID.class), anyLong());
+    }
+
+    @Test
+    void incrementLikeCountOnlyWhenInsertSucceeds() {
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                testContent.getId(),
+                ContentStatus.PUBLISHED
+        )).thenReturn(Optional.of(testContent));
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        when(likeRepository.insertIfAbsent(any(UUID.class), eq(testContent.getId()), eq(testUser.getId())))
+                .thenReturn(1);
+
+        LikeStateResponse response = interactionCommandService.like(currentUser, testContent.getId());
+
+        assertThat(response.liked()).isTrue();
+        verify(contentRepository).incrementLikeCount(testContent.getId(), 1);
+        verify(domainEventPublisher).publishEvent(any());
+    }
+
+    @Test
+    void skipLikeCountWhenConcurrentInsertAlreadyWon() {
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                testContent.getId(),
+                ContentStatus.PUBLISHED
+        )).thenReturn(Optional.of(testContent));
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        when(likeRepository.insertIfAbsent(any(UUID.class), eq(testContent.getId()), eq(testUser.getId())))
+                .thenReturn(0);
+
+        LikeStateResponse response = interactionCommandService.like(currentUser, testContent.getId());
+
+        assertThat(response.liked()).isTrue();
+        verify(contentRepository, never()).incrementLikeCount(any(UUID.class), anyLong());
+        verify(domainEventPublisher, never()).publishEvent(any());
     }
 }

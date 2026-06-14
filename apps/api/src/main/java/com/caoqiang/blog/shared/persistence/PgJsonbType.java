@@ -1,6 +1,6 @@
 package com.caoqiang.blog.shared.persistence;
 
-import org.hibernate.engine.spi.SharedSessionContractImplementor;
+import org.hibernate.type.descriptor.WrapperOptions;
 import org.hibernate.usertype.UserType;
 import java.io.Serializable;
 import java.sql.PreparedStatement;
@@ -36,13 +36,13 @@ public class PgJsonbType implements UserType<String> {
     }
 
     @Override
-    public String nullSafeGet(ResultSet rs, int position, SharedSessionContractImplementor session, Object owner)
+    public String nullSafeGet(ResultSet rs, int position, WrapperOptions options)
             throws SQLException {
         return rs.getString(position);
     }
 
     @Override
-    public void nullSafeSet(PreparedStatement st, String value, int index, SharedSessionContractImplementor session)
+    public void nullSafeSet(PreparedStatement st, String value, int index, WrapperOptions options)
             throws SQLException {
         if (value == null) {
             st.setNull(index, Types.OTHER);

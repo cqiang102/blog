@@ -6,7 +6,6 @@ import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
 import com.caoqiang.blog.interaction.application.dto.ViewStateResponse;
 import com.caoqiang.blog.interaction.domain.model.Comment;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
 import com.caoqiang.blog.interaction.domain.model.ViewRecord;
 import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
 import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
@@ -58,7 +57,6 @@ public class InteractionCommandService {
     private final CommentRepository commentRepository;
     private final LikeRepository likeRepository;
     private final ViewRecordRepository viewRecordRepository;
-    private final CommentAuditService commentAuditService;
     private final DomainEventPublisher domainEventPublisher;
 
     public InteractionCommandService(
@@ -67,7 +65,6 @@ public class InteractionCommandService {
             CommentRepository commentRepository,
             LikeRepository likeRepository,
             ViewRecordRepository viewRecordRepository,
-            CommentAuditService commentAuditService,
             DomainEventPublisher domainEventPublisher
     ) {
         this.contentRepository = contentRepository;
@@ -75,7 +72,6 @@ public class InteractionCommandService {
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
-        this.commentAuditService = commentAuditService;
         this.domainEventPublisher = domainEventPublisher;
     }
 
@@ -85,7 +81,6 @@ public class InteractionCommandService {
         User user = activeUser(currentUser.id());
         Comment comment = commentRepository.save(new Comment(content, user, request.body().trim()));
         contentRepository.incrementCommentCount(contentId, 1);
-        commentAuditService.audit(comment.getId());
         domainEventPublisher.publishEvent(new CommentCreatedEvent(comment.getId(), contentId, currentUser.id()));
         return CommentResponse.from(comment);
     }
@@ -109,11 +104,11 @@ public class InteractionCommandService {
     @Transactional
     public LikeStateResponse like(AuthenticatedUser currentUser, UUID contentId) {
         Content content = publishedContent(contentId);
-        User user = activeUser(currentUser.id());
-        if (likeRepository.existsByContentIdAndUserId(contentId, currentUser.id())) {
+        activeUser(currentUser.id());
+        int inserted = likeRepository.insertIfAbsent(UUID.randomUUID(), contentId, currentUser.id());
+        if (inserted == 0) {
             return new LikeStateResponse(contentId, true, content.getLikeCount());
         }
-        likeRepository.save(new Like(content, user));
         contentRepository.incrementLikeCount(contentId, 1);
         domainEventPublisher.publishEvent(new LikeAddedEvent(contentId, currentUser.id()));
         return new LikeStateResponse(contentId, true, content.getLikeCount() + 1);
@@ -122,19 +117,21 @@ public class InteractionCommandService {
     @Transactional
     public LikeStateResponse unlike(AuthenticatedUser currentUser, UUID contentId) {
         Content content = publishedContent(contentId);
-        return likeRepository.findByContentIdAndUserId(contentId, currentUser.id())
-                .map(like -> {
-                    likeRepository.delete(like);
-                    contentRepository.incrementLikeCount(contentId, -1);
-                    domainEventPublisher.publishEvent(new LikeRemovedEvent(contentId, currentUser.id()));
-                    return new LikeStateResponse(contentId, false, Math.max(0, content.getLikeCount() - 1));
-                })
-                .orElseGet(() -> new LikeStateResponse(contentId, false, content.getLikeCount()));
+        int deleted = likeRepository.deleteByContentIdAndUserId(contentId, currentUser.id());
+        if (deleted == 0) {
+            return new LikeStateResponse(contentId, false, content.getLikeCount());
+        }
+        contentRepository.incrementLikeCount(contentId, -1);
+        domainEventPublisher.publishEvent(new LikeRemovedEvent(contentId, currentUser.id()));
+        return new LikeStateResponse(contentId, false, Math.max(0, content.getLikeCount() - 1));
     }
 
     @Transactional
     public ViewStateResponse recordView(AuthenticatedUser currentUser, UUID contentId, String clientIp, String userAgent) {
-        Content content = contentRepository.findByIdAndStatus(contentId, ContentStatus.PUBLISHED)
+        Content content = contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                        contentId,
+                        ContentStatus.PUBLISHED
+                )
                 .orElse(null);
         if (content == null) {
             return new ViewStateResponse(contentId, false, 0);
@@ -143,17 +140,17 @@ public class InteractionCommandService {
         String anonymousId = generateAnonymousId(clientIp, userAgent);
         String ipHash = hashIp(clientIp);
 
-        if (user != null) {
-            if (viewRecordRepository.existsByContentIdAndUserId(contentId, user.getId())) {
-                return new ViewStateResponse(contentId, true, content.getViewCount());
-            }
-        } else {
-            if (viewRecordRepository.existsByContentIdAndAnonymousId(contentId, anonymousId)) {
-                return new ViewStateResponse(contentId, true, content.getViewCount());
-            }
+        int inserted = viewRecordRepository.insertIfAbsent(
+                UUID.randomUUID(),
+                contentId,
+                user != null ? user.getId() : null,
+                anonymousId,
+                ipHash,
+                userAgent
+        );
+        if (inserted == 0) {
+            return new ViewStateResponse(contentId, true, content.getViewCount());
         }
-
-        viewRecordRepository.save(new ViewRecord(content, user, anonymousId, ipHash, userAgent));
         contentRepository.incrementViewCount(contentId, 1);
         return new ViewStateResponse(contentId, true, content.getViewCount() + 1);
     }
@@ -167,12 +164,16 @@ public class InteractionCommandService {
     public void deleteMyView(AuthenticatedUser currentUser, UUID viewRecordId) {
         ViewRecord viewRecord = viewRecordRepository.findByIdAndUserId(viewRecordId, currentUser.id())
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "浏览记录不存在"));
-        viewRecordRepository.delete(viewRecord);
-        contentRepository.incrementViewCount(viewRecord.getContent().getId(), -1);
+        if (viewRecordRepository.deleteByIdAndUserId(viewRecordId, currentUser.id()) == 1) {
+            contentRepository.incrementViewCount(viewRecord.getContent().getId(), -1);
+        }
     }
 
     private Content publishedContent(UUID contentId) {
-        return contentRepository.findByIdAndStatus(contentId, ContentStatus.PUBLISHED)
+        return contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                        contentId,
+                        ContentStatus.PUBLISHED
+                )
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
     }
 

@@ -7,6 +7,7 @@ import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
 import com.caoqiang.blog.user.application.service.UserAdminService;
+import com.caoqiang.blog.user.application.service.ProfileService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,10 +30,13 @@ class UserAdminServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private ProfileService profileService;
+
     @Test
     void updateRejectsDuplicateEmail() {
         User user = User.register("reader@example.com", "hash", "读者");
-        UserAdminService service = new UserAdminService(userRepository);
+        UserAdminService service = new UserAdminService(userRepository, profileService);
         AdminUserRequest request = new AdminUserRequest(
                 "other@example.com",
                 "读者",
@@ -55,7 +59,7 @@ class UserAdminServiceTest {
     @Test
     void currentAdminCannotDisableSelf() {
         User admin = User.admin("admin@example.com", "hash", "站长");
-        UserAdminService service = new UserAdminService(userRepository);
+        UserAdminService service = new UserAdminService(userRepository, profileService);
         when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
 
         assertThatThrownBy(() -> service.disable(AuthenticatedUser.from(admin), admin.getId()))

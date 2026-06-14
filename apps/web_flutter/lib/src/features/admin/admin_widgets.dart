@@ -1,6 +1,7 @@
 // 管理后台共享组件
 // 包含工具栏、状态标签、错误面板、确认对话框等通用组件
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
@@ -34,16 +35,12 @@ class AdminEditorDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final size = MediaQuery.sizeOf(context);
-    final body =
-        scrollable
-            ? SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: child,
-            )
-            : Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: child,
-            );
+    final body = scrollable
+        ? SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: child,
+          )
+        : Padding(padding: const EdgeInsets.all(AppSpacing.lg), child: child);
 
     return Dialog(
       insetPadding: const EdgeInsets.all(AppSpacing.md),
@@ -379,16 +376,26 @@ class AdminMediaThumb extends StatelessWidget {
       );
     }
 
+    final resolvedUrl = resolveMediaUrl(url);
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
-      child: CachedNetworkImage(
-        imageUrl: resolveMediaUrl(url),
-        width: size.width,
-        height: size.height,
-        fit: BoxFit.cover,
-        memCacheWidth: size.width.toInt() * 2,
-        errorWidget: (context, url, error) => placeholder,
-      ),
+      child: kIsWeb
+          ? Image.network(
+              resolvedUrl,
+              width: size.width,
+              height: size.height,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => placeholder,
+            )
+          : CachedNetworkImage(
+              imageUrl: resolvedUrl,
+              width: size.width,
+              height: size.height,
+              fit: BoxFit.cover,
+              memCacheWidth: size.width.toInt() * 2,
+              errorWidget: (context, url, error) => placeholder,
+            ),
     );
   }
 }
@@ -481,21 +488,20 @@ Future<bool> adminConfirm(
   if (!context.mounted) return false;
   final confirmed = await showDialog<bool>(
     context: context,
-    builder:
-        (context) => AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(action),
-            ),
-          ],
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('取消'),
         ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(action),
+        ),
+      ],
+    ),
   );
   return confirmed == true;
 }

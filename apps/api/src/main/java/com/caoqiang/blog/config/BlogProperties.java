@@ -1,6 +1,11 @@
 package com.caoqiang.blog.config;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * 博客系统全局配置属性类。
@@ -18,10 +23,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @author caoqiang
  */
 @ConfigurationProperties(prefix = "blog")
+@Validated
 public class BlogProperties {
 
     private final Ai ai = new Ai();
     private final Admin admin = new Admin();
+    @Valid
     private final Security security = new Security();
     private final RateLimit rateLimit = new RateLimit();
     private final Cache cache = new Cache();
@@ -121,8 +128,12 @@ public class BlogProperties {
      * 安全认证配置，控制 JWT 签发和 Token 有效期。
      */
     public static class Security {
+        @NotBlank
+        @Size(min = 32)
         private String jwtSecret;                    // JWT 签名密钥（HMAC），必须配置为高强度随机字符串
+        @Min(1)
         private int accessTokenMinutes = 30;         // 访问令牌有效期，默认 30 分钟
+        @Min(1)
         private int refreshTokenDays = 30;           // 刷新令牌有效期，默认 30 天
 
         public String getJwtSecret() {

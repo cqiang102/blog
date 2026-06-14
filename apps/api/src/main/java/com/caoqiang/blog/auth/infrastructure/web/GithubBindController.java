@@ -26,13 +26,14 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * GitHub OAuth 控制器
  * 纯 API，返回 JSON，不重定向。
  * <p>
  * 绑定流程：前端调 /bind 获取绑定 URL → 跳 GitHub → 前端收到 code → 前端调 /callback 完成绑定
- * 登录流程：前端跳 GitHub → 前端收到 code → 前端调 /callback（不带 state）完成登录
+ * 登录流程：前端跳 GitHub → 前端收到 code 和签名 state → 前端调 /callback 完成登录
  */
 @RestController
 @RequestMapping("/api/v1/auth/github")
@@ -76,11 +77,15 @@ public class GithubBindController {
         }
         String bindingToken = jwtService.createBindingToken(currentUser.id());
         String callbackUrl = frontendBaseUrl + "/login/oauth2/code/github";
-        String githubUrl = "https://github.com/login/oauth/authorize"
-                + "?client_id=" + clientId
-                + "&redirect_uri=" + callbackUrl
-                + "&scope=read:user,user:email"
-                + "&state=" + bindingToken;
+        String githubUrl = UriComponentsBuilder
+                .fromUriString("https://github.com/login/oauth/authorize")
+                .queryParam("client_id", clientId)
+                .queryParam("redirect_uri", callbackUrl)
+                .queryParam("scope", "read:user,user:email")
+                .queryParam("state", bindingToken)
+                .build()
+                .encode()
+                .toUriString();
         return ApiResponse.ok(Map.of("url", githubUrl));
     }
 
@@ -89,20 +94,23 @@ public class GithubBindController {
      * 纯 API，返回 JSON（AuthTokenResponse）。
      *
      * @param code  GitHub 授权码
-     * @param state 可选，绑定令牌
+     * @param state 必填，登录或绑定流程的短期签名 state
      * @return 登录令牌
      */
     @PostMapping("/callback")
     @Transactional
     public ApiResponse<AuthTokenResponse> callback(
             @RequestParam String code,
-            @RequestParam(required = false) String state) {
-
-        log.info("GitHub callback: code={}, state={}, clientId={}", code, state, clientId);
+            @RequestParam String state) {
 
         if (clientId == null || clientId.isBlank()) {
             log.error("GitHub client-id is not configured!");
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "GitHub OAuth 未配置");
+        }
+
+        UUID bindUserId = jwtService.parseBindingToken(state);
+        if (bindUserId == null && !jwtService.isValidOAuthLoginState(state)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OAuth state 无效或已过期");
         }
 
         String accessToken = exchangeCodeForToken(code);
@@ -111,8 +119,12 @@ public class GithubBindController {
         }
 
         Map<String, Object> githubUser = fetchGithubUser(accessToken);
-        String providerUserId = String.valueOf(githubUser.get("id"));
+        Object githubId = githubUser.get("id");
         String login = (String) githubUser.get("login");
+        if (githubId == null || login == null || login.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "GitHub 用户信息不完整");
+        }
+        String providerUserId = githubId.toString();
         String name = (String) githubUser.get("name");
         String avatarUrl = (String) githubUser.get("avatar_url");
         String email = (String) githubUser.get("email");
@@ -124,15 +136,11 @@ public class GithubBindController {
         }
         String nickname = (name != null && !name.isBlank()) ? name : login;
 
-        UUID bindUserId = null;
-        if (state != null && !state.isBlank()) {
-            bindUserId = jwtService.parseBindingToken(state);
-        }
-
         User user;
 
         if (bindUserId != null) {
             user = userRepository.findById(bindUserId)
+                    .filter(User::isActive)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "用户不存在"));
             // 检查该 GitHub 是否已被其他人绑定
             var conflict = oauthAccountRepository.findByProviderAndProviderUserId(OAuthProvider.GITHUB, providerUserId);
@@ -152,13 +160,16 @@ public class GithubBindController {
             var existingAccount = oauthAccountRepository
                     .findByProviderAndProviderUserId(OAuthProvider.GITHUB, providerUserId);
             if (existingAccount.isPresent()) {
-                user = existingAccount.get().getUser();
+                user = requireActive(existingAccount.get().getUser());
                 user.setAvatarUrl(avatarUrl);
                 user.setNickname(nickname);
             } else {
                 var existingUser = userRepository.findByEmail(email);
                 if (existingUser.isPresent()) {
-                    user = existingUser.get();
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "该邮箱已注册，请先使用原账号登录后绑定 GitHub"
+                    );
                 } else {
                     user = User.register(email, null, nickname);
                     user.setAvatarUrl(avatarUrl);
@@ -183,9 +194,15 @@ public class GithubBindController {
         ));
     }
 
+    private User requireActive(User user) {
+        if (!user.isActive()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "账号已被禁用");
+        }
+        return user;
+    }
+
     private String exchangeCodeForToken(String code) {
         try {
-            log.info("Exchanging code for token, clientId={}", clientId);
             RestClient restClient = RestClient.create();
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restClient.post()
@@ -194,7 +211,6 @@ public class GithubBindController {
                     .body(Map.of("client_id", clientId, "client_secret", clientSecret, "code", code))
                     .retrieve()
                     .body(Map.class);
-            log.info("GitHub token response keys: {}", response != null ? response.keySet() : "null");
             if (response == null) {
                 log.warn("GitHub token response is null");
                 return null;
@@ -205,10 +221,9 @@ public class GithubBindController {
             }
             Object token = response.get("access_token");
             if (token instanceof String tokenStr && !tokenStr.isBlank()) {
-                log.info("GitHub access_token obtained successfully");
                 return tokenStr;
             }
-            log.warn("GitHub token exchange: access_token is missing or empty, response={}", response);
+            log.warn("GitHub token exchange did not return an access token");
             return null;
         } catch (Exception e) {
             log.error("GitHub token exchange error", e);
