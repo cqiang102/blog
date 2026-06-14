@@ -20,9 +20,9 @@ class AdminMediaTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final media = ref.watch(adminMediaProvider);
-    final contentsValue = ref.watch(adminContentsProvider);
+    final contentsValue = ref.watch(adminContentOptionsProvider);
     final contents = contentsValue.maybeWhen(
-      data: (page) => page.items,
+      data: (items) => items,
       orElse: () => const <AdminContentItem>[],
     );
     final contentError = contentsValue.maybeWhen(
@@ -192,6 +192,7 @@ class AdminMediaTab extends ConsumerWidget {
   void _refreshMediaState(WidgetRef ref) {
     ref.invalidate(adminMediaProvider);
     ref.invalidate(adminContentsProvider);
+    ref.invalidate(adminContentOptionsProvider);
     ref.invalidate(adminDashboardProvider);
     ref.invalidate(recommendationsProvider);
   }

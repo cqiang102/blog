@@ -2,6 +2,7 @@
 // 管理后台主页 Shell，导入各标签页模块并组装 TabBar
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../state/state.dart';
@@ -24,7 +25,9 @@ import 'tabs/user_admin_tab.dart';
 /// USER: 仅概览、内容、评论、点赞、浏览 5 个标签页
 /// 添加 AutomaticKeepAliveClientMixin 保持页面状态
 class AdminPage extends ConsumerStatefulWidget {
-  const AdminPage({super.key});
+  const AdminPage({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   ConsumerState<AdminPage> createState() => _AdminPageState();
@@ -32,8 +35,23 @@ class AdminPage extends ConsumerStatefulWidget {
 
 class _AdminPageState extends ConsumerState<AdminPage>
     with AutomaticKeepAliveClientMixin {
-  int _selectedIndex = 0;
-  final Set<int> _visitedTabs = {0};
+  late int _selectedIndex;
+  late final Set<int> _visitedTabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialTab;
+    _visitedTabs = {widget.initialTab};
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab == widget.initialTab) return;
+    _selectedIndex = widget.initialTab;
+    _visitedTabs.add(widget.initialTab);
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -84,19 +102,33 @@ class _AdminPageState extends ConsumerState<AdminPage>
 
     // 根据角色过滤标签页
     final tabs = <_AdminTab>[
-      const _AdminTab(label: '概览', builder: AdminDashboardTab()),
-      const _AdminTab(label: '内容', builder: AdminContentTab()),
+      const _AdminTab(
+        id: 'overview',
+        label: '概览',
+        builder: AdminDashboardTab(),
+      ),
+      const _AdminTab(id: 'content', label: '内容', builder: AdminContentTab()),
 
-      const _AdminTab(label: '评论', builder: AdminCommentTab()),
-      const _AdminTab(label: '点赞', builder: AdminLikeTab()),
-      const _AdminTab(label: '浏览', builder: AdminViewTab()),
+      const _AdminTab(id: 'comments', label: '评论', builder: AdminCommentTab()),
+      const _AdminTab(id: 'likes', label: '点赞', builder: AdminLikeTab()),
+      const _AdminTab(id: 'views', label: '浏览', builder: AdminViewTab()),
       // 以下标签页仅 ADMIN 可见
-      if (isAdmin) const _AdminTab(label: '朋友', builder: AdminFriendTab()),
-      if (isAdmin) const _AdminTab(label: '标签', builder: AdminTagTab()),
-      if (isAdmin) const _AdminTab(label: '用户', builder: AdminUserTab()),
-      if (isAdmin) const _AdminTab(label: 'AI', builder: AdminAiChatTab()),
-      if (isAdmin) const _AdminTab(label: '知识库', builder: AdminKnowledgeTab()),
-      if (isAdmin) const _AdminTab(label: '日志', builder: AdminAuditLogTab()),
+      if (isAdmin)
+        const _AdminTab(id: 'friends', label: '朋友', builder: AdminFriendTab()),
+      if (isAdmin)
+        const _AdminTab(id: 'tags', label: '标签', builder: AdminTagTab()),
+      if (isAdmin)
+        const _AdminTab(id: 'users', label: '用户', builder: AdminUserTab()),
+      if (isAdmin)
+        const _AdminTab(id: 'ai', label: 'AI', builder: AdminAiChatTab()),
+      if (isAdmin)
+        const _AdminTab(
+          id: 'knowledge',
+          label: '知识库',
+          builder: AdminKnowledgeTab(),
+        ),
+      if (isAdmin)
+        const _AdminTab(id: 'logs', label: '日志', builder: AdminAuditLogTab()),
     ];
 
     final selectedIndex = _selectedIndex.clamp(0, tabs.length - 1);
@@ -122,7 +154,10 @@ class _AdminPageState extends ConsumerState<AdminPage>
           AppHorizontalTabs(
             labels: tabs.map((tab) => tab.label).toList(),
             selectedIndex: selectedIndex,
-            onSelected: _selectTab,
+            onSelected: (index) {
+              _selectTab(index);
+              context.go('/admin?tab=${tabs[index].id}');
+            },
           ),
           Expanded(
             child: IndexedStack(
@@ -160,8 +195,13 @@ class _AdminPageState extends ConsumerState<AdminPage>
 
 /// 管理标签页数据模型
 class _AdminTab {
-  const _AdminTab({required this.label, required this.builder});
+  const _AdminTab({
+    required this.id,
+    required this.label,
+    required this.builder,
+  });
 
+  final String id;
   final String label;
   final Widget builder;
 }

@@ -120,10 +120,7 @@ class MarkdownToolbar extends StatelessWidget {
         if (onSetEditMode != null) ...[
           const _Divider(),
           // 编辑模式切换
-          _EditModeSelector(
-            editMode: editMode,
-            onSetEditMode: onSetEditMode!,
-          ),
+          _EditModeSelector(editMode: editMode, onSetEditMode: onSetEditMode!),
         ],
       ],
     );
@@ -151,7 +148,10 @@ class _EditModeSelector extends StatelessWidget {
         ),
         ButtonSegment(
           value: EditorEditMode.split,
-          icon: HugeIcon(icon: HugeIcons.strokeRoundedVerticalScrollPoint, size: 16),
+          icon: HugeIcon(
+            icon: HugeIcons.strokeRoundedVerticalScrollPoint,
+            size: 16,
+          ),
           tooltip: '分屏模式',
         ),
         ButtonSegment(
@@ -211,18 +211,9 @@ class _HeadingMenu extends StatelessWidget {
           value: 3,
           child: Text('三级标题', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
-        const PopupMenuItem(
-          value: 4,
-          child: Text('四级标题'),
-        ),
-        const PopupMenuItem(
-          value: 5,
-          child: Text('五级标题'),
-        ),
-        const PopupMenuItem(
-          value: 6,
-          child: Text('六级标题'),
-        ),
+        const PopupMenuItem(value: 4, child: Text('四级标题')),
+        const PopupMenuItem(value: 5, child: Text('五级标题')),
+        const PopupMenuItem(value: 6, child: Text('六级标题')),
       ],
     );
   }
@@ -252,10 +243,7 @@ class _TableMenu extends StatelessWidget {
       onSelected: (value) {
         switch (value) {
           case '2x2':
-            onInsert(
-              '\n| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n',
-              '',
-            );
+            onInsert('\n| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n', '');
           case '3x3':
             onInsert(
               '\n| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| 内容 | 内容 | 内容 |\n',
@@ -269,18 +257,9 @@ class _TableMenu extends StatelessWidget {
         }
       },
       itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: '2x2',
-          child: Text('2×2 表格'),
-        ),
-        const PopupMenuItem(
-          value: '3x3',
-          child: Text('3×3 表格'),
-        ),
-        const PopupMenuItem(
-          value: '4x4',
-          child: Text('4×4 表格'),
-        ),
+        const PopupMenuItem(value: '2x2', child: Text('2×2 表格')),
+        const PopupMenuItem(value: '3x3', child: Text('3×3 表格')),
+        const PopupMenuItem(value: '4x4', child: Text('4×4 表格')),
       ],
     );
   }

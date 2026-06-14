@@ -47,8 +47,12 @@ class ContentEditorState {
     this.coverUrl,
     this.publishedAt,
     this.isUploading = false,
+    this.uploadedCount = 0,
+    this.uploadTotal = 0,
     this.isSubmitting = false,
+    this.isSavingDraft = false,
     this.hasUnsavedChanges = false,
+    this.lastLocalSavedAt,
     this.editMode = EditorEditMode.source,
   });
 
@@ -64,8 +68,12 @@ class ContentEditorState {
   final String? coverUrl;
   final DateTime? publishedAt;
   final bool isUploading;
+  final int uploadedCount;
+  final int uploadTotal;
   final bool isSubmitting;
+  final bool isSavingDraft;
   final bool hasUnsavedChanges;
+  final DateTime? lastLocalSavedAt;
   final EditorEditMode editMode;
 
   /// 从现有内容创建初始状态
@@ -92,7 +100,7 @@ class ContentEditorState {
       pinned: content.pinned,
       tagSlugs: content.tags.map((tag) => tag.slug).toList(),
       mediaUrls: content.mediaUrls,
-      coverUrl: content.coverUrl,
+      coverUrl: content.coverUrl.trim().isEmpty ? null : content.coverUrl,
       publishedAt: content.publishedAt,
     );
   }
@@ -109,7 +117,10 @@ class ContentEditorState {
       pinned: json['pinned'] as bool? ?? false,
       tagSlugs: List<String>.from(json['tagSlugs'] ?? []),
       mediaUrls: List<String>.from(json['mediaUrls'] ?? []),
-      coverUrl: json['coverUrl'] as String?,
+      coverUrl: switch (json['coverUrl']) {
+        final String value when value.trim().isNotEmpty => value,
+        _ => null,
+      },
       publishedAt: json['publishedAt'] != null
           ? DateTime.tryParse(json['publishedAt'] as String)
           : null,
@@ -129,7 +140,8 @@ class ContentEditorState {
       'tagSlugs': tagSlugs,
       'mediaUrls': mediaUrls,
       if (coverUrl != null) 'coverUrl': coverUrl,
-      if (publishedAt != null) 'publishedAt': publishedAt!.toUtc().toIso8601String(),
+      if (publishedAt != null)
+        'publishedAt': publishedAt!.toUtc().toIso8601String(),
     };
   }
 
@@ -151,11 +163,28 @@ class ContentEditorState {
   }
 
   /// 是否为媒体类型
-  bool get isMediaType => type == ContentType.image || type == ContentType.video;
+  bool get isMediaType =>
+      type == ContentType.image || type == ContentType.video;
 
-  /// 是否为可预览类型
   /// 是否为可预览类型（Markdown 类型）
   bool get isPreviewable => type == ContentType.markdown;
+
+  double? get uploadProgress =>
+      uploadTotal > 0 ? uploadedCount / uploadTotal : null;
+
+  bool sameContentAs(ContentEditorState other) {
+    return title == other.title &&
+        slug == other.slug &&
+        type == other.type &&
+        status == other.status &&
+        summary == other.summary &&
+        bodyMarkdown == other.bodyMarkdown &&
+        pinned == other.pinned &&
+        setEquals(tagSlugs.toSet(), other.tagSlugs.toSet()) &&
+        listEquals(mediaUrls, other.mediaUrls) &&
+        coverUrl == other.coverUrl &&
+        publishedAt == other.publishedAt;
+  }
 
   /// 复制并修改状态
   ContentEditorState copyWith({
@@ -173,8 +202,13 @@ class ContentEditorState {
     DateTime? publishedAt,
     bool clearPublishedAt = false,
     bool? isUploading,
+    int? uploadedCount,
+    int? uploadTotal,
     bool? isSubmitting,
+    bool? isSavingDraft,
     bool? hasUnsavedChanges,
+    DateTime? lastLocalSavedAt,
+    bool clearLastLocalSavedAt = false,
     EditorEditMode? editMode,
   }) {
     return ContentEditorState(
@@ -190,8 +224,14 @@ class ContentEditorState {
       coverUrl: clearCoverUrl ? null : (coverUrl ?? this.coverUrl),
       publishedAt: clearPublishedAt ? null : (publishedAt ?? this.publishedAt),
       isUploading: isUploading ?? this.isUploading,
+      uploadedCount: uploadedCount ?? this.uploadedCount,
+      uploadTotal: uploadTotal ?? this.uploadTotal,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      isSavingDraft: isSavingDraft ?? this.isSavingDraft,
       hasUnsavedChanges: hasUnsavedChanges ?? this.hasUnsavedChanges,
+      lastLocalSavedAt: clearLastLocalSavedAt
+          ? null
+          : (lastLocalSavedAt ?? this.lastLocalSavedAt),
       editMode: editMode ?? this.editMode,
     );
   }
@@ -212,8 +252,12 @@ class ContentEditorState {
         other.coverUrl == coverUrl &&
         other.publishedAt == publishedAt &&
         other.isUploading == isUploading &&
+        other.uploadedCount == uploadedCount &&
+        other.uploadTotal == uploadTotal &&
         other.isSubmitting == isSubmitting &&
+        other.isSavingDraft == isSavingDraft &&
         other.hasUnsavedChanges == hasUnsavedChanges &&
+        other.lastLocalSavedAt == lastLocalSavedAt &&
         other.editMode == editMode;
   }
 
@@ -232,23 +276,13 @@ class ContentEditorState {
       coverUrl,
       publishedAt,
       isUploading,
+      uploadedCount,
+      uploadTotal,
       isSubmitting,
+      isSavingDraft,
       hasUnsavedChanges,
+      lastLocalSavedAt,
       editMode,
     );
   }
-}
-
-/// 提交结果封装
-/// 包含草稿数据和成功/失败回调，用于在 API 调用后清理状态
-class ContentEditorSubmitResult {
-  const ContentEditorSubmitResult({
-    required this.draft,
-    required this.onSuccess,
-    required this.onFailure,
-  });
-
-  final AdminContentDraft draft;
-  final VoidCallback onSuccess;
-  final VoidCallback onFailure;
 }

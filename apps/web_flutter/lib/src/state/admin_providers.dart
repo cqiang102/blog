@@ -149,6 +149,29 @@ final adminContentsProvider =
           .fetchAdminContents(accessToken: token, query: query);
     });
 
+/// 媒体管理关联内容选项，不受内容管理页当前筛选和分页影响。
+final adminContentOptionsProvider =
+    FutureProvider.autoDispose<List<AdminContentItem>>((ref) async {
+      final token = ref.watch(authControllerProvider).accessToken;
+      if (token == null) {
+        throw const ApiException('请先登录');
+      }
+
+      final api = ref.watch(apiClientProvider);
+      final items = <AdminContentItem>[];
+      var page = 0;
+      while (true) {
+        final result = await api.fetchAdminContents(
+          accessToken: token,
+          query: AdminContentQuery(page: page, size: 50),
+        );
+        items.addAll(result.items);
+        if (items.length >= result.total || result.items.isEmpty) break;
+        page += 1;
+      }
+      return items;
+    });
+
 /// 管理后台媒体列表 Provider
 final adminMediaProvider = FutureProvider<PageResult<AdminMediaItem>>((ref) {
   final token = ref.watch(authControllerProvider).accessToken;

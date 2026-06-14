@@ -18,6 +18,8 @@ class MediaSection extends StatelessWidget {
     required this.onUpload,
     required this.onRemove,
     required this.onSetCover,
+    required this.onMove,
+    this.uploadProgress,
   });
 
   final ContentType type;
@@ -27,8 +29,10 @@ class MediaSection extends StatelessWidget {
   final VoidCallback onUpload;
   final void Function(int index) onRemove;
   final void Function(String url) onSetCover;
+  final void Function(int oldIndex, int newIndex) onMove;
+  final double? uploadProgress;
 
-  bool get isImage => type == ContentType.image;
+  bool get isImage => type != ContentType.video;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +40,10 @@ class MediaSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildHeader(context),
+        if (isUploading && uploadProgress != null) ...[
+          const SizedBox(height: 8),
+          LinearProgressIndicator(value: uploadProgress),
+        ],
         const SizedBox(height: 8),
         if (mediaUrls.isEmpty)
           _buildEmptyState(context)
@@ -63,7 +71,7 @@ class MediaSection extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const HugeIcon(icon: HugeIcons.strokeRoundedUpload01),
-          label: Text(isUploading ? '上传中...' : '上传文件'),
+          label: Text(isUploading ? '上传中...' : '选择多个文件'),
         ),
       ],
     );
@@ -76,7 +84,9 @@ class MediaSection extends StatelessWidget {
         child: Column(
           children: [
             HugeIcon(
-              icon: isImage ? HugeIcons.strokeRoundedImage01 : HugeIcons.strokeRoundedVideo01,
+              icon: isImage
+                  ? HugeIcons.strokeRoundedImage01
+                  : HugeIcons.strokeRoundedVideo01,
               size: 64,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -84,8 +94,8 @@ class MediaSection extends StatelessWidget {
             Text(
               isImage ? '暂无图片，请上传' : '暂无视频，请上传',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -107,15 +117,22 @@ class MediaSection extends StatelessWidget {
           children: List.generate(mediaUrls.length, (index) {
             final url = mediaUrls[index];
             final isCover = url == coverUrl;
-            return SizedBox(
-              width: cardWidth,
-              height: cardHeight,
-              child: _MediaCard(
-                url: url,
-                isImage: isImage,
-                isCover: isCover,
-                onSetCover: () => onSetCover(url),
-                onRemove: () => onRemove(index),
+            return Semantics(
+              label: '${isImage ? "图片" : "视频"} ${index + 1}',
+              child: SizedBox(
+                width: cardWidth,
+                height: cardHeight,
+                child: _MediaCard(
+                  url: url,
+                  isImage: isImage,
+                  isCover: isCover,
+                  canMoveLeft: index > 0,
+                  canMoveRight: index < mediaUrls.length - 1,
+                  onMoveLeft: () => onMove(index, index - 1),
+                  onMoveRight: () => onMove(index, index + 1),
+                  onSetCover: () => onSetCover(url),
+                  onRemove: () => onRemove(index),
+                ),
               ),
             );
           }),
@@ -130,6 +147,10 @@ class _MediaCard extends StatelessWidget {
     required this.url,
     required this.isImage,
     required this.isCover,
+    required this.canMoveLeft,
+    required this.canMoveRight,
+    required this.onMoveLeft,
+    required this.onMoveRight,
     required this.onSetCover,
     required this.onRemove,
   });
@@ -137,6 +158,10 @@ class _MediaCard extends StatelessWidget {
   final String url;
   final bool isImage;
   final bool isCover;
+  final bool canMoveLeft;
+  final bool canMoveRight;
+  final VoidCallback onMoveLeft;
+  final VoidCallback onMoveRight;
   final VoidCallback onSetCover;
   final VoidCallback onRemove;
 
@@ -162,21 +187,19 @@ class _MediaCard extends StatelessWidget {
         fit: BoxFit.cover,
         placeholder: (context, url) => Container(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          child: const Center(
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
         ),
         errorWidget: (context, url, error) => Container(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const HugeIcon(icon: HugeIcons.strokeRoundedImageNotFound01, size: 32),
-              const SizedBox(height: 4),
-              Text(
-                '加载失败',
-                style: Theme.of(context).textTheme.bodySmall,
+              const HugeIcon(
+                icon: HugeIcons.strokeRoundedImageNotFound01,
+                size: 32,
               ),
+              const SizedBox(height: 4),
+              Text('加载失败', style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
         ),
@@ -221,13 +244,33 @@ class _MediaCard extends StatelessWidget {
       child: Container(
         decoration: const BoxDecoration(
           color: AppColors.overlayDark,
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(8),
-          ),
+          borderRadius: BorderRadius.only(bottomLeft: Radius.circular(8)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            IconButton(
+              icon: const HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowLeft01,
+                color: AppColors.onOverlay,
+                size: 18,
+              ),
+              tooltip: '前移',
+              onPressed: canMoveLeft ? onMoveLeft : null,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: EdgeInsets.zero,
+            ),
+            IconButton(
+              icon: const HugeIcon(
+                icon: HugeIcons.strokeRoundedArrowRight01,
+                color: AppColors.onOverlay,
+                size: 18,
+              ),
+              tooltip: '后移',
+              onPressed: canMoveRight ? onMoveRight : null,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: EdgeInsets.zero,
+            ),
             if (!isCover)
               IconButton(
                 icon: const HugeIcon(
@@ -237,20 +280,18 @@ class _MediaCard extends StatelessWidget {
                 ),
                 tooltip: '设为封面',
                 onPressed: onSetCover,
-                constraints: const BoxConstraints(
-                  minWidth: 32,
-                  minHeight: 32,
-                ),
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 padding: EdgeInsets.zero,
               ),
             IconButton(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, color: Theme.of(context).colorScheme.error, size: 20),
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedDelete01,
+                color: Theme.of(context).colorScheme.error,
+                size: 20,
+              ),
               tooltip: '删除',
               onPressed: onRemove,
-              constraints: const BoxConstraints(
-                minWidth: 32,
-                minHeight: 32,
-              ),
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               padding: EdgeInsets.zero,
             ),
           ],

@@ -6,6 +6,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'content_editor_state.dart';
 
+class ContentEditorDraftSnapshot {
+  const ContentEditorDraftSnapshot({
+    required this.state,
+    required this.savedAt,
+  });
+
+  final ContentEditorState state;
+  final DateTime savedAt;
+}
+
 /// 草稿持久化服务
 /// 使用内容 ID 作为 key，避免多内容草稿冲突
 class ContentEditorDraftService {
@@ -21,14 +31,29 @@ class ContentEditorDraftService {
   }
 
   /// 加载草稿
-  Future<ContentEditorState?> loadDraft(String? contentId) async {
+  Future<ContentEditorDraftSnapshot?> loadDraft(String? contentId) async {
     try {
       final key = _getDraftKey(contentId);
       final draftJson = _prefs.getString(key);
       if (draftJson == null) return null;
 
       final json = jsonDecode(draftJson) as Map<String, dynamic>;
-      return ContentEditorState.fromJson(json);
+      if (json['state'] is Map<String, dynamic>) {
+        return ContentEditorDraftSnapshot(
+          state: ContentEditorState.fromJson(
+            (json['state'] as Map).cast<String, dynamic>(),
+          ),
+          savedAt:
+              DateTime.tryParse(json['savedAt'] as String? ?? '') ??
+              DateTime.now(),
+        );
+      }
+
+      // 兼容旧版本直接保存 ContentEditorState 的草稿。
+      return ContentEditorDraftSnapshot(
+        state: ContentEditorState.fromJson(json),
+        savedAt: DateTime.now(),
+      );
     } catch (e) {
       debugPrint('Failed to load draft: $e');
       return null;
@@ -39,9 +64,12 @@ class ContentEditorDraftService {
   Future<bool> saveDraft(String? contentId, ContentEditorState state) async {
     try {
       final key = _getDraftKey(contentId);
-      final json = state.toJson();
-      await _prefs.setString(key, jsonEncode(json));
-      return true;
+      final json = {
+        'version': 2,
+        'savedAt': DateTime.now().toUtc().toIso8601String(),
+        'state': state.toJson(),
+      };
+      return _prefs.setString(key, jsonEncode(json));
     } catch (e) {
       debugPrint('Failed to save draft: $e');
       return false;
@@ -52,8 +80,7 @@ class ContentEditorDraftService {
   Future<bool> clearDraft(String? contentId) async {
     try {
       final key = _getDraftKey(contentId);
-      await _prefs.remove(key);
-      return true;
+      return _prefs.remove(key);
     } catch (e) {
       debugPrint('Failed to clear draft: $e');
       return false;

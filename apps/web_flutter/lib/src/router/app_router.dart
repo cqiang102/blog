@@ -142,7 +142,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 pageBuilder:
                     (context, state) => NoTransitionPage(
                       key: state.pageKey,
-                      child: const AdminPage(),
+                      child: AdminPage(
+                        initialTab:
+                            state.uri.path.startsWith('/admin/contents/')
+                            ? 1
+                            : _adminTabIndex(
+                                state.uri.queryParameters['tab'],
+                              ),
+                      ),
                     ),
                 routes: [
                   GoRoute(
@@ -186,3 +193,21 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+int _adminTabIndex(String? tab) {
+  const tabs = [
+    'overview',
+    'content',
+    'comments',
+    'likes',
+    'views',
+    'friends',
+    'tags',
+    'users',
+    'ai',
+    'knowledge',
+    'logs',
+  ];
+  final index = tabs.indexOf(tab ?? '');
+  return index < 0 ? 0 : index;
+}

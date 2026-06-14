@@ -130,9 +130,7 @@ class Recommendations {
 List<BlogContent> _contentList(Object? value) {
   return (value as List? ?? const [])
       .whereType<Map>()
-      .map(
-        (item) => BlogContent.fromSummaryJson(item.cast<String, dynamic>()),
-      )
+      .map((item) => BlogContent.fromSummaryJson(item.cast<String, dynamic>()))
       .toList();
 }
 
@@ -181,7 +179,7 @@ class AdminContentQuery {
     this.type,
     this.includeDeleted = false,
     this.page = 0,
-    this.size = 50,
+    this.size = 20,
   });
 
   final String query;
@@ -190,6 +188,26 @@ class AdminContentQuery {
   final bool includeDeleted;
   final int page;
   final int size;
+
+  AdminContentQuery copyWith({
+    String? query,
+    ContentStatus? status,
+    bool clearStatus = false,
+    ContentType? type,
+    bool clearType = false,
+    bool? includeDeleted,
+    int? page,
+    int? size,
+  }) {
+    return AdminContentQuery(
+      query: query ?? this.query,
+      status: clearStatus ? null : (status ?? this.status),
+      type: clearType ? null : (type ?? this.type),
+      includeDeleted: includeDeleted ?? this.includeDeleted,
+      page: page ?? this.page,
+      size: size ?? this.size,
+    );
+  }
 
   @override
   bool operator ==(Object other) {
@@ -338,7 +356,8 @@ class AdminContentDraft {
       'tagSlugs': tagSlugs,
       'mediaUrls': mediaUrls,
       if (coverUrl != null) 'coverUrl': coverUrl,
-      if (publishedAt != null) 'publishedAt': publishedAt!.toUtc().toIso8601String(),
+      if (publishedAt != null)
+        'publishedAt': publishedAt!.toUtc().toIso8601String(),
     };
   }
 }

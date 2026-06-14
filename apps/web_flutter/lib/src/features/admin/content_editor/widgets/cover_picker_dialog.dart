@@ -66,7 +66,11 @@ class CoverPickerDialog extends StatelessWidget {
                         const ColoredBox(
                           color: AppColors.overlayDark,
                           child: Center(
-                            child: HugeIcon(icon: HugeIcons.strokeRoundedTick01, color: AppColors.onOverlay, size: 32),
+                            child: HugeIcon(
+                              icon: HugeIcons.strokeRoundedTick01,
+                              color: AppColors.onOverlay,
+                              size: 32,
+                            ),
                           ),
                         ),
                     ],
