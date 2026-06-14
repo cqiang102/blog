@@ -76,6 +76,7 @@ public class MediaAdminService {
     private final Clock clock;
     private final String minioEndpoint;
     private final String bucketName;
+    private final String basePath;
 
     public MediaAdminService(
             MediaAssetRepository mediaAssetRepository,
@@ -83,7 +84,8 @@ public class MediaAdminService {
             FileStorageService fileStorageService,
             Clock clock,
             @Value("${dromara.x-file-storage.minio[0].end-point:http://localhost:9000}") String minioEndpoint,
-            @Value("${dromara.x-file-storage.minio[0].bucket-name:blog-media}") String bucketName
+            @Value("${dromara.x-file-storage.minio[0].bucket-name:blog-media}") String bucketName,
+            @Value("${dromara.x-file-storage.minio[0].base-path:uploads/}") String basePath
     ) {
         this.mediaAssetRepository = mediaAssetRepository;
         this.contentRepository = contentRepository;
@@ -91,6 +93,7 @@ public class MediaAdminService {
         this.clock = clock;
         this.minioEndpoint = minioEndpoint;
         this.bucketName = bucketName;
+        this.basePath = basePath;
     }
 
     /**
@@ -187,11 +190,11 @@ public class MediaAdminService {
 
         // 内部存储媒体：直接生成预签名
         if (!EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
+            // 使用 objectKey 构建正确的 URL（不依赖可能过时的 publicUrl）
+            String correctUrl = buildCorrectUrl(mediaAsset.getObjectKey());
             FileInfo fileInfo = buildFileInfo(mediaAsset);
-            // 确保 fileInfo.url 包含 bucket 前缀（兼容旧数据）
-            String fixedUrl = fixMinioUrl(fileInfo.getUrl());
-            fileInfo.setUrl(fixedUrl);
-            return generatePresignedUrl(fileInfo, fixedUrl);
+            fileInfo.setUrl(correctUrl);
+            return generatePresignedUrl(fileInfo, correctUrl);
         }
 
         // 外链媒体：尝试用默认平台生成预签名（URL 指向本机 MinIO 的场景）
@@ -273,6 +276,10 @@ public class MediaAdminService {
             if (path.startsWith(bucketPrefix)) {
                 path = path.substring(bucketPrefix.length());
             }
+            // 去掉 basePath 前缀，避免 SDK 重复拼接（basePath + path）
+            if (path.startsWith(basePath)) {
+                path = path.substring(basePath.length());
+            }
             int lastSlash = path.lastIndexOf('/');
             if (lastSlash < 0) return null;
 
@@ -306,34 +313,11 @@ public class MediaAdminService {
     }
 
     /**
-     * 修正旧格式的 MinIO URL（缺少 bucket 前缀）。
-     * 例如 http://localhost:9000/uploads/... → http://localhost:9000/blog-media/uploads/...
+     * 根据 objectKey 构建正确的 MinIO 公开 URL。
+     * 格式：{endpoint}/{bucketName}/{objectKey}
      */
-    private String fixMinioUrl(String url) {
-        if (url == null || url.isBlank()) return url;
-        try {
-            java.net.URI uri = java.net.URI.create(url.trim());
-            String host = uri.getHost();
-            int port = uri.getPort() > 0 ? uri.getPort() : ("https".equals(uri.getScheme()) ? 443 : 80);
-            java.net.URI endpointUri = java.net.URI.create(minioEndpoint);
-            String endpointHost = endpointUri.getHost();
-            int endpointPort = endpointUri.getPort() > 0 ? endpointUri.getPort()
-                    : ("https".equals(endpointUri.getScheme()) ? 443 : 80);
-            if (!equalsIgnoreCase(host, endpointHost) || port != endpointPort) {
-                return url; // 非本机 MinIO，原样返回
-            }
-            String path = uri.getPath();
-            if (path == null) return url;
-            if (path.startsWith("/")) path = path.substring(1);
-            String bucketPrefix = bucketName + "/";
-            if (path.startsWith(bucketPrefix)) {
-                return url; // 已包含 bucket 前缀
-            }
-            // 缺少 bucket 前缀，补上
-            return minioEndpoint.replaceAll("/$", "") + "/" + bucketName + "/" + path;
-        } catch (Exception e) {
-            return url;
-        }
+    private String buildCorrectUrl(String objectKey) {
+        return minioEndpoint.replaceAll("/$", "") + "/" + bucketName + "/" + objectKey;
     }
 
     private static boolean equalsIgnoreCase(String a, String b) {
