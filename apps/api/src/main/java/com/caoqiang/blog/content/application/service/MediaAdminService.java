@@ -75,19 +75,22 @@ public class MediaAdminService {
     private final FileStorageService fileStorageService;
     private final Clock clock;
     private final String minioEndpoint;
+    private final String bucketName;
 
     public MediaAdminService(
             MediaAssetRepository mediaAssetRepository,
             ContentRepository contentRepository,
             FileStorageService fileStorageService,
             Clock clock,
-            @Value("${dromara.x-file-storage.minio[0].end-point:http://localhost:9000}") String minioEndpoint
+            @Value("${dromara.x-file-storage.minio[0].end-point:http://localhost:9000}") String minioEndpoint,
+            @Value("${dromara.x-file-storage.minio[0].bucket-name:blog-media}") String bucketName
     ) {
         this.mediaAssetRepository = mediaAssetRepository;
         this.contentRepository = contentRepository;
         this.fileStorageService = fileStorageService;
         this.clock = clock;
         this.minioEndpoint = minioEndpoint;
+        this.bucketName = bucketName;
     }
 
     /**
@@ -184,7 +187,11 @@ public class MediaAdminService {
 
         // 内部存储媒体：直接生成预签名
         if (!EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
-            return generatePresignedUrl(buildFileInfo(mediaAsset), mediaAsset.getPublicUrl());
+            FileInfo fileInfo = buildFileInfo(mediaAsset);
+            // 确保 fileInfo.url 包含 bucket 前缀（兼容旧数据）
+            String fixedUrl = fixMinioUrl(fileInfo.getUrl());
+            fileInfo.setUrl(fixedUrl);
+            return generatePresignedUrl(fileInfo, fixedUrl);
         }
 
         // 外链媒体：尝试用默认平台生成预签名（URL 指向本机 MinIO 的场景）
@@ -257,10 +264,15 @@ public class MediaAdminService {
                 return null; // 非本机 MinIO，无法生成预签名
             }
 
-            String path = uri.getPath(); // e.g. /uploads/2026/06/10/file.jpeg
+            String path = uri.getPath(); // e.g. /blog-media/uploads/2026/06/10/file.jpeg
             if (path == null || path.isEmpty()) return null;
             // 去掉开头的 /
             if (path.startsWith("/")) path = path.substring(1);
+            // 如果路径包含 bucket 前缀则去掉（path-style URL 格式：/bucket/objectKey）
+            String bucketPrefix = bucketName + "/";
+            if (path.startsWith(bucketPrefix)) {
+                path = path.substring(bucketPrefix.length());
+            }
             int lastSlash = path.lastIndexOf('/');
             if (lastSlash < 0) return null;
 
@@ -291,6 +303,37 @@ public class MediaAdminService {
                     fileInfo.getPlatform(), fileInfo.getPath(), fileInfo.getFilename());
         }
         return url != null ? url : fallbackUrl;
+    }
+
+    /**
+     * 修正旧格式的 MinIO URL（缺少 bucket 前缀）。
+     * 例如 http://localhost:9000/uploads/... → http://localhost:9000/blog-media/uploads/...
+     */
+    private String fixMinioUrl(String url) {
+        if (url == null || url.isBlank()) return url;
+        try {
+            java.net.URI uri = java.net.URI.create(url.trim());
+            String host = uri.getHost();
+            int port = uri.getPort() > 0 ? uri.getPort() : ("https".equals(uri.getScheme()) ? 443 : 80);
+            java.net.URI endpointUri = java.net.URI.create(minioEndpoint);
+            String endpointHost = endpointUri.getHost();
+            int endpointPort = endpointUri.getPort() > 0 ? endpointUri.getPort()
+                    : ("https".equals(endpointUri.getScheme()) ? 443 : 80);
+            if (!equalsIgnoreCase(host, endpointHost) || port != endpointPort) {
+                return url; // 非本机 MinIO，原样返回
+            }
+            String path = uri.getPath();
+            if (path == null) return url;
+            if (path.startsWith("/")) path = path.substring(1);
+            String bucketPrefix = bucketName + "/";
+            if (path.startsWith(bucketPrefix)) {
+                return url; // 已包含 bucket 前缀
+            }
+            // 缺少 bucket 前缀，补上
+            return minioEndpoint.replaceAll("/$", "") + "/" + bucketName + "/" + path;
+        } catch (Exception e) {
+            return url;
+        }
     }
 
     private static boolean equalsIgnoreCase(String a, String b) {

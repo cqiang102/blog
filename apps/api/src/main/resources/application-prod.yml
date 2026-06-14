@@ -65,5 +65,5 @@ dromara:
         secret-key: ${MINIO_SECRET_KEY}
         end-point: ${MINIO_ENDPOINT}
         bucket-name: ${MINIO_BUCKET:blog-media}
-        domain: ${MINIO_PUBLIC_ENDPOINT}/
+        domain: ${MINIO_PUBLIC_ENDPOINT}/${MINIO_BUCKET:blog-media}/
         base-path: uploads/
