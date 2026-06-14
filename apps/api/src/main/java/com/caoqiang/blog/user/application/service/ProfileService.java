@@ -67,16 +67,20 @@ public class ProfileService {
     private final Clock clock;
     /** MinIO platform 名称 */
     private final String platform;
+    /** 媒体服务，用于统一 URL 解析 */
+    private final com.caoqiang.blog.content.application.service.MediaAdminService mediaAdminService;
 
     public ProfileService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                           FileStorageService fileStorageService, OAuthAccountRepository oauthAccountRepository,
-                          Clock clock, @Value("${dromara.x-file-storage.default-platform}") String platform) {
+                          Clock clock, @Value("${dromara.x-file-storage.default-platform}") String platform,
+                          com.caoqiang.blog.content.application.service.MediaAdminService mediaAdminService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.fileStorageService = fileStorageService;
         this.oauthAccountRepository = oauthAccountRepository;
         this.clock = clock;
         this.platform = platform;
+        this.mediaAdminService = mediaAdminService;
     }
 
     /**
@@ -276,74 +280,13 @@ public class ProfileService {
     }
 
     /**
-     * 生成头像的预签名 URL
-     * <p>
-     * 如果头像 URL 为空或不是 MinIO 存储的文件，直接返回原 URL。
-     * 否则生成有效期 7 天的预签名 URL。
+     * 生成头像的预签名 URL（委托给 MediaAdminService 统一处理）。
      *
      * @param avatarUrl 原始头像 URL
      * @return 预签名 URL 或原 URL
      */
     public String generatePresignedAvatarUrl(String avatarUrl) {
-        if (!StringUtils.hasText(avatarUrl)) {
-            return avatarUrl;
-        }
-
-        // 如果 URL 已经包含预签名参数，先去除
-        int queryIndex = avatarUrl.indexOf('?');
-        if (queryIndex > 0 && avatarUrl.contains("X-Amz-Algorithm")) {
-            avatarUrl = avatarUrl.substring(0, queryIndex);
-        }
-
-        try {
-            // 从 URL 中提取 objectKey
-            // URL 格式: http://localhost:9000/uploads/avatars/2026/06/04/avatar_xxx.jpg
-            // base-path 是 uploads/，所以 path 应该是 avatars/2026/06/04/
-            String basePath = "uploads/";
-            int basePathIndex = avatarUrl.indexOf(basePath);
-            if (basePathIndex < 0) {
-                log.info("头像 URL 不包含 uploads/ 路径: {}", avatarUrl);
-                return avatarUrl;
-            }
-
-            // 提取 uploads/ 后面的部分作为 path
-            String afterBasePath = avatarUrl.substring(basePathIndex + basePath.length());
-            
-            // 分离 path 和 filename
-            int lastSlash = afterBasePath.lastIndexOf('/');
-            if (lastSlash < 0) {
-                log.info("无法从 URL 中解析路径: {}", avatarUrl);
-                return avatarUrl;
-            }
-            
-            // path 是最后一个 / 前面的部分（包含 /）
-            String path = afterBasePath.substring(0, lastSlash + 1);
-            // filename 是最后一个 / 后面的部分
-            String filename = afterBasePath.substring(lastSlash + 1);
-
-            log.info("解析头像 URL: path={}, filename={}", path, filename);
-
-            FileInfo fileInfo = new FileInfo();
-            fileInfo.setPlatform(platform);
-            fileInfo.setPath(path);
-            fileInfo.setFilename(filename);
-            fileInfo.setUrl(avatarUrl);
-
-            LocalDateTime expiry = LocalDateTime.now(clock).plusDays(7);
-            Date expiryDate = Date.from(expiry.atZone(ZoneId.systemDefault()).toInstant());
-            String presignedUrl = fileStorageService.generatePresignedUrl(fileInfo, expiryDate);
-            
-            if (presignedUrl == null) {
-                log.warn("生成预签名 URL 返回 null，原 URL: {}", avatarUrl);
-                return avatarUrl;
-            }
-            
-            log.info("生成预签名 URL 成功: {} -> {}", avatarUrl, presignedUrl);
-            return presignedUrl;
-        } catch (Exception e) {
-            log.error("生成预签名 URL 失败: {}", e.getMessage(), e);
-            return avatarUrl;
-        }
+        return mediaAdminService.resolveUrl(avatarUrl);
     }
 
     /**

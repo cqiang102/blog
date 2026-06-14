@@ -199,6 +199,46 @@ public class MediaAdminService {
     }
 
     /**
+     * 通用 URL 解析：将任意媒体 URL 转为可访问的预签名 URL。
+     * <p>
+     * 支持三种输入：
+     * <ul>
+     *   <li>代理路径 {@code /api/v1/media-assets/{id}/file} → 查库生成预签名</li>
+     *   <li>本机 MinIO 直连 URL → 提取路径生成预签名</li>
+     *   <li>外部 URL → 原样返回</li>
+     * </ul>
+     *
+     * @param url 媒体 URL（代理路径、直连 URL 或外部 URL）
+     * @return 可直接访问的预签名 URL
+     */
+    public String resolveUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return url;
+        }
+        String trimmed = url.trim();
+
+        // 代理路径：/api/v1/media-assets/{id}/file
+        java.util.Optional<UUID> mediaId = com.caoqiang.blog.content.domain.model.MediaReference.mediaId(trimmed);
+        if (mediaId.isPresent()) {
+            try {
+                return getPresignedUrl(mediaId.get());
+            } catch (Exception e) {
+                log.debug("Failed to presign media {}: {}", mediaId.get(), e.getMessage());
+                return trimmed;
+            }
+        }
+
+        // 本机 MinIO 直连 URL
+        String presigned = tryPresignExternalUrl(trimmed);
+        if (presigned != null) {
+            return presigned;
+        }
+
+        // 外部 URL 或无法识别的格式
+        return trimmed;
+    }
+
+    /**
      * 为外链 URL 生成预签名。
      * 如果 URL 指向本机 MinIO，提取路径后用默认平台生成预签名。
      */
