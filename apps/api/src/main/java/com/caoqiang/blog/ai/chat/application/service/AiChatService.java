@@ -179,6 +179,15 @@ public class AiChatService {
      */
     public SseEmitter streamChat(AuthenticatedUser currentUser, AiChatRequest request) {
         SseEmitter emitter = new SseEmitter(600_000L);
+        // 兜底：确保异常路径也能 complete emitter
+        emitter.onTimeout(() -> {
+            log.debug("SseEmitter timeout");
+            emitter.complete();
+        });
+        emitter.onError(error -> {
+            log.debug("SseEmitter error: {}", error.getMessage());
+            emitter.complete();
+        });
         aiStreamExecutor.execute(() -> doStreamChat(currentUser, request, emitter));
         return emitter;
     }

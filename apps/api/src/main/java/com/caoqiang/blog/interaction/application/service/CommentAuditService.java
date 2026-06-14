@@ -127,7 +127,7 @@ public class CommentAuditService {
             });
         } catch (Exception e) {
             // 审核失败不影响评论功能，只记录日志
-            log.error("Comment audit failed for {}: {}", commentId, e.getMessage());
+            log.error("Comment audit failed for {}: {}", commentId, e.getMessage(), e);
         }
     }
 

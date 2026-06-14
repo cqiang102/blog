@@ -100,9 +100,10 @@ public class AuditLogAspect {
             log.info("记录审计日志: actor={}, action={}, resourceType={}, resourceId={}", 
                     actor != null ? actor.getNickname() : "null", action, resourceType, resourceId);
 
-            // 记录审计日志
+            // 记录审计日志（actor 可能为 null，log 方法需要处理）
             auditLogService.log(actor, action.name(), resourceType, resourceId);
-            log.info("审计日志记录成功");
+            log.info("审计日志记录成功: actor={}, action={}, resourceType={}, resourceId={}",
+                    actor != null ? actor.getId() : "null", action, resourceType, resourceId);
         } catch (Exception e) {
             // 日志记录失败不应影响正常业务
             log.error("Failed to log audit: {}", e.getMessage(), e);

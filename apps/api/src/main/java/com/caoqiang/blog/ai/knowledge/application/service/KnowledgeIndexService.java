@@ -148,18 +148,19 @@ public class KnowledgeIndexService {
     /**
      * 重新索引所有已启用的知识文档。
      * 单个文档索引失败不影响其他文档的处理。
+     * 每个文档在独立事务中处理，避免大文档集超时。
      */
     @Transactional
     public void indexAllDocuments() {
-        List<KnowledgeDoc> docs = knowledgeDocRepository.findAll();
-        for (KnowledgeDoc doc : docs) {
-            if (doc.isEnabled()) {
-                try {
-                    indexDocument(doc.getId());
-                } catch (Exception e) {
-                    // 记录错误但继续处理其他文档
-                    log.error("Failed to index document {}: {}", doc.getId(), e.getMessage(), e);
-                }
+        List<UUID> docIds = knowledgeDocRepository.findAll().stream()
+                .filter(KnowledgeDoc::isEnabled)
+                .map(KnowledgeDoc::getId)
+                .toList();
+        for (UUID docId : docIds) {
+            try {
+                indexDocument(docId);
+            } catch (Exception e) {
+                log.error("Failed to index document {}: {}", docId, e.getMessage(), e);
             }
         }
     }

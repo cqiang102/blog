@@ -11,7 +11,7 @@ import com.caoqiang.blog.ai.chat.application.service.AiChatAuditService;
 import com.caoqiang.blog.shared.domain.event.ai.AiChatMessagesCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -43,13 +43,16 @@ public class DomainEventListener {
     private static final Logger log = LoggerFactory.getLogger(DomainEventListener.class);
     private final CommentAuditService commentAuditService;
     private final AiChatAuditService aiChatAuditService;
+    private final CacheManager cacheManager;
 
     public DomainEventListener(
             CommentAuditService commentAuditService,
-            AiChatAuditService aiChatAuditService
+            AiChatAuditService aiChatAuditService,
+            CacheManager cacheManager
     ) {
         this.commentAuditService = commentAuditService;
         this.aiChatAuditService = aiChatAuditService;
+        this.cacheManager = cacheManager;
     }
 
     /**
@@ -73,11 +76,11 @@ public class DomainEventListener {
      *
      * @param event 内容发布事件
      */
-    @EventListener
-    @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onContentPublished(ContentPublishedEvent event) {
-        log.info("Content published: id={}, title={}, slug={}", 
+        log.info("Content published: id={}, title={}, slug={}",
                 event.getContentId(), event.getTitle(), event.getSlug());
+        evictRecommendationsCache();
     }
 
     /**
@@ -87,10 +90,17 @@ public class DomainEventListener {
      *
      * @param event 内容归档事件
      */
-    @EventListener
-    @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onContentArchived(ContentArchivedEvent event) {
         log.info("Content archived: id={}", event.getContentId());
+        evictRecommendationsCache();
+    }
+
+    private void evictRecommendationsCache() {
+        var cache = cacheManager.getCache(CacheNames.RECOMMENDATIONS);
+        if (cache != null) {
+            cache.clear();
+        }
     }
 
     /**

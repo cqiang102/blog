@@ -79,7 +79,8 @@ public class InteractionCommandService {
     public CommentResponse comment(AuthenticatedUser currentUser, UUID contentId, CommentRequest request) {
         Content content = publishedContent(contentId);
         User user = activeUser(currentUser.id());
-        Comment comment = commentRepository.save(new Comment(content, user, request.body().trim()));
+        String sanitizedBody = sanitizeHtml(request.body().trim());
+        Comment comment = commentRepository.save(new Comment(content, user, sanitizedBody));
         contentRepository.incrementCommentCount(contentId, 1);
         domainEventPublisher.publishEvent(new CommentCreatedEvent(comment.getId(), contentId, currentUser.id()));
         return CommentResponse.from(comment);
@@ -200,5 +201,14 @@ public class InteractionCommandService {
         } catch (Exception e) {
             throw new IllegalStateException("Unable to hash", e);
         }
+    }
+
+    /**
+     * 清理 HTML 内容，防止 XSS 攻击。
+     * 移除所有 HTML 标签，只保留纯文本。
+     */
+    private String sanitizeHtml(String input) {
+        if (input == null) return null;
+        return input.replaceAll("<[^>]*>", "");
     }
 }

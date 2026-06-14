@@ -28,6 +28,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -59,17 +60,20 @@ public class ContentService {
     private final ContentRepository contentRepository;
     private final LikeRepository likeRepository;
     private final MediaAdminService mediaAdminService;
+    private final CacheManager cacheManager;
 
-    public ContentService(ContentRepository contentRepository, LikeRepository likeRepository, MediaAdminService mediaAdminService) {
+    public ContentService(ContentRepository contentRepository, LikeRepository likeRepository, MediaAdminService mediaAdminService, CacheManager cacheManager) {
         this.contentRepository = contentRepository;
         this.likeRepository = likeRepository;
         this.mediaAdminService = mediaAdminService;
+        this.cacheManager = cacheManager;
     }
 
     /**
      * 获取推荐内容，结果缓存在 Redis 中（key = "all"）。
      * <p>
      * 返回三组推荐列表：置顶内容、最新内容、最热内容（按点赞数排序），每组最多 10 条。
+     * 注意：预签名 URL 有效期（7 天）大于缓存 TTL（5 分钟），不会出现缓存过期 URL 问题。
      *
      * @return 推荐内容响应
      */

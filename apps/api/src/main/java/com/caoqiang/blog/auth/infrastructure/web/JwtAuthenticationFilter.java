@@ -20,6 +20,8 @@ import org.springframework.security.core.context.SecurityContextHolderStrategy;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -51,6 +53,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     /** Bearer 令牌前缀 */
     private static final String BEARER_PREFIX = "Bearer ";
@@ -134,8 +138,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         // 保存到请求属性，确保异步分派时能恢复安全上下文
                         securityContextRepository.saveContext(context, request, response);
                     });
-        } catch (RuntimeException ignored) {
-            // 认证失败时清除安全上下文
+        } catch (RuntimeException e) {
+            log.debug("JWT authentication failed: {}", e.getMessage());
             securityContextHolderStrategy.clearContext();
         }
     }
