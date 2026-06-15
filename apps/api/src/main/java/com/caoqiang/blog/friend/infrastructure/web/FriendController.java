@@ -1,6 +1,6 @@
 package com.caoqiang.blog.friend.infrastructure.web;
 
-import com.caoqiang.blog.friend.application.service.FriendService;
+import com.caoqiang.blog.friend.application.service.FriendQueryService;
 import com.caoqiang.blog.friend.application.dto.FriendResponse;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import java.util.List;
@@ -21,10 +21,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class FriendController {
 
     /** 友链服务 */
-    private final FriendService friendService;
+    private final FriendQueryService friendQueryService;
 
-    public FriendController(FriendService friendService) {
-        this.friendService = friendService;
+    public FriendController(FriendQueryService friendQueryService) {
+        this.friendQueryService = friendQueryService;
     }
 
     /**
@@ -36,6 +36,6 @@ public class FriendController {
      */
     @GetMapping("/random")
     public ApiResponse<List<FriendResponse>> randomFriends() {
-        return ApiResponse.ok(friendService.randomVisible());
+        return ApiResponse.ok(friendQueryService.randomVisible());
     }
 }

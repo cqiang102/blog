@@ -52,7 +52,7 @@ import org.springframework.util.StringUtils;
  * 所有查询均以 JPA Specification 动态构建 WHERE 条件，仅返回已发布状态的内容。
  */
 @Service
-public class ContentService {
+public class ContentQueryService {
 
     /** 最大每页条数，防止前端传入过大的 size 导致性能问题 */
     private static final int MAX_PAGE_SIZE = 50;
@@ -62,7 +62,12 @@ public class ContentService {
     private final MediaAdminService mediaAdminService;
     private final CacheManager cacheManager;
 
-    public ContentService(ContentRepository contentRepository, LikeRepository likeRepository, MediaAdminService mediaAdminService, CacheManager cacheManager) {
+    public ContentQueryService(
+            ContentRepository contentRepository,
+            LikeRepository likeRepository,
+            MediaAdminService mediaAdminService,
+            CacheManager cacheManager
+    ) {
         this.contentRepository = contentRepository;
         this.likeRepository = likeRepository;
         this.mediaAdminService = mediaAdminService;
@@ -251,14 +256,18 @@ public class ContentService {
                 ));
             }
 
-            // 标签过滤：归一化 slug 后通过 INNER JOIN 查询，多标签取交集
+            // 每个标签使用独立 JOIN，确保内容同时拥有全部选中标签。
             List<String> normalizedTags = tags == null ? List.of() : tags.stream()
                     .filter(StringUtils::hasText)
                     .map(tag -> tag.trim().toLowerCase(Locale.ROOT))
+                    .distinct()
                     .toList();
-            if (!normalizedTags.isEmpty()) {
+            for (String normalizedTag : normalizedTags) {
                 Join<Content, Tag> tagJoin = root.join("tags", JoinType.INNER);
-                predicates.add(criteriaBuilder.lower(tagJoin.get("slug")).in(normalizedTags));
+                predicates.add(criteriaBuilder.equal(
+                        criteriaBuilder.lower(tagJoin.get("slug")),
+                        normalizedTag
+                ));
                 criteriaQuery.distinct(true);
             }
 

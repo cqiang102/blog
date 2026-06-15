@@ -23,12 +23,12 @@ import org.springframework.transaction.annotation.Transactional;
  * 友链默认按排序权重和创建时间排序，随机化后返回给前端。
  */
 @Service
-public class FriendService {
+public class FriendQueryService {
 
     /** 友链数据访问层 */
     private final FriendRepository friendRepository;
 
-    public FriendService(FriendRepository friendRepository) {
+    public FriendQueryService(FriendRepository friendRepository) {
         this.friendRepository = friendRepository;
     }
 

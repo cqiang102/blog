@@ -16,7 +16,7 @@ import com.caoqiang.blog.content.domain.model.Tag;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 import com.caoqiang.blog.content.domain.repository.TagRepository;
-import com.caoqiang.blog.content.application.service.ContentService;
+import com.caoqiang.blog.content.application.service.ContentQueryService;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.ApiResponse;
@@ -50,13 +50,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContentController {
 
     /** 内容业务服务，负责搜索、过滤、缓存推荐等核心逻辑 */
-    private final ContentService contentService;
+    private final ContentQueryService contentQueryService;
 
     /** 标签数据访问，用于直接查询标签列表 */
     private final TagRepository tagRepository;
 
-    public ContentController(ContentService contentService, TagRepository tagRepository) {
-        this.contentService = contentService;
+    public ContentController(ContentQueryService contentQueryService, TagRepository tagRepository) {
+        this.contentQueryService = contentQueryService;
         this.tagRepository = tagRepository;
     }
 
@@ -67,7 +67,7 @@ public class ContentController {
      */
     @GetMapping("/recommendations")
     public ApiResponse<RecommendationResponse> recommendations() {
-        return ApiResponse.ok(contentService.recommendations());
+        return ApiResponse.ok(contentQueryService.recommendations());
     }
 
     /**
@@ -75,7 +75,7 @@ public class ContentController {
      *
      * @param query  搜索关键词，模糊匹配标题、摘要、正文
      * @param tag    标签 slug 列表，多标签取交集
-     * @param type   内容类型过滤（ARTICLE / TEXT / IMAGE / VIDEO）
+     * @param type   内容类型过滤（ARTICLE / IMAGE / VIDEO）
      * @param from   发布时间起始（含）
      * @param to     发布时间截止（含）
      * @param page   页码，从 0 开始
@@ -92,7 +92,7 @@ public class ContentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        return ApiResponse.ok(contentService.list(query, tag, type, from, to, page, size));
+        return ApiResponse.ok(contentQueryService.list(query, tag, type, from, to, page, size));
     }
 
     /**
@@ -107,7 +107,7 @@ public class ContentController {
             @PathVariable UUID id,
             @AuthenticationPrincipal AuthenticatedUser currentUser
     ) {
-        return ApiResponse.ok(contentService.detail(id, currentUser));
+        return ApiResponse.ok(contentQueryService.detail(id, currentUser));
     }
 
     /**
