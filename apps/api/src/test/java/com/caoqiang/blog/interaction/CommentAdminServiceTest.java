@@ -38,7 +38,7 @@ class CommentAdminServiceTest {
     void deletingVisibleCommentDecrementsContentCommentCount() {
         Comment comment = visibleComment();
         CommentAdminService service = new CommentAdminService(commentRepository, contentRepository);
-        when(commentRepository.findById(comment.getId())).thenReturn(Optional.of(comment));
+        when(commentRepository.findByIdForUpdate(comment.getId())).thenReturn(Optional.of(comment));
 
         AdminCommentResponse response = service.setStatus(comment.getId(), CommentStatus.DELETED);
 
@@ -52,7 +52,7 @@ class CommentAdminServiceTest {
         Comment comment = visibleComment();
         comment.markDeleted();
         CommentAdminService service = new CommentAdminService(commentRepository, contentRepository);
-        when(commentRepository.findById(comment.getId())).thenReturn(Optional.of(comment));
+        when(commentRepository.findByIdForUpdate(comment.getId())).thenReturn(Optional.of(comment));
 
         AdminCommentResponse response = service.setStatus(comment.getId(), CommentStatus.VISIBLE);
 
@@ -65,7 +65,7 @@ class CommentAdminServiceTest {
     void settingSameStatusDoesNotChangeContentCommentCount() {
         Comment comment = visibleComment();
         CommentAdminService service = new CommentAdminService(commentRepository, contentRepository);
-        when(commentRepository.findById(comment.getId())).thenReturn(Optional.of(comment));
+        when(commentRepository.findByIdForUpdate(comment.getId())).thenReturn(Optional.of(comment));
 
         AdminCommentResponse response = service.setStatus(comment.getId(), CommentStatus.VISIBLE);
 

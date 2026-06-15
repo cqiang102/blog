@@ -98,4 +98,33 @@ class KnowledgeAdminServiceTest {
         verify(knowledgeChunkRepository).deleteByDocId(id);
         verify(knowledgeDocRepository).deleteById(id);
     }
+
+    @Test
+    void updateRemovesStaleChunksWhenBodyIsCleared() {
+        UUID id = UUID.randomUUID();
+        KnowledgeDoc doc = new KnowledgeDoc(
+                "关于我",
+                KnowledgeSourceType.MANUAL,
+                null,
+                "旧正文",
+                true
+        );
+        KnowledgeAdminService service = new KnowledgeAdminService(
+                knowledgeDocRepository,
+                knowledgeChunkRepository,
+                knowledgeIndexService
+        );
+        KnowledgeDocRequest request = new KnowledgeDocRequest(
+                "关于我",
+                KnowledgeSourceType.MANUAL,
+                null,
+                " ",
+                true
+        );
+        when(knowledgeDocRepository.findById(id)).thenReturn(Optional.of(doc));
+
+        service.update(id, request);
+
+        verify(knowledgeChunkRepository).deleteByDocId(id);
+    }
 }

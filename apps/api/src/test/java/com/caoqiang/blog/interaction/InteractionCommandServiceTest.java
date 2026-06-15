@@ -14,6 +14,7 @@ import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
 import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -24,6 +25,7 @@ import static org.mockito.Mockito.when;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
@@ -245,5 +247,37 @@ class InteractionCommandServiceTest {
         assertThat(response.liked()).isTrue();
         verify(contentRepository, never()).incrementLikeCount(any(UUID.class), anyLong());
         verify(domainEventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void deletingVisibleCommentUsesLockedLookupAndDecrementsCount() {
+        Comment comment = new Comment(testContent, testUser, "待删除评论");
+        when(commentRepository.findByIdForUpdate(comment.getId())).thenReturn(Optional.of(comment));
+
+        interactionCommandService.deleteComment(currentUser, comment.getId());
+
+        assertThat(comment.getStatus()).isEqualTo(CommentStatus.DELETED);
+        verify(commentRepository).findByIdForUpdate(comment.getId());
+        verify(contentRepository).incrementCommentCount(testContent.getId(), -1);
+    }
+
+    @Test
+    void rejectsCommentThatIsEmptyAfterHtmlSanitization() {
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                testContent.getId(),
+                ContentStatus.PUBLISHED
+        )).thenReturn(Optional.of(testContent));
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+
+        assertThatThrownBy(() -> interactionCommandService.comment(
+                currentUser,
+                testContent.getId(),
+                new CommentRequest("<b></b>")
+        ))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("评论内容不能为空");
+
+        verify(commentRepository, never()).save(any(Comment.class));
+        verify(contentRepository, never()).incrementCommentCount(any(UUID.class), anyLong());
     }
 }

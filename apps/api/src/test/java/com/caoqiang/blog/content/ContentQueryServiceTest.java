@@ -7,7 +7,7 @@ import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.content.application.service.ContentService;
+import com.caoqiang.blog.content.application.service.ContentQueryService;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -34,7 +34,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
-class ContentServiceTest {
+class ContentQueryServiceTest {
 
     @Mock
     private ContentRepository contentRepository;
@@ -43,7 +43,7 @@ class ContentServiceTest {
     private LikeRepository likeRepository;
 
     @InjectMocks
-    private ContentService contentService;
+    private ContentQueryService contentQueryService;
 
     private Content publishedContent;
     private UUID contentId;
@@ -73,7 +73,7 @@ class ContentServiceTest {
         when(contentRepository.findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(any()))
                 .thenReturn(List.of(publishedContent));
 
-        RecommendationResponse response = contentService.recommendations();
+        RecommendationResponse response = contentQueryService.recommendations();
 
         assertNotNull(response);
         assertEquals(1, response.pinned().size());
@@ -91,7 +91,7 @@ class ContentServiceTest {
         ))
                 .thenReturn(page);
 
-        PageResponse<ContentSummaryResponse> result = contentService.list(
+        PageResponse<ContentSummaryResponse> result = contentQueryService.list(
                 "test", null, null, null, null, 0, 10
         );
 
@@ -111,7 +111,7 @@ class ContentServiceTest {
                 .thenReturn(true);
 
         AuthenticatedUser user = new AuthenticatedUser(UUID.randomUUID(), "test@example.com", "Test", Role.USER);
-        ContentDetailResponse detail = contentService.detail(contentId, user);
+        ContentDetailResponse detail = contentQueryService.detail(contentId, user);
 
         assertNotNull(detail);
         assertEquals("Test Article", detail.title());
@@ -126,7 +126,7 @@ class ContentServiceTest {
         ))
                 .thenReturn(Optional.of(publishedContent));
 
-        ContentDetailResponse detail = contentService.detail(contentId, null);
+        ContentDetailResponse detail = contentQueryService.detail(contentId, null);
 
         assertNotNull(detail);
         assertFalse(detail.likedByCurrentUser());
@@ -145,7 +145,7 @@ class ContentServiceTest {
 
         assertThrows(
                 BusinessException.class,
-                () -> contentService.detail(contentId, admin)
+                () -> contentQueryService.detail(contentId, admin)
         );
         verify(contentRepository, never()).findById(contentId);
     }

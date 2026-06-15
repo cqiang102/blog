@@ -14,6 +14,7 @@ import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeIndexService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -81,6 +82,16 @@ class KnowledgeIndexServiceTest {
     }
 
     @Test
+    void splitVeryLongSentenceWithoutPunctuation() {
+        String text = "知".repeat(1600);
+
+        List<String> chunks = knowledgeIndexService.splitText(text);
+
+        assertThat(chunks).hasSizeGreaterThan(1);
+        assertThat(chunks).allSatisfy(chunk -> assertThat(chunk.length()).isLessThanOrEqualTo(500));
+    }
+
+    @Test
     void indexDocumentSuccessfully() {
         UUID docId = UUID.randomUUID();
         KnowledgeDoc doc = new KnowledgeDoc("测试文档", KnowledgeSourceType.MANUAL, null, "测试内容", true);
@@ -92,5 +103,21 @@ class KnowledgeIndexServiceTest {
 
         verify(knowledgeChunkRepository).deleteByDocId(docId);
         verify(knowledgeChunkRepository).save(any(KnowledgeChunk.class));
+    }
+
+    @Test
+    void keepsTextSearchableWhenEmbeddingGenerationFails() {
+        UUID docId = UUID.randomUUID();
+        KnowledgeDoc doc = new KnowledgeDoc("测试文档", KnowledgeSourceType.MANUAL, null, "测试内容", true);
+        when(knowledgeDocRepository.findById(docId)).thenReturn(Optional.of(doc));
+        when(embeddingModel.embed(any(String.class))).thenThrow(new IllegalStateException("offline"));
+
+        knowledgeIndexService.indexDocument(docId);
+
+        ArgumentCaptor<KnowledgeChunk> captor = ArgumentCaptor.forClass(KnowledgeChunk.class);
+        verify(knowledgeChunkRepository).save(captor.capture());
+        assertThat(captor.getValue().getEmbedding()).isNull();
+        assertThat(captor.getValue().getMetadata()).contains("embedding_generation_failed");
+        assertThat(captor.getValue().getContent()).isEqualTo("测试内容");
     }
 }

@@ -14,7 +14,7 @@ import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
-import com.caoqiang.blog.content.application.service.ContentService;
+import com.caoqiang.blog.content.application.service.ContentQueryService;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.content.domain.model.ContentType;
@@ -36,7 +36,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class AiToolServiceTest {
 
     @Mock
-    private ContentService contentService;
+    private ContentQueryService contentQueryService;
 
     @Mock
     private InteractionCommandService interactionCommandService;
@@ -51,7 +51,7 @@ class AiToolServiceTest {
     @BeforeEach
     void setUp() {
         aiToolService = new AiToolService(
-                contentService,
+                contentQueryService,
                 interactionCommandService,
                 interactionQueryService
         );
@@ -66,7 +66,7 @@ class AiToolServiceTest {
         );
         PageResponse<ContentSummaryResponse> page = new PageResponse<>(List.of(summary), 0, 10, 1);
 
-        when(contentService.list(any(), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5))).thenReturn(page);
+        when(contentQueryService.list(any(), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5))).thenReturn(page);
 
         AiSearchContentResult result = aiToolService.searchContent("测试", 5);
 
@@ -83,7 +83,7 @@ class AiToolServiceTest {
                 false, 10, 100, 5, Instant.now()
         );
 
-        when(contentService.detail(eq(contentId), isNull())).thenReturn(detail);
+        when(contentQueryService.detail(eq(contentId), isNull())).thenReturn(detail);
 
         AiContentDetailResult result = aiToolService.getContentDetail(contentId);
 

@@ -8,6 +8,7 @@ import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
 import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
 import com.caoqiang.blog.interaction.application.service.InteractionAdminService;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,6 +16,7 @@ import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
+import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.user.domain.model.User;
 import java.time.Instant;
 import java.util.Optional;
@@ -36,24 +38,38 @@ class InteractionAdminServiceTest {
     @Mock
     private ContentRepository contentRepository;
 
+    @Mock
+    private DomainEventPublisher domainEventPublisher;
+
     @Test
     void deletingLikeDecrementsContentLikeCount() {
         Content content = content();
         Like like = new Like(content, user());
-        InteractionAdminService service = new InteractionAdminService(likeRepository, viewRecordRepository, contentRepository);
+        InteractionAdminService service = new InteractionAdminService(
+                likeRepository,
+                viewRecordRepository,
+                contentRepository,
+                domainEventPublisher
+        );
         when(likeRepository.findById(like.getId())).thenReturn(Optional.of(like));
 
         service.deleteLike(like.getId());
 
         verify(likeRepository).delete(like);
         verify(contentRepository).incrementLikeCount(content.getId(), -1);
+        verify(domainEventPublisher).publishEvent(any());
     }
 
     @Test
     void deletingViewDecrementsContentViewCount() {
         Content content = content();
         ViewRecord viewRecord = new ViewRecord(content, user(), "anonymous", "iphash", "JUnit");
-        InteractionAdminService service = new InteractionAdminService(likeRepository, viewRecordRepository, contentRepository);
+        InteractionAdminService service = new InteractionAdminService(
+                likeRepository,
+                viewRecordRepository,
+                contentRepository,
+                domainEventPublisher
+        );
         when(viewRecordRepository.findById(viewRecord.getId())).thenReturn(Optional.of(viewRecord));
 
         service.deleteView(viewRecord.getId());
