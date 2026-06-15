@@ -15,7 +15,7 @@ docker compose -f infra/docker-compose.yml up -d
 
 ## 后端
 
-推荐启动方式。脚本会固定 Java 21 和 Maven 3.8.8，即使当前终端 `JAVA_HOME` 指向 Java 8 也会切到 Java 21：
+推荐启动方式。脚本会切换到 Java 21，默认使用 `PATH` 中的 Maven；可通过 `MAVEN_BIN` 覆盖：
 
 ```bash
 scripts/dev-api.sh
@@ -36,57 +36,51 @@ scripts/dev-api.sh app-log
 scripts/dev-api.sh doctor
 ```
 
-手动启动方式：
+自定义 Maven 路径：
 
 ```bash
-export JAVA_HOME=$(/usr/libexec/java_home -v 21)
-export PATH="$JAVA_HOME/bin:$PATH"
-cd apps/api
-/Users/caoqiang/wubihuan/apache-maven-3.8.8/bin/mvn spring-boot:run -Dspring-boot.run.profiles=local
+MAVEN_BIN=/path/to/mvn scripts/dev-api.sh run local
 ```
 
 默认本地 profile 不启用 GitHub OAuth，因此没有 GitHub 密钥也能启动。需要 GitHub 登录时使用：
 
 ```bash
-/Users/caoqiang/wubihuan/apache-maven-3.8.8/bin/mvn spring-boot:run -Dspring-boot.run.profiles=local,github
+scripts/dev-api.sh run local,github
 ```
 
 默认本地 profile 不启用 Spring AI pgvector VectorStore，避免首版启动过早依赖 embedding 配置。需要验证 AI 向量检索时使用：
 
 ```bash
-/Users/caoqiang/wubihuan/apache-maven-3.8.8/bin/mvn spring-boot:run -Dspring-boot.run.profiles=local,ai
+scripts/dev-api.sh run local,ai
 ```
 
 ## Spring AI 升级说明
 
-### 2.0.0-RC1 (当前版本)
+### 2.0.0 GA（当前版本）
 
-已修复的问题：
+当前版本组合：
 
-| 问题 | 修复 |
-|------|------|
-| **Stream 流式响应缓冲** | `OpenAiChatModel.stream()` 现在只缓冲 tool calls，普通流式响应逐 token 返回 |
-| **Tool 调用支持** | `ChatClient.tools()` 支持直接传入 `@Tool` 注解的对象 |
+- Spring Boot 4.1.0
+- Spring AI 2.0.0
+- Java 21
+- Spring Framework 7.0.8
+- Hibernate 7.4.1.Final
+- Flyway 12.4.0
 
-已移除的临时方案：
+关键适配：
 
-- `OpenAiChatModelStreamDecorator.java` — 用于绕过流式缓冲的临时装饰器，已删除
-- `buildKnowledgeContext()` — 预先查询向量数据库的 workaround，已移除
+- AI 通过 `.tools(blogTools)` 注册工具；事实类问题先调用搜索工具，空查询用于浏览全部内容或知识来源
+- 知识检索采用关键词优先、向量补充的混合策略，向量结果受 `AI_KNOWLEDGE_MIN_SIMILARITY` 阈值控制
+- OpenAI 和 Ollama 模型属性使用 2.0 GA 的扁平配置形式
+- JDBC ChatMemory 的 `timestamp` 使用 `TIMESTAMPTZ`，`sequence_id` 使用 `BIGINT`
+- Tool Calling 循环由 Spring AI 的 Advisor 链负责，同步和流式调用保持同一套工具注册方式
 
-当前实现：
-
-- AI 通过 `.tools(blogTools)` 注册工具，自主决定何时调用 `searchKnowledge` 进行知识库搜索
-- 流式响应不再需要自定义装饰器，直接使用 Spring AI 原生支持
-
-### 已知限制
-
-- `getDefaultOptions()` 已标记废弃，后续版本需关注迁移
-- Hibernate `UserType` 接口部分方法已标记待删除，需关注 Hibernate 版本升级
+完整升级记录见 [Spring Boot 4.1 与 Spring AI 2.0 升级说明](upgrade-spring-boot-4.1-spring-ai-2.0.md)。
 
 只想先验证 Web/API 层、暂时不连接 PostgreSQL 时，可以使用诊断 profile：
 
 ```bash
-/Users/caoqiang/wubihuan/apache-maven-3.8.8/bin/mvn spring-boot:run -Dspring-boot.run.profiles=local,nodb
+scripts/dev-api.sh run local,nodb
 ```
 
 健康检查：
@@ -112,6 +106,7 @@ fvm flutter run -d chrome
 
 ## 常见问题
 
-- Maven 显示 Java 8：先执行 Java 21 切换命令，并优先使用 `/Users/caoqiang/wubihuan/apache-maven-3.8.8/bin/mvn`。
+- Maven 显示 Java 8：优先通过 `scripts/dev-api.sh` 运行，脚本会切换到 Java 21。
+- Maven 不在默认 `PATH`：通过 `MAVEN_BIN=/path/to/mvn scripts/dev-api.sh ...` 指定。
 - OpenAI 不可用：确认 `OPENAI_API_KEY` 和 `OPENAI_BASE_URL`。
 - GitHub 登录不可用：确认 OAuth App 的 callback URL 指向后端服务。

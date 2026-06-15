@@ -1,8 +1,6 @@
-# API 契约草案
+# API 契约概览
 
-统一前缀：`/api/v1`
-
-统一响应：
+业务 REST 接口统一使用 `/api/v1` 前缀，统一响应为：
 
 ```json
 {
@@ -12,54 +10,47 @@
 }
 ```
 
-## 认证
+本文档只维护资源边界。完整请求参数、响应字段和状态码以运行时 OpenAPI 为准：
 
-- `POST /auth/register`：邮箱注册。
-- `POST /auth/login`：邮箱登录。
-- `POST /auth/refresh`：刷新访问令牌。
-- `GET /auth/providers`：返回可用第三方登录方式。
-- `GET /oauth2/authorization/github`：Spring Security GitHub OAuth 入口。
+- Swagger UI：`http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON：`http://localhost:8080/v3/api-docs`
 
-## 内容
+## 公开与认证
 
-- `GET /contents/recommendations`：置顶、最新、点赞最多内容。
-- `GET /contents`：分页搜索内容，支持 `query`、`tag`、`type`、`from`、`to`。
-- `GET /contents/{id}`：内容详情。
-
-## 互动
-
-- `POST /contents/{contentId}/comments`：发表评论。
-- `DELETE /comments/{commentId}`：删除自己的评论。
-- `POST /contents/{contentId}/likes`：点赞。
-- `DELETE /contents/{contentId}/likes`：取消点赞。
-- `POST /contents/{contentId}/views`：记录浏览。
+- `/auth`：验证码、注册、登录、刷新令牌、OAuth 登录码交换和登录方式查询。
+- `/auth/github`：GitHub 账号绑定。
+- `/oauth2/authorization/github`：Spring Security OAuth 授权入口，不使用 `/api/v1` 前缀。
+- `/contents`：推荐、分页搜索、详情和标签。
+- `/media-assets/{id}/file`：媒体文件。
+- `/friends/random`：随机可见友链。
+- `/contents/{contentId}/comments`：评论列表与新增评论。
+- `/contents/{contentId}/likes`：点赞与取消点赞。
+- `/contents/{contentId}/views`：记录浏览。
+- `/comments/{commentId}`：删除自己的评论。
 
 ## 用户中心
 
-- `GET /me`：当前用户资料。
-- `PUT /me`：更新当前用户资料。
-- `GET /me/comments`：我的评论。
-- `GET /me/likes`：我的点赞。
-- `GET /me/views`：我的浏览记录。
+- `/me`：资料查询和更新。
+- `/me/avatar`：头像上传。
+- `/me/password`：修改或首次设置密码。
+- `/me/oauth-accounts`：OAuth 账号查询和解绑。
+- `/me/comments`、`/me/likes`、`/me/views`：个人互动记录及删除。
 
 ## AI
 
-- `POST /ai/chat`：发送聊天消息。
-- `GET /ai/quota`：查询每日剩余额度。
+- `/ai/chat`：同步聊天。
+- `/ai/chat/stream`：SSE 流式聊天。
+- `/ai/quota`：每日配额。
+- `/ai/sessions`：创建、查询和删除会话。
+- `/ai/sessions/{sessionId}/messages`：会话消息。
 
 ## 管理后台
 
-管理员接口统一前缀：`/api/v1/admin`
+管理员接口统一使用 `/admin` 子路径：
 
-- `GET /dashboard`：统计数据。
-- `GET /logs`：日志监控。
-- `CRUD /tags`
-- `CRUD /contents`
-- `CRUD /media`
-- `CRUD /comments`
-- `CRUD /views`
-- `CRUD /likes`
-- `CRUD /friends`
-- `CRUD /users`
-- `CRUD /ai/chats`
-- `CRUD /knowledge`
+- `/admin/dashboard`、`/admin/modules`、`/admin/logs`
+- `/admin/contents`、`/admin/tags`、`/admin/media-assets`
+- `/admin/comments`、`/admin/likes`、`/admin/views`
+- `/admin/friends`、`/admin/users`
+- `/admin/ai/chats`
+- `/admin/knowledge/docs`

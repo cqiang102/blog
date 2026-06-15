@@ -12,8 +12,7 @@
 
 ## 内容类型
 
-- `TEXT`：纯 Markdown 文本。
-- `ARTICLE`：图文 Markdown，可绑定封面和媒体资源。
+- `ARTICLE`：Markdown 图文内容，可绑定封面和媒体资源；历史 `TEXT` 数据已迁移为该类型。
 - `IMAGE`：图片内容，支持画廊式展示。
 - `VIDEO`：视频内容，支持封面、播放器和基础元数据。
 
