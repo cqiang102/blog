@@ -90,7 +90,7 @@ public class ProfileService {
      * @return 用户资料响应 DTO
      */
     @Transactional(readOnly = true)
-    public UserProfileResponse me(AuthenticatedUser currentUser) {
+    public UserProfileResponse getProfile(AuthenticatedUser currentUser) {
         User user = findActiveUser(currentUser);
         return UserProfileResponse.from(user, generatePresignedAvatarUrl(user.getAvatarUrl()));
     }

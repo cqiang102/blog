@@ -56,8 +56,7 @@ public class AuditLogAspect {
      * @param result    方法返回结果
      */
     @AfterReturning(
-            pointcut = "execution(* com.caoqiang.blog..infrastructure.web.Admin*Controller.*(..))"
-                    + " || execution(* com.caoqiang.blog.admin.AdminController.*(..))",
+            pointcut = "execution(* com.caoqiang.blog..infrastructure.web.Admin*Controller.*(..))",
             returning = "result"
     )
     public void logAdminAction(JoinPoint joinPoint, Object result) {

@@ -5,6 +5,7 @@ import com.caoqiang.blog.shared.domain.event.content.ContentArchivedEvent;
 import com.caoqiang.blog.shared.domain.event.content.ContentPublishedEvent;
 import com.caoqiang.blog.shared.domain.event.interaction.CommentCreatedEvent;
 import com.caoqiang.blog.shared.domain.event.interaction.LikeAddedEvent;
+import com.caoqiang.blog.shared.domain.event.interaction.LikeRemovedEvent;
 import com.caoqiang.blog.shared.domain.event.user.UserCreatedEvent;
 import com.caoqiang.blog.interaction.application.service.CommentAuditService;
 import com.caoqiang.blog.ai.chat.application.service.AiChatAuditService;
@@ -127,14 +128,21 @@ public class DomainEventListener {
     /**
      * 处理点赞添加事件
      * <p>
-     * 异步记录点赞日志，可用于数据分析。
+     * 事务提交后记录日志并刷新推荐缓存。
      *
      * @param event 点赞添加事件
      */
-    @EventListener
-    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onLikeAdded(LikeAddedEvent event) {
-        log.info("Like added: contentId={}, userId={}", 
+        log.info("Like added: contentId={}, userId={}",
                 event.getContentId(), event.getUserId());
+        evictRecommendationsCache();
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onLikeRemoved(LikeRemovedEvent event) {
+        log.info("Like removed: contentId={}, userId={}",
+                event.getContentId(), event.getUserId());
+        evictRecommendationsCache();
     }
 }

@@ -72,8 +72,8 @@ public class ProfileController {
      * @return 用户资料响应
      */
     @GetMapping
-    public ApiResponse<UserProfileResponse> me(@AuthenticationPrincipal AuthenticatedUser currentUser) {
-        return ApiResponse.ok(profileService.me(currentUser));
+    public ApiResponse<UserProfileResponse> profile(@AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return ApiResponse.ok(profileService.getProfile(currentUser));
     }
 
     /**
