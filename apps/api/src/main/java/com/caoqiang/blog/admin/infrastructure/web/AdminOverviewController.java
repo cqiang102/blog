@@ -1,7 +1,8 @@
-package com.caoqiang.blog.admin;
+package com.caoqiang.blog.admin.infrastructure.web;
 
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
+import com.caoqiang.blog.admin.application.dto.AdminDashboardResponse;
 import com.caoqiang.blog.audit.application.dto.AuditLogResponse;
 import com.caoqiang.blog.audit.application.service.AuditLogService;
 import com.caoqiang.blog.shared.response.ApiResponse;
@@ -37,7 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/admin")
-public class AdminController {
+public class AdminOverviewController {
 
     /** 内容数据访问层 */
     private final ContentRepository contentRepository;
@@ -60,7 +61,7 @@ public class AdminController {
     /** 审计日志服务 */
     private final AuditLogService auditLogService;
 
-    public AdminController(
+    public AdminOverviewController(
             ContentRepository contentRepository,
             MediaAssetRepository mediaAssetRepository,
             FriendRepository friendRepository,
@@ -92,8 +93,8 @@ public class AdminController {
      * @return 仪表盘统计数据
      */
     @GetMapping("/dashboard")
-    public ApiResponse<DashboardStats> dashboard() {
-        return ApiResponse.ok(new DashboardStats(
+    public ApiResponse<AdminDashboardResponse> dashboard() {
+        return ApiResponse.ok(new AdminDashboardResponse(
                 contentRepository.count(),
                 mediaAssetRepository.count(),
                 friendRepository.count(),

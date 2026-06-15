@@ -1,4 +1,4 @@
-package com.caoqiang.blog.admin;
+package com.caoqiang.blog.admin.application.dto;
 
 /**
  * 管理后台仪表盘统计数据 DTO。
@@ -16,7 +16,7 @@ package com.caoqiang.blog.admin;
  * @param knowledgeDocs 知识库文档总数
  * @author caoqiang
  */
-public record DashboardStats(
+public record AdminDashboardResponse(
         long contents,
         long media,
         long friends,
