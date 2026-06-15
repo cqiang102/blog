@@ -9,7 +9,7 @@ import com.caoqiang.blog.ai.chat.application.dto.AiSearchContentResult;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
-import com.caoqiang.blog.content.application.service.ContentService;
+import com.caoqiang.blog.content.application.service.ContentQueryService;
 import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.interaction.application.dto.CommentRequest;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
@@ -29,16 +29,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class AiToolService {
 
-    private final ContentService contentService;
+    private final ContentQueryService contentQueryService;
     private final InteractionCommandService interactionCommandService;
     private final InteractionQueryService interactionQueryService;
 
     public AiToolService(
-            ContentService contentService,
+            ContentQueryService contentQueryService,
             InteractionCommandService interactionCommandService,
             InteractionQueryService interactionQueryService
     ) {
-        this.contentService = contentService;
+        this.contentQueryService = contentQueryService;
         this.interactionCommandService = interactionCommandService;
         this.interactionQueryService = interactionQueryService;
     }
@@ -51,7 +51,7 @@ public class AiToolService {
      * @return 搜索结果
      */
     public AiSearchContentResult searchContent(String query, int limit) {
-        PageResponse<ContentSummaryResponse> results = contentService.list(
+        PageResponse<ContentSummaryResponse> results = contentQueryService.list(
                 query, null, null, null, null, 0, Math.min(limit, 10)
         );
         return new AiSearchContentResult(
@@ -75,7 +75,7 @@ public class AiToolService {
      */
     public AiContentDetailResult getContentDetail(UUID contentId) {
         try {
-            ContentDetailResponse detail = contentService.detail(contentId, null);
+            ContentDetailResponse detail = contentQueryService.detail(contentId, null);
             return AiContentDetailResult.success(
                     detail.id().toString(),
                     detail.title(),

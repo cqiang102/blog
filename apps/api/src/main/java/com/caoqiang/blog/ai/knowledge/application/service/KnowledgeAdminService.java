@@ -141,6 +141,8 @@ public class KnowledgeAdminService {
             } catch (Exception e) {
                 log.error("Failed to reindex document: {}", e.getMessage(), e);
             }
+        } else {
+            knowledgeChunkRepository.deleteByDocId(id);
         }
 
         return KnowledgeDocResponse.from(doc);

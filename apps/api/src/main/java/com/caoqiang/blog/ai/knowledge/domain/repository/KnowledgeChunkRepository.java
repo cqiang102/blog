@@ -35,7 +35,7 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
      */
     @Query(value = """
             SELECT kc.id, kc.doc_id, kc.content_id, kc.chunk_index, kc.content, kc.metadata,
-                   1 - (kc.embedding <=> :queryEmbedding::vector) AS score
+                   1 - (kc.embedding <=> CAST(:queryEmbedding AS vector)) AS score
             FROM knowledge_chunks kc
             WHERE kc.embedding IS NOT NULL
               AND (
@@ -44,7 +44,7 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
                  OR (kc.content_id IS NOT NULL AND EXISTS (
                         SELECT 1 FROM contents c WHERE c.id = kc.content_id AND c.status = 'PUBLISHED' AND c.deleted_at IS NULL))
               )
-            ORDER BY kc.embedding <=> :queryEmbedding::vector
+            ORDER BY kc.embedding <=> CAST(:queryEmbedding AS vector)
             LIMIT :limit
             """, nativeQuery = true)
     List<Object[]> findSimilarChunks(

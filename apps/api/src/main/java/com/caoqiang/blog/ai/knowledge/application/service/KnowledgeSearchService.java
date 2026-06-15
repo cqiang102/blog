@@ -1,23 +1,28 @@
 package com.caoqiang.blog.ai.knowledge.application.service;
 
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeSearchResult;
+import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeSearchSourceType;
 import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
+import com.caoqiang.blog.config.BlogProperties;
+import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
+import com.caoqiang.blog.content.application.service.ContentQueryService;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.shared.util.VectorUtils;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.content.application.service.ContentService;
-import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
-import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 知识库搜索服务
@@ -26,15 +31,15 @@ import org.springframework.stereotype.Service;
  * <p>
  * 核心职责：
  * <ul>
- *   <li>向量相似度搜索 - 使用 EmbeddingModel 将查询转换为向量，与知识库中的内容片段进行相似度匹配</li>
- *   <li>文本回退搜索 - 当向量搜索失败时，回退到基于关键词的内容搜索</li>
+ *   <li>关键词搜索 - 优先处理标题、正文中的精确词语和专有名词</li>
+ *   <li>向量相似度搜索 - 关键词未命中时进行语义检索，并过滤低相关结果</li>
  *   <li>结果聚合 - 将搜索结果与内容元数据（标题等）关联</li>
  * </ul>
  * <p>
  * 搜索策略：
  * <ol>
- *   <li>优先使用向量相似度搜索（pgvector）</li>
- *   <li>向量搜索失败时回退到文本搜索</li>
+ *   <li>空查询浏览当前知识来源</li>
+ *   <li>精确关键词优先，未命中时使用 pgvector 语义搜索</li>
  *   <li>返回最多 5 条相关结果</li>
  * </ol>
  */
@@ -42,89 +47,214 @@ import org.springframework.stereotype.Service;
 public class KnowledgeSearchService {
 
     private static final Logger log = LoggerFactory.getLogger(KnowledgeSearchService.class);
+    private static final int MAX_RESULTS = 5;
+    private static final int EMBEDDING_DIMENSIONS = 768;
+    private static final int MAX_EXCERPT_LENGTH = 1200;
 
-    private final ContentService contentService;
+    private final BlogProperties blogProperties;
+    private final ContentQueryService contentQueryService;
     private final ContentRepository contentRepository;
     private final KnowledgeChunkRepository knowledgeChunkRepository;
     private final KnowledgeDocRepository knowledgeDocRepository;
     private final EmbeddingModel embeddingModel;
 
     public KnowledgeSearchService(
-            ContentService contentService,
+            BlogProperties blogProperties,
+            ContentQueryService contentQueryService,
             ContentRepository contentRepository,
             KnowledgeChunkRepository knowledgeChunkRepository,
             KnowledgeDocRepository knowledgeDocRepository,
             EmbeddingModel embeddingModel
     ) {
-        this.contentService = contentService;
+        this.blogProperties = blogProperties;
+        this.contentQueryService = contentQueryService;
         this.contentRepository = contentRepository;
         this.knowledgeChunkRepository = knowledgeChunkRepository;
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.embeddingModel = embeddingModel;
     }
 
+    /**
+     * 搜索知识库和已发布内容。
+     * <p>
+     * 精确关键词命中优先于向量结果，避免短标题或专有名词被语义模型错排。
+     * 空查询用于浏览当前可用知识来源。关键词未命中时才执行向量搜索。
+     */
+    @Transactional(readOnly = true)
     public List<KnowledgeSearchResult> search(String query) {
-        try {
-            float[] queryEmbedding = embeddingModel.embed(query);
-            String embeddingStr = VectorUtils.toPgVectorString(queryEmbedding);
-            List<Object[]> similarChunks = knowledgeChunkRepository.findSimilarChunks(embeddingStr, 5);
-
-            if (!similarChunks.isEmpty()) {
-                List<UUID> contentIds = similarChunks.stream()
-                        .map(chunk -> chunk[2] != null ? (UUID) chunk[2] : null)
-                        .filter(java.util.Objects::nonNull)
-                        .distinct()
-                        .toList();
-
-                List<UUID> docIds = similarChunks.stream()
-                        .map(chunk -> chunk[1] != null ? (UUID) chunk[1] : null)
-                        .filter(java.util.Objects::nonNull)
-                        .distinct()
-                        .toList();
-
-                Map<UUID, Content> contentMap = contentRepository.findAllById(contentIds).stream()
-                        .collect(java.util.stream.Collectors.toMap(Content::getId, c -> c));
-
-                Map<UUID, KnowledgeDoc> docMap = knowledgeDocRepository.findAllById(docIds).stream()
-                        .collect(java.util.stream.Collectors.toMap(KnowledgeDoc::getId, d -> d));
-
-                List<KnowledgeSearchResult> results = new ArrayList<>();
-                for (Object[] chunk : similarChunks) {
-                    UUID docId = chunk[1] != null ? (UUID) chunk[1] : null;
-                    UUID contentId = chunk[2] != null ? (UUID) chunk[2] : null;
-                    String content = (String) chunk[4];
-                    double score = chunk[6] != null ? ((Number) chunk[6]).doubleValue() : 0;
-
-                    String title = null;
-                    String sourceId = null;
-                    if (contentId != null && contentMap.containsKey(contentId)) {
-                        title = contentMap.get(contentId).getTitle();
-                        sourceId = contentId.toString();
-                    } else if (docId != null && docMap.containsKey(docId)) {
-                        title = docMap.get(docId).getTitle();
-                        sourceId = docId.toString();
-                    }
-
-                    results.add(new KnowledgeSearchResult(content, score, sourceId, title));
-                }
-                return results;
-            }
-        } catch (Exception e) {
-            log.warn("向量搜索失败，回退到文本搜索: {}", e.getMessage());
+        String normalizedQuery = query == null ? "" : query.trim();
+        if (normalizedQuery.isEmpty()) {
+            return browse();
         }
 
-        List<KnowledgeSearchResult> results = new ArrayList<>();
-        PageResponse<ContentSummaryResponse> searchResults = contentService.list(
-                query, null, null, null, null, 0, 5
+        List<KnowledgeSearchResult> keywordResults = keywordSearch(normalizedQuery);
+        if (!keywordResults.isEmpty()) {
+            return keywordResults;
+        }
+
+        try {
+            float[] queryEmbedding = embeddingModel.embed(normalizedQuery);
+            if (queryEmbedding == null || queryEmbedding.length != EMBEDDING_DIMENSIONS) {
+                throw new IllegalStateException(
+                        "Expected " + EMBEDDING_DIMENSIONS + " dimensions but got "
+                                + (queryEmbedding == null ? "null" : queryEmbedding.length)
+                );
+            }
+            String embeddingStr = VectorUtils.toPgVectorString(queryEmbedding);
+            List<Object[]> similarChunks = knowledgeChunkRepository.findSimilarChunks(
+                    embeddingStr,
+                    MAX_RESULTS
+            );
+            return mapVectorResults(similarChunks);
+        } catch (Exception e) {
+            log.warn("Knowledge vector search failed: queryLength={}, error={}",
+                    normalizedQuery.length(), e.getMessage());
+            return List.of();
+        }
+    }
+
+    private List<KnowledgeSearchResult> keywordSearch(String query) {
+        LinkedHashMap<String, KnowledgeSearchResult> results = new LinkedHashMap<>();
+        List<KnowledgeDoc> docs = knowledgeDocRepository.searchEnabled(
+                query,
+                PageRequest.of(0, MAX_RESULTS)
+        );
+        for (KnowledgeDoc doc : docs) {
+            addResult(results, new KnowledgeSearchResult(
+                    excerpt(doc.getBody(), doc.getTitle()),
+                    1.0,
+                    doc.getId().toString(),
+                    KnowledgeSearchSourceType.KNOWLEDGE_DOC,
+                    doc.getTitle()
+            ));
+        }
+
+        PageResponse<ContentSummaryResponse> searchResults = contentQueryService.list(
+                query, null, null, null, null, 0, MAX_RESULTS
         );
         for (ContentSummaryResponse item : searchResults.items()) {
-            results.add(new KnowledgeSearchResult(
-                    item.summary() != null ? item.summary() : "",
-                    0.0,
+            addResult(results, new KnowledgeSearchResult(
+                    excerpt(item.summary(), item.title()),
+                    1.0,
                     item.id().toString(),
+                    KnowledgeSearchSourceType.CONTENT,
                     item.title()
             ));
         }
-        return results;
+        return results.values().stream().limit(MAX_RESULTS).toList();
+    }
+
+    private List<KnowledgeSearchResult> browse() {
+        LinkedHashMap<String, KnowledgeSearchResult> results = new LinkedHashMap<>();
+        List<KnowledgeDoc> docs = knowledgeDocRepository.findByEnabledTrueOrderByUpdatedAtDesc(
+                PageRequest.of(0, MAX_RESULTS)
+        );
+        for (KnowledgeDoc doc : docs) {
+            addResult(results, new KnowledgeSearchResult(
+                    excerpt(doc.getBody(), doc.getTitle()),
+                    1.0,
+                    doc.getId().toString(),
+                    KnowledgeSearchSourceType.KNOWLEDGE_DOC,
+                    doc.getTitle()
+            ));
+        }
+
+        int remaining = MAX_RESULTS - results.size();
+        if (remaining > 0) {
+            PageResponse<ContentSummaryResponse> contents = contentQueryService.list(
+                    null, null, null, null, null, 0, remaining
+            );
+            for (ContentSummaryResponse item : contents.items()) {
+                addResult(results, new KnowledgeSearchResult(
+                        excerpt(item.summary(), item.title()),
+                        1.0,
+                        item.id().toString(),
+                        KnowledgeSearchSourceType.CONTENT,
+                        item.title()
+                ));
+            }
+        }
+        return results.values().stream().limit(MAX_RESULTS).toList();
+    }
+
+    private List<KnowledgeSearchResult> mapVectorResults(List<Object[]> similarChunks) {
+        double minSimilarity = blogProperties.getAi().getKnowledgeMinSimilarity();
+        List<Object[]> acceptedChunks = similarChunks.stream()
+                .filter(chunk -> score(chunk) >= minSimilarity)
+                .toList();
+        if (acceptedChunks.isEmpty()) {
+            return List.of();
+        }
+
+        List<UUID> contentIds = acceptedChunks.stream()
+                .map(chunk -> chunk[2] instanceof UUID id ? id : null)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        List<UUID> docIds = acceptedChunks.stream()
+                .map(chunk -> chunk[1] instanceof UUID id ? id : null)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<UUID, Content> contentMap = contentRepository.findAllById(contentIds).stream()
+                .collect(java.util.stream.Collectors.toMap(Content::getId, content -> content));
+        Map<UUID, KnowledgeDoc> docMap = knowledgeDocRepository.findAllById(docIds).stream()
+                .filter(KnowledgeDoc::isEnabled)
+                .collect(java.util.stream.Collectors.toMap(KnowledgeDoc::getId, doc -> doc));
+
+        LinkedHashMap<String, KnowledgeSearchResult> results = new LinkedHashMap<>();
+        for (Object[] chunk : acceptedChunks) {
+            UUID docId = chunk[1] instanceof UUID id ? id : null;
+            UUID contentId = chunk[2] instanceof UUID id ? id : null;
+            String title = null;
+            String sourceId = null;
+            KnowledgeSearchSourceType sourceType = null;
+            if (contentId != null && contentMap.containsKey(contentId)) {
+                title = contentMap.get(contentId).getTitle();
+                sourceId = contentId.toString();
+                sourceType = KnowledgeSearchSourceType.CONTENT;
+            } else if (docId != null && docMap.containsKey(docId)) {
+                title = docMap.get(docId).getTitle();
+                sourceId = docId.toString();
+                sourceType = KnowledgeSearchSourceType.KNOWLEDGE_DOC;
+            }
+            if (sourceId == null) {
+                continue;
+            }
+            addResult(results, new KnowledgeSearchResult(
+                    chunk[4] instanceof String content ? content : "",
+                    score(chunk),
+                    sourceId,
+                    sourceType,
+                    title
+            ));
+        }
+        return results.values().stream().limit(MAX_RESULTS).toList();
+    }
+
+    private double score(Object[] chunk) {
+        return chunk.length > 6 && chunk[6] instanceof Number number
+                ? number.doubleValue()
+                : 0.0;
+    }
+
+    private String excerpt(String value, String fallback) {
+        String text = value == null || value.isBlank() ? fallback : value.trim();
+        if (text == null) {
+            return "";
+        }
+        return text.length() <= MAX_EXCERPT_LENGTH
+                ? text
+                : text.substring(0, MAX_EXCERPT_LENGTH);
+    }
+
+    private void addResult(
+            LinkedHashMap<String, KnowledgeSearchResult> results,
+            KnowledgeSearchResult result
+    ) {
+        if (result.sourceId() != null && result.sourceType() != null) {
+            results.putIfAbsent(result.sourceType() + ":" + result.sourceId(), result);
+        }
     }
 }

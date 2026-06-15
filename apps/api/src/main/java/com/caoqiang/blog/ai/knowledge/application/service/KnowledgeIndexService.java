@@ -38,6 +38,8 @@ public class KnowledgeIndexService {
     private static final int CHUNK_SIZE = 500;
     /** 相邻分块的重叠字符数 */
     private static final int CHUNK_OVERLAP = 50;
+    /** knowledge_chunks.embedding 列的固定向量维度 */
+    private static final int EMBEDDING_DIMENSIONS = 768;
 
     private final KnowledgeDocRepository knowledgeDocRepository;
     private final KnowledgeChunkRepository knowledgeChunkRepository;
@@ -68,7 +70,7 @@ public class KnowledgeIndexService {
 
         knowledgeChunkRepository.deleteByDocId(docId);
 
-        if (doc.getBody() == null || doc.getBody().isBlank()) {
+        if (!doc.isEnabled() || doc.getBody() == null || doc.getBody().isBlank()) {
             return;
         }
 
@@ -77,13 +79,7 @@ public class KnowledgeIndexService {
             String chunkContent = chunks.get(i);
             KnowledgeChunk chunk = new KnowledgeChunk(doc, i, chunkContent);
 
-            try {
-                float[] embedding = embeddingModel.embed(chunkContent);
-                chunk.setEmbedding(VectorUtils.toPgVectorString(embedding));
-            } catch (Exception e) {
-                // Embedding 生成失败时仍然保存文本，但不包含向量
-                chunk.setMetadata("{\"error\": \"embedding generation failed\"}");
-            }
+            applyEmbedding(chunk, chunkContent, "knowledgeDoc", docId);
 
             knowledgeChunkRepository.save(chunk);
         }
@@ -124,12 +120,7 @@ public class KnowledgeIndexService {
             String chunkContent = chunks.get(i);
             KnowledgeChunk chunk = new KnowledgeChunk(content.getId(), i, chunkContent);
 
-            try {
-                float[] embedding = embeddingModel.embed(chunkContent);
-                chunk.setEmbedding(VectorUtils.toPgVectorString(embedding));
-            } catch (Exception e) {
-                chunk.setMetadata("{\"error\": \"embedding generation failed\"}");
-            }
+            applyEmbedding(chunk, chunkContent, "content", content.getId());
 
             knowledgeChunkRepository.save(chunk);
         }
@@ -148,7 +139,6 @@ public class KnowledgeIndexService {
     /**
      * 重新索引所有已启用的知识文档。
      * 单个文档索引失败不影响其他文档的处理。
-     * 每个文档在独立事务中处理，避免大文档集超时。
      */
     @Transactional
     public void indexAllDocuments() {
@@ -226,6 +216,14 @@ public class KnowledgeIndexService {
 
         StringBuilder current = new StringBuilder();
         for (String sentence : sentences) {
+            if (sentence.length() > CHUNK_SIZE) {
+                if (current.length() > 0) {
+                    parts.add(current.toString().trim());
+                    current = new StringBuilder();
+                }
+                appendFixedSizeParts(parts, sentence);
+                continue;
+            }
             if (current.length() + sentence.length() > CHUNK_SIZE) {
                 if (current.length() > 0) {
                     parts.add(current.toString().trim());
@@ -241,6 +239,45 @@ public class KnowledgeIndexService {
         }
 
         return parts;
+    }
+
+    private void appendFixedSizeParts(List<String> parts, String text) {
+        int start = 0;
+        while (start < text.length()) {
+            int end = Math.min(start + CHUNK_SIZE, text.length());
+            parts.add(text.substring(start, end).trim());
+            if (end == text.length()) {
+                break;
+            }
+            start = end - CHUNK_OVERLAP;
+        }
+    }
+
+    private void applyEmbedding(
+            KnowledgeChunk chunk,
+            String chunkContent,
+            String sourceType,
+            UUID sourceId
+    ) {
+        try {
+            float[] embedding = embeddingModel.embed(chunkContent);
+            if (embedding == null || embedding.length != EMBEDDING_DIMENSIONS) {
+                throw new IllegalStateException(
+                        "Expected " + EMBEDDING_DIMENSIONS + " dimensions but got "
+                                + (embedding == null ? "null" : embedding.length)
+                );
+            }
+            chunk.setEmbedding(VectorUtils.toPgVectorString(embedding));
+        } catch (Exception e) {
+            log.warn(
+                    "Embedding generation failed: sourceType={}, sourceId={}, error={}",
+                    sourceType,
+                    sourceId,
+                    e.getMessage()
+            );
+            // 文本仍可通过关键词检索命中，后续重新保存即可补齐向量。
+            chunk.setMetadata("{\"error\":\"embedding_generation_failed\"}");
+        }
     }
 
     /** 获取文本末尾的重叠部分，用于相邻分块的上下文衔接。 */

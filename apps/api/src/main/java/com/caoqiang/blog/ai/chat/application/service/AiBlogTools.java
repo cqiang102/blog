@@ -8,29 +8,19 @@ import com.caoqiang.blog.ai.chat.application.dto.AiSearchContentResult;
 
 import com.caoqiang.blog.ai.chat.application.dto.AiActionResult;
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeSearchResult;
-import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
-import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
-import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
+import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeSearchService;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.shared.util.VectorUtils;
-import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
-import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.content.application.service.ContentService;
+import com.caoqiang.blog.content.application.service.ContentQueryService;
 import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.interaction.application.dto.CommentRequest;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
 import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
 import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
 import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -53,32 +43,21 @@ public class AiBlogTools {
 
     public static final String AUTHENTICATED_USER_CONTEXT_KEY = "authenticatedUser";
 
-    private static final Logger log = LoggerFactory.getLogger(AiBlogTools.class);
-
-    private final ContentService contentService;
-    private final ContentRepository contentRepository;
+    private final ContentQueryService contentQueryService;
     private final InteractionCommandService interactionCommandService;
     private final InteractionQueryService interactionQueryService;
-    private final KnowledgeChunkRepository knowledgeChunkRepository;
-    private final KnowledgeDocRepository knowledgeDocRepository;
-    private final EmbeddingModel embeddingModel;
+    private final KnowledgeSearchService knowledgeSearchService;
 
     public AiBlogTools(
-            ContentService contentService,
-            ContentRepository contentRepository,
+            ContentQueryService contentQueryService,
             InteractionCommandService interactionCommandService,
             InteractionQueryService interactionQueryService,
-            KnowledgeChunkRepository knowledgeChunkRepository,
-            KnowledgeDocRepository knowledgeDocRepository,
-            EmbeddingModel embeddingModel
+            KnowledgeSearchService knowledgeSearchService
     ) {
-        this.contentService = contentService;
-        this.contentRepository = contentRepository;
+        this.contentQueryService = contentQueryService;
         this.interactionCommandService = interactionCommandService;
         this.interactionQueryService = interactionQueryService;
-        this.knowledgeChunkRepository = knowledgeChunkRepository;
-        this.knowledgeDocRepository = knowledgeDocRepository;
-        this.embeddingModel = embeddingModel;
+        this.knowledgeSearchService = knowledgeSearchService;
     }
 
     /**
@@ -88,13 +67,13 @@ public class AiBlogTools {
      * @param limit 返回结果数量上限（最大 10）
      * @return 搜索结果
      */
-    @Tool(description = "搜索博客文章。根据关键词搜索已发布的博客内容，返回匹配的文章列表（含标题、摘要、类型）。当用户想查找或浏览博客内容时调用。")
+    @Tool(description = "搜索或浏览已发布的博客内容。用户询问全部、最新、有哪些内容时，query 必须传空字符串；询问特定主题时传关键词。")
     public AiSearchContentResult searchContent(
-            @ToolParam(description = "搜索关键词") String query,
+            @ToolParam(description = "搜索关键词；浏览全部或最新内容时传空字符串", required = false) String query,
             @ToolParam(description = "返回结果数量上限，最大10") int limit
     ) {
-        PageResponse<ContentSummaryResponse> results = contentService.list(
-                query, null, null, null, null, 0, Math.min(limit, 10)
+        PageResponse<ContentSummaryResponse> results = contentQueryService.list(
+                query, null, null, null, null, 0, Math.clamp(limit, 1, 10)
         );
         return new AiSearchContentResult(
                 results.items().stream()
@@ -120,7 +99,7 @@ public class AiBlogTools {
             @ToolParam(description = "文章的UUID") UUID contentId
     ) {
         try {
-            ContentDetailResponse detail = contentService.detail(contentId, null);
+            ContentDetailResponse detail = contentQueryService.detail(contentId, null);
             return AiContentDetailResult.success(
                     detail.id().toString(),
                     detail.title(),
@@ -137,79 +116,16 @@ public class AiBlogTools {
     }
 
     /**
-     * 搜索知识库。优先使用向量相似度搜索，失败时回退到文本搜索。
+     * 搜索或浏览知识库。精确关键词优先，未命中时使用向量相似度搜索。
      *
      * @param query 搜索关键词
      * @return 搜索结果列表
      */
-    @Tool(description = "搜索知识库。根据关键词搜索博客内容的向量索引，返回匹配的内容片段及其来源文章。用于回答用户关于博客内容、技术观点等问题。")
+    @Tool(description = "搜索或浏览个人知识库和已发布内容。用户询问知识库有什么、全部来源时，query 必须传空字符串；询问博主或具体主题时传简洁关键词。结果的 sourceType=CONTENT 时 sourceId 才能用于 getContentDetail。")
     public List<KnowledgeSearchResult> searchKnowledge(
-            @ToolParam(description = "搜索关键词") String query
+            @ToolParam(description = "知识关键词；浏览知识库全部来源时传空字符串", required = false) String query
     ) {
-        try {
-            float[] queryEmbedding = embeddingModel.embed(query);
-            String embeddingStr = VectorUtils.toPgVectorString(queryEmbedding);
-            List<Object[]> similarChunks = knowledgeChunkRepository.findSimilarChunks(embeddingStr, 5);
-
-            if (!similarChunks.isEmpty()) {
-                // 收集所有 contentId 和 docId，批量查询
-                List<UUID> contentIds = similarChunks.stream()
-                        .map(chunk -> chunk[2] != null ? (UUID) chunk[2] : null)
-                        .filter(java.util.Objects::nonNull)
-                        .distinct()
-                        .toList();
-
-                List<UUID> docIds = similarChunks.stream()
-                        .map(chunk -> chunk[1] != null ? (UUID) chunk[1] : null)
-                        .filter(java.util.Objects::nonNull)
-                        .distinct()
-                        .toList();
-
-                Map<UUID, Content> contentMap = contentRepository.findAllById(contentIds).stream()
-                        .collect(java.util.stream.Collectors.toMap(Content::getId, c -> c));
-
-                Map<UUID, KnowledgeDoc> docMap = knowledgeDocRepository.findAllById(docIds).stream()
-                        .collect(java.util.stream.Collectors.toMap(KnowledgeDoc::getId, d -> d));
-
-                List<KnowledgeSearchResult> results = new ArrayList<>();
-                for (Object[] chunk : similarChunks) {
-                    UUID docId = chunk[1] != null ? (UUID) chunk[1] : null;
-                    UUID contentId = chunk[2] != null ? (UUID) chunk[2] : null;
-                    String content = (String) chunk[4];
-                    double score = chunk[6] != null ? ((Number) chunk[6]).doubleValue() : 0;
-
-                    String title = null;
-                    String sourceId = null;
-                    if (contentId != null && contentMap.containsKey(contentId)) {
-                        title = contentMap.get(contentId).getTitle();
-                        sourceId = contentId.toString();
-                    } else if (docId != null && docMap.containsKey(docId)) {
-                        title = docMap.get(docId).getTitle();
-                        sourceId = docId.toString();
-                    }
-
-                    results.add(new KnowledgeSearchResult(content, score, sourceId, title));
-                }
-                return results;
-            }
-        } catch (Exception e) {
-            log.warn("向量搜索失败，回退到文本搜索: {}", e.getMessage());
-        }
-
-        // 向量搜索失败时，回退到文本搜索
-        List<KnowledgeSearchResult> results = new ArrayList<>();
-        PageResponse<ContentSummaryResponse> searchResults = contentService.list(
-                query, null, null, null, null, 0, 5
-        );
-        for (ContentSummaryResponse item : searchResults.items()) {
-            results.add(new KnowledgeSearchResult(
-                    item.summary() != null ? item.summary() : "",
-                    0.0,
-                    item.id().toString(),
-                    item.title()
-            ));
-        }
-        return results;
+        return knowledgeSearchService.search(query);
     }
 
     /**

@@ -7,14 +7,16 @@ package com.caoqiang.blog.ai.knowledge.application.dto;
  *
  * @param content    内容片段
  * @param score      相似度分数
- * @param contentId  来源内容 ID（字符串形式，可为 null）
- * @param title      来源内容标题（可为 null）
+ * @param sourceId   来源 ID
+ * @param sourceType 来源类型，区分知识文档和博客内容
+ * @param title      来源标题
  * @author caoqiang
  */
 public record KnowledgeSearchResult(
         String content,
         double score,
-        String contentId,
+        String sourceId,
+        KnowledgeSearchSourceType sourceType,
         String title
 ) {
 }
