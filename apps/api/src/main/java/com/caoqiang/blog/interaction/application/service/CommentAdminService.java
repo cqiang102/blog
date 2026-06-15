@@ -116,7 +116,7 @@ public class CommentAdminService {
      */
     @Transactional
     public AdminCommentResponse setStatus(UUID id, CommentStatus targetStatus) {
-        Comment comment = commentRepository.findById(id)
+        Comment comment = commentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "评论不存在"));
         CommentStatus previousStatus = comment.getStatus();
         // 只有状态发生变化时才更新

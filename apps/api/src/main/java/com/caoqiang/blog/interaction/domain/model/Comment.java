@@ -167,6 +167,10 @@ public class Comment extends AggregateRoot {
     public void setAuditResult(CommentStatus auditStatus, String auditReason) {
         this.auditStatus = auditStatus;
         this.auditReason = auditReason;
+        if (status == CommentStatus.DELETED
+                || (status == CommentStatus.BLOCKED && auditStatus != CommentStatus.BLOCKED)) {
+            return;
+        }
         if (auditStatus == CommentStatus.BLOCKED) {
             this.status = CommentStatus.BLOCKED;
         } else {

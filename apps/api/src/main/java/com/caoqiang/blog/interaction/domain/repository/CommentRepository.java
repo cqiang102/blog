@@ -2,9 +2,7 @@ package com.caoqiang.blog.interaction.domain.repository;
 
 import com.caoqiang.blog.interaction.domain.model.Comment;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
-
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,7 +11,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.repository.query.Param;
 
 /**
  * 评论 Repository
@@ -59,6 +60,13 @@ public interface CommentRepository extends JpaRepository<Comment, UUID>, JpaSpec
     @Override
     @EntityGraph(attributePaths = {"content", "user"})
     Optional<Comment> findById(UUID id);
+
+    /**
+     * 锁定评论后再修改状态，避免审核、删除和人工操作重复调整内容计数。
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Comment c where c.id = :id")
+    Optional<Comment> findByIdForUpdate(@Param("id") UUID id);
 
     /**
      * 按内容 ID 和单一状态查询评论（分页）

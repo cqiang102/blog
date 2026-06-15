@@ -52,6 +52,7 @@ public class CommentAuditService {
 
     /** 评论仓储 */
     private final CommentRepository commentRepository;
+    private final CommentAuditResultService resultService;
     /** Spring AI 聊天客户端，用于调用 AI 模型 */
     private final ChatClient chatClient;
     /** Jackson JSON 解析器 */
@@ -64,8 +65,14 @@ public class CommentAuditService {
      * @param chatClient        Spring AI 聊天客户端
      * @param objectMapper      Jackson JSON 解析器
      */
-    public CommentAuditService(CommentRepository commentRepository, ChatClient chatClient, ObjectMapper objectMapper) {
+    public CommentAuditService(
+            CommentRepository commentRepository,
+            CommentAuditResultService resultService,
+            ChatClient chatClient,
+            ObjectMapper objectMapper
+    ) {
         this.commentRepository = commentRepository;
+        this.resultService = resultService;
         this.chatClient = chatClient;
         this.objectMapper = objectMapper;
     }
@@ -121,8 +128,7 @@ public class CommentAuditService {
                 }
 
                 // 保存审核结果
-                comment.setAuditResult(parsedStatus, parsedReason);
-                commentRepository.save(comment);
+                resultService.apply(commentId, parsedStatus, parsedReason);
                 log.info("Comment {} audit result: {} - {}", commentId, parsedStatus.name(), parsedReason);
             });
         } catch (Exception e) {

@@ -20,6 +20,8 @@ import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
+import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
+import com.caoqiang.blog.shared.domain.event.interaction.LikeRemovedEvent;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,6 +61,7 @@ public class InteractionAdminService {
     private final ViewRecordRepository viewRecordRepository;
     /** 内容仓储（用于更新计数） */
     private final ContentRepository contentRepository;
+    private final DomainEventPublisher domainEventPublisher;
 
     /**
      * 构造函数，注入依赖的仓储
@@ -70,11 +73,13 @@ public class InteractionAdminService {
     public InteractionAdminService(
             LikeRepository likeRepository,
             ViewRecordRepository viewRecordRepository,
-            ContentRepository contentRepository
+            ContentRepository contentRepository,
+            DomainEventPublisher domainEventPublisher
     ) {
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
         this.contentRepository = contentRepository;
+        this.domainEventPublisher = domainEventPublisher;
     }
 
     /**
@@ -117,6 +122,10 @@ public class InteractionAdminService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "点赞记录不存在"));
         likeRepository.delete(like);
         contentRepository.incrementLikeCount(like.getContent().getId(), -1);
+        domainEventPublisher.publishEvent(new LikeRemovedEvent(
+                like.getContent().getId(),
+                like.getUser().getId()
+        ));
     }
 
     /**

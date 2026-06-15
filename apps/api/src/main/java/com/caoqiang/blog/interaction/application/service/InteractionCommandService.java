@@ -80,6 +80,9 @@ public class InteractionCommandService {
         Content content = publishedContent(contentId);
         User user = activeUser(currentUser.id());
         String sanitizedBody = sanitizeHtml(request.body().trim());
+        if (sanitizedBody.isBlank()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "评论内容不能为空");
+        }
         Comment comment = commentRepository.save(new Comment(content, user, sanitizedBody));
         contentRepository.incrementCommentCount(contentId, 1);
         domainEventPublisher.publishEvent(new CommentCreatedEvent(comment.getId(), contentId, currentUser.id()));
@@ -88,7 +91,7 @@ public class InteractionCommandService {
 
     @Transactional
     public void deleteComment(AuthenticatedUser currentUser, UUID commentId) {
-        Comment comment = commentRepository.findById(commentId)
+        Comment comment = commentRepository.findByIdForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "评论不存在"));
         if (!comment.getUser().getId().equals(currentUser.id()) && currentUser.role() != Role.ADMIN) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "只能删除自己的评论");
