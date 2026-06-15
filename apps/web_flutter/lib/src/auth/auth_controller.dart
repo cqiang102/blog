@@ -36,12 +36,16 @@ class AuthController extends ChangeNotifier {
 
   /// 是否已加载完成
   bool get isLoaded => _loaded;
+
   /// 是否忙碌中
   bool get isBusy => _busy;
+
   /// 是否已认证
   bool get isAuthenticated => _accessToken != null;
+
   /// 获取访问令牌
   String? get accessToken => _accessToken;
+
   /// 获取用户信息
   UserProfile? get user => _user;
 
@@ -54,7 +58,10 @@ class AuthController extends ChangeNotifier {
     _accessToken = preferences.getString(_accessTokenKey);
     final expiresAtMs = preferences.getInt(_expiresAtKey);
     if (expiresAtMs != null) {
-      _expiresAt = DateTime.fromMillisecondsSinceEpoch(expiresAtMs, isUtc: true);
+      _expiresAt = DateTime.fromMillisecondsSinceEpoch(
+        expiresAtMs,
+        isUtc: true,
+      );
     }
     final rawUser = preferences.getString(_userKey);
     if (rawUser != null) {
@@ -68,7 +75,7 @@ class AuthController extends ChangeNotifier {
 
     if (_accessToken != null) {
       try {
-        _user = await _apiClient.me(_accessToken!);
+        _user = await _apiClient.fetchProfile(_accessToken!);
         await _saveUser(preferences);
         notifyListeners();
       } on ApiException catch (e) {
@@ -76,7 +83,7 @@ class AuthController extends ChangeNotifier {
           final newToken = await _handleUnauthorized();
           if (newToken != null) {
             try {
-              _user = await _apiClient.me(newToken);
+              _user = await _apiClient.fetchProfile(newToken);
               await _saveUser(preferences);
               notifyListeners();
             } on ApiException catch (retryError) {
@@ -99,7 +106,8 @@ class AuthController extends ChangeNotifier {
     if (_accessToken == null) return null;
 
     // 未记录过期时间，或尚未过期，直接返回
-    if (_expiresAt == null || DateTime.now().isBefore(_expiresAt!.subtract(_refreshBuffer))) {
+    if (_expiresAt == null ||
+        DateTime.now().isBefore(_expiresAt!.subtract(_refreshBuffer))) {
       return _accessToken;
     }
 
@@ -157,7 +165,7 @@ class AuthController extends ChangeNotifier {
 
     _setBusy(true);
     try {
-      _user = await _apiClient.updateMe(
+      _user = await _apiClient.updateProfile(
         accessToken: token,
         email: email,
         nickname: nickname,
@@ -179,7 +187,7 @@ class AuthController extends ChangeNotifier {
     if (token == null) return;
 
     try {
-      _user = await _apiClient.me(token);
+      _user = await _apiClient.fetchProfile(token);
       await _saveUser(await SharedPreferences.getInstance());
       notifyListeners();
     } catch (_) {
@@ -211,7 +219,10 @@ class AuthController extends ChangeNotifier {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_accessTokenKey, session.accessToken);
     await preferences.setString(_refreshTokenKey, session.refreshToken);
-    await preferences.setInt(_expiresAtKey, session.expiresAt.millisecondsSinceEpoch);
+    await preferences.setInt(
+      _expiresAtKey,
+      session.expiresAt.millisecondsSinceEpoch,
+    );
     await _saveUser(preferences);
     notifyListeners();
   }
@@ -228,7 +239,10 @@ class AuthController extends ChangeNotifier {
       final preferences = await SharedPreferences.getInstance();
       await preferences.setString(_accessTokenKey, session.accessToken);
       await preferences.setString(_refreshTokenKey, session.refreshToken);
-      await preferences.setInt(_expiresAtKey, session.expiresAt.millisecondsSinceEpoch);
+      await preferences.setInt(
+        _expiresAtKey,
+        session.expiresAt.millisecondsSinceEpoch,
+      );
       await _saveUser(preferences);
       notifyListeners();
     } finally {
@@ -282,7 +296,10 @@ class AuthController extends ChangeNotifier {
 
       await preferences.setString(_accessTokenKey, session.accessToken);
       await preferences.setString(_refreshTokenKey, session.refreshToken);
-      await preferences.setInt(_expiresAtKey, session.expiresAt.millisecondsSinceEpoch);
+      await preferences.setInt(
+        _expiresAtKey,
+        session.expiresAt.millisecondsSinceEpoch,
+      );
       await _saveUser(preferences);
       notifyListeners();
 

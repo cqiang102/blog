@@ -180,12 +180,15 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
           },
           child: Scaffold(
             appBar: _buildAppBar(state, compact: compact),
-            body: Form(
-              key: _formKey,
-              child: LayoutBuilder(
-                builder: (context, constraints) => _buildEditorLayout(
-                  state,
-                  wide: constraints.maxWidth >= 1080,
+            body: AbsorbPointer(
+              absorbing: state.isSubmitting,
+              child: Form(
+                key: _formKey,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => _buildEditorLayout(
+                    state,
+                    wide: constraints.maxWidth >= 1080,
+                  ),
                 ),
               ),
             ),
@@ -250,7 +253,11 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
         label: const Text('预览'),
       ),
       TextButton.icon(
-        onPressed: state.isSavingDraft || !state.hasUnsavedChanges
+        onPressed:
+            state.isSubmitting ||
+                state.isUploading ||
+                state.isSavingDraft ||
+                !state.hasUnsavedChanges
             ? null
             : _saveLocalDraft,
         icon: const Icon(Icons.cloud_download_outlined, size: 18),
@@ -274,7 +281,11 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
             children: [
               IconButton(
                 tooltip: '保存到本机',
-                onPressed: state.isSavingDraft || !state.hasUnsavedChanges
+                onPressed:
+                    state.isSubmitting ||
+                        state.isUploading ||
+                        state.isSavingDraft ||
+                        !state.hasUnsavedChanges
                     ? null
                     : _saveLocalDraft,
                 icon: const Icon(Icons.cloud_download_outlined),
@@ -289,26 +300,23 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
   }
 
   List<Widget> _serverActionButtons(ContentEditorState state) {
+    final busy = state.isSubmitting || state.isUploading;
     if (widget.contentId == null || state.status == ContentStatus.draft) {
       return [
         OutlinedButton(
-          onPressed: state.isSubmitting
-              ? null
-              : () => _submit(ContentStatus.draft),
+          onPressed: busy ? null : () => _submit(ContentStatus.draft),
           child: const Text('保存草稿'),
         ),
         const SizedBox(width: AppSpacing.sm),
         FilledButton(
-          onPressed: state.isSubmitting
-              ? null
-              : () => _submit(ContentStatus.published),
+          onPressed: busy ? null : () => _submit(ContentStatus.published),
           child: _SubmitLabel(busy: state.isSubmitting, label: '发布'),
         ),
       ];
     }
     return [
       FilledButton(
-        onPressed: state.isSubmitting ? null : _saveCurrentToServer,
+        onPressed: busy ? null : _saveCurrentToServer,
         child: _SubmitLabel(busy: state.isSubmitting, label: '保存更新'),
       ),
     ];
@@ -459,6 +467,8 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
   }
 
   void _insertMarkdown(String prefix, String suffix) {
+    final state = ref.read(contentEditorControllerProvider(widget.contentId));
+    if (state.isSubmitting) return;
     _bodyFocusNode.requestFocus();
     final text = _bodyController.text;
     final selection = _bodyController.selection;
@@ -513,6 +523,8 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
   }
 
   Future<void> _uploadMedia({required bool forceImage}) async {
+    final state = ref.read(contentEditorControllerProvider(widget.contentId));
+    if (state.isSubmitting) return;
     final error = await _controller.uploadMedia(
       forceImage: forceImage,
       allowMultiple: true,
@@ -532,6 +544,12 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
   }
 
   Future<void> _submit(ContentStatus status) async {
+    final current = ref.read(contentEditorControllerProvider(widget.contentId));
+    if (current.isSubmitting) return;
+    if (current.isUploading) {
+      showAdminSnack(context, '媒体仍在上传，请稍候');
+      return;
+    }
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final state = ref.read(contentEditorControllerProvider(widget.contentId));
     if (state.isMediaType && state.mediaUrls.isEmpty) {
@@ -548,6 +566,7 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
       return;
     }
 
+    FocusScope.of(context).unfocus();
     _controller.beginSubmit();
     try {
       final api = ref.read(apiClientProvider);
@@ -581,6 +600,10 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
   Future<void> _requestLeave(ContentEditorState state) async {
     if (state.isSubmitting) {
       showAdminSnack(context, '正在提交，请稍候');
+      return;
+    }
+    if (state.isUploading) {
+      showAdminSnack(context, '媒体仍在上传，请稍候');
       return;
     }
     if (!state.hasUnsavedChanges) {

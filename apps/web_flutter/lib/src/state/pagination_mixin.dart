@@ -14,6 +14,7 @@ mixin PaginationMixin<T extends StatefulWidget, E> on State<T> {
   bool isLoading = false;
   bool hasMore = true;
   String? error;
+  int _generation = 0;
 
   /// 每页大小，默认 20
   int get pageSize => kDefaultPageSize;
@@ -48,6 +49,7 @@ mixin PaginationMixin<T extends StatefulWidget, E> on State<T> {
   /// 加载更多数据
   Future<void> loadMore() async {
     if (isLoading) return;
+    final generation = _generation;
     if (mounted) {
       setState(() {
         isLoading = true;
@@ -57,7 +59,7 @@ mixin PaginationMixin<T extends StatefulWidget, E> on State<T> {
 
     try {
       final result = await fetchPage(currentPage, pageSize);
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           items.addAll(result.items);
           total = result.total;
@@ -67,7 +69,7 @@ mixin PaginationMixin<T extends StatefulWidget, E> on State<T> {
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           error = e.toString();
           isLoading = false;
@@ -78,11 +80,13 @@ mixin PaginationMixin<T extends StatefulWidget, E> on State<T> {
 
   /// 重置列表并重新加载
   void resetAndLoad() {
+    _generation++;
     if (mounted) {
       setState(() {
         items.clear();
         currentPage = 0;
         total = 0;
+        isLoading = false;
         hasMore = true;
         error = null;
       });

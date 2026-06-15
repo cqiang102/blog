@@ -11,13 +11,13 @@ import 'api_client_base.dart';
 /// 用户相关 API Mixin
 mixin UserApi on ApiClientBase {
   /// 获取当前用户信息
-  Future<UserProfile> me(String accessToken) async {
+  Future<UserProfile> fetchProfile(String accessToken) async {
     final data = await get('/me', accessToken: accessToken);
     return UserProfile.fromJson((data as Map).cast<String, dynamic>());
   }
 
   /// 更新当前用户信息
-  Future<UserProfile> updateMe({
+  Future<UserProfile> updateProfile({
     required String accessToken,
     required String email,
     required String nickname,
@@ -55,7 +55,9 @@ mixin UserApi on ApiClientBase {
       accessToken: accessToken,
       formData: formData,
     );
-    final userProfile = UserProfile.fromJson((data as Map).cast<String, dynamic>());
+    final userProfile = UserProfile.fromJson(
+      (data as Map).cast<String, dynamic>(),
+    );
     return userProfile.avatarUrl ?? '';
   }
 
@@ -88,10 +90,7 @@ mixin UserApi on ApiClientBase {
     final data = await get(
       '/me/$type',
       accessToken: accessToken,
-      queryParameters: {
-        'page': page.toString(),
-        'size': size.toString(),
-      },
+      queryParameters: {'page': page.toString(), 'size': size.toString()},
     );
     return pageResult(data, UserActivity.fromJson);
   }

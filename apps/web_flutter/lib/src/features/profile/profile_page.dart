@@ -358,12 +358,11 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
           .read(apiClientProvider)
           .fetchOAuthAccounts(accessToken: token);
       if (mounted) {
-        setState(() {
-          _oauthAccounts = accounts;
-          _loadingOAuth = false;
-        });
+        setState(() => _oauthAccounts = accounts);
       }
     } catch (_) {
+      // OAuth 绑定信息不影响个人资料主体展示。
+    } finally {
       if (mounted) setState(() => _loadingOAuth = false);
     }
   }
@@ -459,6 +458,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
           .getValidAccessToken();
       if (token == null) {
         if (!mounted) return;
+        setState(() => _uploadingAvatar = false);
         context.go('/login?from=/profile');
         return;
       }
@@ -825,6 +825,7 @@ class _RecordListState extends ConsumerState<_RecordList>
       await ref
           .read(apiClientProvider)
           .deleteMyActivity(accessToken: token, type: widget.type, id: item.id);
+      if (!mounted) return;
       setState(() {
         items.remove(item);
         total--;

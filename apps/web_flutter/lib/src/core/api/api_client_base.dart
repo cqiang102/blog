@@ -83,7 +83,7 @@ class ApiClientBase {
     try {
       final response = await _dio.request<Object?>(
         path,
-        data: formData ?? (body != null ? jsonEncode(body) : null),
+        data: _requestData(formData: formData, body: body),
         queryParameters: queryParameters,
         options: Options(
           method: method,
@@ -106,7 +106,7 @@ class ApiClientBase {
           try {
             final retryResponse = await _dio.request<Object?>(
               path,
-              data: formData ?? (body != null ? jsonEncode(body) : null),
+              data: _requestData(formData: formData, body: body),
               queryParameters: queryParameters,
               options: Options(
                 method: method,
@@ -128,6 +128,17 @@ class ApiClientBase {
       if (apiError != null) throw apiError;
       rethrow;
     }
+  }
+
+  Object? _requestData({
+    required FormData? formData,
+    required Map<String, Object?>? body,
+  }) {
+    if (formData != null) {
+      // Dio 的 FormData 发送后会被 finalize，刷新令牌后的重试必须使用副本。
+      return formData.clone();
+    }
+    return body != null ? jsonEncode(body) : null;
   }
 
   ApiException? _apiException(DioException error) {
