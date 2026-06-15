@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
-MAVEN_BIN="${MAVEN_BIN:-/Users/caoqiang/wubihuan/apache-maven-3.8.8/bin/mvn}"
+MAVEN_BIN="${MAVEN_BIN:-$(command -v mvn || true)}"
 COMMAND="${1:-run}"
 PROFILES="${2:-local}"
 LOG_FILE="${LOG_FILE:-$API_DIR/target/dev-api.log}"
@@ -40,7 +40,7 @@ USAGE
 fi
 
 if [[ ! -x "$MAVEN_BIN" ]]; then
-  echo "Maven not found or not executable: $MAVEN_BIN" >&2
+  echo "Maven not found. Install Maven or set MAVEN_BIN=/path/to/mvn." >&2
   exit 1
 fi
 

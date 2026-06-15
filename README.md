@@ -1,84 +1,38 @@
-# 个人博客 Monorepo
+# blog-mimo
 
-这是一个前后端分离的个人博客项目骨架：
+一个前后端分离的个人博客 Monorepo，包含内容发布、用户互动、管理后台、AI 对话与知识库检索。
 
-- `apps/api`：Java 21 + Spring Boot 4 + Spring AI 2 后端
-- `apps/web_flutter`：Flutter Web 前端
-- `infra`：PostgreSQL/pgvector、Redis、MinIO 的本地开发环境
-- `docs`：需求、接口、开发计划和运行说明
+## 项目结构
+
+```text
+apps/
+  api/          Java 21 + Spring Boot 4 后端
+  web_flutter/  Flutter Web 前端
+infra/          PostgreSQL/pgvector、Redis、MinIO 与 Docker Compose
+scripts/        本地开发脚本
+docs/           架构、功能、接口、运行与部署文档
+```
+
+代码边界和命名约定见 [架构说明](docs/architecture.md)，完整资料入口见 [文档索引](docs/README.md)。
 
 ## 技术栈
 
-- Backend：Spring Boot 4.0.x、Spring Security、Spring Data JPA、Flyway、Spring AI 2.0.x
-- Frontend：Flutter Web、go_router、flutter_riverpod
-- Infra：PostgreSQL + pgvector、Redis、MinIO、Docker Compose
-- AI：OpenAI 兼容接口，预留 RAG 和工具调用
+- 后端：Java 21、Spring Boot 4.1.0、Spring AI 2.0.0、Spring Data JPA、Flyway
+- 前端：Flutter 3.35.4、Dart 3.9.2、Riverpod、go_router、Dio
+- 基础设施：PostgreSQL 18 + pgvector、Redis 7.4、MinIO、Docker Compose
 
-## 本地启动
+## 快速启动
 
-后端需要 Java 21。当前机器默认 `java` 指向 JDK 8，运行 Maven 前请显式切换：
+复制后端配置并填写需要的密钥：
 
 ```bash
-export JAVA_HOME=$(/usr/libexec/java_home -v 21)
-export PATH="$JAVA_HOME/bin:$PATH"
+cp apps/api/.env.example apps/api/.env
 ```
 
-推荐用脚本启动后端，它会固定 Java 21 和 Maven 3.8.8，即使当前终端 `JAVA_HOME` 指向 Java 8 也会切到 Java 21，并在普通 `local` 模式下自动启动 Docker 依赖：
+启动依赖和后端：
 
 ```bash
 scripts/dev-api.sh
-```
-
-只想验证后端 Web/API 层、暂时不连接 PostgreSQL：
-
-```bash
-scripts/dev-api.sh local,nodb
-```
-
-查看依赖服务状态和日志：
-
-```bash
-scripts/dev-api.sh status
-scripts/dev-api.sh logs
-scripts/dev-api.sh app-log
-scripts/dev-api.sh doctor
-```
-
-也可以手动启动基础设施：
-
-```bash
-docker compose -f infra/docker-compose.yml up -d
-```
-
-启动后端：
-
-```bash
-cd apps/api
-/Users/caoqiang/wubihuan/apache-maven-3.8.8/bin/mvn spring-boot:run -Dspring-boot.run.profiles=local
-```
-
-启用 GitHub 登录时额外加上 `github` profile，并配置 `GITHUB_CLIENT_ID`、`GITHUB_CLIENT_SECRET`：
-
-```bash
-/Users/caoqiang/wubihuan/apache-maven-3.8.8/bin/mvn spring-boot:run -Dspring-boot.run.profiles=local,github
-```
-
-启用 Spring AI pgvector VectorStore 时额外加上 `ai` profile：
-
-```bash
-/Users/caoqiang/wubihuan/apache-maven-3.8.8/bin/mvn spring-boot:run -Dspring-boot.run.profiles=local,ai
-```
-
-如果只是先验证后端 Web/API 层、暂时不连接 PostgreSQL，可以手动使用：
-
-```bash
-/Users/caoqiang/wubihuan/apache-maven-3.8.8/bin/mvn spring-boot:run -Dspring-boot.run.profiles=local,nodb
-```
-
-如果本地数据库迁移失败后想重置开发数据，确认没有重要数据后执行：
-
-```bash
-scripts/dev-api.sh reset-db
 ```
 
 启动前端：
@@ -89,22 +43,19 @@ fvm flutter pub get
 fvm flutter run -d chrome
 ```
 
-## 配置
+诊断模式、可选 profile 和故障排查见 [运行手册](docs/runbook.md)。
 
-复制示例配置后填写本地密钥：
+## 验证
 
 ```bash
-cp apps/api/.env.example apps/api/.env
+scripts/dev-api.sh test
+
+cd apps/web_flutter
+fvm flutter analyze
+fvm flutter test
+fvm flutter build web --release
 ```
-
-关键环境变量：
-
-- `OPENAI_API_KEY`
-- `OPENAI_BASE_URL`
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
-- `JWT_SECRET`
 
 ## 当前状态
 
-本仓库已搭好 MVP 工程骨架、数据库迁移、核心 API 占位、Flutter 路由和页面框架。下一步可以按 `docs/development-plan.md` 逐阶段补真实业务实现。
+核心业务闭环、管理后台、响应式前端、AI 工具调用与知识库已实现。后续工作以模块拆分、集成测试、可观测性和产品扩展为主，详见 [功能清单](docs/features.md)。
