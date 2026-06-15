@@ -1,6 +1,8 @@
 package com.caoqiang.blog.config;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -26,6 +28,7 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public class BlogProperties {
 
+    @Valid
     private final Ai ai = new Ai();
     private final Admin admin = new Admin();
     @Valid
@@ -59,6 +62,10 @@ public class BlogProperties {
     public static class Ai {
         /** 每用户每日 AI 提问次数上限，默认 10 次 */
         private int dailyQuestionLimit = 10;
+        /** 知识库向量结果的最低余弦相似度，低于该值的片段不交给模型 */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double knowledgeMinSimilarity = 0.60;
 
         public int getDailyQuestionLimit() {
             return dailyQuestionLimit;
@@ -66,6 +73,14 @@ public class BlogProperties {
 
         public void setDailyQuestionLimit(int dailyQuestionLimit) {
             this.dailyQuestionLimit = dailyQuestionLimit;
+        }
+
+        public double getKnowledgeMinSimilarity() {
+            return knowledgeMinSimilarity;
+        }
+
+        public void setKnowledgeMinSimilarity(double knowledgeMinSimilarity) {
+            this.knowledgeMinSimilarity = knowledgeMinSimilarity;
         }
     }
 

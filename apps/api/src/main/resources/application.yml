@@ -21,7 +21,6 @@ spring:
     open-in-view: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
   flyway:
     enabled: true
@@ -57,13 +56,11 @@ spring:
       base-url: ${OPENAI_BASE_URL:https://api.openai.com}
       chat:
         model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
-        options:
-          max-tokens: ${OPENAI_MAX_TOKENS:131072}
+        max-tokens: ${OPENAI_MAX_TOKENS:131072}
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       embedding:
-        options:
-          model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
+        model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
     vectorstore:
       type: none
       pgvector:
@@ -99,6 +96,7 @@ blog:
     base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
   ai:
     daily-question-limit: ${AI_DAILY_QUESTION_LIMIT:10}
+    knowledge-min-similarity: ${AI_KNOWLEDGE_MIN_SIMILARITY:0.60}
   security:
     jwt-secret: ${JWT_SECRET:change-me-to-a-long-random-secret}
     access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:30}

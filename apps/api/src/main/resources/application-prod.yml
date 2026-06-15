@@ -18,13 +18,11 @@ spring:
       base-url: ${OPENAI_BASE_URL}
       chat:
         model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
-        options:
-          max-tokens: ${OPENAI_MAX_TOKENS:131072}
+        max-tokens: ${OPENAI_MAX_TOKENS:131072}
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       embedding:
-        options:
-          model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
+        model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
     vectorstore:
       type: pgvector
 
