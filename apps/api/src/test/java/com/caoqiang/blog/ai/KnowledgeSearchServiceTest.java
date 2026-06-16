@@ -122,6 +122,28 @@ class KnowledgeSearchServiceTest {
     }
 
     @Test
+    void keywordExcerptIncludesMatchesNearTheEndOfLongDocuments() {
+        KnowledgeDoc doc = new KnowledgeDoc(
+                "长文档",
+                KnowledgeSourceType.MANUAL,
+                null,
+                "前文".repeat(700) + "目标关键词" + "后文".repeat(100),
+                true
+        );
+        when(knowledgeDocRepository.searchEnabled(eq("目标关键词"), any()))
+                .thenReturn(List.of(doc));
+        when(contentQueryService.list(eq("目标关键词"), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5)))
+                .thenReturn(emptyPage());
+
+        List<KnowledgeSearchResult> results = service.search("目标关键词");
+
+        assertThat(results).singleElement()
+                .extracting(KnowledgeSearchResult::content)
+                .asString()
+                .contains("目标关键词");
+    }
+
+    @Test
     void filtersLowSimilarityVectorCandidates() {
         UUID docId = UUID.randomUUID();
         when(knowledgeDocRepository.searchEnabled(eq("量子引力"), any())).thenReturn(List.of());
@@ -151,7 +173,7 @@ class KnowledgeSearchServiceTest {
         when(contentQueryService.list(eq("博主是谁"), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5)))
                 .thenReturn(emptyPage());
         when(embeddingModel.embed("博主是谁")).thenReturn(new float[768]);
-        when(knowledgeChunkRepository.findSimilarChunks(any(String.class), eq(5)))
+        when(knowledgeChunkRepository.findSimilarChunks(any(String.class), eq(25)))
                 .thenReturn(List.<Object[]>of(new Object[]{
                         UUID.randomUUID(), doc.getId(), null, 0, "我是 Java 后端开发者", null, 0.66
                 }));
@@ -178,7 +200,7 @@ class KnowledgeSearchServiceTest {
         when(contentQueryService.list(eq("服务端工程"), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5)))
                 .thenReturn(emptyPage());
         when(embeddingModel.embed("服务端工程")).thenReturn(new float[768]);
-        when(knowledgeChunkRepository.findSimilarChunks(any(String.class), eq(5)))
+        when(knowledgeChunkRepository.findSimilarChunks(any(String.class), eq(25)))
                 .thenReturn(List.of(
                         new Object[]{
                                 UUID.randomUUID(), doc.getId(), null, 0,

@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
@@ -188,7 +189,12 @@ public class AiChatService {
             log.debug("SseEmitter error: {}", error.getMessage());
             emitter.complete();
         });
-        aiStreamExecutor.execute(() -> doStreamChat(currentUser, request, emitter));
+        try {
+            aiStreamExecutor.execute(() -> doStreamChat(currentUser, request, emitter));
+        } catch (RejectedExecutionException exception) {
+            log.warn("AI stream executor is saturated");
+            sendSseError(emitter, "AI 服务繁忙，请稍后重试");
+        }
         return emitter;
     }
 

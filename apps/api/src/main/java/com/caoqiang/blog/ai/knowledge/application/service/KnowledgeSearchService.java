@@ -48,6 +48,7 @@ public class KnowledgeSearchService {
 
     private static final Logger log = LoggerFactory.getLogger(KnowledgeSearchService.class);
     private static final int MAX_RESULTS = 5;
+    private static final int VECTOR_CANDIDATE_LIMIT = MAX_RESULTS * 5;
     private static final int EMBEDDING_DIMENSIONS = 768;
     private static final int MAX_EXCERPT_LENGTH = 1200;
 
@@ -103,7 +104,7 @@ public class KnowledgeSearchService {
             String embeddingStr = VectorUtils.toPgVectorString(queryEmbedding);
             List<Object[]> similarChunks = knowledgeChunkRepository.findSimilarChunks(
                     embeddingStr,
-                    MAX_RESULTS
+                    VECTOR_CANDIDATE_LIMIT
             );
             return mapVectorResults(similarChunks);
         } catch (Exception e) {
@@ -121,7 +122,7 @@ public class KnowledgeSearchService {
         );
         for (KnowledgeDoc doc : docs) {
             addResult(results, new KnowledgeSearchResult(
-                    excerpt(doc.getBody(), doc.getTitle()),
+                    excerpt(doc.getBody(), doc.getTitle(), query),
                     1.0,
                     doc.getId().toString(),
                     KnowledgeSearchSourceType.KNOWLEDGE_DOC,
@@ -134,7 +135,7 @@ public class KnowledgeSearchService {
         );
         for (ContentSummaryResponse item : searchResults.items()) {
             addResult(results, new KnowledgeSearchResult(
-                    excerpt(item.summary(), item.title()),
+                    excerpt(item.summary(), item.title(), query),
                     1.0,
                     item.id().toString(),
                     KnowledgeSearchSourceType.CONTENT,
@@ -151,7 +152,7 @@ public class KnowledgeSearchService {
         );
         for (KnowledgeDoc doc : docs) {
             addResult(results, new KnowledgeSearchResult(
-                    excerpt(doc.getBody(), doc.getTitle()),
+                    excerpt(doc.getBody(), doc.getTitle(), null),
                     1.0,
                     doc.getId().toString(),
                     KnowledgeSearchSourceType.KNOWLEDGE_DOC,
@@ -166,7 +167,7 @@ public class KnowledgeSearchService {
             );
             for (ContentSummaryResponse item : contents.items()) {
                 addResult(results, new KnowledgeSearchResult(
-                        excerpt(item.summary(), item.title()),
+                        excerpt(item.summary(), item.title(), null),
                         1.0,
                         item.id().toString(),
                         KnowledgeSearchSourceType.CONTENT,
@@ -239,14 +240,24 @@ public class KnowledgeSearchService {
                 : 0.0;
     }
 
-    private String excerpt(String value, String fallback) {
+    private String excerpt(String value, String fallback, String query) {
         String text = value == null || value.isBlank() ? fallback : value.trim();
         if (text == null) {
             return "";
         }
-        return text.length() <= MAX_EXCERPT_LENGTH
-                ? text
-                : text.substring(0, MAX_EXCERPT_LENGTH);
+        if (text.length() <= MAX_EXCERPT_LENGTH) {
+            return text;
+        }
+        int start = 0;
+        if (query != null && !query.isBlank()) {
+            int match = text.toLowerCase(java.util.Locale.ROOT)
+                    .indexOf(query.toLowerCase(java.util.Locale.ROOT));
+            if (match >= 0) {
+                start = Math.max(0, match - MAX_EXCERPT_LENGTH / 3);
+            }
+        }
+        start = Math.min(start, text.length() - MAX_EXCERPT_LENGTH);
+        return text.substring(start, start + MAX_EXCERPT_LENGTH);
     }
 
     private void addResult(
