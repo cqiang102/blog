@@ -14,14 +14,14 @@ import jakarta.validation.constraints.Size;
  *   <li>不可变数据 - 使用 Java Record 实现，所有字段都是 final 的</li>
  *   <li>数据验证 - 使用 Jakarta Validation 注解进行数据验证</li>
  *   <li>邮箱验证 - 验证邮箱格式是否正确</li>
- *   <li>密码强度 - 验证密码长度在 8-80 之间</li>
+ *   <li>密码强度 - 验证密码长度在 8-72 之间</li>
  *   <li>昵称限制 - 验证昵称不为空且长度不超过 80</li>
  * </ul>
  *
  * <p>验证规则：</p>
  * <ul>
  *   <li>email - 必填，必须是有效的邮箱格式</li>
- *   <li>password - 必填，长度必须在 8-80 之间</li>
+ *   <li>password - 必填，长度必须在 8-72 之间</li>
  *   <li>nickname - 必填，长度不超过 80</li>
  * </ul>
  *
@@ -33,8 +33,8 @@ import jakarta.validation.constraints.Size;
 public record RegisterRequest(
         /** 用户邮箱地址，必填，必须是有效的邮箱格式 */
         @NotBlank @Email String email,
-        /** 用户密码，必填，长度必须在 8-80 之间 */
-        @NotBlank @Size(min = 8, max = 80) String password,
+        /** 用户密码，必填，长度必须在 8-72 之间 */
+        @NotBlank @Size(min = 8, max = 72) String password,
         /** 用户昵称，必填，长度不超过 80 */
         @NotBlank @Size(max = 80) String nickname,
         /** 邮箱验证码，必填，6 位数字 */

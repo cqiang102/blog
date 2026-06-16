@@ -12,7 +12,7 @@ import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.shared.util.EmailNormalizer;
+import com.caoqiang.blog.shared.util.PasswordPolicy;
 import com.caoqiang.blog.auth.domain.model.OAuthAccount;
 import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
 import com.caoqiang.blog.auth.domain.model.OAuthProvider;
@@ -29,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -54,6 +56,7 @@ import java.util.List;
 public class ProfileService {
 
     private static final Logger log = LoggerFactory.getLogger(ProfileService.class);
+    private static final long MAX_AVATAR_BYTES = 5L * 1024 * 1024;
 
     /** 用户数据访问层 */
     private final UserRepository userRepository;
@@ -98,7 +101,8 @@ public class ProfileService {
     /**
      * 更新当前用户个人资料
      * <p>
-     * 仅更新请求中非空的字段，邮箱变更时检查唯一性。
+     * 仅更新请求中非空的字段。邮箱变更必须走独立的验证码确认流程，
+     * 当前资料接口拒绝直接修改邮箱。
      *
      * @param currentUser 当前认证用户
      * @param request     更新资料请求体
@@ -108,19 +112,14 @@ public class ProfileService {
     @Transactional
     public UserProfileResponse update(AuthenticatedUser currentUser, UpdateProfileRequest request) {
         User user = findActiveUser(currentUser);
-        // 规范化邮箱，如果请求中提供了新邮箱则使用，否则保留原邮箱
-        String newEmail = StringUtils.hasText(request.email())
-                ? EmailNormalizer.normalize(request.email())
-                : user.getEmail();
-
-        // 检查邮箱唯一性（仅当邮箱变更时）
-        if (!user.getEmail().equalsIgnoreCase(newEmail) && userRepository.existsByEmail(newEmail)) {
-            throw new BusinessException(HttpStatus.CONFLICT, "邮箱已被使用");
+        if (StringUtils.hasText(request.email())
+                && !user.getEmail().equalsIgnoreCase(request.email().trim())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "更换邮箱需先完成新邮箱验证");
         }
 
         // 更新用户资料字段
         user.updateProfile(
-                newEmail,
+                user.getEmail(),
                 StringUtils.hasText(request.nickname()) ? request.nickname().trim() : user.getNickname(),
                 request.avatarUrl(),
                 request.bio(),
@@ -154,6 +153,7 @@ public class ProfileService {
         }
 
         // 加密并保存新密码
+        PasswordPolicy.validate(request.newPassword());
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
     }
 
@@ -176,6 +176,7 @@ public class ProfileService {
         }
 
         // 加密并保存新密码
+        PasswordPolicy.validate(request.newPassword());
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
     }
 
@@ -194,19 +195,18 @@ public class ProfileService {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "请选择要上传的图片");
         }
-
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "仅支持上传图片文件");
+        if (file.getSize() > MAX_AVATAR_BYTES) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "头像文件不能超过 5MB");
         }
 
+        AvatarFormat format = detectAvatarFormat(file);
         String path = "avatars/" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd")) + "/";
-        String filename = "avatar_" + System.currentTimeMillis() + getExtension(file.getOriginalFilename());
+        String filename = "avatar_" + System.currentTimeMillis() + format.extension();
 
         FileInfo fileInfo = fileStorageService.of(file)
                 .setPath(path)
                 .setSaveFilename(filename)
-                .setContentType(contentType)
+                .setContentType(format.contentType())
                 .upload();
 
         return fileInfo.getUrl();
@@ -267,16 +267,44 @@ public class ProfileService {
         oauthAccountRepository.delete(account);
     }
 
-    /**
-     * 获取文件扩展名（包含点号）
-     *
-     * @param filename 文件名
-     * @return 扩展名，如 ".jpg"，无扩展名时返回空字符串
-     */
-    private String getExtension(String filename) {
-        if (filename == null) return "";
-        int dot = filename.lastIndexOf('.');
-        return dot >= 0 ? filename.substring(dot) : "";
+    private AvatarFormat detectAvatarFormat(MultipartFile file) {
+        byte[] header;
+        try (var input = file.getInputStream()) {
+            header = input.readNBytes(12);
+        } catch (IOException exception) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "无法读取头像文件");
+        }
+
+        if (startsWith(header, new byte[] {
+                (byte) 0xFF, (byte) 0xD8, (byte) 0xFF
+        })) {
+            return new AvatarFormat(".jpg", "image/jpeg");
+        }
+        if (startsWith(header, new byte[] {
+                (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
+        })) {
+            return new AvatarFormat(".png", "image/png");
+        }
+        String ascii = new String(header, StandardCharsets.US_ASCII);
+        if (ascii.startsWith("GIF87a") || ascii.startsWith("GIF89a")) {
+            return new AvatarFormat(".gif", "image/gif");
+        }
+        if (ascii.startsWith("RIFF") && ascii.length() >= 12 && ascii.substring(8, 12).equals("WEBP")) {
+            return new AvatarFormat(".webp", "image/webp");
+        }
+        throw new BusinessException(HttpStatus.BAD_REQUEST, "仅支持 JPEG、PNG、GIF 或 WebP 图片");
+    }
+
+    private boolean startsWith(byte[] value, byte[] prefix) {
+        if (value.length < prefix.length) {
+            return false;
+        }
+        for (int i = 0; i < prefix.length; i++) {
+            if (value[i] != prefix[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -300,5 +328,8 @@ public class ProfileService {
         return userRepository.findById(currentUser.id())
                 .filter(User::isActive)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "登录状态无效"));
+    }
+
+    private record AvatarFormat(String extension, String contentType) {
     }
 }

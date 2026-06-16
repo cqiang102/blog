@@ -18,6 +18,7 @@ import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.shared.domain.event.user.UserCreatedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.util.EmailNormalizer;
+import com.caoqiang.blog.shared.util.PasswordPolicy;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.application.dto.UserProfileResponse;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
@@ -113,6 +114,7 @@ public class AuthService {
         }
 
         // 创建用户实体，密码使用 BCrypt 加密
+        PasswordPolicy.validate(request.password());
         User user = User.register(email, passwordEncoder.encode(request.password()), request.nickname().trim());
         userRepository.save(user);
         // 发布领域事件

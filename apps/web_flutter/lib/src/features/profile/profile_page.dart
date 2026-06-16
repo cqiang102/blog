@@ -236,7 +236,8 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
         const SizedBox(height: AppSpacing.sm + 4),
         TextField(
           controller: _emailController,
-          decoration: const InputDecoration(labelText: '邮箱'),
+          readOnly: true,
+          decoration: const InputDecoration(labelText: '邮箱（暂不支持修改）'),
         ),
         const SizedBox(height: AppSpacing.md),
         Align(

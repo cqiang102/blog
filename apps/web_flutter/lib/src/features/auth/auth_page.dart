@@ -591,7 +591,7 @@ class _AuthForm extends StatelessWidget {
               validator: (value) {
                 final password = value ?? '';
                 if (password.isEmpty) return '请输入密码';
-                if (register && password.length < 6) return '密码至少需要 6 个字符';
+                if (register && password.length < 8) return '密码至少需要 8 个字符';
                 return null;
               },
               onFieldSubmitted: (_) => onSubmit(),

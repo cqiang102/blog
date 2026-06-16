@@ -59,7 +59,7 @@ public class EmailService {
             mailSender.send(message);
             log.info("验证码邮件已发送至 {}", to);
         } catch (Exception e) {
-            log.warn("邮件发送失败，可能是未配置邮箱服务。验证码: {} (邮箱: {})", code, to);
+            log.warn("验证码邮件发送失败，邮箱: {}", to);
             log.debug("邮件发送异常详情: {}", e.getMessage(), e);
         }
     }

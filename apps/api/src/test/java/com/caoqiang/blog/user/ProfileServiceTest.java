@@ -21,6 +21,7 @@ import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.time.Clock;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
 import org.dromara.x.file.storage.core.FileStorageService;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class ProfileServiceTest {
@@ -101,5 +103,37 @@ class ProfileServiceTest {
         assertThatThrownBy(() -> profileService.changePassword(oauthCurrentUser, request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("该账号未设置密码");
+    }
+
+    @Test
+    void rejectEmailChangeWithoutVerification() {
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        UpdateProfileRequest request = new UpdateProfileRequest(
+                "测试用户",
+                null,
+                null,
+                null,
+                "other@example.com"
+        );
+
+        assertThatThrownBy(() -> profileService.update(currentUser, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("更换邮箱需先完成新邮箱验证");
+
+        assertThat(testUser.getEmail()).isEqualTo("test@example.com");
+    }
+
+    @Test
+    void rejectSvgAvatarEvenWhenDeclaredAsImage() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "avatar.svg",
+                "image/svg+xml",
+                "<svg><script>alert(1)</script></svg>".getBytes(StandardCharsets.UTF_8)
+        );
+
+        assertThatThrownBy(() -> profileService.uploadAvatar(file))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("仅支持 JPEG、PNG、GIF 或 WebP 图片");
     }
 }

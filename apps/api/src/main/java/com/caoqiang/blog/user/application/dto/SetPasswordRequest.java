@@ -11,11 +11,11 @@ import jakarta.validation.constraints.Size;
  * <p>
  * 用于 OAuth 用户首次设置密码（无需旧密码）。
  *
- * @param newPassword 新密码，长度 6-100 字符
+ * @param newPassword 新密码，长度 8-72 字符
  */
 public record SetPasswordRequest(
         @NotBlank(message = "新密码不能为空")
-        @Size(min = 6, max = 100, message = "新密码长度必须在 6-100 之间")
+        @Size(min = 8, max = 72, message = "新密码长度必须在 8-72 之间")
         String newPassword
 ) {
 }

@@ -119,6 +119,9 @@ public class GithubBindController {
         }
 
         Map<String, Object> githubUser = fetchGithubUser(accessToken);
+        if (githubUser == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "获取 GitHub 用户信息失败");
+        }
         Object githubId = githubUser.get("id");
         String login = (String) githubUser.get("login");
         if (githubId == null || login == null || login.isBlank()) {
