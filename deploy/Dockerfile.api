@@ -1,0 +1,18 @@
+FROM alpine:3.20
+
+RUN apk add --no-cache curl tzdata \
+    && addgroup -S blog && adduser -S -G blog blog
+
+WORKDIR /app
+
+COPY blog-api blog-api
+RUN chmod +x blog-api && chown blog:blog /app /app/blog-api
+
+USER blog
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl --fail --silent http://localhost:8080/actuator/health/readiness || exit 1
+
+ENTRYPOINT ["./blog-api"]

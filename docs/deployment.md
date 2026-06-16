@@ -2,18 +2,65 @@
 
 ## 前置要求
 
+### 本地构建环境（macOS）
+
+- GraalVM 21（`sdk install java 21.0.6-graal`）
+- Flutter 3.35.4（`fvm use 3.35.4`）
+- Docker Desktop 或 OrbStack
+
+### 服务器环境
+
 - Docker 24.0+
 - Docker Compose 2.20+
-- 域名（可选，用于生产环境）
-- SSL 证书（推荐使用 Let's Encrypt）
+- Nginx（宿主机，用于 SSL 终止和反向代理）
+- 域名 + SSL 证书（推荐 Let's Encrypt）
 
-## 生产环境部署
+## 本地构建打包
 
-### 1. 准备环境变量
+### 1. 一键打包
 
 ```bash
-cd infra
+scripts/package-deploy.sh
+```
+
+该脚本会自动完成：
+1. 构建 Flutter Web（`fvm flutter build web --release`）
+2. 在 Docker Linux 容器内构建 Spring Boot Native Image（`mvn native:compile`）
+3. 组装部署目录并打包成 `blog-deploy.tar.gz`
+
+产出结构：
+
+```text
+blog-deploy/
+├── Dockerfile.api          # Alpine + native image 二进制
+├── Dockerfile.web          # Nginx + Flutter 产物
+├── docker-compose.yml      # 生产编排
+├── nginx.conf              # 容器内 Nginx 配置
+├── blog-api                # Linux native 二进制
+├── web/                    # Flutter build 产物
+├── postgres/init/
+│   └── 01-extensions.sql
+└── .env.example
+```
+
+## 服务器部署
+
+### 1. 上传并解压
+
+```bash
+# 本地执行
+scp blog-deploy.tar.gz user@your-server:/opt/blog/
+
+# 服务器上执行
+cd /opt/blog
+tar xzf blog-deploy.tar.gz
+```
+
+### 2. 配置环境变量
+
+```bash
 cp .env.example .env
+vim .env
 ```
 
 编辑 `.env` 文件，填写以下必要配置：
@@ -26,7 +73,9 @@ cp .env.example .env
 | `MINIO_SECRET_KEY` | MinIO 密钥 | ✅ |
 | `OPENAI_API_KEY` | OpenAI API Key | ✅ |
 | `OPENAI_BASE_URL` | OpenAI API 地址 | ✅ |
+| `OPENAI_CHAT_MODEL` | 聊天模型名称 | ✅ |
 | `FRONTEND_BASE_URL` | 前端公开访问地址 | ✅ |
+| `BLOG_CORS_ALLOWED_ORIGINS` | 允许的前端域名 | ✅ |
 | `GITHUB_CLIENT_ID` | GitHub OAuth Client ID | ✅ |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth Client Secret | ✅ |
 | `MAIL_HOST` | SMTP 服务器地址 | ✅ |
@@ -37,32 +86,31 @@ cp .env.example .env
 | `ADMIN_EMAIL` | 管理员邮箱 | ✅ |
 | `ADMIN_PASSWORD` | 管理员密码 | ✅ |
 | `ADMIN_NICKNAME` | 管理员昵称 | ✅ |
-| `BLOG_CORS_ALLOWED_ORIGINS` | 允许的前端域名 | ✅ |
+| `WEB_PORT` | 前端容器端口（默认 8080） | 可选 |
 
-### 2. 启动服务
-
-```bash
-cd infra
-docker compose -f docker-compose.prod.yml up -d
-```
-
-### 3. 检查服务状态
+### 3. 启动服务
 
 ```bash
-docker compose -f docker-compose.prod.yml ps
-docker compose -f docker-compose.prod.yml logs -f
+docker compose up -d
 ```
 
-### 4. 访问应用
+### 4. 检查服务状态
+
+```bash
+docker compose ps
+docker compose logs -f api
+```
+
+### 5. 访问应用
 
 - 前端容器：仅宿主机可访问 `http://127.0.0.1:8080`
-- 对外访问：通过下方宿主机 Nginx 配置使用您的域名
+- 对外访问：通过宿主机 Nginx 使用您的域名
 - API：通过前端同源地址的 `/api/` 访问
-- MinIO：仅在 Compose 内网开放，通过 `/minio/` 提供媒体文件
+- MinIO：通过 `/minio/` 提供媒体文件（Docker 内部网络代理）
 
 ## SSL/HTTPS 配置
 
-### 使用 Nginx 反向代理
+### 宿主机 Nginx 反向代理
 
 1. 安装 Nginx：
 
@@ -76,16 +124,16 @@ sudo apt install nginx
 ```nginx
 server {
     listen 80;
-    server_name yourdomain.com;
+    server_name blog.lacia.cn;
     return 301 https://$server_name$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name yourdomain.com;
+    server_name blog.lacia.cn;
 
-    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/blog.lacia.cn/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/blog.lacia.cn/privkey.pem;
 
     location / {
         proxy_pass http://127.0.0.1:8080;
@@ -94,7 +142,6 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-
 }
 ```
 
@@ -102,7 +149,7 @@ server {
 
 ```bash
 sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d yourdomain.com
+sudo certbot --nginx -d blog.lacia.cn
 ```
 
 ## GitHub OAuth 配置
@@ -111,135 +158,7 @@ sudo certbot --nginx -d yourdomain.com
 2. 创建新的 OAuth App
 3. 填写信息：
    - Application name: 您的博客名称
-   - Homepage URL: `https://yourdomain.com`
-   - Authorization callback URL: `https://yourdomain.com/login/oauth2/code/github`
+   - Homepage URL: `https://blog.lacia.cn`
+   - Authorization callback URL: `https://blog.lacia.cn/login/oauth2/code/github`
 4. 获取 Client ID 和 Client Secret
 5. 填入 `.env` 文件
-
-## 数据备份
-
-### PostgreSQL 备份
-
-```bash
-# 备份
-docker compose -f docker-compose.prod.yml exec postgres pg_dump -U blog blog > backup_$(date +%Y%m%d).sql
-
-# 恢复
-docker compose -f docker-compose.prod.yml exec -T postgres psql -U blog blog < backup_20260601.sql
-```
-
-### MinIO 备份
-
-```bash
-# 安装 mc 客户端
-brew install minio/stable/mc
-
-# 配置
-mc alias set local http://localhost:9000 blog_minio blog_minio_password
-
-# 备份
-mc mirror local/blog-media ./backup/minio/
-```
-
-## 监控
-
-### 健康检查
-
-```bash
-# API 健康检查
-docker compose -f docker-compose.prod.yml exec api \
-  curl --fail http://localhost:8080/actuator/health/readiness
-
-# 详细信息
-docker compose -f docker-compose.prod.yml exec api \
-  curl --fail http://localhost:8080/actuator/info
-```
-
-### 日志查看
-
-```bash
-# 查看所有服务日志
-docker compose -f docker-compose.prod.yml logs -f
-
-# 查看特定服务日志
-docker compose -f docker-compose.prod.yml logs -f api
-docker compose -f docker-compose.prod.yml logs -f postgres
-```
-
-## 故障排查
-
-### 服务无法启动
-
-```bash
-# 检查容器状态
-docker compose -f docker-compose.prod.yml ps
-
-# 查看日志
-docker compose -f docker-compose.prod.yml logs
-
-# 重启服务
-docker compose -f docker-compose.prod.yml restart
-```
-
-### 数据库连接失败
-
-```bash
-# 检查 PostgreSQL 状态
-docker compose -f docker-compose.prod.yml exec postgres pg_isready -U blog
-
-# 进入 PostgreSQL 命令行
-docker compose -f docker-compose.prod.yml exec postgres psql -U blog blog
-```
-
-### MinIO 连接失败
-
-```bash
-# 检查 MinIO 状态
-docker compose -f docker-compose.prod.yml exec minio \
-  curl --fail http://localhost:9000/minio/health/live
-```
-
-## 回滚流程
-
-如果新版本出现问题，可以快速回滚：
-
-```bash
-# 停止当前服务
-docker compose -f docker-compose.prod.yml down
-
-# 恢复数据库备份
-docker compose -f docker-compose.prod.yml up -d postgres
-docker compose -f docker-compose.prod.yml exec -T postgres psql -U blog blog < backup_YYYYMMDD.sql
-
-# 使用旧版本镜像启动
-docker compose -f docker-compose.prod.yml up -d
-```
-
-## 性能优化
-
-### PostgreSQL 优化
-
-在 `docker-compose.prod.yml` 中添加 PostgreSQL 配置：
-
-```yaml
-postgres:
-  command: >
-    postgres
-    -c shared_buffers=256MB
-    -c effective_cache_size=768MB
-    -c work_mem=4MB
-    -c maintenance_work_mem=128MB
-    -c max_connections=200
-```
-
-### Redis 优化
-
-```yaml
-redis:
-  command: >
-    redis-server
-    --appendonly yes
-    --requirepass ${REDIS_PASSWORD}
-    --maxmemory 256mb
-    --maxmemory-policy allkeys-lru
-```

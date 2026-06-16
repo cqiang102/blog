@@ -56,6 +56,24 @@ fvm flutter test
 fvm flutter build web --release
 ```
 
+## 生产部署
+
+本地构建并打包：
+
+```bash
+scripts/package-deploy.sh
+```
+
+上传 `blog-deploy.tar.gz` 到服务器后：
+
+```bash
+tar xzf blog-deploy.tar.gz && cd blog-deploy
+cp .env.example .env && vim .env   # 填写生产配置
+docker compose up -d
+```
+
+详细配置见 [部署说明](docs/deployment.md)。
+
 ## 当前状态
 
 核心业务闭环、管理后台、响应式前端、AI 工具调用与知识库已实现。后续工作以模块拆分、集成测试、可观测性和产品扩展为主，详见 [功能清单](docs/features.md)。
