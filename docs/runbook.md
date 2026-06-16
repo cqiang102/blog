@@ -86,9 +86,13 @@ scripts/dev-api.sh run local,nodb
 健康检查：
 
 ```bash
-curl http://localhost:8080/actuator/health
+curl http://localhost:8080/actuator/health/liveness
+curl http://localhost:8080/actuator/health/readiness
 curl http://localhost:8080/api/v1/meta
 ```
+
+本地 SMTP 未配置时，聚合端点 `/actuator/health` 可能因邮件连接检查返回
+`DOWN`；容器编排和可用性判断应使用上面的 liveness/readiness 端点。
 
 如果数据库迁移失败后需要清空本地开发数据，确认没有重要数据后执行：
 
