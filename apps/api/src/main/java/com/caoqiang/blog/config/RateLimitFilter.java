@@ -105,7 +105,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String matchedPattern = matchPath(method, path);
         RateLimitRule config = rules.getOrDefault(matchedPattern, rules.get("default"));
 
-        String key = "rate:" + matchedPattern.replace("*", "_") + ":" + clientIp;
+        String bucket = "default".equals(matchedPattern) ? method + ":" + path : matchedPattern;
+        String key = "rate:" + bucket.replace("*", "_") + ":" + clientIp;
 
         Long count;
         try {

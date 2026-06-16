@@ -4,6 +4,7 @@ import com.caoqiang.blog.shared.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -13,6 +14,8 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * 全局异常处理器。
@@ -66,11 +69,34 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 保留控制器主动声明的 HTTP 状态码和业务提示。
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiResponse<Void>> handleResponseStatusException(ResponseStatusException exception) {
+        String message = exception.getReason();
+        if (message == null || message.isBlank()) {
+            message = "请求处理失败";
+        }
+        return ResponseEntity.status(exception.getStatusCode()).body(ApiResponse.fail(message));
+    }
+
+    /**
      * 处理路径不存在。
      */
-    @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleNotFound(NoHandlerFoundException exception) {
+    @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
+    public ResponseEntity<ApiResponse<Void>> handleNotFound(Exception exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.fail("接口不存在"));
+    }
+
+    /**
+     * 处理数据库唯一约束等并发数据冲突。
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(
+            DataIntegrityViolationException exception
+    ) {
+        log.warn("Data integrity violation: {}", exception.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.fail("数据已存在或发生冲突"));
     }
 
     /**

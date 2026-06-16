@@ -20,6 +20,21 @@ import org.springframework.security.concurrent.DelegatingSecurityContextExecutor
 public class AsyncConfig {
 
     /**
+     * 未显式指定名称的异步任务使用该有界线程池。
+     */
+    @Bean("taskExecutor")
+    public Executor taskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(8);
+        executor.setQueueCapacity(200);
+        executor.setThreadNamePrefix("async-");
+        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        return executor;
+    }
+
+    /**
      * AI 流式对话专用线程池。
      * <p>
      * 用于 SSE 流式响应场景，控制并发数避免资源耗尽。
@@ -33,7 +48,7 @@ public class AsyncConfig {
         executor.setMaxPoolSize(20);
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("ai-stream-");
-        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
         executor.initialize();
         return new DelegatingSecurityContextExecutor(executor);
     }

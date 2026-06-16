@@ -1,4 +1,7 @@
 spring:
+  data:
+    redis:
+      password: ${REDIS_PASSWORD:blog_redis}
   jpa:
     show-sql: true
 

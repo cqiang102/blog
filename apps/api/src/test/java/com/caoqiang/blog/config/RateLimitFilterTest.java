@@ -18,7 +18,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.ArrayList;
 
 @ExtendWith(MockitoExtension.class)
 class RateLimitFilterTest {
@@ -161,5 +161,32 @@ class RateLimitFilterTest {
 
         verify(filterChain).doFilter(request, response);
         assertEquals("unavailable", response.getHeader("X-RateLimit-Policy"));
+    }
+
+    @Test
+    void keepsDefaultRateLimitsSeparatePerMethodAndPath() throws ServletException, IOException {
+        java.util.List<java.util.List<String>> keys = new ArrayList<>();
+        when(redisTemplate.execute(
+                org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                anyList(),
+                anyString()
+        )).thenAnswer(invocation -> {
+            keys.add(new ArrayList<>(invocation.getArgument(1)));
+            return 1L;
+        });
+
+        MockHttpServletRequest contents = new MockHttpServletRequest();
+        contents.setMethod("GET");
+        contents.setRequestURI("/api/v1/contents");
+        rateLimitFilter.doFilterInternal(contents, new MockHttpServletResponse(), filterChain);
+
+        MockHttpServletRequest profile = new MockHttpServletRequest();
+        profile.setMethod("GET");
+        profile.setRequestURI("/api/v1/me");
+        rateLimitFilter.doFilterInternal(profile, new MockHttpServletResponse(), filterChain);
+
+        assertNotEquals(keys.get(0), keys.get(1));
+        assertTrue(keys.get(0).getFirst().contains("GET:/api/v1/contents"));
+        assertTrue(keys.get(1).getFirst().contains("GET:/api/v1/me"));
     }
 }
