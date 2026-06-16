@@ -292,7 +292,7 @@ public class ContentAdminService {
             List<MediaAsset> mediaAssets = synchronizeMedia(
                     content,
                     request.mediaUrls(),
-                    request.type()
+                    content.getType()
             );
             MediaAsset firstMediaAsset = mediaAssets.isEmpty() ? null : mediaAssets.getFirst();
 
@@ -415,6 +415,7 @@ public class ContentAdminService {
         List<MediaAsset> existing = new ArrayList<>(content.getMediaAssets());
         List<MediaAsset> desired = new ArrayList<>();
         Set<UUID> desiredIds = new LinkedHashSet<>();
+        Set<String> desiredReferences = new LinkedHashSet<>();
         MediaAssetType fallbackType = contentType == ContentType.VIDEO
                 ? MediaAssetType.VIDEO
                 : MediaAssetType.IMAGE;
@@ -424,6 +425,9 @@ public class ContentAdminService {
                 continue;
             }
             String reference = value.trim();
+            if (!desiredReferences.add(reference)) {
+                continue;
+            }
             MediaAsset mediaAsset = MediaReference.mediaId(reference)
                     .map(id -> mediaAssetRepository.findById(id)
                             .orElseThrow(() -> new BusinessException(
