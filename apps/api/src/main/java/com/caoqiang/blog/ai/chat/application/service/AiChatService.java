@@ -10,10 +10,11 @@ import com.caoqiang.blog.ai.chat.domain.model.AiChatMessage;
 import com.caoqiang.blog.ai.chat.domain.model.AiChatSession;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatMessageRepository;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
-import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.shared.exception.BusinessException;
-import com.caoqiang.blog.shared.response.PageResponse;
+import com.caoqiang.blog.config.AiConfig;
 import com.caoqiang.blog.config.BlogProperties;
+import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
 import java.time.Clock;
@@ -38,9 +39,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import reactor.core.scheduler.Schedulers;
 import reactor.core.Disposable;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * AI 聊天核心服务。
@@ -264,6 +264,7 @@ public class AiChatService {
         try {
             String conversationId = session.getId().toString();
             Disposable subscription = chatClient.prompt()
+                    .system(AiConfig.systemPrompt(currentUser))
                     .user(userMessageText)
                     .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                     .tools(blogTools)
@@ -485,6 +486,7 @@ public class AiChatService {
     ) {
         try {
             return chatClient.prompt()
+                    .system(AiConfig.systemPrompt(currentUser))
                     .user(userMessage)
                     .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
                     .tools(blogTools)

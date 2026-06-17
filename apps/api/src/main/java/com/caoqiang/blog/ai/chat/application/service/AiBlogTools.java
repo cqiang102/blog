@@ -121,7 +121,7 @@ public class AiBlogTools {
      * @param query 搜索关键词
      * @return 搜索结果列表
      */
-    @Tool(description = "搜索或浏览个人知识库和已发布内容。用户询问知识库有什么、全部来源时，query 必须传空字符串；询问博主或具体主题时传简洁关键词。结果的 sourceType=CONTENT 时 sourceId 才能用于 getContentDetail。")
+    @Tool(description = "搜索或浏览个人知识库和已发布内容。用户询问知识库有什么、全部来源时，query 必须传空字符串；询问博主、站长、管理员、AI助手、你或具体主题时传简洁关键词。结果的 sourceType=CONTENT 时 sourceId 才能用于 getContentDetail。")
     public List<KnowledgeSearchResult> searchKnowledge(
             @ToolParam(description = "知识关键词；浏览知识库全部来源时传空字符串", required = false) String query
     ) {
@@ -134,7 +134,7 @@ public class AiBlogTools {
      * @param contentId 文章的 UUID
      * @return 操作结果
      */
-    @Tool(description = "对博客文章点赞。当用户表示喜欢某篇文章或想给文章点赞时调用。")
+    @Tool(description = "以当前登录用户身份对博客文章点赞。当用户表示喜欢某篇文章或想给文章点赞时调用。")
     public AiActionResult likeContent(
             @ToolParam(description = "文章的UUID") UUID contentId,
             ToolContext toolContext
@@ -157,7 +157,7 @@ public class AiBlogTools {
      * @param contentId 文章的 UUID
      * @return 操作结果
      */
-    @Tool(description = "取消对博客文章的点赞。当用户想取消之前的点赞时调用。")
+    @Tool(description = "以当前登录用户身份取消对博客文章的点赞。当用户想取消之前的点赞时调用。")
     public AiActionResult unlikeContent(
             @ToolParam(description = "文章的UUID") UUID contentId,
             ToolContext toolContext
@@ -181,7 +181,7 @@ public class AiBlogTools {
      * @param body      评论内容
      * @return 操作结果
      */
-    @Tool(description = "对博客文章发表评论。当用户想对某篇文章发表评论或留言时调用。")
+    @Tool(description = "以当前登录用户身份对博客文章发表评论。当用户想对某篇文章发表评论或留言时调用。")
     public AiActionResult commentContent(
             @ToolParam(description = "文章的UUID") UUID contentId,
             @ToolParam(description = "评论内容") String body,
@@ -238,7 +238,7 @@ public class AiBlogTools {
      * @param commentId 评论的 UUID
      * @return 操作结果
      */
-    @Tool(description = "删除自己的评论。当用户想删除之前发表的评论时调用。只能删除自己发布的评论。")
+    @Tool(description = "删除当前登录用户自己的评论。当用户想删除之前发表的评论时调用。只能删除当前登录用户发布的评论。")
     public AiActionResult deleteComment(
             @ToolParam(description = "评论的UUID") UUID commentId,
             ToolContext toolContext

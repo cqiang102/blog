@@ -1130,8 +1130,6 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
             .read(apiClientProvider)
             .likeContent(accessToken: token, contentId: widget.contentId);
       }
-      // 成功后刷新详情（后台更新，不阻塞 UI）
-      ref.invalidate(contentDetailProvider(widget.contentId));
     } on ApiException catch (error) {
       // 失败回滚
       if (!mounted) return;
