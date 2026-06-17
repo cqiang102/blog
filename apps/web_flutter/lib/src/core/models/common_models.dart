@@ -380,3 +380,56 @@ class AdminKnowledgeDocQuery {
   @override
   int get hashCode => Object.hash(query, enabled, page, size);
 }
+
+/// 重新索引结果
+class ReindexResult {
+  const ReindexResult({
+    required this.successCount,
+    required this.failCount,
+    required this.totalCount,
+  });
+
+  final int successCount;
+  final int failCount;
+  final int totalCount;
+
+  bool get isAllSuccess => failCount == 0;
+
+  factory ReindexResult.fromJson(Map<String, dynamic> json) {
+    return ReindexResult(
+      successCount: json['successCount'] as int? ?? 0,
+      failCount: json['failCount'] as int? ?? 0,
+      totalCount: json['totalCount'] as int? ?? 0,
+    );
+  }
+}
+
+/// 知识库索引状态
+class IndexStatus {
+  const IndexStatus({
+    required this.totalChunks,
+    required this.chunksWithEmbedding,
+    required this.failedChunks,
+  });
+
+  final int totalChunks;
+  final int chunksWithEmbedding;
+  final int failedChunks;
+
+  /// 是否需要重新索引
+  bool get needsReindex => failedChunks > 0;
+
+  /// 索引完成率（0-100）
+  double get indexRate {
+    if (totalChunks == 0) return 100.0;
+    return chunksWithEmbedding / totalChunks * 100;
+  }
+
+  factory IndexStatus.fromJson(Map<String, dynamic> json) {
+    return IndexStatus(
+      totalChunks: json['totalChunks'] as int? ?? 0,
+      chunksWithEmbedding: json['chunksWithEmbedding'] as int? ?? 0,
+      failedChunks: json['failedChunks'] as int? ?? 0,
+    );
+  }
+}

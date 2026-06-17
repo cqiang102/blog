@@ -195,3 +195,50 @@ final adminAuditLogsProvider =
           .watch(apiClientProvider)
           .fetchAdminAuditLogs(accessToken: token, query: query);
     });
+
+/// 知识库重新索引状态
+class KnowledgeReindexNotifier extends AsyncNotifier<ReindexResult?> {
+  @override
+  ReindexResult? build() => null;
+
+  /// 手动触发重新索引
+  Future<void> reindex() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final token = ref.read(authControllerProvider).accessToken;
+      if (token == null) {
+        throw const ApiException('请先登录');
+      }
+      final result = await ref
+          .read(apiClientProvider)
+          .reindexFailedKnowledgeChunks(accessToken: token);
+      // 刷新知识库文档列表和索引状态
+      ref.invalidate(adminKnowledgeDocsProvider);
+      ref.invalidate(adminDashboardProvider);
+      ref.invalidate(knowledgeIndexStatusProvider);
+      return result;
+    });
+  }
+
+  /// 重置状态
+  void reset() {
+    state = const AsyncData(null);
+  }
+}
+
+/// 知识库重新索引 Provider
+final knowledgeReindexProvider =
+    AsyncNotifierProvider<KnowledgeReindexNotifier, ReindexResult?>(
+      KnowledgeReindexNotifier.new,
+    );
+
+/// 知识库索引状态 Provider
+final knowledgeIndexStatusProvider = FutureProvider<IndexStatus>((ref) {
+  final token = ref.watch(authControllerProvider).accessToken;
+  if (token == null) {
+    throw const ApiException('请先登录');
+  }
+  return ref
+      .watch(apiClientProvider)
+      .fetchKnowledgeIndexStatus(accessToken: token);
+});

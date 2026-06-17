@@ -83,4 +83,54 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
     @Modifying(flushAutomatically = true)
     @Query("DELETE FROM KnowledgeChunk k WHERE k.contentId = :contentId")
     void deleteByContentId(@Param("contentId") UUID contentId);
+
+    /**
+     * 查询所有嵌入失败的分块（metadata 中包含 embedding_generation_failed 标记）。
+     *
+     * @return 嵌入失败的分块列表
+     */
+    @Query(value = "SELECT * FROM knowledge_chunks WHERE metadata::text LIKE '%embedding_generation_failed%'", nativeQuery = true)
+    List<KnowledgeChunk> findChunksWithFailedEmbedding();
+
+    /**
+     * 查询指定文档中嵌入失败的分块。
+     *
+     * @param docId 文档 ID
+     * @return 该文档中嵌入失败的分块列表
+     */
+    @Query(value = "SELECT * FROM knowledge_chunks WHERE doc_id = :docId AND metadata::text LIKE '%embedding_generation_failed%'", nativeQuery = true)
+    List<KnowledgeChunk> findChunksWithFailedEmbeddingByDocId(@Param("docId") UUID docId);
+
+    /**
+     * 查询指定内容中嵌入失败的分块。
+     *
+     * @param contentId 内容 ID
+     * @return 该内容中嵌入失败的分块列表
+     */
+    @Query(value = "SELECT * FROM knowledge_chunks WHERE content_id = :contentId AND metadata::text LIKE '%embedding_generation_failed%'", nativeQuery = true)
+    List<KnowledgeChunk> findChunksWithFailedEmbeddingByContentId(@Param("contentId") UUID contentId);
+
+    /**
+     * 统计总分块数。
+     *
+     * @return 总分块数
+     */
+    @Query(value = "SELECT COUNT(*) FROM knowledge_chunks", nativeQuery = true)
+    long countAll();
+
+    /**
+     * 统计有向量嵌入的分块数。
+     *
+     * @return 有向量的分块数
+     */
+    @Query(value = "SELECT COUNT(*) FROM knowledge_chunks WHERE embedding IS NOT NULL", nativeQuery = true)
+    long countWithEmbedding();
+
+    /**
+     * 统计嵌入失败的分块数。
+     *
+     * @return 嵌入失败的分块数
+     */
+    @Query(value = "SELECT COUNT(*) FROM knowledge_chunks WHERE metadata::text LIKE '%embedding_generation_failed%'", nativeQuery = true)
+    long countWithFailedEmbedding();
 }

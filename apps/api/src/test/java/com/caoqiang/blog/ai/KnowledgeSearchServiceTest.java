@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeSearchResult;
+import com.caoqiang.blog.ai.knowledge.application.service.EmbeddingService;
 import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeSearchService;
 import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
 import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeSourceType;
@@ -31,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.embedding.EmbeddingModel;
 
 @ExtendWith(MockitoExtension.class)
 class KnowledgeSearchServiceTest {
@@ -45,7 +45,7 @@ class KnowledgeSearchServiceTest {
     @Mock
     private KnowledgeDocRepository knowledgeDocRepository;
     @Mock
-    private EmbeddingModel embeddingModel;
+    private EmbeddingService embeddingService;
 
     private KnowledgeSearchService service;
 
@@ -59,7 +59,7 @@ class KnowledgeSearchServiceTest {
                 contentRepository,
                 knowledgeChunkRepository,
                 knowledgeDocRepository,
-                embeddingModel
+                embeddingService
         );
     }
 
@@ -94,7 +94,7 @@ class KnowledgeSearchServiceTest {
 
         assertThat(results).extracting(KnowledgeSearchResult::title)
                 .containsExactly("博主简介", "测试文章");
-        verify(embeddingModel, never()).embed(any(String.class));
+        verify(embeddingService, never()).embed(any(String.class));
     }
 
     @Test
@@ -118,7 +118,7 @@ class KnowledgeSearchServiceTest {
             assertThat(result.score()).isEqualTo(1.0);
             assertThat(result.content()).contains("Java");
         });
-        verify(embeddingModel, never()).embed(any(String.class));
+        verify(embeddingService, never()).embed(any(String.class));
     }
 
     @Test
@@ -149,7 +149,7 @@ class KnowledgeSearchServiceTest {
         when(knowledgeDocRepository.searchEnabled(eq("量子引力"), any())).thenReturn(List.of());
         when(contentQueryService.list(eq("量子引力"), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5)))
                 .thenReturn(emptyPage());
-        when(embeddingModel.embed("量子引力")).thenReturn(new float[768]);
+        when(embeddingService.embed("量子引力")).thenReturn(new float[768]);
         when(knowledgeChunkRepository.findSimilarChunks(any(String.class), anyInt()))
                 .thenReturn(List.<Object[]>of(new Object[]{
                         UUID.randomUUID(), docId, null, 0, "无关片段", null, 0.59
@@ -172,7 +172,7 @@ class KnowledgeSearchServiceTest {
         when(knowledgeDocRepository.searchEnabled(eq("博主是谁"), any())).thenReturn(List.of());
         when(contentQueryService.list(eq("博主是谁"), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5)))
                 .thenReturn(emptyPage());
-        when(embeddingModel.embed("博主是谁")).thenReturn(new float[768]);
+        when(embeddingService.embed("博主是谁")).thenReturn(new float[768]);
         when(knowledgeChunkRepository.findSimilarChunks(any(String.class), eq(25)))
                 .thenReturn(List.<Object[]>of(new Object[]{
                         UUID.randomUUID(), doc.getId(), null, 0, "我是 Java 后端开发者", null, 0.66
@@ -199,7 +199,7 @@ class KnowledgeSearchServiceTest {
         when(knowledgeDocRepository.searchEnabled(eq("服务端工程"), any())).thenReturn(List.of());
         when(contentQueryService.list(eq("服务端工程"), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5)))
                 .thenReturn(emptyPage());
-        when(embeddingModel.embed("服务端工程")).thenReturn(new float[768]);
+        when(embeddingService.embed("服务端工程")).thenReturn(new float[768]);
         when(knowledgeChunkRepository.findSimilarChunks(any(String.class), eq(25)))
                 .thenReturn(List.of(
                         new Object[]{

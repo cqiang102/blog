@@ -3,6 +3,7 @@ package com.caoqiang.blog.ai.knowledge.infrastructure.web;
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeDocRequest;
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeDocResponse;
 import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeAdminService;
+import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeReindexService;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;
 import com.caoqiang.blog.shared.response.PageResponse;
@@ -40,9 +41,15 @@ public class AdminKnowledgeController {
 
     /** 知识库管理服务 */
     private final KnowledgeAdminService knowledgeAdminService;
+    /** 知识库重新索引服务 */
+    private final KnowledgeReindexService knowledgeReindexService;
 
-    public AdminKnowledgeController(KnowledgeAdminService knowledgeAdminService) {
+    public AdminKnowledgeController(
+            KnowledgeAdminService knowledgeAdminService,
+            KnowledgeReindexService knowledgeReindexService
+    ) {
         this.knowledgeAdminService = knowledgeAdminService;
+        this.knowledgeReindexService = knowledgeReindexService;
     }
 
     /**
@@ -111,5 +118,31 @@ public class AdminKnowledgeController {
     public ApiResponse<OperationResult> delete(@PathVariable UUID id) {
         knowledgeAdminService.delete(id);
         return ApiResponse.ok(OperationResult.deleted(id));
+    }
+
+    /**
+     * 手动触发重新索引所有嵌入失败的知识分块。
+     * <p>
+     * 当嵌入模型服务恢复后，管理员可以手动触发此接口，
+     * 将之前因嵌入模型不可用而失败的分块重新生成向量嵌入。
+     *
+     * @return 重新索引结果统计
+     */
+    @PostMapping("/reindex-failed")
+    public ApiResponse<KnowledgeReindexService.ReindexResult> reindexFailedChunks() {
+        return ApiResponse.ok(knowledgeReindexService.manualReindex());
+    }
+
+    /**
+     * 获取知识库索引状态。
+     * <p>
+     * 返回索引统计信息，包括总分块数、已索引数、失败数，
+     * 以及是否需要重新索引。
+     *
+     * @return 索引状态统计
+     */
+    @GetMapping("/index-status")
+    public ApiResponse<KnowledgeReindexService.IndexStatus> getIndexStatus() {
+        return ApiResponse.ok(knowledgeReindexService.getIndexStatus());
     }
 }

@@ -4,6 +4,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.retry.annotation.EnableRetry;
 import org.dromara.x.file.storage.spring.EnableFileStorage;
 
 /**
@@ -21,6 +23,8 @@ import org.dromara.x.file.storage.spring.EnableFileStorage;
 @SpringBootApplication
 @ConfigurationPropertiesScan
 @EnableAsync
+@EnableScheduling
+@EnableRetry
 @EnableFileStorage
 public class BlogApiApplication {
 

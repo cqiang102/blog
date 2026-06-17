@@ -19,7 +19,6 @@ import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,7 +56,7 @@ public class KnowledgeSearchService {
     private final ContentRepository contentRepository;
     private final KnowledgeChunkRepository knowledgeChunkRepository;
     private final KnowledgeDocRepository knowledgeDocRepository;
-    private final EmbeddingModel embeddingModel;
+    private final EmbeddingService embeddingService;
 
     public KnowledgeSearchService(
             BlogProperties blogProperties,
@@ -65,14 +64,14 @@ public class KnowledgeSearchService {
             ContentRepository contentRepository,
             KnowledgeChunkRepository knowledgeChunkRepository,
             KnowledgeDocRepository knowledgeDocRepository,
-            EmbeddingModel embeddingModel
+            EmbeddingService embeddingService
     ) {
         this.blogProperties = blogProperties;
         this.contentQueryService = contentQueryService;
         this.contentRepository = contentRepository;
         this.knowledgeChunkRepository = knowledgeChunkRepository;
         this.knowledgeDocRepository = knowledgeDocRepository;
-        this.embeddingModel = embeddingModel;
+        this.embeddingService = embeddingService;
     }
 
     /**
@@ -94,13 +93,7 @@ public class KnowledgeSearchService {
         }
 
         try {
-            float[] queryEmbedding = embeddingModel.embed(normalizedQuery);
-            if (queryEmbedding == null || queryEmbedding.length != EMBEDDING_DIMENSIONS) {
-                throw new IllegalStateException(
-                        "Expected " + EMBEDDING_DIMENSIONS + " dimensions but got "
-                                + (queryEmbedding == null ? "null" : queryEmbedding.length)
-                );
-            }
+            float[] queryEmbedding = embeddingService.embed(normalizedQuery);
             String embeddingStr = VectorUtils.toPgVectorString(queryEmbedding);
             List<Object[]> similarChunks = knowledgeChunkRepository.findSimilarChunks(
                     embeddingStr,
@@ -108,7 +101,7 @@ public class KnowledgeSearchService {
             );
             return mapVectorResults(similarChunks);
         } catch (Exception e) {
-            log.warn("Knowledge vector search failed: queryLength={}, error={}",
+            log.warn("Knowledge vector search failed after retries: queryLength={}, error={}",
                     normalizedQuery.length(), e.getMessage());
             return List.of();
         }

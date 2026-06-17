@@ -10,6 +10,7 @@ import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
 import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeSourceType;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
+import com.caoqiang.blog.ai.knowledge.application.service.EmbeddingService;
 import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeIndexService;
 import java.util.List;
 import java.util.Optional;
@@ -20,7 +21,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.embedding.EmbeddingModel;
 
 @ExtendWith(MockitoExtension.class)
 class KnowledgeIndexServiceTest {
@@ -32,14 +32,14 @@ class KnowledgeIndexServiceTest {
     private KnowledgeChunkRepository knowledgeChunkRepository;
 
     @Mock
-    private EmbeddingModel embeddingModel;
+    private EmbeddingService embeddingService;
 
     private KnowledgeIndexService knowledgeIndexService;
 
     @BeforeEach
     void setUp() {
         knowledgeIndexService = new KnowledgeIndexService(
-                knowledgeDocRepository, knowledgeChunkRepository, embeddingModel
+                knowledgeDocRepository, knowledgeChunkRepository, embeddingService
         );
     }
 
@@ -97,7 +97,7 @@ class KnowledgeIndexServiceTest {
         KnowledgeDoc doc = new KnowledgeDoc("测试文档", KnowledgeSourceType.MANUAL, null, "测试内容", true);
 
         when(knowledgeDocRepository.findById(docId)).thenReturn(Optional.of(doc));
-        when(embeddingModel.embed(any(String.class))).thenReturn(new float[768]);
+        when(embeddingService.embed(any(String.class))).thenReturn(new float[768]);
 
         knowledgeIndexService.indexDocument(docId);
 
@@ -110,7 +110,7 @@ class KnowledgeIndexServiceTest {
         UUID docId = UUID.randomUUID();
         KnowledgeDoc doc = new KnowledgeDoc("测试文档", KnowledgeSourceType.MANUAL, null, "测试内容", true);
         when(knowledgeDocRepository.findById(docId)).thenReturn(Optional.of(doc));
-        when(embeddingModel.embed(any(String.class))).thenThrow(new IllegalStateException("offline"));
+        when(embeddingService.embed(any(String.class))).thenThrow(new IllegalStateException("offline"));
 
         knowledgeIndexService.indexDocument(docId);
 

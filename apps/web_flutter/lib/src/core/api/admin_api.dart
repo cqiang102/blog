@@ -333,6 +333,28 @@ mixin AdminApi on ApiClientBase {
     await delete('/admin/knowledge/docs/$id', accessToken: accessToken);
   }
 
+  /// 手动触发重新索引所有嵌入失败的知识分块
+  Future<ReindexResult> reindexFailedKnowledgeChunks({
+    required String accessToken,
+  }) async {
+    final data = await post(
+      '/admin/knowledge/docs/reindex-failed',
+      accessToken: accessToken,
+    );
+    return ReindexResult.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  /// 获取知识库索引状态
+  Future<IndexStatus> fetchKnowledgeIndexStatus({
+    required String accessToken,
+  }) async {
+    final data = await get(
+      '/admin/knowledge/docs/index-status',
+      accessToken: accessToken,
+    );
+    return IndexStatus.fromJson((data as Map).cast<String, dynamic>());
+  }
+
   /// 获取管理后台内容列表
   Future<PageResult<AdminContentItem>> fetchAdminContents({
     required String accessToken,

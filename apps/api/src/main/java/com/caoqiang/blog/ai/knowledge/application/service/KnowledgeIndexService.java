@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,16 +42,16 @@ public class KnowledgeIndexService {
 
     private final KnowledgeDocRepository knowledgeDocRepository;
     private final KnowledgeChunkRepository knowledgeChunkRepository;
-    private final EmbeddingModel embeddingModel;
+    private final EmbeddingService embeddingService;
 
     public KnowledgeIndexService(
             KnowledgeDocRepository knowledgeDocRepository,
             KnowledgeChunkRepository knowledgeChunkRepository,
-            EmbeddingModel embeddingModel
+            EmbeddingService embeddingService
     ) {
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.knowledgeChunkRepository = knowledgeChunkRepository;
-        this.embeddingModel = embeddingModel;
+        this.embeddingService = embeddingService;
     }
 
     /**
@@ -260,23 +259,21 @@ public class KnowledgeIndexService {
             UUID sourceId
     ) {
         try {
-            float[] embedding = embeddingModel.embed(chunkContent);
-            if (embedding == null || embedding.length != EMBEDDING_DIMENSIONS) {
-                throw new IllegalStateException(
-                        "Expected " + EMBEDDING_DIMENSIONS + " dimensions but got "
-                                + (embedding == null ? "null" : embedding.length)
-                );
-            }
+            float[] embedding = embeddingService.embed(chunkContent);
             chunk.setEmbedding(VectorUtils.toPgVectorString(embedding));
+            // 清除之前的错误标记
+            if (chunk.getMetadata() != null && chunk.getMetadata().contains("embedding_generation_failed")) {
+                chunk.setMetadata(null);
+            }
         } catch (Exception e) {
             log.warn(
-                    "Embedding generation failed: sourceType={}, sourceId={}, error={}",
+                    "Embedding generation failed after retries: sourceType={}, sourceId={}, error={}",
                     sourceType,
                     sourceId,
                     e.getMessage()
             );
             // 文本仍可通过关键词检索命中，后续重新保存即可补齐向量。
-            chunk.setMetadata("{\"error\":\"embedding_generation_failed\"}");
+            chunk.setMetadata("{\"error\":\"embedding_generation_failed\",\"timestamp\":\"" + java.time.Instant.now() + "\"}");
         }
     }
 
