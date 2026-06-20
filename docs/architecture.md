@@ -15,7 +15,8 @@ flowchart LR
 
 - `apps/api`：后端业务、认证、持久化、AI 和管理接口。
 - `apps/web_flutter`：公开页面、用户中心和管理中心。
-- `infra`：本地及生产 Docker Compose。
+- `infra`：本地开发基础设施（PostgreSQL、Redis、MinIO）。
+- `deploy`：生产部署包（Dockerfile、Nginx 配置、docker-compose）。
 - `scripts`：开发和诊断入口。
 - `docs`：当前说明与历史方案。
 

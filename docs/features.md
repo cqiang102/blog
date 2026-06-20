@@ -378,11 +378,11 @@
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| 本地开发 | ✅ | docker-compose.yml（PG18 + Redis + MinIO） |
-| 生产部署 | ✅ | docker-compose.prod.yml（+ API + Nginx） |
-| API Dockerfile | ✅ | 多阶段构建（Maven + JRE） |
-| Web Dockerfile | ✅ | 多阶段构建（Flutter + Nginx） |
-| Nginx 配置 | ✅ | 反向代理 + SPA 回退 + 静态资源缓存 |
+| 本地开发 | ✅ | infra/docker-compose.yml（PG18 + Redis + MinIO） |
+| 生产部署 | ✅ | deploy/docker-compose.yml（API + Web + Nginx） |
+| API Dockerfile | ✅ | deploy/Dockerfile.api（Alpine + native image） |
+| Web Dockerfile | ✅ | deploy/Dockerfile.web（Nginx + Flutter 产物） |
+| Nginx 配置 | ✅ | deploy/nginx.conf（反向代理 + SPA 回退 + 静态资源缓存） |
 
 ### 8.5 监控
 

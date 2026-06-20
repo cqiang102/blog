@@ -8,7 +8,8 @@
 apps/
   api/          Java 21 + Spring Boot 4 后端
   web_flutter/  Flutter Web 前端
-infra/          PostgreSQL/pgvector、Redis、MinIO 与 Docker Compose
+infra/          本地基础设施（PostgreSQL、Redis、MinIO）
+deploy/         生产部署包（Dockerfile、Nginx、docker-compose）
 scripts/        本地开发脚本
 docs/           架构、功能、接口、运行与部署文档
 ```
