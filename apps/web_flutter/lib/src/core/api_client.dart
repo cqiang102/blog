@@ -17,7 +17,20 @@ export 'api/api_exception.dart';
 /// 博客 API 客户端
 /// 组合所有 API 模块，提供统一的 API 调用接口
 class BlogApiClient = ApiClientBase
-    with AuthApi, ContentApi, UserApi, AiApi, AdminApi, FriendApi;
+    with
+        AuthApi,
+        ContentApi,
+        UserApi,
+        AiApi,
+        AdminOverviewApi,
+        AdminTaxonomyApi,
+        AdminInteractionApi,
+        AdminUserApi,
+        AdminAiApi,
+        AdminKnowledgeApi,
+        AdminContentApi,
+        AdminMediaApi,
+        FriendApi;
 
 /// 创建 BlogApiClient 实例
 BlogApiClient createBlogApiClient({String? baseUrl}) {
