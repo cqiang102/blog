@@ -30,7 +30,7 @@
 | Token 刷新 | ✅ | 使用 refreshToken 静默刷新 accessToken |
 | 退出登录 | ✅ | 前端清除本地 token + 后端删除 refreshToken |
 | 密码修改 | ✅ | 已登录用户修改密码（旧密码验证） |
-| 管理员初始化 | ✅ | 启动时自动创建管理员账户（admin@example.com / admin123456） |
+| 管理员初始化 | ✅ | 启动时按环境变量自动创建管理员账户 |
 
 ### 1.2 GitHub OAuth2 登录
 
@@ -417,8 +417,8 @@
 
 | 测试 | 数量 | 说明 |
 |------|------|------|
-| 后端测试 | 68 | 22 个测试类覆盖核心服务与基础设施 |
-| 前端测试 | 51 | 10 个测试文件，覆盖模型、状态与 Widget |
+| 后端测试 | 98 | 覆盖核心服务、契约、基础设施和 pgvector 集成 |
+| 前端测试 | 52 | 覆盖模型、状态、HTTP 客户端与 Widget |
 
 ---
 
@@ -478,18 +478,18 @@
 | MINIO_ACCESS_KEY | blog_minio | MinIO 访问密钥 |
 | MINIO_SECRET_KEY | blog_minio_password | MinIO 秘密密钥 |
 | MINIO_BUCKET | blog-media | MinIO 存储桶 |
-| OPENAI_API_KEY | sk-local-placeholder | OpenAI API 密钥 |
+| OPENAI_API_KEY | 开发占位值 | OpenAI API 密钥，生产必须配置 |
 | OPENAI_BASE_URL | https://api.openai.com | OpenAI API 地址 |
 | OPENAI_CHAT_MODEL | gpt-4.1-mini | 聊天模型 |
-| OPENAI_EMBEDDING_MODEL | text-embedding-3-small | 嵌入模型 |
+| OLLAMA_EMBEDDING_MODEL | nomic-embed-text | 嵌入模型 |
 | JWT_SECRET | change-me-to-a-long-random-secret | JWT 密钥 |
 | JWT_ACCESS_TOKEN_MINUTES | 30 | Access Token 有效期（分钟） |
 | JWT_REFRESH_TOKEN_DAYS | 30 | Refresh Token 有效期（天） |
 | AI_DAILY_QUESTION_LIMIT | 10 | 每日提问次数限制 |
 | MEDIA_MAX_UPLOAD_SIZE | 50MB | 最大上传文件大小 |
 | SERVER_PORT | 8080 | 服务端口 |
-| API_PUBLIC_BASE_URL | http://localhost:8080 | API 公开地址 |
-| CORS_ALLOWED_ORIGINS | * | 允许的前端域名 |
+| FRONTEND_BASE_URL | http://localhost:3000 | 前端公开地址 |
+| BLOG_CORS_ALLOWED_ORIGINS | * | 允许的前端域名 |
 
 ---
 

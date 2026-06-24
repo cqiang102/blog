@@ -65,15 +65,15 @@ fvm flutter build web --release
 scripts/package-deploy.sh
 ```
 
-上传 `blog-deploy.tar.gz` 到服务器后：
+上传 `blog-mimo-1.0.0.tar.gz` 到服务器后：
 
 ```bash
-tar xzf blog-deploy.tar.gz && cd blog-deploy
+tar xzf blog-mimo-1.0.0.tar.gz && cd blog-deploy
 cp .env.example .env && vim .env   # 填写生产配置
 docker compose up -d --build
 ```
 
-生产数据持久化在解压目录同级的 `blog-deploy/.data/`，迁移服务器时保留整个 `blog-deploy/` 目录即可带上 PostgreSQL、Redis 和 MinIO 数据；数据库重新部署时会通过 Flyway `V1/V2` 初始化当前最终结构和种子数据。
+生产数据持久化在解压目录同级的 `blog-deploy/.data/`，迁移服务器时保留整个 `blog-deploy/` 目录即可带上 PostgreSQL、Redis 和 MinIO 数据。`1.0.0` 面向新库部署，数据库重新部署时会通过 Flyway `V1/V2` 初始化当前最终结构和种子数据。
 
 详细配置见 [部署说明](docs/deployment.md)。
 

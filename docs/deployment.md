@@ -27,7 +27,7 @@ scripts/package-deploy.sh
 该脚本会自动完成：
 1. 构建 Flutter Web（`fvm flutter build web --release`）
 2. 构建 Spring Boot 可执行 JAR（`mvn clean package -DskipTests -DskipApiDocs=true`）
-3. 组装部署目录并打包成 `blog-deploy.tar.gz`
+3. 组装部署目录并打包成 `blog-mimo-1.0.0.tar.gz`
 
 > 部署 JAR 会跳过 `api-docs` Maven profile，不包含 SpringDoc/Swagger UI 依赖；`/v3/api-docs` 和 `/swagger-ui.html` 在生产部署中预期为不可用。开发环境默认启用 `local` profile，可继续使用 Swagger/OpenAPI 辅助调试。
 
@@ -66,15 +66,17 @@ scripts/package-deploy.sh --skip-build
 
 ## 服务器部署
 
+> `1.0.0` 是新库部署版本。Flyway 已合并为 `V1/V2` 初始化迁移，不支持将旧的 PostgreSQL 数据目录原地接到新包上继续迁移。上线前请备份旧数据；若重新部署数据库，请确保 `blog-deploy/.data/postgres` 为空目录。
+
 ### 1. 上传并解压
 
 ```bash
 # 本地执行
-scp blog-deploy.tar.gz user@your-server:/opt/blog/
+scp blog-mimo-1.0.0.tar.gz user@your-server:/opt/blog/
 
 # 服务器上执行
 cd /opt/blog
-tar xzf blog-deploy.tar.gz
+tar xzf blog-mimo-1.0.0.tar.gz
 ```
 
 部署目录中的 `.data/` 与 `docker-compose.yml` 同级，用于持久化 PostgreSQL、Redis 和 MinIO 数据。迁移或备份整套服务时，保留或打包整个 `blog-deploy/` 目录即可带上运行数据。系统上传的文章媒体会保存为 `/api/v1/media-assets/{id}/file` 稳定路径，头像等直接对象存储链接会保存为 `/minio/{bucket}/{objectKey}` 稳定路径，对外访问时再由当前部署动态生成可访问 URL。数据库重新部署时会通过 Flyway `V1/V2` 初始化当前最终结构和种子数据。
@@ -130,6 +132,22 @@ docker compose logs -f api
 - 对外访问：通过宿主机 Nginx 使用您的域名
 - API：通过前端同源地址的 `/api/` 访问
 - MinIO：通过 `/minio/` 提供媒体文件（Docker 内部网络代理）
+
+### 6. 上线冒烟检查
+
+```bash
+docker compose ps
+curl -fsS http://127.0.0.1:${WEB_PORT:-8080}/api/v1/meta
+curl -fsS http://127.0.0.1:${WEB_PORT:-8080}/api/v1/contents/recommendations
+docker compose exec -T postgres sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select version, description, success from flyway_schema_history order by installed_rank;"'
+```
+
+确认项：
+
+- Flyway 只包含 `1 init schema` 和 `2 seed initial data`。
+- 管理员账号可以登录，并能创建/编辑内容。
+- 上传图片后前台可通过当前域名访问，不出现 `http://minio:9000/...`。
+- GitHub OAuth、SMTP 验证码、AI 对话、Ollama embedding 按生产配置可用。
 
 ## SSL/HTTPS 配置
 

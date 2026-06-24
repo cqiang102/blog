@@ -32,6 +32,6 @@ public class MetaController {
      */
     @GetMapping
     public ApiResponse<AppMetadata> meta() {
-        return ApiResponse.ok(new AppMetadata("personal-blog-api", "0.1.0-SNAPSHOT", Instant.now()));
+        return ApiResponse.ok(new AppMetadata("personal-blog-api", "1.0.0", Instant.now()));
     }
 }

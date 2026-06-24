@@ -13,7 +13,7 @@
 
     <groupId>com.caoqiang</groupId>
     <artifactId>personal-blog-api</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>personal-blog-api</name>
     <description>Personal blog API powered by Spring Boot 4.1 and Spring AI 2.0.</description>
 

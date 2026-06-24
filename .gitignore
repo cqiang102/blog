@@ -28,3 +28,9 @@ coverage/
 # Generated runtime data
 infra/data/
 uploads/
+logs/
+
+# Generated release artifacts
+blog-deploy*.tar.gz
+blog-mimo-*.tar.gz
+blog-mimo-*.tar.gz.sha256

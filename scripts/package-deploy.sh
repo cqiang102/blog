@@ -5,7 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
 WEB_DIR="$ROOT_DIR/apps/web_flutter"
 DEPLOY_DIR="$ROOT_DIR/deploy"
-OUTPUT="${OUTPUT:-$ROOT_DIR/blog-deploy.tar.gz}"
+APP_VERSION="${APP_VERSION:-$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")}"
+OUTPUT="${OUTPUT:-$ROOT_DIR/blog-mimo-$APP_VERSION.tar.gz}"
 PACKAGE_NAME="${PACKAGE_NAME:-blog-deploy}"
 API_JAR="${API_JAR:-}"
 WEB_BUILD_OUTPUT="${WEB_BUILD_OUTPUT:-$WEB_DIR/build/web}"
@@ -23,7 +24,7 @@ Options:
 
 Environment overrides:
   FVM_BIN, DOCKER_BIN, MAVEN_BIN, JAVA_HOME, API_JAR, WEB_BUILD_OUTPUT,
-  OUTPUT, PACKAGE_NAME
+  APP_VERSION, OUTPUT, PACKAGE_NAME
 
 The Spring Boot JAR build passes -DskipApiDocs=true so Swagger/OpenAPI stays a local-only dependency.
 USAGE
@@ -281,6 +282,6 @@ tar czf "$OUTPUT" -C "$STAGING_ROOT" "$PACKAGE_NAME"
 echo ""
 echo "==> Done! Output: $OUTPUT"
 echo "    Upload to server and run:"
-echo "    tar xzf blog-deploy.tar.gz && cd blog-deploy"
+echo "    tar xzf $(basename "$OUTPUT") && cd $PACKAGE_NAME"
 echo "    cp .env.example .env && vim .env"
 echo "    docker compose up -d --build"
