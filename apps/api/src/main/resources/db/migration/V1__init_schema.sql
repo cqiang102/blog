@@ -25,6 +25,7 @@ CREATE TABLE oauth_accounts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (provider, provider_user_id)
 );
+CREATE UNIQUE INDEX ux_oauth_accounts_user_provider ON oauth_accounts(user_id, provider);
 
 CREATE TABLE refresh_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,11 +36,21 @@ CREATE TABLE refresh_tokens (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE verification_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) NOT NULL,
+    code VARCHAR(10) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_verification_codes_email ON verification_codes(email, created_at DESC);
+
 CREATE TABLE contents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(180) NOT NULL,
     slug VARCHAR(220) UNIQUE NOT NULL,
-    type VARCHAR(20) NOT NULL CHECK (type IN ('TEXT', 'ARTICLE', 'IMAGE', 'VIDEO')),
+    type VARCHAR(20) NOT NULL CHECK (type IN ('ARTICLE', 'IMAGE', 'VIDEO')),
     status VARCHAR(20) NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'PUBLISHED', 'ARCHIVED')),
     summary TEXT,
     body_markdown TEXT,
@@ -50,8 +61,13 @@ CREATE TABLE contents (
     comment_count BIGINT NOT NULL DEFAULT 0,
     published_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
 );
+CREATE INDEX idx_contents_status_published_at ON contents(status, published_at DESC);
+CREATE INDEX idx_contents_pinned ON contents(pinned) WHERE pinned = true;
+CREATE INDEX idx_contents_type ON contents(type);
+CREATE INDEX idx_contents_deleted_at ON contents(deleted_at) WHERE deleted_at IS NOT NULL;
 
 CREATE TABLE tags (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -93,10 +109,15 @@ CREATE TABLE comments (
     content_id UUID NOT NULL REFERENCES contents(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     body TEXT NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'VISIBLE' CHECK (status IN ('VISIBLE', 'DELETED')),
+    status VARCHAR(20) NOT NULL DEFAULT 'VISIBLE' CHECK (status IN ('VISIBLE', 'PENDING', 'BLOCKED', 'DELETED')),
+    audit_status VARCHAR(20),
+    audit_reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_comments_content_created ON comments(content_id, created_at DESC);
+CREATE INDEX idx_comments_status ON comments(status);
+CREATE INDEX idx_comments_user_id ON comments(user_id);
 
 CREATE TABLE likes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -105,6 +126,8 @@ CREATE TABLE likes (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (content_id, user_id)
 );
+CREATE INDEX idx_likes_content_id ON likes(content_id);
+CREATE INDEX idx_likes_user_created ON likes(user_id, created_at DESC);
 
 CREATE TABLE view_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -115,6 +138,14 @@ CREATE TABLE view_records (
     user_agent TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_views_content_id ON view_records(content_id);
+CREATE INDEX idx_views_user_created ON view_records(user_id, created_at DESC);
+CREATE UNIQUE INDEX ux_view_records_content_user
+    ON view_records(content_id, user_id)
+    WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX ux_view_records_content_anonymous
+    ON view_records(content_id, anonymous_id)
+    WHERE user_id IS NULL AND anonymous_id IS NOT NULL;
 
 CREATE TABLE friends (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -132,9 +163,12 @@ CREATE TABLE ai_chat_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(160),
+    deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_ai_sessions_user_id ON ai_chat_sessions(user_id);
+CREATE INDEX idx_ai_sessions_user_deleted ON ai_chat_sessions(user_id, deleted) WHERE deleted = false;
 
 CREATE TABLE ai_chat_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -145,8 +179,13 @@ CREATE TABLE ai_chat_messages (
     tool_payload JSONB,
     prompt_tokens INT,
     completion_tokens INT,
+    deleted BOOLEAN NOT NULL DEFAULT false,
+    audit_status VARCHAR(20),
+    audit_reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_ai_messages_session_created ON ai_chat_messages(session_id, created_at);
+CREATE INDEX idx_ai_messages_session_deleted ON ai_chat_messages(session_id, deleted) WHERE deleted = false;
 
 CREATE TABLE ai_daily_quotas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -171,14 +210,30 @@ CREATE TABLE knowledge_docs (
 
 CREATE TABLE knowledge_chunks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    doc_id UUID NOT NULL REFERENCES knowledge_docs(id) ON DELETE CASCADE,
+    doc_id UUID REFERENCES knowledge_docs(id) ON DELETE CASCADE,
+    content_id UUID REFERENCES contents(id) ON DELETE CASCADE,
     chunk_index INT NOT NULL,
     content TEXT NOT NULL,
-    embedding VECTOR(1536),
+    embedding VECTOR(768),
     metadata JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (doc_id, chunk_index)
+    UNIQUE (doc_id, chunk_index),
+    CONSTRAINT knowledge_chunks_exactly_one_source CHECK ((doc_id IS NOT NULL) <> (content_id IS NOT NULL))
 );
+CREATE INDEX idx_knowledge_chunks_content_id ON knowledge_chunks(content_id);
+CREATE INDEX idx_knowledge_chunks_embedding ON knowledge_chunks USING hnsw (embedding vector_cosine_ops);
+
+CREATE TABLE spring_ai_chat_memory (
+    conversation_id VARCHAR(256) NOT NULL,
+    content TEXT NOT NULL,
+    type VARCHAR(64) NOT NULL,
+    "timestamp" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    sequence_id BIGSERIAL NOT NULL,
+    PRIMARY KEY (conversation_id, sequence_id)
+);
+CREATE INDEX idx_chat_memory_conversation_id ON spring_ai_chat_memory(conversation_id);
+CREATE INDEX spring_ai_chat_memory_conversation_id_timestamp_idx
+    ON spring_ai_chat_memory(conversation_id, "timestamp");
 
 CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -189,13 +244,4 @@ CREATE TABLE audit_logs (
     detail JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-CREATE INDEX idx_contents_status_published_at ON contents(status, published_at DESC);
-CREATE INDEX idx_contents_pinned ON contents(pinned) WHERE pinned = true;
-CREATE INDEX idx_contents_type ON contents(type);
-CREATE INDEX idx_comments_content_created ON comments(content_id, created_at DESC);
-CREATE INDEX idx_likes_user_created ON likes(user_id, created_at DESC);
-CREATE INDEX idx_views_user_created ON view_records(user_id, created_at DESC);
-CREATE INDEX idx_ai_messages_session_created ON ai_chat_messages(session_id, created_at);
-CREATE INDEX idx_knowledge_chunks_embedding ON knowledge_chunks USING ivfflat (embedding vector_cosine_ops);
 CREATE INDEX idx_audit_logs_created ON audit_logs(created_at DESC);

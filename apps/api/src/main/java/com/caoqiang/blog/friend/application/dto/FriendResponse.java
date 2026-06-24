@@ -4,6 +4,7 @@ import com.caoqiang.blog.friend.domain.model.Friend;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * 友链响应 DTO
@@ -42,11 +43,15 @@ public record FriendResponse(
      * @return 友链响应 DTO
      */
     public static FriendResponse from(Friend friend) {
+        return from(friend, Function.identity());
+    }
+
+    public static FriendResponse from(Friend friend, Function<String, String> avatarUrlResolver) {
         return new FriendResponse(
                 friend.getId(),
                 friend.getName(),
                 friend.getIntro(),
-                friend.getAvatarUrl(),
+                avatarUrlResolver.apply(friend.getAvatarUrl()),
                 friend.getSiteUrl(),
                 friend.isVisible(),
                 friend.getSortOrder(),

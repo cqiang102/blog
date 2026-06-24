@@ -5,6 +5,7 @@ import com.caoqiang.blog.friend.domain.repository.FriendRepository;
 import com.caoqiang.blog.friend.application.dto.FriendRequest;
 import com.caoqiang.blog.friend.application.dto.FriendResponse;
 
+import com.caoqiang.blog.content.application.service.MediaAdminService;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.util.List;
 import java.util.UUID;
@@ -31,9 +32,11 @@ public class FriendAdminService {
 
     /** 友链数据访问层 */
     private final FriendRepository friendRepository;
+    private final MediaAdminService mediaAdminService;
 
-    public FriendAdminService(FriendRepository friendRepository) {
+    public FriendAdminService(FriendRepository friendRepository, MediaAdminService mediaAdminService) {
         this.friendRepository = friendRepository;
+        this.mediaAdminService = mediaAdminService;
     }
 
     /**
@@ -47,7 +50,7 @@ public class FriendAdminService {
     public List<FriendResponse> list() {
         return friendRepository.findAllByOrderBySortOrderAscCreatedAtDesc()
                 .stream()
-                .map(FriendResponse::from)
+                .map(friend -> FriendResponse.from(friend, mediaAdminService::resolveUrl))
                 .toList();
     }
 
@@ -61,13 +64,13 @@ public class FriendAdminService {
     public FriendResponse create(FriendRequest request) {
         Friend friend = new Friend(
                 request.name().trim(),
-                clean(request.avatarUrl()),
+                mediaAdminService.normalizeStorageUrlForPersistence(request.avatarUrl()),
                 clean(request.intro()),
                 request.siteUrl().trim(),
                 request.visible(),
                 request.sortOrder()
         );
-        return FriendResponse.from(friendRepository.save(friend));
+        return FriendResponse.from(friendRepository.save(friend), mediaAdminService::resolveUrl);
     }
 
     /**
@@ -84,13 +87,13 @@ public class FriendAdminService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "朋友不存在"));
         friend.update(
                 request.name().trim(),
-                clean(request.avatarUrl()),
+                mediaAdminService.normalizeStorageUrlForPersistence(request.avatarUrl()),
                 clean(request.intro()),
                 request.siteUrl().trim(),
                 request.visible(),
                 request.sortOrder()
         );
-        return FriendResponse.from(friend);
+        return FriendResponse.from(friend, mediaAdminService::resolveUrl);
     }
 
     /**

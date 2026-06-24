@@ -121,7 +121,7 @@ public class ProfileService {
         user.updateProfile(
                 user.getEmail(),
                 StringUtils.hasText(request.nickname()) ? request.nickname().trim() : user.getNickname(),
-                request.avatarUrl(),
+                mediaAdminService.normalizeStorageUrlForPersistence(request.avatarUrl()),
                 request.bio(),
                 request.blogUrl()
         );
@@ -209,7 +209,7 @@ public class ProfileService {
                 .setContentType(format.contentType())
                 .upload();
 
-        return fileInfo.getUrl();
+        return mediaAdminService.portableStoragePath(fileInfo.getPath() + fileInfo.getFilename());
     }
 
     /**
@@ -315,6 +315,10 @@ public class ProfileService {
      */
     public String generatePresignedAvatarUrl(String avatarUrl) {
         return mediaAdminService.resolveUrl(avatarUrl);
+    }
+
+    public String normalizeAvatarUrlForPersistence(String avatarUrl) {
+        return mediaAdminService.normalizeStorageUrlForPersistence(avatarUrl);
     }
 
     /**

@@ -70,8 +70,10 @@ scripts/package-deploy.sh
 ```bash
 tar xzf blog-deploy.tar.gz && cd blog-deploy
 cp .env.example .env && vim .env   # 填写生产配置
-docker compose up -d
+docker compose up -d --build
 ```
+
+生产数据持久化在解压目录同级的 `blog-deploy/.data/`，迁移服务器时保留整个 `blog-deploy/` 目录即可带上 PostgreSQL、Redis 和 MinIO 数据；数据库重新部署时会通过 Flyway `V1/V2` 初始化当前最终结构和种子数据。
 
 详细配置见 [部署说明](docs/deployment.md)。
 

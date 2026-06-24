@@ -127,7 +127,7 @@ public class UserAdminService {
         user.applyAdminUpdate(
                 email,
                 request.nickname().trim(),
-                clean(request.avatarUrl()),
+                profileService.normalizeAvatarUrlForPersistence(request.avatarUrl()),
                 clean(request.bio()),
                 clean(request.blogUrl()),
                 role,

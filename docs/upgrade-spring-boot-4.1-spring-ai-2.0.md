@@ -63,8 +63,7 @@ Spring AI 2.0 GA 的 PostgreSQL Schema 要求：
 - `sequence_id BIGINT`
 - `(conversation_id, timestamp)` 索引
 
-数据库迁移 `V21__align_chat_memory_with_spring_ai_2.sql` 原地修改列类型，不清空已有对话记忆。
-`timestamp` 已经是带时区类型时不会重复转换；只有旧列为无时区时间时，才按迁移连接时区解释原值。
+当前重新部署版本已将该结构合并进 `V1__init_schema.sql`，新库直接创建最终列类型。
 
 ### Tool Calling 与流式响应
 
@@ -84,7 +83,7 @@ Spring AI 2.0 的 Tool Calling Advisor 会管理多轮工具调用。项目不�
 项目未使用 Boot 4.1 已删除的弃用 API，也未命中配置属性移除清单。需要关注的依赖升级已通过编译和测试验证：
 
 - Hibernate 7.4：自定义 `UserType` 和实体映射正常编译。
-- Flyway 12.4：现有 PostgreSQL 迁移可继续执行。
+- Flyway 12.4：合并后的 `V1/V2` 初始化迁移可正常执行。
 - Spring Data 4.1：Repository、Specification、分页和锁查询保持兼容。
 - Spring Security：JWT、OAuth2 Client 和过滤器链保持兼容。
 - Testcontainers 2.0：测试依赖改用 `testcontainers-junit-jupiter` 和 `testcontainers-postgresql` 模块坐标。
@@ -103,7 +102,7 @@ curl http://localhost:8080/actuator/health
 
 启动后还应确认：
 
-1. Flyway 已执行 V21。
+1. Flyway 已执行 `V1` 和 `V2`。
 2. `spring_ai_chat_memory.sequence_id` 为 `bigint`。
 3. `spring_ai_chat_memory.timestamp` 为 `timestamp with time zone`。
 4. Ollama `nomic-embed-text` 能生成 768 维向量。

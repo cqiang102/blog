@@ -4,8 +4,9 @@
 
 ### 本地构建环境（macOS）
 
-- GraalVM 21（`sdk install java 21.0.6-graal`）
 - Flutter 3.35.4（`fvm use 3.35.4`）
+- JDK 21+（脚本会在 macOS 上优先使用 `/usr/libexec/java_home -v 21`）
+- Maven 3.8+
 - Docker Desktop 或 OrbStack
 
 ### 服务器环境
@@ -25,22 +26,42 @@ scripts/package-deploy.sh
 
 该脚本会自动完成：
 1. 构建 Flutter Web（`fvm flutter build web --release`）
-2. 在 Docker Linux 容器内构建 Spring Boot Native Image（`mvn native:compile`）
+2. 构建 Spring Boot 可执行 JAR（`mvn clean package -DskipTests -DskipApiDocs=true`）
 3. 组装部署目录并打包成 `blog-deploy.tar.gz`
+
+> 部署 JAR 会跳过 `api-docs` Maven profile，不包含 SpringDoc/Swagger UI 依赖；`/v3/api-docs` 和 `/swagger-ui.html` 在生产部署中预期为不可用。开发环境默认启用 `local` profile，可继续使用 Swagger/OpenAPI 辅助调试。
 
 产出结构：
 
 ```text
 blog-deploy/
-├── Dockerfile.api          # Alpine + native image 二进制
+├── Dockerfile.api          # Java 21 JRE + Spring Boot JAR
 ├── Dockerfile.web          # Nginx + Flutter 产物
 ├── docker-compose.yml      # 生产编排
 ├── nginx.conf              # 容器内 Nginx 配置
-├── blog-api                # Linux native 二进制
+├── blog-api.jar            # Spring Boot 可执行 JAR
 ├── web/                    # Flutter build 产物
+├── .data/                  # PostgreSQL、Redis、MinIO 持久化数据
+│   ├── postgres/
+│   ├── redis/
+│   └── minio/
 ├── postgres/init/
 │   └── 01-extensions.sql
 └── .env.example
+```
+
+### 2. 本地脚本测试
+
+快速检查本地工具、部署文件和 Docker Compose 配置，不执行构建：
+
+```bash
+scripts/package-deploy.sh --check
+```
+
+只测试部署目录组装和压缩包结构，可复用已有构建产物：
+
+```bash
+scripts/package-deploy.sh --skip-build
 ```
 
 ## 服务器部署
@@ -55,6 +76,8 @@ scp blog-deploy.tar.gz user@your-server:/opt/blog/
 cd /opt/blog
 tar xzf blog-deploy.tar.gz
 ```
+
+部署目录中的 `.data/` 与 `docker-compose.yml` 同级，用于持久化 PostgreSQL、Redis 和 MinIO 数据。迁移或备份整套服务时，保留或打包整个 `blog-deploy/` 目录即可带上运行数据。系统上传的文章媒体会保存为 `/api/v1/media-assets/{id}/file` 稳定路径，头像等直接对象存储链接会保存为 `/minio/{bucket}/{objectKey}` 稳定路径，对外访问时再由当前部署动态生成可访问 URL。数据库重新部署时会通过 Flyway `V1/V2` 初始化当前最终结构和种子数据。
 
 ### 2. 配置环境变量
 
@@ -91,7 +114,7 @@ vim .env
 ### 3. 启动服务
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 ### 4. 检查服务状态

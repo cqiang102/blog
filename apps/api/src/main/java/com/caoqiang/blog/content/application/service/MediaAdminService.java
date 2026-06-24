@@ -15,6 +15,7 @@ import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.content.domain.model.MediaAsset;
 import com.caoqiang.blog.content.domain.model.MediaAssetType;
+import com.caoqiang.blog.content.domain.model.MediaReference;
 import com.caoqiang.blog.content.domain.model.Tag;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
@@ -22,6 +23,7 @@ import com.caoqiang.blog.content.domain.repository.TagRepository;
 
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
+import java.net.URI;
 import java.time.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +34,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import org.dromara.x.file.storage.core.FileInfo;
 import org.dromara.x.file.storage.core.FileStorageService;
@@ -169,7 +172,7 @@ public class MediaAdminService {
                 mediaType,
                 fileInfo.getPlatform(),
                 fileInfo.getPath() + fileInfo.getFilename(),
-                fileInfo.getUrl(),
+                null,
                 filename,
                 contentType,
                 file.getSize(),
@@ -177,6 +180,7 @@ public class MediaAdminService {
                 null,
                 null
         );
+        mediaAsset.setPublicUrl(MediaReference.filePath(mediaAsset.getId()));
         return AdminMediaResponse.from(mediaAssetRepository.save(mediaAsset));
     }
 
@@ -241,7 +245,7 @@ public class MediaAdminService {
             }
         }
 
-        // 本机 MinIO 直连 URL
+        // 当前部署的 MinIO 代理路径或内部 URL
         String presigned = tryPresignExternalUrl(trimmed);
         if (presigned != null) {
             return presigned;
@@ -252,50 +256,51 @@ public class MediaAdminService {
     }
 
     /**
+     * 将指向当前 MinIO bucket 的 URL 规范化为稳定代理路径，便于跨服务器迁移。
+     */
+    public String normalizeStorageUrlForPersistence(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        String trimmed = url.trim();
+        return objectKeyFromStorageUrl(trimmed)
+                .map(this::portableStoragePath)
+                .orElse(trimmed);
+    }
+
+    /**
+     * 使用同源 MinIO 代理路径构造稳定地址，不绑定域名、端口或 Docker 内部服务名。
+     */
+    public String portableStoragePath(String objectKey) {
+        return publicStorageBasePath() + "/" + bucketName + "/" + objectKey.replaceAll("^/+", "");
+    }
+
+    /**
      * 为外链 URL 生成预签名。
      * 如果 URL 指向本机 MinIO，提取路径后用默认平台生成预签名。
      */
     private String tryPresignExternalUrl(String url) {
         try {
-            java.net.URI uri = java.net.URI.create(url);
-            String host = uri.getHost();
-            int port = uri.getPort() > 0 ? uri.getPort() : ("https".equals(uri.getScheme()) ? 443 : 80);
-            // 比较 endpoint 的 host:port
-            java.net.URI endpointUri = java.net.URI.create(minioEndpoint);
-            String endpointHost = endpointUri.getHost();
-            int endpointPort = endpointUri.getPort() > 0 ? endpointUri.getPort()
-                    : ("https".equals(endpointUri.getScheme()) ? 443 : 80);
-
-            if (!equalsIgnoreCase(host, endpointHost) || port != endpointPort) {
-                return null; // 非本机 MinIO，无法生成预签名
+            Optional<String> objectKey = objectKeyFromStorageUrl(url);
+            if (objectKey.isEmpty()) {
+                return null;
             }
 
-            String path = uri.getPath(); // e.g. /blog-media/uploads/2026/06/10/file.jpeg
-            if (path == null || path.isEmpty()) return null;
-            // 去掉开头的 /
-            if (path.startsWith("/")) path = path.substring(1);
-            // 如果路径包含 bucket 前缀则去掉（path-style URL 格式：/bucket/objectKey）
-            String bucketPrefix = bucketName + "/";
-            if (path.startsWith(bucketPrefix)) {
-                path = path.substring(bucketPrefix.length());
-            }
-            // 去掉 basePath 前缀，避免 SDK 重复拼接（basePath + path）
-            if (path.startsWith(basePath)) {
-                path = path.substring(basePath.length());
-            }
-            int lastSlash = path.lastIndexOf('/');
+            String path = objectKey.get();
+            String fileInfoPath = path.startsWith(basePath) ? path.substring(basePath.length()) : path;
+            int lastSlash = fileInfoPath.lastIndexOf('/');
             if (lastSlash < 0) return null;
 
-            String dir = path.substring(0, lastSlash + 1);
-            String filename = path.substring(lastSlash + 1);
+            String dir = fileInfoPath.substring(0, lastSlash + 1);
+            String filename = fileInfoPath.substring(lastSlash + 1);
 
             FileInfo fileInfo = new FileInfo();
             fileInfo.setPlatform("minio-1");
             fileInfo.setPath(dir);
             fileInfo.setFilename(filename);
-            fileInfo.setUrl(url);
+            fileInfo.setUrl(buildCorrectUrl(objectKey.get()));
 
-            String presigned = generatePresignedUrl(fileInfo, null);
+            String presigned = generatePresignedUrl(fileInfo, portableStoragePath(objectKey.get()));
             log.debug("Presigned external URL: {} -> {}", url, presigned);
             return presigned;
         } catch (Exception e) {
@@ -320,8 +325,8 @@ public class MediaAdminService {
             return signedUrl;
         }
         try {
-            java.net.URI signedUri = java.net.URI.create(signedUrl);
-            java.net.URI endpointUri = java.net.URI.create(minioEndpoint);
+            URI signedUri = URI.create(signedUrl);
+            URI endpointUri = URI.create(minioEndpoint);
             if (!equalsIgnoreCase(signedUri.getHost(), endpointUri.getHost())
                     || effectivePort(signedUri) != effectivePort(endpointUri)) {
                 return signedUrl;
@@ -345,11 +350,89 @@ public class MediaAdminService {
         return minioEndpoint.replaceAll("/$", "") + "/" + bucketName + "/" + objectKey;
     }
 
+    private String publicStorageBasePath() {
+        if (!StringUtils.hasText(minioPublicEndpoint)) {
+            return "/minio";
+        }
+        try {
+            String path = URI.create(minioPublicEndpoint).getPath();
+            if (!StringUtils.hasText(path) || "/".equals(path)) {
+                return "";
+            }
+            return "/" + path.replaceAll("^/+", "").replaceAll("/+$", "");
+        } catch (IllegalArgumentException ignored) {
+            return "/minio";
+        }
+    }
+
+    private Optional<String> objectKeyFromStorageUrl(String url) {
+        try {
+            URI uri = URI.create(url);
+            String path = uri.getPath();
+            if (!StringUtils.hasText(path)) {
+                return Optional.empty();
+            }
+            if (path.startsWith("/")) {
+                path = path.substring(1);
+            }
+            if (!isConfiguredStorageUrl(uri, path)) {
+                return Optional.empty();
+            }
+            String bucketPrefix = bucketName + "/";
+            int bucketIndex = path.indexOf(bucketPrefix);
+            if (bucketIndex < 0) {
+                return Optional.empty();
+            }
+            String objectKey = path.substring(bucketIndex + bucketPrefix.length());
+            return StringUtils.hasText(objectKey) ? Optional.of(objectKey) : Optional.empty();
+        } catch (IllegalArgumentException ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private boolean isConfiguredStorageUrl(URI uri, String normalizedPath) {
+        try {
+            URI endpointUri = URI.create(minioEndpoint);
+            if (equalsIgnoreCase(uri.getHost(), endpointUri.getHost())
+                    && effectivePort(uri) == effectivePort(endpointUri)) {
+                return true;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Continue with public endpoint checks.
+        }
+
+        if (!StringUtils.hasText(minioPublicEndpoint)) {
+            return false;
+        }
+
+        try {
+            URI publicUri = URI.create(minioPublicEndpoint);
+            String publicPath = publicUri.getPath();
+            if (publicPath.startsWith("/")) {
+                publicPath = publicPath.substring(1);
+            }
+            publicPath = publicPath.replaceAll("/+$", "");
+            boolean pathMatches = publicPath.isEmpty()
+                    || normalizedPath.equals(publicPath)
+                    || normalizedPath.startsWith(publicPath + "/");
+            if (!pathMatches) {
+                return false;
+            }
+            if (uri.getHost() == null) {
+                return true;
+            }
+            return equalsIgnoreCase(uri.getHost(), publicUri.getHost())
+                    && effectivePort(uri) == effectivePort(publicUri);
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
     private static boolean equalsIgnoreCase(String a, String b) {
         return a != null && b != null && a.equalsIgnoreCase(b);
     }
 
-    private static int effectivePort(java.net.URI uri) {
+    private static int effectivePort(URI uri) {
         if (uri.getPort() > 0) {
             return uri.getPort();
         }

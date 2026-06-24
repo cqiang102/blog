@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -136,6 +137,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         if (count > config.maxRequests()) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setHeader("Retry-After", String.valueOf(config.windowSeconds()));
 

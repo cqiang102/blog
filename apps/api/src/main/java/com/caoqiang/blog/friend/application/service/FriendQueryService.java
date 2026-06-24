@@ -3,6 +3,7 @@ package com.caoqiang.blog.friend.application.service;
 import com.caoqiang.blog.friend.domain.model.Friend;
 import com.caoqiang.blog.friend.domain.repository.FriendRepository;
 import com.caoqiang.blog.friend.application.dto.FriendResponse;
+import com.caoqiang.blog.content.application.service.MediaAdminService;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,9 +28,11 @@ public class FriendQueryService {
 
     /** 友链数据访问层 */
     private final FriendRepository friendRepository;
+    private final MediaAdminService mediaAdminService;
 
-    public FriendQueryService(FriendRepository friendRepository) {
+    public FriendQueryService(FriendRepository friendRepository, MediaAdminService mediaAdminService) {
         this.friendRepository = friendRepository;
+        this.mediaAdminService = mediaAdminService;
     }
 
     /**
@@ -46,6 +49,8 @@ public class FriendQueryService {
         List<Friend> friends = new ArrayList<>(friendRepository.findByVisibleTrueOrderBySortOrderAscCreatedAtDesc());
         // 随机打乱顺序
         Collections.shuffle(friends);
-        return friends.stream().map(FriendResponse::from).toList();
+        return friends.stream()
+                .map(friend -> FriendResponse.from(friend, mediaAdminService::resolveUrl))
+                .toList();
     }
 }

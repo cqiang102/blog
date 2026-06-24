@@ -7,6 +7,7 @@ import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.Map;
 import org.springframework.beans.factory.ObjectProvider;
@@ -144,6 +145,7 @@ public class SecurityConfig {
             AuthenticationException authException
     ) throws IOException {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.getWriter().write(
                 new ObjectMapper().writeValueAsString(

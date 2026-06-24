@@ -1,18 +1,23 @@
-FROM alpine:3.20
+FROM eclipse-temurin:21-jre-jammy
 
-RUN apk add --no-cache curl tzdata \
-    && addgroup -S blog && adduser -S -G blog blog
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl tzdata \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/logs \
+    && chown -R 10001:0 /app
 
 WORKDIR /app
 
-COPY blog-api blog-api
-RUN chmod +x blog-api && chown blog:blog /app /app/blog-api
+COPY blog-api.jar blog-api.jar
+RUN chown 10001:0 /app/blog-api.jar
 
-USER blog
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0"
+
+USER 10001:0
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD curl --fail --silent http://localhost:8080/actuator/health/readiness || exit 1
 
-ENTRYPOINT ["./blog-api"]
+ENTRYPOINT ["java", "-jar", "/app/blog-api.jar"]

@@ -119,12 +119,6 @@
             <version>2.3.0</version>
         </dependency>
         <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>${springdoc.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
@@ -169,27 +163,25 @@
                     <argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>org.graalvm.buildtools</groupId>
-                <artifactId>native-maven-plugin</artifactId>
-                <version>0.10.4</version>
-                <configuration>
-                    <mainClass>com.caoqiang.blog.BlogApiApplication</mainClass>
-                    <imageName>blog-api</imageName>
-                    <buildArgs>
-                        <buildArg>-H:+ReportExceptionStackTraces</buildArg>
-                        <buildArg>-H:+AddAllCharsets</buildArg>
-                        <buildArg>--enable-url-protocols=http,https</buildArg>
-                        <buildArg>--install-exit-handlers</buildArg>
-                        <buildArg>--no-fallback</buildArg>
-                        <buildArg>--static</buildArg>
-                    </buildArgs>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 
     <profiles>
+        <profile>
+            <id>api-docs</id>
+            <activation>
+                <property>
+                    <name>!skipApiDocs</name>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.springdoc</groupId>
+                    <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                    <version>${springdoc.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
         <profile>
             <id>macos-aarch64-netty-dns</id>
             <activation>

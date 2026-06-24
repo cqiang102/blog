@@ -356,7 +356,7 @@
 |------|------|------|
 | PostgreSQL 18 | ✅ | 主数据库 |
 | pgvector | ✅ | 向量存储（768 维，HNSW 余弦索引） |
-| Flyway 迁移 | ✅ | V1-V5 数据库迁移脚本 |
+| Flyway 迁移 | ✅ | V1 当前最终结构，V2 初始种子数据 |
 | 15+ 张表 | ✅ | users, contents, comments, likes, views, tags, media, friends, ai_sessions, ai_messages, knowledge_docs, knowledge_chunks, audit_logs, oauth_accounts, refresh_tokens |
 
 ### 8.2 缓存
@@ -380,7 +380,7 @@
 |------|------|------|
 | 本地开发 | ✅ | infra/docker-compose.yml（PG18 + Redis + MinIO） |
 | 生产部署 | ✅ | deploy/docker-compose.yml（API + Web + Nginx） |
-| API Dockerfile | ✅ | deploy/Dockerfile.api（Alpine + native image） |
+| API Dockerfile | ✅ | deploy/Dockerfile.api（Java 21 JRE + Spring Boot JAR） |
 | Web Dockerfile | ✅ | deploy/Dockerfile.web（Nginx + Flutter 产物） |
 | Nginx 配置 | ✅ | deploy/nginx.conf（反向代理 + SPA 回退 + 静态资源缓存） |
 

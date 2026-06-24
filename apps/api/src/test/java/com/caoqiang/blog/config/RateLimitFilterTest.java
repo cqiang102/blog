@@ -18,6 +18,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
 @ExtendWith(MockitoExtension.class)
@@ -76,6 +77,8 @@ class RateLimitFilterTest {
 
         verify(filterChain, never()).doFilter(request, response);
         assertEquals(429, response.getStatus());
+        assertEquals(StandardCharsets.UTF_8.name(), response.getCharacterEncoding());
+        assertTrue(response.getContentAsString().contains("请求过于频繁，请稍后再试"));
         assertNotNull(response.getHeader("Retry-After"));
     }
 

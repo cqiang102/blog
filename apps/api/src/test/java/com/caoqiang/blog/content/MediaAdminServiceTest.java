@@ -72,4 +72,51 @@ class MediaAdminServiceTest {
                         + "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=abc123"
         );
     }
+
+    @Test
+    void normalizesConfiguredStorageUrlsForPersistence() {
+        MediaAdminService service = new MediaAdminService(
+                mediaAssetRepository,
+                contentRepository,
+                fileStorageService,
+                Clock.fixed(Instant.parse("2026-06-14T00:00:00Z"), ZoneOffset.UTC),
+                "http://minio:9000",
+                "https://blog.example.com/minio",
+                "blog-media",
+                "uploads/"
+        );
+
+        assertThat(service.normalizeStorageUrlForPersistence(
+                "https://blog.example.com/minio/blog-media/uploads/avatars/me.png?X-Amz-Signature=abc"
+        )).isEqualTo("/minio/blog-media/uploads/avatars/me.png");
+        assertThat(service.normalizeStorageUrlForPersistence(
+                "https://cdn.example.com/blog-media/uploads/avatars/me.png"
+        )).isEqualTo("https://cdn.example.com/blog-media/uploads/avatars/me.png");
+    }
+
+    @Test
+    void resolvesPortableStoragePathToPublicPresignedUrl() {
+        MediaAdminService service = new MediaAdminService(
+                mediaAssetRepository,
+                contentRepository,
+                fileStorageService,
+                Clock.fixed(Instant.parse("2026-06-14T00:00:00Z"), ZoneOffset.UTC),
+                "http://minio:9000",
+                "https://blog.example.com/minio",
+                "blog-media",
+                "uploads/"
+        );
+        String internalUrl = "http://minio:9000/blog-media/uploads/avatars/me.png"
+                + "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=abc123";
+
+        when(fileStorageService.generatePresignedUrl(any(FileInfo.class), any(Date.class)))
+                .thenReturn(internalUrl);
+
+        String result = service.resolveUrl("/minio/blog-media/uploads/avatars/me.png");
+
+        assertThat(result).isEqualTo(
+                "https://blog.example.com/minio/blog-media/uploads/avatars/me.png"
+                        + "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=abc123"
+        );
+    }
 }

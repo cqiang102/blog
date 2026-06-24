@@ -86,6 +86,6 @@ lib/src/
 ## 变更规则
 
 - API 路径或 DTO 字段变化时，同步更新 OpenAPI、Flutter 模型和契约测试。
-- 数据库结构只通过新的 Flyway migration 修改，不重写已执行迁移。
+- 当前重新部署阶段已将 Flyway 合并为 `V1` 最终结构和 `V2` 初始数据；后续结构变化再新增 migration。
 - 新模块优先遵循现有业务分层，不在根包新增控制器或 DTO。
 - 历史计划不再承载当前状态；当前能力写入 `features.md`。

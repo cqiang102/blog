@@ -14,11 +14,18 @@ const apiBaseUrl = String.fromEnvironment(
   defaultValue: 'http://localhost:8080/api/v1',
 );
 
+String _normalizeBaseUrl(String url) =>
+    url.endsWith('/') ? url.substring(0, url.length - 1) : url;
+
+String _normalizePath(String path) => path.startsWith('/') ? path : '/$path';
+
 /// API 客户端基类
 /// 基于 Dio 封装所有 HTTP 请求，支持 401 自动刷新令牌
 class ApiClientBase {
-  ApiClientBase({required Dio dio, this.baseUrl = apiBaseUrl}) : _dio = dio {
-    _dio.options.baseUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
+  ApiClientBase({required Dio dio, String baseUrl = apiBaseUrl})
+    : _dio = dio,
+      baseUrl = _normalizeBaseUrl(baseUrl) {
+    _dio.options.baseUrl = this.baseUrl;
     _dio.options.headers = {'Accept': 'application/json'};
   }
 
@@ -76,13 +83,14 @@ class ApiClientBase {
     Map<String, Object?>? body,
     FormData? formData,
   }) async {
+    final normalizedPath = _normalizePath(path);
     final headers = <String, String>{
       if (accessToken != null) 'Authorization': 'Bearer $accessToken',
     };
 
     try {
       final response = await _dio.request<Object?>(
-        path,
+        normalizedPath,
         data: _requestData(formData: formData, body: body),
         queryParameters: queryParameters,
         options: Options(
@@ -105,7 +113,7 @@ class ApiClientBase {
           headers['Authorization'] = 'Bearer $newToken';
           try {
             final retryResponse = await _dio.request<Object?>(
-              path,
+              normalizedPath,
               data: _requestData(formData: formData, body: body),
               queryParameters: queryParameters,
               options: Options(

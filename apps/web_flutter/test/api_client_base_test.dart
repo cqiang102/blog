@@ -4,6 +4,35 @@ import 'package:personal_blog_web/src/core/api/api_client_base.dart';
 import 'package:personal_blog_web/src/core/api/api_exception.dart';
 
 void main() {
+  test('joins base URL and request path without duplicate slashes', () async {
+    final dio = Dio();
+    final requestedUris = <String>[];
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          requestedUris.add(options.uri.toString());
+          handler.resolve(
+            Response<Object?>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'success': true,
+                'data': {'ok': true},
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final client = ApiClientBase(dio: dio, baseUrl: 'http://test/api/v1/');
+
+    final result = await client.get('/contents');
+
+    expect(result, {'ok': true});
+    expect(client.baseUrl, 'http://test/api/v1');
+    expect(requestedUris, ['http://test/api/v1/contents']);
+  });
+
   test(
     'replays multipart data with a fresh clone after token refresh',
     () async {
