@@ -30,6 +30,7 @@ import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
+import com.caoqiang.blog.user.application.service.ProfileService;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
 import java.time.Instant;
@@ -63,6 +64,9 @@ class InteractionCommandServiceTest {
     @Mock
     private DomainEventPublisher domainEventPublisher;
 
+    @Mock
+    private ProfileService profileService;
+
     private InteractionCommandService interactionCommandService;
 
     private Content testContent;
@@ -73,7 +77,7 @@ class InteractionCommandServiceTest {
     void setUp() {
         interactionCommandService = new InteractionCommandService(
                 contentRepository, userRepository, commentRepository, likeRepository,
-                viewRecordRepository, domainEventPublisher
+                viewRecordRepository, domainEventPublisher, profileService
         );
 
         testContent = new Content(
@@ -259,6 +263,30 @@ class InteractionCommandServiceTest {
         assertThat(comment.getStatus()).isEqualTo(CommentStatus.DELETED);
         verify(commentRepository).findByIdForUpdate(comment.getId());
         verify(contentRepository).incrementCommentCount(testContent.getId(), -1);
+    }
+
+    @Test
+    void resolvesAuthorAvatarWhenCreatingComment() {
+        testUser.setAvatarUrl("/minio/blog-media/avatars/me.png");
+        Comment savedComment = new Comment(testContent, testUser, "新评论");
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
+                testContent.getId(),
+                ContentStatus.PUBLISHED
+        )).thenReturn(Optional.of(testContent));
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        when(commentRepository.save(any(Comment.class))).thenReturn(savedComment);
+        when(profileService.generatePresignedAvatarUrl(testUser.getAvatarUrl()))
+                .thenReturn("http://localhost:9000/blog-media/avatars/me.png?X-Amz-Signature=abc");
+
+        CommentResponse response = interactionCommandService.comment(
+                currentUser,
+                testContent.getId(),
+                new CommentRequest("新评论")
+        );
+
+        assertThat(response.author().avatarUrl())
+                .isEqualTo("http://localhost:9000/blog-media/avatars/me.png?X-Amz-Signature=abc");
+        verify(profileService).generatePresignedAvatarUrl(testUser.getAvatarUrl());
     }
 
     @Test

@@ -410,7 +410,7 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
             children: [
               if (widget.content.coverUrl.isNotEmpty)
                 CachedNetworkImage(
-                  imageUrl: widget.content.coverUrl,
+                  imageUrl: resolveMediaUrl(widget.content.coverUrl),
                   fit: BoxFit.cover,
                   placeholder: (context, url) => ColoredBox(
                     color: Theme.of(

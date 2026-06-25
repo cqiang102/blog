@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/media_url.dart';
 import '../../../state/state.dart';
 import '../../../core/models.dart';
 import '../../../theme/app_spacing.dart';
@@ -21,18 +22,16 @@ class AdminFriendTab extends ConsumerWidget {
 
     return friends.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, stackTrace) => AdminErrorPane(
-            message: error.toString(),
-            onRetry: () => ref.invalidate(adminFriendsProvider),
-          ),
-      data:
-          (items) => _FriendList(
-            items: items,
-            onOpenEditor:
-                (friend) => _openFriendEditor(context, ref, friend: friend),
-            onDelete: (friend) => _deleteFriend(context, ref, friend),
-          ),
+      error: (error, stackTrace) => AdminErrorPane(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(adminFriendsProvider),
+      ),
+      data: (items) => _FriendList(
+        items: items,
+        onOpenEditor: (friend) =>
+            _openFriendEditor(context, ref, friend: friend),
+        onDelete: (friend) => _deleteFriend(context, ref, friend),
+      ),
     );
   }
 
@@ -286,7 +285,7 @@ class _FriendAvatar extends StatelessWidget {
     }
     return CircleAvatar(
       radius: 24,
-      backgroundImage: NetworkImage(friend.avatarUrl),
+      backgroundImage: NetworkImage(resolveMediaUrl(friend.avatarUrl)),
       onBackgroundImageError: (_, _) {},
       child: null,
     );

@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../state/state.dart';
 import '../../widgets/widgets.dart';
 import '../../core/constants.dart';
+import '../../core/media_url.dart';
 import '../../core/models.dart';
 import '../../theme/app_spacing.dart';
 
@@ -24,48 +25,50 @@ class FriendsPage extends ConsumerWidget {
 
     return AppPageFrame(
       child: CustomScrollView(
-      slivers: [
-        const SliverAppBar(
-          title: Text('朋友们'),
-          actions: [AppThemeToggle(), SizedBox(width: AppSpacing.sm)],
-        ),
-        friends.when(
-          loading:
-              () => const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
+        slivers: [
+          const SliverAppBar(
+            title: Text('朋友们'),
+            actions: [
+              AppThemeToggle(),
+              SizedBox(width: AppSpacing.sm),
+            ],
+          ),
+          friends.when(
+            loading: () => const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (error, stackTrace) => SliverFillRemaining(
+              child: _FriendsError(
+                message: error.toString(),
+                onRetry: () => ref.invalidate(friendsProvider),
               ),
-          error:
-              (error, stackTrace) => SliverFillRemaining(
-                child: _FriendsError(
-                  message: error.toString(),
-                  onRetry: () => ref.invalidate(friendsProvider),
+            ),
+            data: (items) {
+              if (items.isEmpty) {
+                return const SliverFillRemaining(
+                  child: Center(child: Text('暂无朋友链接')),
+                );
+              }
+              return SliverPadding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                sliver: SliverGrid.builder(
+                  itemCount: items.length,
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: kFriendCardMaxWidth,
+                    mainAxisExtent: kFriendCardHeight,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                  ),
+                  itemBuilder: (context, index) {
+                    return _FriendCard(
+                      friend: items[index],
+                    ).fadeSlideIn(delay: (index * 80).ms);
+                  },
                 ),
-              ),
-          data: (items) {
-            if (items.isEmpty) {
-              return const SliverFillRemaining(
-                child: Center(child: Text('暂无朋友链接')),
               );
-            }
-            return SliverPadding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              sliver: SliverGrid.builder(
-                itemCount: items.length,
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: kFriendCardMaxWidth,
-                  mainAxisExtent: kFriendCardHeight,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                ),
-                itemBuilder: (context, index) {
-                  return _FriendCard(friend: items[index])
-                      .fadeSlideIn(delay: (index * 80).ms);
-                },
-              ),
-            );
-          },
-        ),
-      ],
+            },
+          ),
+        ],
       ),
     );
   }
@@ -82,11 +85,8 @@ class _FriendCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onTap:
-            () => launchUrl(
-              Uri.parse(friend.siteUrl),
-              webOnlyWindowName: '_blank',
-            ),
+        onTap: () =>
+            launchUrl(Uri.parse(friend.siteUrl), webOnlyWindowName: '_blank'),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -95,19 +95,17 @@ class _FriendCard extends StatelessWidget {
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundImage:
-                        friend.avatarUrl.isEmpty
-                            ? null
-                            : NetworkImage(friend.avatarUrl),
+                    backgroundImage: friend.avatarUrl.isEmpty
+                        ? null
+                        : NetworkImage(resolveMediaUrl(friend.avatarUrl)),
                     radius: 28,
-                    child:
-                        friend.avatarUrl.isEmpty
-                            ? Text(
-                              friend.name.isEmpty
-                                  ? '?'
-                                  : friend.name.substring(0, 1),
-                            )
-                            : null,
+                    child: friend.avatarUrl.isEmpty
+                        ? Text(
+                            friend.name.isEmpty
+                                ? '?'
+                                : friend.name.substring(0, 1),
+                          )
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(

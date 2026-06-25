@@ -21,6 +21,7 @@ import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
+import com.caoqiang.blog.user.application.service.ProfileService;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
 import java.nio.charset.StandardCharsets;
@@ -58,6 +59,7 @@ public class InteractionCommandService {
     private final LikeRepository likeRepository;
     private final ViewRecordRepository viewRecordRepository;
     private final DomainEventPublisher domainEventPublisher;
+    private final ProfileService profileService;
 
     public InteractionCommandService(
             ContentRepository contentRepository,
@@ -65,7 +67,8 @@ public class InteractionCommandService {
             CommentRepository commentRepository,
             LikeRepository likeRepository,
             ViewRecordRepository viewRecordRepository,
-            DomainEventPublisher domainEventPublisher
+            DomainEventPublisher domainEventPublisher,
+            ProfileService profileService
     ) {
         this.contentRepository = contentRepository;
         this.userRepository = userRepository;
@@ -73,6 +76,7 @@ public class InteractionCommandService {
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
         this.domainEventPublisher = domainEventPublisher;
+        this.profileService = profileService;
     }
 
     @Transactional
@@ -86,7 +90,7 @@ public class InteractionCommandService {
         Comment comment = commentRepository.save(new Comment(content, user, sanitizedBody));
         contentRepository.incrementCommentCount(contentId, 1);
         domainEventPublisher.publishEvent(new CommentCreatedEvent(comment.getId(), contentId, currentUser.id()));
-        return CommentResponse.from(comment);
+        return CommentResponse.from(comment, profileService.generatePresignedAvatarUrl(user.getAvatarUrl()));
     }
 
     @Transactional

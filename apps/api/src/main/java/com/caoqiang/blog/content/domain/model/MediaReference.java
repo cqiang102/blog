@@ -1,6 +1,7 @@
 package com.caoqiang.blog.content.domain.model;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -51,14 +52,35 @@ public final class MediaReference {
         }
         String normalized = markdown;
         for (MediaAsset mediaAsset : mediaAssets) {
-            String publicUrl = mediaAsset.getPublicUrl();
-            if (publicUrl != null && !publicUrl.isBlank()) {
-                normalized = normalized.replace(
-                        publicUrl,
-                        filePath(mediaAsset.getId())
-                );
+            String replacement = filePath(mediaAsset.getId());
+            for (String reference : references(mediaAsset)) {
+                normalized = normalized.replace(reference, replacement);
             }
         }
         return normalized;
+    }
+
+    private static List<String> references(MediaAsset mediaAsset) {
+        List<String> references = new ArrayList<>();
+        if (hasText(mediaAsset.getPublicUrl())) {
+            references.add(mediaAsset.getPublicUrl());
+        }
+        if (!MediaAsset.EXTERNAL_BUCKET.equals(mediaAsset.getBucket())
+                && hasText(mediaAsset.getBucket())
+                && hasText(mediaAsset.getObjectKey())) {
+            references.add("/minio/"
+                    + stripSlashes(mediaAsset.getBucket())
+                    + "/"
+                    + stripSlashes(mediaAsset.getObjectKey()));
+        }
+        return references;
+    }
+
+    private static String stripSlashes(String value) {
+        return value.replaceAll("^/+", "").replaceAll("/+$", "");
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

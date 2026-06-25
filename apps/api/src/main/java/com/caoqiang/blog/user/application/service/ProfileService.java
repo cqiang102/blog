@@ -203,6 +203,7 @@ public class ProfileService {
         String path = "avatars/" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd")) + "/";
         String filename = "avatar_" + System.currentTimeMillis() + format.extension();
 
+        mediaAdminService.ensureUploadStorageReady();
         FileInfo fileInfo = fileStorageService.of(file)
                 .setPath(path)
                 .setSaveFilename(filename)

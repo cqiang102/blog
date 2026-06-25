@@ -22,6 +22,7 @@ import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 import com.caoqiang.blog.content.domain.repository.TagRepository;
 
 import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.infrastructure.storage.MinioBucketService;
 import com.caoqiang.blog.shared.response.PageResponse;
 import java.net.URI;
 import java.time.Clock;
@@ -76,6 +77,7 @@ public class MediaAdminService {
     private final MediaAssetRepository mediaAssetRepository;
     private final ContentRepository contentRepository;
     private final FileStorageService fileStorageService;
+    private final MinioBucketService minioBucketService;
     private final Clock clock;
     private final String minioEndpoint;
     private final String minioPublicEndpoint;
@@ -86,6 +88,7 @@ public class MediaAdminService {
             MediaAssetRepository mediaAssetRepository,
             ContentRepository contentRepository,
             FileStorageService fileStorageService,
+            MinioBucketService minioBucketService,
             Clock clock,
             @Value("${dromara.x-file-storage.minio[0].end-point:http://localhost:9000}") String minioEndpoint,
             @Value("${MINIO_PUBLIC_ENDPOINT:}") String minioPublicEndpoint,
@@ -95,6 +98,7 @@ public class MediaAdminService {
         this.mediaAssetRepository = mediaAssetRepository;
         this.contentRepository = contentRepository;
         this.fileStorageService = fileStorageService;
+        this.minioBucketService = minioBucketService;
         this.clock = clock;
         this.minioEndpoint = minioEndpoint;
         this.minioPublicEndpoint = minioPublicEndpoint;
@@ -161,6 +165,7 @@ public class MediaAdminService {
                 : defaultContentType(mediaType);
         String path = datePath();
 
+        ensureUploadStorageReady();
         FileInfo fileInfo = fileStorageService.of(file)
                 .setPath(path)
                 .setSaveFilename(filename)
@@ -182,6 +187,10 @@ public class MediaAdminService {
         );
         mediaAsset.setPublicUrl(MediaReference.filePath(mediaAsset.getId()));
         return AdminMediaResponse.from(mediaAssetRepository.save(mediaAsset));
+    }
+
+    public void ensureUploadStorageReady() {
+        minioBucketService.ensureBucketExists();
     }
 
     /**
@@ -401,6 +410,10 @@ public class MediaAdminService {
             // Continue with public endpoint checks.
         }
 
+        if (isStablePublicStoragePath(normalizedPath)) {
+            return true;
+        }
+
         if (!StringUtils.hasText(minioPublicEndpoint)) {
             return false;
         }
@@ -426,6 +439,17 @@ public class MediaAdminService {
         } catch (IllegalArgumentException ignored) {
             return false;
         }
+    }
+
+    private boolean isStablePublicStoragePath(String normalizedPath) {
+        String storageBasePath = publicStorageBasePath();
+        if (!StringUtils.hasText(storageBasePath)) {
+            return false;
+        }
+        String normalizedBasePath = storageBasePath.replaceAll("^/+", "").replaceAll("/+$", "");
+        return StringUtils.hasText(normalizedBasePath)
+                && (normalizedPath.equals(normalizedBasePath)
+                || normalizedPath.startsWith(normalizedBasePath + "/"));
     }
 
     private static boolean equalsIgnoreCase(String a, String b) {
@@ -540,7 +564,7 @@ public class MediaAdminService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "封面媒体必须属于当前内容");
         }
         content.setCoverMedia(mediaAsset);
-        return AdminContentResponse.from(content);
+        return AdminContentResponse.from(content, this);
     }
 
     private Content content(UUID contentId) {

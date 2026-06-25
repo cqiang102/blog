@@ -6,6 +6,7 @@ import com.caoqiang.blog.auth.application.service.JwtService;
 import com.caoqiang.blog.auth.application.service.OAuthLoginCodeService;
 import com.caoqiang.blog.auth.application.service.RefreshTokenService;
 
+import com.caoqiang.blog.content.application.service.MediaAdminService;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.application.dto.UserProfileResponse;
 import jakarta.servlet.ServletException;
@@ -27,16 +28,19 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final OAuthLoginCodeService oAuthLoginCodeService;
+    private final MediaAdminService mediaAdminService;
     private final String frontendBaseUrl;
 
     public OAuth2LoginSuccessHandler(
             JwtService jwtService,
             RefreshTokenService refreshTokenService,
             OAuthLoginCodeService oAuthLoginCodeService,
+            MediaAdminService mediaAdminService,
             @Value("${blog.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
         this.oAuthLoginCodeService = oAuthLoginCodeService;
+        this.mediaAdminService = mediaAdminService;
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
@@ -53,7 +57,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 accessToken.value(),
                 refreshToken.value(),
                 accessToken.expiresAt(),
-                UserProfileResponse.from(user)
+                UserProfileResponse.from(user, mediaAdminService.resolveUrl(user.getAvatarUrl()))
         );
         String loginCode = oAuthLoginCodeService.create(session);
         String redirectUrl = frontendBaseUrl + "/login/oauth2/code/github?login_code=" + loginCode;

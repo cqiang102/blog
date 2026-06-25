@@ -42,4 +42,26 @@ class MediaReferenceTest {
         assertThat(MediaReference.normalizeMarkdown(markdown, List.of(media)))
                 .isEqualTo("![图片](" + MediaReference.filePath(id) + ")");
     }
+
+    @Test
+    void replacesStableMinioPathsInMarkdown() {
+        MediaAsset media = new MediaAsset(
+                null,
+                MediaAssetType.IMAGE,
+                "blog-media",
+                "uploads/2026/06/photo.png",
+                "/api/v1/media-assets/old/file",
+                "photo.png",
+                "image/png",
+                10L,
+                100,
+                80,
+                null
+        );
+
+        String markdown = "![图片](/minio/blog-media/uploads/2026/06/photo.png)";
+
+        assertThat(MediaReference.normalizeMarkdown(markdown, List.of(media)))
+                .isEqualTo("![图片](" + MediaReference.filePath(media.getId()) + ")");
+    }
 }

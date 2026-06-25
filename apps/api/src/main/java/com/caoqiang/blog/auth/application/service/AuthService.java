@@ -19,6 +19,7 @@ import com.caoqiang.blog.shared.domain.event.user.UserCreatedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.util.EmailNormalizer;
 import com.caoqiang.blog.shared.util.PasswordPolicy;
+import com.caoqiang.blog.content.application.service.MediaAdminService;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.application.dto.UserProfileResponse;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
@@ -60,6 +61,8 @@ public class AuthService {
     private final VerificationService verificationService;
     /** 领域事件发布器 */
     private final DomainEventPublisher domainEventPublisher;
+    /** 媒体服务，用于统一头像 URL 解析 */
+    private final MediaAdminService mediaAdminService;
     /** 时钟，用于获取当前时间，便于测试 */
     private final Clock clock;
 
@@ -72,6 +75,7 @@ public class AuthService {
      * @param refreshTokenService   刷新令牌服务
      * @param verificationService   验证码服务
      * @param domainEventPublisher  领域事件发布器
+     * @param mediaAdminService     媒体服务
      * @param clock                 时钟实例
      */
     public AuthService(
@@ -81,6 +85,7 @@ public class AuthService {
             RefreshTokenService refreshTokenService,
             VerificationService verificationService,
             DomainEventPublisher domainEventPublisher,
+            MediaAdminService mediaAdminService,
             Clock clock
     ) {
         this.userRepository = userRepository;
@@ -89,6 +94,7 @@ public class AuthService {
         this.refreshTokenService = refreshTokenService;
         this.verificationService = verificationService;
         this.domainEventPublisher = domainEventPublisher;
+        this.mediaAdminService = mediaAdminService;
         this.clock = clock;
     }
 
@@ -195,7 +201,7 @@ public class AuthService {
                 accessToken.value(),
                 refreshToken.value(),
                 accessToken.expiresAt(),
-                UserProfileResponse.from(user)
+                UserProfileResponse.from(user, mediaAdminService.resolveUrl(user.getAvatarUrl()))
         );
     }
 }

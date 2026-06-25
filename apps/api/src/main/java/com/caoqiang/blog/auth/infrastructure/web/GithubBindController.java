@@ -6,6 +6,7 @@ import com.caoqiang.blog.auth.domain.model.OAuthProvider;
 import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
 import com.caoqiang.blog.auth.application.service.JwtService;
 import com.caoqiang.blog.auth.application.service.RefreshTokenService;
+import com.caoqiang.blog.content.application.service.MediaAdminService;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.user.domain.model.User;
@@ -45,6 +46,7 @@ public class GithubBindController {
     private final UserRepository userRepository;
     private final OAuthAccountRepository oauthAccountRepository;
     private final RefreshTokenService refreshTokenService;
+    private final MediaAdminService mediaAdminService;
     private final String clientId;
     private final String clientSecret;
     private final String frontendBaseUrl;
@@ -54,6 +56,7 @@ public class GithubBindController {
             UserRepository userRepository,
             OAuthAccountRepository oauthAccountRepository,
             RefreshTokenService refreshTokenService,
+            MediaAdminService mediaAdminService,
             @Value("${blog.oauth.github.client-id:}") String clientId,
             @Value("${blog.oauth.github.client-secret:}") String clientSecret,
             @Value("${blog.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
@@ -61,6 +64,7 @@ public class GithubBindController {
         this.userRepository = userRepository;
         this.oauthAccountRepository = oauthAccountRepository;
         this.refreshTokenService = refreshTokenService;
+        this.mediaAdminService = mediaAdminService;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.frontendBaseUrl = frontendBaseUrl;
@@ -193,7 +197,7 @@ public class GithubBindController {
                 token.value(),
                 refreshToken.value(),
                 token.expiresAt(),
-                UserProfileResponse.from(user)
+                UserProfileResponse.from(user, mediaAdminService.resolveUrl(user.getAvatarUrl()))
         ));
     }
 

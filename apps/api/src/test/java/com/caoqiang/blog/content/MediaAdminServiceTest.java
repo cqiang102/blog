@@ -9,6 +9,7 @@ import com.caoqiang.blog.content.domain.model.MediaAsset;
 import com.caoqiang.blog.content.domain.model.MediaAssetType;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
+import com.caoqiang.blog.shared.infrastructure.storage.MinioBucketService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -33,6 +34,9 @@ class MediaAdminServiceTest {
     @Mock
     private FileStorageService fileStorageService;
 
+    @Mock
+    private MinioBucketService minioBucketService;
+
     @Test
     void rewritesInternalMinioPresignedUrlToThePublicProxy() {
         MediaAsset asset = new MediaAsset(
@@ -52,6 +56,7 @@ class MediaAdminServiceTest {
                 mediaAssetRepository,
                 contentRepository,
                 fileStorageService,
+                minioBucketService,
                 Clock.fixed(Instant.parse("2026-06-14T00:00:00Z"), ZoneOffset.UTC),
                 "http://minio:9000",
                 "https://blog.example.com/minio/",
@@ -79,6 +84,7 @@ class MediaAdminServiceTest {
                 mediaAssetRepository,
                 contentRepository,
                 fileStorageService,
+                minioBucketService,
                 Clock.fixed(Instant.parse("2026-06-14T00:00:00Z"), ZoneOffset.UTC),
                 "http://minio:9000",
                 "https://blog.example.com/minio",
@@ -100,6 +106,7 @@ class MediaAdminServiceTest {
                 mediaAssetRepository,
                 contentRepository,
                 fileStorageService,
+                minioBucketService,
                 Clock.fixed(Instant.parse("2026-06-14T00:00:00Z"), ZoneOffset.UTC),
                 "http://minio:9000",
                 "https://blog.example.com/minio",
@@ -118,5 +125,29 @@ class MediaAdminServiceTest {
                 "https://blog.example.com/minio/blog-media/uploads/avatars/me.png"
                         + "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=abc123"
         );
+    }
+
+    @Test
+    void resolvesStableMinioPathWithoutPublicEndpoint() {
+        MediaAdminService service = new MediaAdminService(
+                mediaAssetRepository,
+                contentRepository,
+                fileStorageService,
+                minioBucketService,
+                Clock.fixed(Instant.parse("2026-06-14T00:00:00Z"), ZoneOffset.UTC),
+                "http://localhost:9000",
+                "",
+                "blog-media",
+                "uploads/"
+        );
+        String signedUrl = "http://localhost:9000/blog-media/avatars/me.png"
+                + "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=abc123";
+
+        when(fileStorageService.generatePresignedUrl(any(FileInfo.class), any(Date.class)))
+                .thenReturn(signedUrl);
+
+        String result = service.resolveUrl("/minio/blog-media/avatars/me.png");
+
+        assertThat(result).isEqualTo(signedUrl);
     }
 }

@@ -246,7 +246,7 @@ public class ContentAdminService {
             domainEventPublisher.publishEvent(new ContentPublishedEvent(saved.getId(), saved.getTitle(), saved.getSlug()));
         }
 
-        return AdminContentResponse.from(saved);
+        return AdminContentResponse.from(saved, mediaAdminService);
     }
 
     /**
