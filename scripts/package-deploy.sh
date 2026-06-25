@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 生产部署包打包入口：构建前后端产物，并组装可直接 docker compose 启动的压缩包。
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
 WEB_DIR="$ROOT_DIR/apps/web_flutter"
@@ -15,18 +16,19 @@ CHECK_ONLY=0
 
 usage() {
   cat <<USAGE
-Usage: scripts/package-deploy.sh [options]
+用法：scripts/package-deploy.sh [选项]
 
-Options:
-  --check       Validate local tooling, deploy files, and docker compose config.
-  --skip-build  Skip Flutter/JAR builds and package existing artifacts.
-  -h, --help    Show this help.
+选项：
+  --check       只检查本地工具、部署文件和 Docker Compose 配置。
+  --skip-build  跳过 Flutter/JAR 构建，直接打包已有产物。
+  -h, --help    显示帮助。
 
-Environment overrides:
+可覆盖的环境变量：
   FVM_BIN, DOCKER_BIN, MAVEN_BIN, JAVA_HOME, API_JAR, WEB_BUILD_OUTPUT,
   APP_VERSION, OUTPUT, PACKAGE_NAME
 
-The Spring Boot JAR build passes -DskipApiDocs=true so Swagger/OpenAPI stays a local-only dependency.
+说明：
+  Spring Boot JAR 构建会传入 -DskipApiDocs=true，生产部署包不包含 Swagger/OpenAPI 依赖。
 USAGE
 }
 
@@ -43,7 +45,7 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Unknown option: $1" >&2
+      echo "未知选项：$1" >&2
       usage >&2
       exit 2
       ;;
@@ -51,6 +53,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
+# 在 PATH 和常见安装位置中查找命令，方便本机环境路径不完全一致时复用脚本。
 find_command() {
   local name="$1"
   shift
@@ -71,7 +74,7 @@ find_command() {
 require_file() {
   local path="$1"
   if [[ ! -f "$path" ]]; then
-    echo "Required file is missing: $path" >&2
+    echo "缺少必要文件：$path" >&2
     exit 1
   fi
 }
@@ -79,11 +82,12 @@ require_file() {
 require_dir() {
   local path="$1"
   if [[ ! -d "$path" ]]; then
-    echo "Required directory is missing: $path" >&2
+    echo "缺少必要目录：$path" >&2
     exit 1
   fi
 }
 
+# 提取 Java 主版本号，兼容 1.8 和 21.0.x 两类版本输出。
 java_major() {
   local java_bin="$1"
   local version_line
@@ -97,6 +101,7 @@ java_major() {
   fi
 }
 
+# 构建后端 JAR 必须使用 Java 21+；macOS 上优先用 /usr/libexec/java_home 自动切换。
 ensure_java_21() {
   local java_bin="${JAVA_HOME:+$JAVA_HOME/bin/java}"
   if [[ -n "$java_bin" && -x "$java_bin" ]]; then
@@ -122,18 +127,19 @@ ensure_java_21() {
   fi
 
   if [[ -z "$java_bin" || ! -x "$java_bin" ]]; then
-    echo "Java 21+ is required to build the API JAR but java was not found." >&2
+    echo "构建 API JAR 需要 Java 21+，但未找到 java 命令。" >&2
     exit 1
   fi
 
   local major
   major="$(java_major "$java_bin")"
   if [[ "$major" -lt 21 ]]; then
-    echo "Java 21+ is required to build the API JAR; found Java $major at $java_bin." >&2
+    echo "构建 API JAR 需要 Java 21+；当前为 Java $major，路径：$java_bin。" >&2
     exit 1
   fi
 }
 
+# 允许外部通过 API_JAR 指定已有 JAR；否则从 apps/api/target 中解析唯一可部署 JAR。
 resolve_api_jar() {
   if [[ -n "$API_JAR" ]]; then
     require_file "$API_JAR"
@@ -142,7 +148,7 @@ resolve_api_jar() {
   fi
 
   if [[ ! -d "$API_DIR/target" ]]; then
-    echo "No API JAR found because $API_DIR/target does not exist. Run the build first or set API_JAR=/path/to/app.jar." >&2
+    echo "未找到 API JAR，因为 $API_DIR/target 不存在。请先构建，或设置 API_JAR=/path/to/app.jar。" >&2
     exit 1
   fi
 
@@ -153,11 +159,11 @@ resolve_api_jar() {
   done < <(find "$API_DIR/target" -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | sort)
 
   if [[ "${#jars[@]}" -eq 0 ]]; then
-    echo "No API JAR found under $API_DIR/target. Run the build first or set API_JAR=/path/to/app.jar." >&2
+    echo "未在 $API_DIR/target 下找到 API JAR。请先构建，或设置 API_JAR=/path/to/app.jar。" >&2
     exit 1
   fi
   if [[ "${#jars[@]}" -gt 1 ]]; then
-    echo "Found multiple API JARs; set API_JAR to the one that should be deployed:" >&2
+    echo "发现多个 API JAR，请通过 API_JAR 指定要部署的文件：" >&2
     printf '  %s\n' "${jars[@]}" >&2
     exit 1
   fi
@@ -166,15 +172,16 @@ resolve_api_jar() {
 }
 
 FVM_BIN="${FVM_BIN:-}"
+# --check 和正常构建都需要 Flutter 工具；--skip-build 只打包已有产物。
 if [[ "$RUN_BUILDS" -eq 1 || "$CHECK_ONLY" -eq 1 ]]; then
   FVM_BIN="${FVM_BIN:-$(find_command fvm /opt/homebrew/bin/fvm)}" || {
-    echo "fvm is required but was not found in PATH or /opt/homebrew/bin/fvm" >&2
+    echo "需要 fvm，但未在 PATH 或 /opt/homebrew/bin/fvm 中找到。" >&2
     exit 1
   }
 fi
 
 DOCKER_BIN="${DOCKER_BIN:-$(find_command docker /usr/local/bin/docker /Applications/Docker.app/Contents/Resources/bin/docker)}" || {
-  echo "docker is required but was not found in PATH, /usr/local/bin/docker, or Docker.app" >&2
+  echo "需要 docker，但未在 PATH、/usr/local/bin/docker 或 Docker.app 中找到。" >&2
   exit 1
 }
 
@@ -186,10 +193,11 @@ if [[ ( "$RUN_BUILDS" -eq 1 || "$CHECK_ONLY" -eq 1 ) && -z "$MAVEN_BIN" ]]; then
   MAVEN_BIN="$(find_command mvn /opt/homebrew/bin/mvn /usr/local/bin/mvn "$HOME/wubihuan/apache-maven-3.8.8/bin/mvn" "$HOME/wubihuan/apache-maven-3.6.3/bin/mvn" || true)"
 fi
 if [[ ( "$RUN_BUILDS" -eq 1 || "$CHECK_ONLY" -eq 1 ) && -z "$MAVEN_BIN" ]]; then
-  echo "Maven is required to build the API JAR but was not found." >&2
+  echo "构建 API JAR 需要 Maven，但未找到 Maven。" >&2
   exit 1
 fi
 
+# Docker Desktop 的凭据助手有时不在 PATH 中，补进去以便 compose 能拉取镜像。
 for helper_dir in /Applications/Docker.app/Contents/Resources/bin; do
   if [[ -x "$helper_dir/docker-credential-desktop" && ":$PATH:" != *":$helper_dir:"* ]]; then
     export PATH="$helper_dir:$PATH"
@@ -197,25 +205,24 @@ for helper_dir in /Applications/Docker.app/Contents/Resources/bin; do
 done
 
 run_checks() {
-  echo "==> Checking deploy inputs..."
+  echo "==> 检查部署输入文件..."
   require_file "$DEPLOY_DIR/Dockerfile.api"
   require_file "$DEPLOY_DIR/Dockerfile.web"
   require_file "$DEPLOY_DIR/docker-compose.yml"
   require_file "$DEPLOY_DIR/nginx.conf"
   require_file "$DEPLOY_DIR/.env.example"
-  require_file "$ROOT_DIR/infra/postgres/init/01-extensions.sql"
 
-  echo "==> Checking local tools..."
+  echo "==> 检查本地工具..."
   if [[ "$CHECK_ONLY" -eq 1 ]]; then
     "$FVM_BIN" --version >/dev/null
     "$MAVEN_BIN" -version >/dev/null
   fi
   "$DOCKER_BIN" compose version >/dev/null
 
-  echo "==> Checking docker compose config..."
+  echo "==> 检查 Docker Compose 配置..."
   (
-    # docker compose gives shell variables precedence over --env-file values.
-    # Unset keys from the example file so empty local env vars do not shadow it.
+    # Docker Compose 会让 shell 环境变量优先于 --env-file。
+    # 这里先清掉示例 env 中的键，避免本机空变量覆盖示例值。
     while IFS='=' read -r key _; do
       if [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
         unset "$key"
@@ -231,25 +238,25 @@ run_checks() {
 run_checks
 
 if [[ "$CHECK_ONLY" -eq 1 ]]; then
-  echo "==> Deploy script check passed."
+  echo "==> 部署脚本检查通过。"
   exit 0
 fi
 
 if [[ "$RUN_BUILDS" -eq 1 ]]; then
-  echo "==> [1/4] Building Flutter Web..."
+  echo "==> [1/4] 构建 Flutter Web..."
   cd "$WEB_DIR"
   "$FVM_BIN" flutter pub get
   "$FVM_BIN" flutter build web --release --tree-shake-icons --dart-define=API_BASE_URL=/api/v1
 
-  echo "==> [2/4] Building Spring Boot JAR..."
+  echo "==> [2/4] 构建 Spring Boot JAR..."
   cd "$API_DIR"
   "$MAVEN_BIN" clean package -DskipTests -DskipApiDocs=true -B
 else
-  echo "==> [1/4] Skipping Flutter Web build..."
-  echo "==> [2/4] Skipping Spring Boot JAR build..."
+  echo "==> [1/4] 跳过 Flutter Web 构建..."
+  echo "==> [2/4] 跳过 Spring Boot JAR 构建..."
 fi
 
-echo "==> [3/4] Assembling deploy directory..."
+echo "==> [3/4] 组装部署目录..."
 API_JAR_PATH="$(resolve_api_jar)"
 require_dir "$WEB_BUILD_OUTPUT"
 
@@ -262,7 +269,6 @@ trap cleanup EXIT
 STAGING_DIR="$STAGING_ROOT/$PACKAGE_NAME"
 mkdir -p \
   "$STAGING_DIR/web" \
-  "$STAGING_DIR/postgres/init" \
   "$STAGING_DIR/.data/postgres" \
   "$STAGING_DIR/.data/redis" \
   "$STAGING_DIR/.data/minio"
@@ -273,15 +279,14 @@ cp "$DEPLOY_DIR/nginx.conf" "$STAGING_DIR/"
 cp "$DEPLOY_DIR/.env.example" "$STAGING_DIR/"
 cp "$API_JAR_PATH" "$STAGING_DIR/blog-api.jar"
 cp -R "$WEB_BUILD_OUTPUT/." "$STAGING_DIR/web/"
-cp "$ROOT_DIR/infra/postgres/init/01-extensions.sql" "$STAGING_DIR/postgres/init/"
 
-echo "==> [4/4] Packaging tar.gz..."
+echo "==> [4/4] 打包 tar.gz..."
 mkdir -p "$(dirname "$OUTPUT")"
 tar czf "$OUTPUT" -C "$STAGING_ROOT" "$PACKAGE_NAME"
 
 echo ""
-echo "==> Done! Output: $OUTPUT"
-echo "    Upload to server and run:"
+echo "==> 完成！产物：$OUTPUT"
+echo "    上传到服务器后执行："
 echo "    tar xzf $(basename "$OUTPUT") && cd $PACKAGE_NAME"
 echo "    cp .env.example .env && vim .env"
 echo "    docker compose up -d --build"

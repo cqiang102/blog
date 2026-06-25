@@ -45,8 +45,6 @@ blog-deploy/
 │   ├── postgres/
 │   ├── redis/
 │   └── minio/
-├── postgres/init/
-│   └── 01-extensions.sql
 └── .env.example
 ```
 

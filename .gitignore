@@ -2,6 +2,7 @@
 .idea/
 .vscode/
 .claude/
+.agents/
 *.iml
 
 # Local env and secrets
@@ -26,7 +27,7 @@ build/
 coverage/
 
 # Generated runtime data
-infra/data/
+deploy/.data/
 uploads/
 logs/
 

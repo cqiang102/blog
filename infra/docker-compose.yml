@@ -11,8 +11,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./data/postgres:/var/lib/postgresql
-      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - ../deploy/.data/postgres:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U blog -d blog"]
       interval: 10s
@@ -27,7 +26,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - ./data/redis:/data
+      - ../deploy/.data/redis:/data
     restart: unless-stopped
 
   minio:
@@ -41,5 +40,5 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - ./data/minio:/data
+      - ../deploy/.data/minio:/data
     restart: unless-stopped

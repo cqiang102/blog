@@ -4,13 +4,14 @@
 
 ```bash
 cp apps/api/.env.example apps/api/.env
-scripts/dev-api.sh
+scripts/infra.sh up
 ```
 
-本地运行只维护 `apps/api/.env` 一份配置。脚本会把它同时加载给 Docker 依赖服务和 Spring Boot API。
-本地 PostgreSQL、Redis 和 MinIO 数据保存在 `infra/data/`，与 `infra/docker-compose.yml` 同级。
+本地运行只维护 `apps/api/.env` 一份配置。`scripts/infra.sh` 会把它传给 Docker Compose。
+本地 PostgreSQL、Redis 和 MinIO 数据保存在 `deploy/.data/`，与生产部署包保持同一套目录约定。
+不要同时启动本地 `infra/docker-compose.yml` 和 `deploy/docker-compose.yml`，它们会访问同一份 `deploy/.data/` 数据。
 
-如果只想手动启动依赖服务：
+等价的手动命令：
 
 ```bash
 docker compose --env-file apps/api/.env -f infra/docker-compose.yml up -d
@@ -31,19 +32,18 @@ docker compose --env-file apps/api/.env -f infra/docker-compose.yml up -d
 scripts/dev-api.sh
 ```
 
-脚本默认启用 `dev` profile。依赖服务已经启动时，可以跳过 Docker 编排：
+脚本默认启用 `dev` profile，并会先调用 `scripts/infra.sh up`。依赖服务已经启动时，可以跳过 infra 启动：
 
 ```bash
-SKIP_DOCKER=1 scripts/dev-api.sh run dev
+SKIP_INFRA=1 scripts/dev-api.sh run dev
 ```
 
 查看依赖服务状态和日志：
 
 ```bash
-scripts/dev-api.sh status
-scripts/dev-api.sh logs
+scripts/infra.sh status
+scripts/infra.sh logs
 scripts/dev-api.sh app-log
-scripts/dev-api.sh doctor
 ```
 
 自定义 Maven 路径：
@@ -100,7 +100,7 @@ curl http://localhost:8080/api/v1/meta
 如果数据库迁移失败后需要清空本地开发数据，确认没有重要数据后执行：
 
 ```bash
-scripts/dev-api.sh reset-db
+scripts/infra.sh reset
 ```
 
 ## 前端

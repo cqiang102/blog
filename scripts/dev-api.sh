@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 本地后端启动入口：读取 apps/api/.env，按需启动 infra，再运行 Spring Boot。
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
 MAVEN_BIN="${MAVEN_BIN:-$(command -v mvn || true)}"
@@ -8,8 +9,9 @@ COMMAND="${1:-run}"
 PROFILES="${2:-dev}"
 LOG_FILE="${LOG_FILE:-$API_DIR/target/dev-api.log}"
 LOCAL_ENV_FILE="$API_DIR/.env"
-INFRA_DATA_DIR="$ROOT_DIR/infra/data"
+RUN_TESTS=0
 
+# 支持 `scripts/dev-api.sh dev` 这种快捷写法，等价于 `run dev`。
 if [[ "$COMMAND" == "dev"* || "$COMMAND" == *","* ]]; then
   PROFILES="$COMMAND"
   COMMAND="run"
@@ -17,48 +19,28 @@ fi
 
 if [[ "$COMMAND" == "--help" || "$COMMAND" == "-h" ]]; then
   cat <<'USAGE'
-Usage:
-  scripts/dev-api.sh [command] [profiles]
+用法：
+  scripts/dev-api.sh [命令] [Spring 配置环境]
 
-Examples:
-  scripts/dev-api.sh                 # start Docker dependencies and run dev profile
-  scripts/dev-api.sh run dev         # run API with the dev profile
-  scripts/dev-api.sh dev             # shortcut for the previous command
-  scripts/dev-api.sh status          # show Docker service status
-  scripts/dev-api.sh logs            # show recent Docker logs
-  scripts/dev-api.sh app-log         # show recent backend app log
-  scripts/dev-api.sh reset-db        # delete local infra data and recreate services
-  scripts/dev-api.sh doctor          # print Java/Maven/Docker/PostgreSQL diagnostics
-  scripts/dev-api.sh test            # run backend tests with Maven
-  SKIP_DOCKER=1 scripts/dev-api.sh run dev
+示例：
+  scripts/dev-api.sh                 # 启动本地依赖并使用 dev 配置环境运行后端
+  scripts/dev-api.sh run dev         # 使用 dev 配置环境运行后端
+  scripts/dev-api.sh dev             # 上一条命令的快捷写法
+  scripts/dev-api.sh app-log         # 查看最近的后端运行日志
+  scripts/dev-api.sh test            # 使用 Maven 运行后端测试
+  SKIP_INFRA=1 scripts/dev-api.sh run dev
 
-Environment:
-  MAVEN_BIN    Override Maven binary path.
-  SKIP_DOCKER  Set to 1 to skip docker compose startup.
-  JAVA_HOME_OVERRIDE  Override the auto-detected Java 21 home.
-  LOG_FILE  Override backend run log path.
-  Local configuration is loaded from apps/api/.env for both Docker dependencies and the API.
+环境变量：
+  MAVEN_BIN           覆盖 Maven 可执行文件路径。
+  SKIP_INFRA          设为 1 时跳过 scripts/infra.sh up。
+  JAVA_HOME_OVERRIDE  覆盖自动探测到的 Java 21 路径。
+  LOG_FILE            覆盖后端运行日志路径。
+  本地配置会从 apps/api/.env 读取。
 USAGE
   exit 0
 fi
 
-if [[ ! -x "$MAVEN_BIN" ]]; then
-  echo "Maven not found. Install Maven or set MAVEN_BIN=/path/to/mvn." >&2
-  exit 1
-fi
-
-export JAVA_HOME="${JAVA_HOME_OVERRIDE:-$(/usr/libexec/java_home -v 21)}"
-export PATH="$JAVA_HOME/bin:$(dirname "$MAVEN_BIN"):$PATH"
-COMPOSE=(docker compose)
-if [[ -f "$LOCAL_ENV_FILE" ]]; then
-  COMPOSE+=(--env-file "$LOCAL_ENV_FILE")
-fi
-COMPOSE+=(-f "$ROOT_DIR/infra/docker-compose.yml")
-
-print_section() {
-  printf '\n== %s ==\n' "$1"
-}
-
+# 将 apps/api/.env 暴露给 Spring Boot；本地依赖的 env 文件由 scripts/infra.sh 传给 Compose。
 if [[ -f "$LOCAL_ENV_FILE" ]]; then
   set -a
   # shellcheck disable=SC1091
@@ -67,98 +49,50 @@ if [[ -f "$LOCAL_ENV_FILE" ]]; then
 fi
 
 case "$COMMAND" in
-  status)
-    "${COMPOSE[@]}" ps
-    exit 0
-    ;;
-  logs)
-    "${COMPOSE[@]}" logs --tail=120
-    exit 0
-    ;;
   app-log)
     if [[ -f "$LOG_FILE" ]]; then
       tail -n 160 "$LOG_FILE"
     else
-      echo "Backend app log does not exist yet: $LOG_FILE" >&2
+      echo "后端运行日志还不存在：$LOG_FILE" >&2
       exit 1
     fi
     exit 0
     ;;
-  doctor)
-    print_section "Paths"
-    echo "ROOT_DIR=$ROOT_DIR"
-    echo "API_DIR=$API_DIR"
-    echo "JAVA_HOME=$JAVA_HOME"
-    echo "MAVEN_BIN=$MAVEN_BIN"
-
-    print_section "Java"
-    java -version
-
-    print_section "Maven"
-    "$MAVEN_BIN" --version
-
-    print_section "Docker"
-    if docker info >/dev/null 2>&1; then
-      docker info --format 'Server Version: {{.ServerVersion}}'
-      "${COMPOSE[@]}" ps
-    else
-      echo "Docker daemon is not reachable. Start Docker Desktop, then retry."
-    fi
-
-    print_section "PostgreSQL"
-    if "${COMPOSE[@]}" exec -T postgres pg_isready -U blog -d blog >/dev/null 2>&1; then
-      echo "PostgreSQL is ready."
-    else
-      echo "PostgreSQL is not ready or the postgres container is not running."
-    fi
-
-    print_section "Ports"
-    for port in 8080 5432 6379 9000 9001; do
-      if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
-        echo "Port $port is in use:"
-        lsof -nP -iTCP:"$port" -sTCP:LISTEN
-      else
-        echo "Port $port is free."
-      fi
-    done
-    exit 0
-    ;;
-  reset-db)
-    "${COMPOSE[@]}" down
-    rm -rf "$INFRA_DATA_DIR"
-    "${COMPOSE[@]}" up -d
-    exit 0
-    ;;
   test)
-    cd "$API_DIR"
-    exec "$MAVEN_BIN" test
+    RUN_TESTS=1
     ;;
   run)
     ;;
   *)
-    echo "Unknown command: $COMMAND" >&2
-    echo "Run 'scripts/dev-api.sh --help' for usage." >&2
+    echo "未知命令：$COMMAND" >&2
+    echo "运行 'scripts/dev-api.sh --help' 查看用法。" >&2
     exit 1
     ;;
 esac
 
-if [[ "${SKIP_DOCKER:-0}" != "1" ]]; then
-  "${COMPOSE[@]}" up -d
-  echo "Waiting for PostgreSQL to accept connections..."
-  for attempt in {1..30}; do
-    if "${COMPOSE[@]}" exec -T postgres pg_isready -U blog -d blog >/dev/null 2>&1; then
-      break
-    fi
-    if [[ "$attempt" == "30" ]]; then
-      echo "PostgreSQL did not become ready in time. Run 'scripts/dev-api.sh logs' for details." >&2
-      exit 1
-    fi
-    sleep 1
-  done
+if [[ ! -x "$MAVEN_BIN" ]]; then
+  echo "未找到 Maven。请安装 Maven，或设置 MAVEN_BIN=/path/to/mvn。" >&2
+  exit 1
+fi
+
+# 统一切到 Java 21，避免本机默认 JDK 版本影响 Spring Boot 启动。
+export JAVA_HOME="${JAVA_HOME_OVERRIDE:-$(/usr/libexec/java_home -v 21)}"
+export PATH="$JAVA_HOME/bin:$(dirname "$MAVEN_BIN"):$PATH"
+
+# test 命令只跑 Maven 测试，不启动 Docker 依赖。
+if [[ "$RUN_TESTS" == "1" ]]; then
+  cd "$API_DIR"
+  exec "$MAVEN_BIN" test
+fi
+
+# 默认先拉起本地依赖；依赖已启动时可通过 SKIP_INFRA=1 跳过。
+if [[ "${SKIP_INFRA:-0}" != "1" ]]; then
+  "$ROOT_DIR/scripts/infra.sh" up
+  "$ROOT_DIR/scripts/infra.sh" wait
 fi
 
 cd "$API_DIR"
 mkdir -p "$(dirname "$LOG_FILE")"
-echo "Writing backend log to $LOG_FILE"
+echo "后端运行日志写入：$LOG_FILE"
 "$MAVEN_BIN" spring-boot:run -Dspring-boot.run.profiles="$PROFILES" 2>&1 | tee "$LOG_FILE"
 exit "${PIPESTATUS[0]}"

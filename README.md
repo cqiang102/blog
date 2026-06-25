@@ -36,6 +36,12 @@ cp apps/api/.env.example apps/api/.env
 scripts/dev-api.sh
 ```
 
+本地依赖也可以单独启动：
+
+```bash
+scripts/infra.sh up
+```
+
 启动前端：
 
 ```bash
