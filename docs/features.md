@@ -481,8 +481,8 @@
 | MINIO_SECRET_KEY | blog_minio_password | MinIO 秘密密钥 |
 | MINIO_BUCKET | blog-media | MinIO 存储桶 |
 | OPENAI_API_KEY | 开发占位值 | OpenAI API 密钥，生产必须配置 |
-| OPENAI_BASE_URL | https://api.openai.com | OpenAI API 地址 |
-| OPENAI_CHAT_MODEL | gpt-4.1-mini | 聊天模型 |
+| OPENAI_BASE_URL | https://api.deepseek.com | OpenAI 兼容 API 地址 |
+| OPENAI_CHAT_MODEL | deepseek-v4-flash | 聊天模型 |
 | OLLAMA_EMBEDDING_MODEL | nomic-embed-text | 嵌入模型 |
 | JWT_SECRET | change-me-to-a-long-random-secret | JWT 密钥 |
 | JWT_ACCESS_TOKEN_MINUTES | 30 | Access Token 有效期（分钟） |

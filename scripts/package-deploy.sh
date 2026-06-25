@@ -13,6 +13,7 @@ API_JAR="${API_JAR:-}"
 WEB_BUILD_OUTPUT="${WEB_BUILD_OUTPUT:-$WEB_DIR/build/web}"
 RUN_BUILDS=1
 CHECK_ONLY=0
+INCLUDE_DEPLOY_ENV=0
 
 usage() {
   cat <<USAGE
@@ -29,6 +30,7 @@ usage() {
 
 说明：
   Spring Boot JAR 构建会传入 -DskipApiDocs=true，生产部署包不包含 Swagger/OpenAPI 依赖。
+  如果 deploy/.env 存在，脚本会把它一起放入部署包；deploy/.env 被 Git 忽略，不会随源码发布。
 USAGE
 }
 
@@ -211,6 +213,9 @@ run_checks() {
   require_file "$DEPLOY_DIR/docker-compose.yml"
   require_file "$DEPLOY_DIR/nginx.conf"
   require_file "$DEPLOY_DIR/.env.example"
+  if [[ -f "$DEPLOY_DIR/.env" ]]; then
+    INCLUDE_DEPLOY_ENV=1
+  fi
 
   echo "==> 检查本地工具..."
   if [[ "$CHECK_ONLY" -eq 1 ]]; then
@@ -277,6 +282,9 @@ cp "$DEPLOY_DIR/Dockerfile.web" "$STAGING_DIR/"
 cp "$DEPLOY_DIR/docker-compose.yml" "$STAGING_DIR/"
 cp "$DEPLOY_DIR/nginx.conf" "$STAGING_DIR/"
 cp "$DEPLOY_DIR/.env.example" "$STAGING_DIR/"
+if [[ "$INCLUDE_DEPLOY_ENV" == "1" ]]; then
+  cp "$DEPLOY_DIR/.env" "$STAGING_DIR/.env"
+fi
 cp "$API_JAR_PATH" "$STAGING_DIR/blog-api.jar"
 cp -R "$WEB_BUILD_OUTPUT/." "$STAGING_DIR/web/"
 
@@ -288,5 +296,9 @@ echo ""
 echo "==> 完成！产物：$OUTPUT"
 echo "    上传到服务器后执行："
 echo "    tar xzf $(basename "$OUTPUT") && cd $PACKAGE_NAME"
-echo "    cp .env.example .env && vim .env"
+if [[ "$INCLUDE_DEPLOY_ENV" == "1" ]]; then
+  echo "    # 已包含 deploy/.env，请确认配置后启动"
+else
+  echo "    cp .env.example .env && vim .env"
+fi
 echo "    docker compose up -d --build"

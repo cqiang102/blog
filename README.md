@@ -75,7 +75,8 @@ scripts/package-deploy.sh
 
 ```bash
 tar xzf blog-mimo-1.0.0.tar.gz && cd blog-deploy
-cp .env.example .env && vim .env   # 填写生产配置
+test -f .env || cp .env.example .env
+vim .env   # 确认生产配置
 docker compose up -d --build
 ```
 

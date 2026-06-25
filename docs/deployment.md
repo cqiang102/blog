@@ -30,6 +30,7 @@ scripts/package-deploy.sh
 3. 组装部署目录并打包成 `blog-mimo-1.0.0.tar.gz`
 
 > 部署 JAR 会跳过 `api-docs` Maven profile，不包含 SpringDoc/Swagger UI 依赖；`/v3/api-docs` 和 `/swagger-ui.html` 在生产部署中预期为不可用。开发环境默认启用 `dev` profile，可继续使用 Swagger/OpenAPI 辅助调试。
+> 如果本地存在 `deploy/.env`，打包脚本会把它作为生产 `.env` 一起放入压缩包；该文件被 Git 忽略，不会随源码发布。
 
 产出结构：
 
@@ -45,6 +46,7 @@ blog-deploy/
 │   ├── postgres/
 │   ├── redis/
 │   └── minio/
+├── .env                    # 可选；存在 deploy/.env 时随包带入
 └── .env.example
 ```
 
@@ -82,7 +84,7 @@ tar xzf blog-mimo-1.0.0.tar.gz
 ### 2. 配置环境变量
 
 ```bash
-cp .env.example .env
+test -f .env || cp .env.example .env
 vim .env
 ```
 
