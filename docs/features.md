@@ -57,10 +57,9 @@
 
 | 类型 | 说明 |
 |------|------|
-| ARTICLE | 文章（Markdown 正文） |
+| ARTICLE | Markdown 文章，可绑定封面和媒体资源 |
 | IMAGE | 图片 |
 | VIDEO | 视频 |
-| ARTICLE | Markdown 文章；历史 `TEXT` 数据已迁移为该类型 |
 
 ### 2.2 内容状态
 
@@ -378,7 +377,7 @@
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| 本地开发 | ✅ | infra/docker-compose.yml（PG18 + Redis + MinIO） |
+| 本地开发 | ✅ | scripts/infra.sh + infra/docker-compose.yml（PG18 + Redis + MinIO，共用 deploy/.data） |
 | 生产部署 | ✅ | deploy/docker-compose.yml（API + Web + Nginx） |
 | API Dockerfile | ✅ | deploy/Dockerfile.api（Java 21 JRE + Spring Boot JAR） |
 | Web Dockerfile | ✅ | deploy/Dockerfile.web（Nginx + Flutter 产物） |
@@ -399,7 +398,9 @@
 
 | 脚本 | 说明 |
 |------|------|
-| scripts/dev-api.sh | 开发脚本（自动检测 Java 21、启动依赖、运行应用） |
+| scripts/infra.sh | 本地依赖服务脚本（读取 apps/api/.env，管理 PostgreSQL、Redis、MinIO） |
+| scripts/dev-api.sh | 后端开发脚本（切换 Java 21、按需启动依赖、运行应用或测试） |
+| scripts/package-deploy.sh | 生产部署包脚本（构建 JAR 和 Flutter Web，组装 tar.gz） |
 
 ### 9.2 文档
 
@@ -415,10 +416,11 @@
 
 ### 9.3 测试
 
-| 测试 | 数量 | 说明 |
+| 检查 | 状态 | 说明 |
 |------|------|------|
-| 后端测试 | 98 | 覆盖核心服务、契约、基础设施和 pgvector 集成 |
-| 前端测试 | 52 | 覆盖模型、状态、HTTP 客户端与 Widget |
+| 后端测试 | 保留 | 覆盖核心服务、契约、基础设施和 pgvector 相关流程；发布前按风险补充运行 |
+| 前端测试 | 保留 | 覆盖模型、状态、HTTP 客户端与 Widget；发布前结合人工测试 |
+| 部署检查 | ✅ | `scripts/package-deploy.sh --check` 验证工具、部署文件和 Compose 配置 |
 
 ---
 

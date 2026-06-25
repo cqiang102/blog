@@ -65,27 +65,6 @@ GITHUB_CLIENT_SECRET=...
 AI_VECTORSTORE_TYPE=pgvector
 ```
 
-## Spring AI 升级说明
-
-### 2.0.0 GA（当前版本）
-
-当前版本组合：
-
-- Spring Boot 4.1.0
-- Spring AI 2.0.0
-- Java 21
-- Spring Framework 7.0.8
-- Hibernate 7.4.1.Final
-- Flyway 12.4.0
-
-关键适配：
-
-- AI 通过 `.tools(blogTools)` 注册工具；事实类问题先调用搜索工具，空查询用于浏览全部内容或知识来源
-- 知识检索采用关键词优先、向量补充的混合策略，向量结果受 `AI_KNOWLEDGE_MIN_SIMILARITY` 阈值控制
-- OpenAI 和 Ollama 模型属性使用 2.0 GA 的扁平配置形式
-- JDBC ChatMemory 的 `timestamp` 使用 `TIMESTAMPTZ`，`sequence_id` 使用 `BIGINT`
-- Tool Calling 循环由 Spring AI 的 Advisor 链负责，同步和流式调用保持同一套工具注册方式
-
 健康检查：
 
 ```bash
