@@ -5,10 +5,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
 MAVEN_BIN="${MAVEN_BIN:-$(command -v mvn || true)}"
 COMMAND="${1:-run}"
-PROFILES="${2:-local}"
+PROFILES="${2:-dev}"
 LOG_FILE="${LOG_FILE:-$API_DIR/target/dev-api.log}"
+LOCAL_ENV_FILE="$API_DIR/.env"
+INFRA_DATA_DIR="$ROOT_DIR/infra/data"
 
-if [[ "$COMMAND" == "local"* || "$COMMAND" == *","* ]]; then
+if [[ "$COMMAND" == "dev"* || "$COMMAND" == *","* ]]; then
   PROFILES="$COMMAND"
   COMMAND="run"
 fi
@@ -19,22 +21,23 @@ Usage:
   scripts/dev-api.sh [command] [profiles]
 
 Examples:
-  scripts/dev-api.sh                 # start Docker dependencies and run local profile
-  scripts/dev-api.sh run local,nodb  # run API without PostgreSQL/Flyway/pgvector
-  scripts/dev-api.sh local,nodb      # shortcut for the previous command
+  scripts/dev-api.sh                 # start Docker dependencies and run dev profile
+  scripts/dev-api.sh run dev         # run API with the dev profile
+  scripts/dev-api.sh dev             # shortcut for the previous command
   scripts/dev-api.sh status          # show Docker service status
   scripts/dev-api.sh logs            # show recent Docker logs
   scripts/dev-api.sh app-log         # show recent backend app log
-  scripts/dev-api.sh reset-db        # delete local Docker volumes and recreate services
+  scripts/dev-api.sh reset-db        # delete local infra data and recreate services
   scripts/dev-api.sh doctor          # print Java/Maven/Docker/PostgreSQL diagnostics
   scripts/dev-api.sh test            # run backend tests with Maven
-  SKIP_DOCKER=1 scripts/dev-api.sh run local
+  SKIP_DOCKER=1 scripts/dev-api.sh run dev
 
 Environment:
   MAVEN_BIN    Override Maven binary path.
   SKIP_DOCKER  Set to 1 to skip docker compose startup.
   JAVA_HOME_OVERRIDE  Override the auto-detected Java 21 home.
   LOG_FILE  Override backend run log path.
+  Local configuration is loaded from apps/api/.env for both Docker dependencies and the API.
 USAGE
   exit 0
 fi
@@ -46,16 +49,20 @@ fi
 
 export JAVA_HOME="${JAVA_HOME_OVERRIDE:-$(/usr/libexec/java_home -v 21)}"
 export PATH="$JAVA_HOME/bin:$(dirname "$MAVEN_BIN"):$PATH"
-COMPOSE=(docker compose -f "$ROOT_DIR/infra/docker-compose.yml")
+COMPOSE=(docker compose)
+if [[ -f "$LOCAL_ENV_FILE" ]]; then
+  COMPOSE+=(--env-file "$LOCAL_ENV_FILE")
+fi
+COMPOSE+=(-f "$ROOT_DIR/infra/docker-compose.yml")
 
 print_section() {
   printf '\n== %s ==\n' "$1"
 }
 
-if [[ -f "$API_DIR/.env" ]]; then
+if [[ -f "$LOCAL_ENV_FILE" ]]; then
   set -a
   # shellcheck disable=SC1091
-  source "$API_DIR/.env"
+  source "$LOCAL_ENV_FILE"
   set +a
 fi
 
@@ -117,7 +124,8 @@ case "$COMMAND" in
     exit 0
     ;;
   reset-db)
-    "${COMPOSE[@]}" down -v
+    "${COMPOSE[@]}" down
+    rm -rf "$INFRA_DATA_DIR"
     "${COMPOSE[@]}" up -d
     exit 0
     ;;
@@ -134,7 +142,7 @@ case "$COMMAND" in
     ;;
 esac
 
-if [[ "${SKIP_DOCKER:-0}" != "1" && "$PROFILES" != *"nodb"* ]]; then
+if [[ "${SKIP_DOCKER:-0}" != "1" ]]; then
   "${COMPOSE[@]}" up -d
   echo "Waiting for PostgreSQL to accept connections..."
   for attempt in {1..30}; do
@@ -142,7 +150,7 @@ if [[ "${SKIP_DOCKER:-0}" != "1" && "$PROFILES" != *"nodb"* ]]; then
       break
     fi
     if [[ "$attempt" == "30" ]]; then
-      echo "PostgreSQL did not become ready in time. Run 'docker compose -f infra/docker-compose.yml logs postgres' for details." >&2
+      echo "PostgreSQL did not become ready in time. Run 'scripts/dev-api.sh logs' for details." >&2
       exit 1
     fi
     sleep 1

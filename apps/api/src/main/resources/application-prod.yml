@@ -9,6 +9,16 @@ spring:
     show-sql: false
   flyway:
     enabled: true
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
+            scope:
+              - read:user
+              - user:email
   ai:
     model:
       embedding: ollama

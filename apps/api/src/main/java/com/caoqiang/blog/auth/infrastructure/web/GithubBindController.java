@@ -54,8 +54,8 @@ public class GithubBindController {
             UserRepository userRepository,
             OAuthAccountRepository oauthAccountRepository,
             RefreshTokenService refreshTokenService,
-            @Value("${spring.security.oauth2.client.registration.github.client-id:}") String clientId,
-            @Value("${spring.security.oauth2.client.registration.github.client-secret:}") String clientSecret,
+            @Value("${blog.oauth.github.client-id:}") String clientId,
+            @Value("${blog.oauth.github.client-secret:}") String clientSecret,
             @Value("${blog.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
         this.jwtService = jwtService;
         this.userRepository = userRepository;

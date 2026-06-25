@@ -3,7 +3,17 @@
 ## 依赖服务
 
 ```bash
-docker compose -f infra/docker-compose.yml up -d
+cp apps/api/.env.example apps/api/.env
+scripts/dev-api.sh
+```
+
+本地运行只维护 `apps/api/.env` 一份配置。脚本会把它同时加载给 Docker 依赖服务和 Spring Boot API。
+本地 PostgreSQL、Redis 和 MinIO 数据保存在 `infra/data/`，与 `infra/docker-compose.yml` 同级。
+
+如果只想手动启动依赖服务：
+
+```bash
+docker compose --env-file apps/api/.env -f infra/docker-compose.yml up -d
 ```
 
 服务端口：
@@ -21,10 +31,10 @@ docker compose -f infra/docker-compose.yml up -d
 scripts/dev-api.sh
 ```
 
-诊断模式，不连接 PostgreSQL/Flyway/pgvector：
+脚本默认启用 `dev` profile。依赖服务已经启动时，可以跳过 Docker 编排：
 
 ```bash
-scripts/dev-api.sh local,nodb
+SKIP_DOCKER=1 scripts/dev-api.sh run dev
 ```
 
 查看依赖服务状态和日志：
@@ -39,19 +49,20 @@ scripts/dev-api.sh doctor
 自定义 Maven 路径：
 
 ```bash
-MAVEN_BIN=/path/to/mvn scripts/dev-api.sh run local
+MAVEN_BIN=/path/to/mvn scripts/dev-api.sh run dev
 ```
 
-默认本地 profile 不启用 GitHub OAuth，因此没有 GitHub 密钥也能启动。需要 GitHub 登录时使用：
+本地 GitHub 登录不再使用额外 profile。需要验证 GitHub 登录时，填写 `apps/api/.env`：
 
 ```bash
-scripts/dev-api.sh run local,github
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
 ```
 
-默认本地 profile 不启用 Spring AI pgvector VectorStore，避免首版启动过早依赖 embedding 配置。需要验证 AI 向量检索时使用：
+默认本地 VectorStore 为 `none`，避免启动时强依赖 embedding 配置。需要验证 AI 向量检索时，在 `apps/api/.env` 中设置：
 
 ```bash
-scripts/dev-api.sh run local,ai
+AI_VECTORSTORE_TYPE=pgvector
 ```
 
 ## Spring AI 升级说明
@@ -74,14 +85,6 @@ scripts/dev-api.sh run local,ai
 - OpenAI 和 Ollama 模型属性使用 2.0 GA 的扁平配置形式
 - JDBC ChatMemory 的 `timestamp` 使用 `TIMESTAMPTZ`，`sequence_id` 使用 `BIGINT`
 - Tool Calling 循环由 Spring AI 的 Advisor 链负责，同步和流式调用保持同一套工具注册方式
-
-完整升级记录见 [Spring Boot 4.1 与 Spring AI 2.0 升级说明](upgrade-spring-boot-4.1-spring-ai-2.0.md)。
-
-只想先验证 Web/API 层、暂时不连接 PostgreSQL 时，可以使用诊断 profile：
-
-```bash
-scripts/dev-api.sh run local,nodb
-```
 
 健康检查：
 

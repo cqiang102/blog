@@ -24,7 +24,7 @@ docs/           架构、功能、接口、运行与部署文档
 
 ## 快速启动
 
-复制后端配置并填写需要的密钥：
+复制本地配置并填写需要的密钥。这个文件同时供 Docker 依赖和后端 API 使用：
 
 ```bash
 cp apps/api/.env.example apps/api/.env
@@ -44,7 +44,7 @@ fvm flutter pub get
 fvm flutter run -d chrome
 ```
 
-诊断模式、可选 profile 和故障排查见 [运行手册](docs/runbook.md)。
+开发配置和故障排查见 [运行手册](docs/runbook.md)。
 
 ## 验证
 

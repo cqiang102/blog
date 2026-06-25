@@ -29,7 +29,7 @@ scripts/package-deploy.sh
 2. 构建 Spring Boot 可执行 JAR（`mvn clean package -DskipTests -DskipApiDocs=true`）
 3. 组装部署目录并打包成 `blog-mimo-1.0.0.tar.gz`
 
-> 部署 JAR 会跳过 `api-docs` Maven profile，不包含 SpringDoc/Swagger UI 依赖；`/v3/api-docs` 和 `/swagger-ui.html` 在生产部署中预期为不可用。开发环境默认启用 `local` profile，可继续使用 Swagger/OpenAPI 辅助调试。
+> 部署 JAR 会跳过 `api-docs` Maven profile，不包含 SpringDoc/Swagger UI 依赖；`/v3/api-docs` 和 `/swagger-ui.html` 在生产部署中预期为不可用。开发环境默认启用 `dev` profile，可继续使用 Swagger/OpenAPI 辅助调试。
 
 产出结构：
 

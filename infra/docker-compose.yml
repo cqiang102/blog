@@ -11,7 +11,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - blog-postgres-data:/var/lib/postgresql
+      - ./data/postgres:/var/lib/postgresql
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U blog -d blog"]
@@ -27,7 +27,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - blog-redis-data:/data
+      - ./data/redis:/data
     restart: unless-stopped
 
   minio:
@@ -41,10 +41,5 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - blog-minio-data:/data
+      - ./data/minio:/data
     restart: unless-stopped
-
-volumes:
-  blog-postgres-data:
-  blog-redis-data:
-  blog-minio-data:

@@ -8,8 +8,7 @@
 | [功能清单](features.md) | 已实现能力与待扩展方向 | 以代码和测试为准 |
 | [需求说明](requirements.md) | 产品目标、角色和核心能力 | 产品范围变化时更新 |
 | [API 契约概览](api-contract.md) | 主要端点导航 | 完整字段以 OpenAPI 为准 |
-| [运行手册](runbook.md) | 本地启动、profile、诊断与故障排查 | 命令变化时更新 |
-| [版本升级说明](upgrade-spring-boot-4.1-spring-ai-2.0.md) | Boot 4.1 与 Spring AI 2.0 兼容性和验证记录 | 框架升级时更新 |
+| [运行手册](runbook.md) | 本地启动、配置、诊断与故障排查 | 命令变化时更新 |
 | [部署说明](deployment.md) | 生产部署、备份、监控和回滚 | 基础设施变化时更新 |
 | [更新日志](../CHANGELOG.md) | 版本变更和发布检查记录 | 每次发布前更新 |
 

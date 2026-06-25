@@ -58,7 +58,7 @@ spring:
       embedding:
         model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
     vectorstore:
-      type: none
+      type: ${AI_VECTORSTORE_TYPE:none}
       pgvector:
         initialize-schema: false
         dimensions: 768
@@ -96,6 +96,10 @@ springdoc:
 blog:
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+  oauth:
+    github:
+      client-id: ${GITHUB_CLIENT_ID:}
+      client-secret: ${GITHUB_CLIENT_SECRET:}
   ai:
     daily-question-limit: ${AI_DAILY_QUESTION_LIMIT:10}
     knowledge-min-similarity: ${AI_KNOWLEDGE_MIN_SIMILARITY:0.60}

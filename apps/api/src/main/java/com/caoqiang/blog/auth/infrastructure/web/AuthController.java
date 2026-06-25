@@ -61,7 +61,7 @@ public class AuthController {
             VerificationService verificationService,
             JwtService jwtService,
             OAuthLoginCodeService oAuthLoginCodeService,
-            @Value("${spring.security.oauth2.client.registration.github.client-id:}") String clientId,
+            @Value("${blog.oauth.github.client-id:}") String clientId,
             @Value("${blog.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
         this.authService = authService;
         this.verificationService = verificationService;
