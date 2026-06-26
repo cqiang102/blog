@@ -37,19 +37,56 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
 
   @override
   Widget build(BuildContext context) {
-    return FilledButton.icon(
-      key: ValueKey(_optimisticLiked),
-      onPressed: _liking ? null : _toggleLike,
-      icon: HugeIcon(
-        icon: _optimisticLiked
-            ? HugeIcons.strokeRoundedFavourite
-            : HugeIcons.strokeRoundedFavourite,
-        size: 18,
-      ),
-      label: Text(_optimisticLikeCount > 99 ? '99+' : '$_optimisticLikeCount'),
-      style: FilledButton.styleFrom(
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    final scheme = Theme.of(context).colorScheme;
+    final countText = _optimisticLikeCount > 99
+        ? '99+'
+        : '$_optimisticLikeCount';
+    final icon = Icon(
+      _optimisticLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+      size: 18,
+    );
+    final onPressed = _liking ? null : _toggleLike;
+
+    final button = _optimisticLiked
+        ? FilledButton.icon(
+            key: const ValueKey('liked'),
+            onPressed: onPressed,
+            icon: icon,
+            label: Text(countText),
+            style: FilledButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              backgroundColor: scheme.primary,
+              foregroundColor: scheme.onPrimary,
+              disabledBackgroundColor: scheme.primary.withValues(alpha: 0.36),
+              disabledForegroundColor: scheme.onPrimary.withValues(alpha: 0.72),
+            ),
+          )
+        : OutlinedButton.icon(
+            key: const ValueKey('not-liked'),
+            onPressed: onPressed,
+            icon: icon,
+            label: Text(countText),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              foregroundColor: scheme.onSurfaceVariant,
+              backgroundColor: scheme.surfaceContainerLow,
+              side: BorderSide(color: scheme.outlineVariant),
+            ),
+          );
+
+    return Tooltip(
+      message: _optimisticLiked ? '已点赞，点击取消' : '点赞',
+      child: AnimatedSwitcher(
+        duration: AppAnimations.fast,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(scale: animation, child: child),
+        ),
+        child: button,
       ),
     ).scalePulse();
   }

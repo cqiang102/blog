@@ -14,12 +14,17 @@ List<SseEvent> parseSseBlock(String block) {
     if (line.startsWith('event:')) {
       type = line.substring(6).trim();
     } else if (line.startsWith('data:')) {
-      dataLines.add(line.substring(5).trim());
+      final value = line.substring(5);
+      dataLines.add(value.startsWith(' ') ? value.substring(1) : value);
     }
   }
 
   if (dataLines.isNotEmpty) {
-    events.add(SseEvent(type, dataLines.join('\n')));
+    final data =
+        type == 'token' && dataLines.length == 1 && dataLines.single.isEmpty
+        ? '\n'
+        : dataLines.join('\n');
+    events.add(SseEvent(type, data));
   }
   return events;
 }

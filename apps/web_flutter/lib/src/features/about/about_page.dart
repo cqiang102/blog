@@ -3,6 +3,7 @@
 // 使用 Riverpod 管理状态，替代 setState
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -159,52 +160,40 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     final remaining = chatState.remainingQuestions ?? quotaRemaining;
 
     return AppPageFrame(
-      child: CustomScrollView(
-        slivers: [
-          const SliverAppBar(
-            title: Text('关于'),
-            actions: [
-              AppThemeToggle(),
-              SizedBox(width: AppSpacing.sm),
-            ],
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            sliver: SliverList.list(
-              children: [
-                // 介绍文字
-                // _buildIntro(context),
-                // const SizedBox(height: AppSpacing.lg),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final viewportHeight = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : MediaQuery.sizeOf(context).height;
+          final chatHeight = math.max(
+            360.0,
+            viewportHeight - kToolbarHeight - AppSpacing.lg * 2,
+          );
 
-                // AI 聊天卡片
-                _buildChatCard(auth, remaining, chatState),
-              ],
-            ),
-          ),
-        ],
+          return CustomScrollView(
+            slivers: [
+              const SliverAppBar(
+                title: Text('关于'),
+                actions: [
+                  AppThemeToggle(),
+                  SizedBox(width: AppSpacing.sm),
+                ],
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                sliver: SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: chatHeight,
+                    child: _buildChatCard(auth, remaining, chatState),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
-
-  /// 构建介绍区域
-  // Widget _buildIntro(BuildContext context) {
-  //   return Column(
-  //     crossAxisAlignment: CrossAxisAlignment.start,
-  //     children: [
-  //       Text(
-  //         '写代码，也记录生活。',
-  //         style: Theme.of(
-  //           context,
-  //         ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-  //       ),
-  //       const SizedBox(height: AppSpacing.sm),
-  //       Text(
-  //         '这里会放个人介绍、项目经历、常用技术栈和联系方式。',
-  //         style: Theme.of(context).textTheme.bodyMedium,
-  //       ),
-  //     ],
-  //   );
-  // }
 
   /// 构建聊天卡片
   Widget _buildChatCard(
@@ -213,38 +202,36 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     AiChatState chatState,
   ) {
     return Card(
-      child: SizedBox(
-        height: 560,
-        child: Column(
-          children: [
-            // 头部
-            _ChatHeader(
-              auth: auth,
-              remaining: remaining,
-              remainingMessages: chatState.remainingMessages,
-              onShowHistory: _showSessionList,
-              onCreateNew: _createNewSession,
-            ),
-            const Divider(height: 1),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          // 头部
+          _ChatHeader(
+            auth: auth,
+            remaining: remaining,
+            remainingMessages: chatState.remainingMessages,
+            onShowHistory: _showSessionList,
+            onCreateNew: _createNewSession,
+          ),
+          const Divider(height: 1),
 
-            // 消息列表
-            Expanded(child: _buildMessageList(chatState)),
+          // 消息列表
+          Expanded(child: _buildMessageList(chatState)),
 
-            // 会话限制提示
-            if (chatState.isSessionLimitReached)
-              _SessionLimitBanner(onCreateNew: _createNewSession),
+          // 会话限制提示
+          if (chatState.isSessionLimitReached)
+            _SessionLimitBanner(onCreateNew: _createNewSession),
 
-            // 输入栏
-            _ChatInputBar(
-              controller: _controller,
-              auth: auth,
-              remaining: remaining,
-              sending: chatState.isSending,
-              sessionLimitReached: chatState.isSessionLimitReached,
-              onSend: _send,
-            ),
-          ],
-        ),
+          // 输入栏
+          _ChatInputBar(
+            controller: _controller,
+            auth: auth,
+            remaining: remaining,
+            sending: chatState.isSending,
+            sessionLimitReached: chatState.isSessionLimitReached,
+            onSend: _send,
+          ),
+        ],
       ),
     );
   }
@@ -257,10 +244,14 @@ class _AboutPageState extends ConsumerState<AboutPage> {
 
     if (chatState.messages.isEmpty) {
       return Center(
-        child: Text(
-          '有什么想问的？试试问我关于博客文章、技术栈或个人经历的问题',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Text(
+            '有什么想问的？试试问我关于博客文章、技术栈或个人经历的问题',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       );
@@ -383,6 +374,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
                   .read(aiChatProvider.notifier)
                   .completeAiReply(
                     sessionId: reply.sessionId,
+                    answer: reply.answer,
                     remainingQuestions: reply.remainingQuestions,
                     remainingMessages: reply.remainingMessages,
                   );

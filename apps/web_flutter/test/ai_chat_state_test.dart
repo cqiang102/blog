@@ -24,4 +24,21 @@ void main() {
     expect(notifier.state.messages, hasLength(2));
     expect(notifier.state.messages.last.text, 'partial');
   });
+
+  test('completeAiReply replaces streamed draft with final answer', () {
+    final notifier = AiChatNotifier();
+
+    notifier.addUserMessage('hello');
+    notifier.appendAiToken('1. first 2. second');
+    notifier.completeAiReply(
+      sessionId: 'session-1',
+      answer: '1. first\n2. second',
+      remainingQuestions: 9,
+      remainingMessages: 38,
+    );
+
+    expect(notifier.state.isSending, isFalse);
+    expect(notifier.state.sessionId, 'session-1');
+    expect(notifier.state.messages.last.text, '1. first\n2. second');
+  });
 }

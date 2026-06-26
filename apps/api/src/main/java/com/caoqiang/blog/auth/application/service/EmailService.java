@@ -1,8 +1,10 @@
 package com.caoqiang.blog.auth.application.service;
 
+import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -31,13 +33,18 @@ public class EmailService {
     /** Spring 邮件发送器 */
     private final JavaMailSender mailSender;
 
+    /** SMTP 登录账号，同时作为发件邮箱地址 */
+    private final String mailUsername;
+
     /**
      * 构造函数，注入邮件发送器
      *
-     * @param mailSender 邮件发送器实例
+     * @param mailSender   邮件发送器实例
+     * @param mailUsername SMTP 登录账号
      */
-    public EmailService(JavaMailSender mailSender) {
+    public EmailService(JavaMailSender mailSender, @Value("${spring.mail.username}") String mailUsername) {
         this.mailSender = mailSender;
+        this.mailUsername = mailUsername;
     }
 
     /**
@@ -54,6 +61,7 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(to);
+            helper.setFrom(new InternetAddress(mailUsername, "沐凉·日记", "UTF-8"));
             helper.setSubject("【博客系统】邮箱验证码");
             helper.setText(buildEmailContent(code), true);
             mailSender.send(message);

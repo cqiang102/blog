@@ -113,10 +113,17 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   /// 完成 AI 回复
   void completeAiReply({
     required String sessionId,
+    required String answer,
     required int remainingQuestions,
     required int remainingMessages,
   }) {
+    final messages = List<ChatMessage>.from(state.messages);
+    if (messages.isNotEmpty && !messages.last.isMine) {
+      messages[messages.length - 1] = ChatMessage.ai(answer);
+    }
+
     state = state.copyWith(
+      messages: messages,
       sessionId: sessionId,
       remainingQuestions: remainingQuestions,
       remainingMessages: remainingMessages,
