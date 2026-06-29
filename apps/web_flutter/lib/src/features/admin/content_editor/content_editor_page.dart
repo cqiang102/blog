@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/constants.dart';
 import '../../../core/media_url.dart';
 import '../../../core/models.dart';
 import '../../../state/state.dart';
@@ -231,7 +232,7 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
     final date = await showDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: DateTime(2020),
+      firstDate: DateTime(kDateRangeStartYear),
       lastDate: DateTime(2100),
     );
     if (date == null || !mounted) return;

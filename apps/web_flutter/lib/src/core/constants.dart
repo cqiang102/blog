@@ -40,4 +40,4 @@ const double kAdminThumbHeight = 64;
 const int kMinPasswordLength = 6;
 
 /// 日期范围起始年
-const int kDateRangeStartYear = 2020;
+const int kDateRangeStartYear = 2017;
