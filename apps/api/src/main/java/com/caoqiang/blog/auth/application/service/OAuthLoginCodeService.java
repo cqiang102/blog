@@ -1,6 +1,6 @@
 package com.caoqiang.blog.auth.application.service;
 
-import com.caoqiang.blog.auth.application.dto.AuthTokenResponse;
+import com.caoqiang.blog.auth.application.dto.IssuedAuthSession;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -29,7 +29,7 @@ public class OAuthLoginCodeService {
         this.objectMapper = objectMapper;
     }
 
-    public String create(AuthTokenResponse session) {
+    public String create(IssuedAuthSession session) {
         byte[] randomBytes = new byte[32];
         secureRandom.nextBytes(randomBytes);
         String code = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
@@ -45,13 +45,13 @@ public class OAuthLoginCodeService {
         }
     }
 
-    public AuthTokenResponse consume(String code) {
+    public IssuedAuthSession consume(String code) {
         String payload = redisTemplate.execute(CONSUME_SCRIPT, List.of(KEY_PREFIX + code));
         if (payload == null) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "登录凭证无效或已过期");
         }
         try {
-            return objectMapper.readValue(payload, AuthTokenResponse.class);
+            return objectMapper.readValue(payload, IssuedAuthSession.class);
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to read OAuth login code", exception);
         }

@@ -7,7 +7,7 @@ import com.caoqiang.blog.auth.application.service.JwtService;
 import com.caoqiang.blog.auth.application.service.RefreshTokenService;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -62,7 +62,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     /** JWT 服务，用于解析和验证令牌 */
     private final JwtService jwtService;
     /** 用户仓库，用于查找用户信息 */
-    private final UserRepository userRepository;
+    private final UserAccountService userAccountService;
     /** 安全上下文策略 */
     private final SecurityContextHolderStrategy securityContextHolderStrategy =
             SecurityContextHolder.getContextHolderStrategy();
@@ -74,11 +74,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * 构造函数，注入依赖
      *
      * @param jwtService     JWT 服务
-     * @param userRepository 用户仓库
+     * @param userAccountService 用户模块公开账户服务
      */
-    public JwtAuthenticationFilter(JwtService jwtService, UserRepository userRepository) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserAccountService userAccountService) {
         this.jwtService = jwtService;
-        this.userRepository = userRepository;
+        this.userAccountService = userAccountService;
     }
 
     /**
@@ -121,11 +121,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 解析 JWT 令牌，提取用户声明
             JwtClaims claims = jwtService.parseAccessToken(token);
             // 查找用户并验证状态和角色
-            userRepository.findById(claims.userId())
-                    .filter(user -> user.isActive() && user.getRole() == claims.role())
+            userAccountService.findActiveById(claims.userId())
+                    .filter(user -> user.role() == claims.role())
                     .ifPresent(user -> {
                         // 创建已认证用户主体
-                        AuthenticatedUser principal = AuthenticatedUser.from(user);
+                        AuthenticatedUser principal = new AuthenticatedUser(
+                                user.id(),
+                                user.email(),
+                                user.nickname(),
+                                user.role()
+                        );
                         // 创建认证令牌，设置用户主体和权限
                         UsernamePasswordAuthenticationToken authentication =
                                 new UsernamePasswordAuthenticationToken(principal, null, principal.authorities());

@@ -1,24 +1,13 @@
 package com.caoqiang.blog.ai.chat.application.service;
 
-import com.caoqiang.blog.ai.chat.application.dto.AiCommentItem;
 import com.caoqiang.blog.ai.chat.application.dto.AiCommentListResult;
 import com.caoqiang.blog.ai.chat.application.dto.AiContentDetailResult;
-import com.caoqiang.blog.ai.chat.application.dto.AiContentItem;
 import com.caoqiang.blog.ai.chat.application.dto.AiSearchContentResult;
 
 import com.caoqiang.blog.ai.chat.application.dto.AiActionResult;
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeSearchResult;
 import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeSearchService;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
-import com.caoqiang.blog.content.application.service.ContentQueryService;
-import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
-import com.caoqiang.blog.interaction.application.dto.CommentRequest;
-import com.caoqiang.blog.interaction.application.dto.CommentResponse;
-import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
-import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
-import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.ai.chat.model.ToolContext;
@@ -43,20 +32,14 @@ public class AiBlogTools {
 
     public static final String AUTHENTICATED_USER_CONTEXT_KEY = "authenticatedUser";
 
-    private final ContentQueryService contentQueryService;
-    private final InteractionCommandService interactionCommandService;
-    private final InteractionQueryService interactionQueryService;
+    private final AiToolService aiToolService;
     private final KnowledgeSearchService knowledgeSearchService;
 
     public AiBlogTools(
-            ContentQueryService contentQueryService,
-            InteractionCommandService interactionCommandService,
-            InteractionQueryService interactionQueryService,
+            AiToolService aiToolService,
             KnowledgeSearchService knowledgeSearchService
     ) {
-        this.contentQueryService = contentQueryService;
-        this.interactionCommandService = interactionCommandService;
-        this.interactionQueryService = interactionQueryService;
+        this.aiToolService = aiToolService;
         this.knowledgeSearchService = knowledgeSearchService;
     }
 
@@ -72,20 +55,7 @@ public class AiBlogTools {
             @ToolParam(description = "搜索关键词；浏览全部或最新内容时传空字符串", required = false) String query,
             @ToolParam(description = "返回结果数量上限，最大10") int limit
     ) {
-        PageResponse<ContentSummaryResponse> results = contentQueryService.list(
-                query, null, null, null, null, 0, Math.clamp(limit, 1, 10)
-        );
-        return new AiSearchContentResult(
-                results.items().stream()
-                        .map(item -> new AiContentItem(
-                                item.id().toString(),
-                                item.title(),
-                                item.summary() != null ? item.summary() : "",
-                                item.type().name()
-                        ))
-                        .toList(),
-                results.total()
-        );
+        return aiToolService.searchContent(query, limit);
     }
 
     /**
@@ -98,21 +68,7 @@ public class AiBlogTools {
     public AiContentDetailResult getContentDetail(
             @ToolParam(description = "文章的UUID") UUID contentId
     ) {
-        try {
-            ContentDetailResponse detail = contentQueryService.detail(contentId, null);
-            return AiContentDetailResult.success(
-                    detail.id().toString(),
-                    detail.title(),
-                    detail.summary() != null ? detail.summary() : "",
-                    detail.bodyMarkdown() != null ? detail.bodyMarkdown() : "",
-                    detail.type().name(),
-                    detail.likeCount(),
-                    detail.viewCount(),
-                    detail.commentCount()
-            );
-        } catch (Exception e) {
-            return AiContentDetailResult.error("内容不存在或已归档");
-        }
+        return aiToolService.getContentDetail(contentId);
     }
 
     /**
@@ -143,12 +99,7 @@ public class AiBlogTools {
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
         }
-        try {
-            LikeStateResponse result = interactionCommandService.like(currentUser, contentId);
-            return AiActionResult.likeSuccess(result.liked(), result.likeCount());
-        } catch (Exception e) {
-            return AiActionResult.error(e.getMessage());
-        }
+        return aiToolService.likeContent(currentUser, contentId);
     }
 
     /**
@@ -166,12 +117,7 @@ public class AiBlogTools {
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
         }
-        try {
-            LikeStateResponse result = interactionCommandService.unlike(currentUser, contentId);
-            return AiActionResult.likeSuccess(result.liked(), result.likeCount());
-        } catch (Exception e) {
-            return AiActionResult.error(e.getMessage());
-        }
+        return aiToolService.unlikeContent(currentUser, contentId);
     }
 
     /**
@@ -191,12 +137,7 @@ public class AiBlogTools {
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
         }
-        try {
-            CommentResponse result = interactionCommandService.comment(currentUser, contentId, new CommentRequest(body));
-            return AiActionResult.commentSuccess(result.id(), result.body());
-        } catch (Exception e) {
-            return AiActionResult.error(e.getMessage());
-        }
+        return aiToolService.commentContent(currentUser, contentId, body);
     }
 
     /**
@@ -213,23 +154,11 @@ public class AiBlogTools {
             ToolContext toolContext
     ) {
         AuthenticatedUser currentUser = currentUser(toolContext);
-        UUID currentUserId = currentUser != null ? currentUser.id() : null;
-        try {
-            PageResponse<CommentResponse> result = interactionQueryService.comments(
-                    contentId, 0, Math.min(limit, 20), currentUserId
-            );
-            List<AiCommentItem> items = result.items().stream()
-                    .map(c -> new AiCommentItem(
-                            c.id(),
-                            c.body(),
-                            c.author() != null ? c.author().nickname() : "匿名",
-                            c.createdAt()
-                    ))
-                    .toList();
-            return AiCommentListResult.success(items, result.total());
-        } catch (Exception e) {
-            return AiCommentListResult.error(e.getMessage());
-        }
+        return aiToolService.listComments(
+                contentId,
+                limit,
+                currentUser != null ? currentUser.id() : null
+        );
     }
 
     /**
@@ -247,12 +176,7 @@ public class AiBlogTools {
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
         }
-        try {
-            interactionCommandService.deleteComment(currentUser, commentId);
-            return AiActionResult.deleteSuccess();
-        } catch (Exception e) {
-            return AiActionResult.error(e.getMessage());
-        }
+        return aiToolService.deleteComment(currentUser, commentId);
     }
 
     private AuthenticatedUser currentUser(ToolContext toolContext) {

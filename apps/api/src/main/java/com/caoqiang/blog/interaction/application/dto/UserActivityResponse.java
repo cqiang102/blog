@@ -1,12 +1,6 @@
 package com.caoqiang.blog.interaction.application.dto;
 
 import com.caoqiang.blog.interaction.domain.model.ActivityType;
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
-
-import com.caoqiang.blog.content.domain.model.Content;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -42,8 +36,8 @@ public record UserActivityResponse(
      * @param createdAt 创建时间
      * @return 用户活动响应
      */
-    public static UserActivityResponse comment(UUID id, Content content, Instant createdAt) {
-        return new UserActivityResponse(id, ActivityType.COMMENT, content.getId(), content.getTitle(), createdAt);
+    public static UserActivityResponse comment(UUID id, UUID contentId, String title, Instant createdAt) {
+        return new UserActivityResponse(id, ActivityType.COMMENT, contentId, title, createdAt);
     }
 
     /**
@@ -53,8 +47,8 @@ public record UserActivityResponse(
      * @param createdAt 创建时间
      * @return 用户活动响应
      */
-    public static UserActivityResponse like(Content content, Instant createdAt) {
-        return new UserActivityResponse(content.getId(), ActivityType.LIKE, content.getId(), content.getTitle(), createdAt);
+    public static UserActivityResponse like(UUID contentId, String title, Instant createdAt) {
+        return new UserActivityResponse(contentId, ActivityType.LIKE, contentId, title, createdAt);
     }
 
     /**
@@ -65,7 +59,7 @@ public record UserActivityResponse(
      * @param createdAt 创建时间
      * @return 用户活动响应
      */
-    public static UserActivityResponse view(UUID id, Content content, Instant createdAt) {
-        return new UserActivityResponse(id, ActivityType.VIEW, content.getId(), content.getTitle(), createdAt);
+    public static UserActivityResponse view(UUID id, UUID contentId, String title, Instant createdAt) {
+        return new UserActivityResponse(id, ActivityType.VIEW, contentId, title, createdAt);
     }
 }

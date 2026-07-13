@@ -1,9 +1,8 @@
 package com.caoqiang.blog.auth.application.service;
 
-import com.caoqiang.blog.auth.application.dto.AuthTokenResponse;
+import com.caoqiang.blog.auth.application.dto.IssuedAuthSession;
 import com.caoqiang.blog.auth.application.dto.JwtClaims;
 import com.caoqiang.blog.auth.application.dto.LoginRequest;
-import com.caoqiang.blog.auth.application.dto.RefreshTokenRequest;
 import com.caoqiang.blog.auth.application.dto.RegisterRequest;
 import com.caoqiang.blog.auth.application.dto.SendCodeRequest;
 import com.caoqiang.blog.auth.domain.model.OAuthAccount;
@@ -15,14 +14,14 @@ import com.caoqiang.blog.auth.domain.repository.RefreshTokenRepository;
 import com.caoqiang.blog.auth.domain.repository.VerificationCodeRepository;
 
 import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
-import com.caoqiang.blog.shared.domain.event.user.UserCreatedEvent;
+import com.caoqiang.blog.auth.event.UserCreatedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.util.EmailNormalizer;
 import com.caoqiang.blog.shared.util.PasswordPolicy;
-import com.caoqiang.blog.content.application.service.MediaAdminService;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.application.dto.UserProfileResponse;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
+import com.caoqiang.blog.content.application.api.ContentMediaService;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import java.time.Clock;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
@@ -50,7 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     /** 用户仓库，用于访问用户数据 */
-    private final UserRepository userRepository;
+    private final UserAccountService userAccountService;
     /** 密码编码器，用于密码加密和验证 */
     private final PasswordEncoder passwordEncoder;
     /** JWT 服务，用于创建访问令牌 */
@@ -62,14 +61,14 @@ public class AuthService {
     /** 领域事件发布器 */
     private final DomainEventPublisher domainEventPublisher;
     /** 媒体服务，用于统一头像 URL 解析 */
-    private final MediaAdminService mediaAdminService;
+    private final ContentMediaService contentMediaService;
     /** 时钟，用于获取当前时间，便于测试 */
     private final Clock clock;
 
     /**
      * 构造函数，注入所有依赖
      *
-     * @param userRepository        用户仓库
+     * @param userAccountService    用户模块公开账户服务
      * @param passwordEncoder       密码编码器
      * @param jwtService            JWT 服务
      * @param refreshTokenService   刷新令牌服务
@@ -79,22 +78,22 @@ public class AuthService {
      * @param clock                 时钟实例
      */
     public AuthService(
-            UserRepository userRepository,
+            UserAccountService userAccountService,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             RefreshTokenService refreshTokenService,
             VerificationService verificationService,
             DomainEventPublisher domainEventPublisher,
-            MediaAdminService mediaAdminService,
+            ContentMediaService contentMediaService,
             Clock clock
     ) {
-        this.userRepository = userRepository;
+        this.userAccountService = userAccountService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
         this.verificationService = verificationService;
         this.domainEventPublisher = domainEventPublisher;
-        this.mediaAdminService = mediaAdminService;
+        this.contentMediaService = contentMediaService;
         this.clock = clock;
     }
 
@@ -107,7 +106,7 @@ public class AuthService {
      * @throws BusinessException 如果邮箱已注册（HTTP 409 CONFLICT）或验证码无效
      */
     @Transactional
-    public AuthTokenResponse register(RegisterRequest request) {
+    public IssuedAuthSession register(RegisterRequest request) {
         // 规范化邮箱地址（转小写、去除空白）
         String email = EmailNormalizer.normalize(request.email());
 
@@ -115,16 +114,19 @@ public class AuthService {
         verificationService.verify(email, request.code());
 
         // 检查邮箱是否已被注册
-        if (userRepository.existsByEmail(email)) {
+        if (userAccountService.existsByEmail(email)) {
             throw new BusinessException(HttpStatus.CONFLICT, "邮箱已注册");
         }
 
         // 创建用户实体，密码使用 BCrypt 加密
         PasswordPolicy.validate(request.password());
-        User user = User.register(email, passwordEncoder.encode(request.password()), request.nickname().trim());
-        userRepository.save(user);
+        IdentityUser user = userAccountService.registerLocal(
+                email,
+                passwordEncoder.encode(request.password()),
+                request.nickname().trim()
+        );
         // 发布领域事件
-        domainEventPublisher.publishEvent(new UserCreatedEvent(user.getId(), user.getEmail(), user.getNickname()));
+        domainEventPublisher.publishEvent(new UserCreatedEvent(user.id(), user.email(), user.nickname()));
         // 生成访问令牌和刷新令牌
         return issueTokens(user);
     }
@@ -138,16 +140,16 @@ public class AuthService {
      * @throws BusinessException 如果邮箱不存在、密码错误或账户已禁用（HTTP 401 UNAUTHORIZED）
      */
     @Transactional
-    public AuthTokenResponse login(LoginRequest request) {
+    public IssuedAuthSession login(LoginRequest request) {
         // 规范化邮箱地址
         String email = EmailNormalizer.normalize(request.email());
         // 查找用户，不存在则抛出异常
-        User user = userRepository.findByEmail(email)
+        IdentityUser user = userAccountService.findByEmail(email)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "邮箱或密码错误"));
 
         // 验证用户状态和密码：账户必须激活、必须有密码哈希、密码必须匹配
-        if (!user.isActive() || user.getPasswordHash() == null
-                || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        if (!user.active() || user.passwordHash() == null
+                || !passwordEncoder.matches(request.password(), user.passwordHash())) {
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "邮箱或密码错误");
         }
 
@@ -159,21 +161,23 @@ public class AuthService {
      * 刷新令牌
      * 验证刷新令牌有效性，轮换刷新令牌（旧令牌失效），生成新的访问令牌。
      *
-     * @param request 刷新令牌请求，包含刷新令牌
+     * @param rawRefreshToken HttpOnly Cookie 中的原始刷新令牌
      * @return 包含新访问令牌、新刷新令牌和用户信息的认证令牌响应
      * @throws BusinessException 如果刷新令牌无效、已过期或用户账户已禁用（HTTP 401 UNAUTHORIZED）
      */
     @Transactional
-    public AuthTokenResponse refresh(RefreshTokenRequest request) {
+    public IssuedAuthSession refresh(String rawRefreshToken) {
         // 计算刷新令牌的哈希值，用于数据库查询
-        String tokenHash = refreshTokenService.hash(request.refreshToken());
+        String tokenHash = refreshTokenService.hash(rawRefreshToken);
         // 查找可用的刷新令牌
         RefreshToken refreshToken = refreshTokenService.findUsable(tokenHash)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "刷新令牌无效"));
 
         Instant now = clock.instant();
+        IdentityUser user = userAccountService.findActiveById(refreshToken.getUserId())
+                .orElse(null);
         // 检查令牌是否过期或用户是否激活
-        if (refreshToken.isExpired(now) || !refreshToken.getUser().isActive()) {
+        if (refreshToken.isExpired(now) || user == null) {
             refreshToken.revoke(now);
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "刷新令牌无效");
         }
@@ -181,7 +185,15 @@ public class AuthService {
         // 撤销当前刷新令牌（实现令牌轮换，防止重放攻击）
         refreshToken.revoke(now);
         // 为用户生成新的令牌对
-        return issueTokens(refreshToken.getUser());
+        return issueTokens(user);
+    }
+
+    /** 撤销当前浏览器会话持有的刷新令牌。重复登出保持幂等。 */
+    @Transactional
+    public void revokeRefreshToken(String rawRefreshToken) {
+        String tokenHash = refreshTokenService.hash(rawRefreshToken);
+        refreshTokenService.findUsable(tokenHash)
+                .ifPresent(token -> token.revoke(clock.instant()));
     }
 
     /**
@@ -191,17 +203,17 @@ public class AuthService {
      * @param user 用户实体
      * @return 包含访问令牌、刷新令牌、过期时间和用户信息的认证令牌响应
      */
-    private AuthTokenResponse issueTokens(User user) {
+    private IssuedAuthSession issueTokens(IdentityUser user) {
         // 创建 JWT 访问令牌
         JwtService.JwtToken accessToken = jwtService.createAccessToken(user);
         // 创建刷新令牌
-        RefreshTokenService.RawRefreshToken refreshToken = refreshTokenService.createFor(user);
+        RefreshTokenService.RawRefreshToken refreshToken = refreshTokenService.createFor(user.id());
         // 组装响应，包含用户资料信息
-        return new AuthTokenResponse(
+        return new IssuedAuthSession(
                 accessToken.value(),
                 refreshToken.value(),
                 accessToken.expiresAt(),
-                UserProfileResponse.from(user, mediaAdminService.resolveUrl(user.getAvatarUrl()))
+                UserProfileResponse.from(user, contentMediaService.resolveUrl(user.avatarUrl()))
         );
     }
 }

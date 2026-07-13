@@ -15,6 +15,7 @@ import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.BatchSize;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -108,6 +109,7 @@ public class Content extends AggregateRoot {
 
     /** 关联的标签集合，多对多通过中间表 content_tags */
     @ManyToMany(fetch = FetchType.LAZY)
+    @BatchSize(size = 50)
     @JoinTable(
             name = "content_tags",
             joinColumns = @JoinColumn(name = "content_id"),
@@ -117,6 +119,7 @@ public class Content extends AggregateRoot {
 
     /** 关联的媒体资源列表，按创建时间升序排列 */
     @OneToMany(mappedBy = "content", fetch = FetchType.LAZY)
+    @BatchSize(size = 50)
     @OrderBy("createdAt ASC")
     private List<MediaAsset> mediaAssets = new ArrayList<>();
 

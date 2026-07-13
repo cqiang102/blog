@@ -12,6 +12,8 @@ class MarkdownToolbar extends StatelessWidget {
     this.onSetEditMode,
     this.editMode = EditorEditMode.source,
     this.onInsertImage,
+    this.onInsertCodeBlockLanguage,
+    this.onOpenTableEditor,
     this.mediaUrls = const [],
   });
 
@@ -26,6 +28,12 @@ class MarkdownToolbar extends StatelessWidget {
 
   /// 插入图片的回调
   final VoidCallback? onInsertImage;
+
+  /// 插入或更新代码块语言
+  final ValueChanged<String>? onInsertCodeBlockLanguage;
+
+  /// 打开表格编辑器
+  final VoidCallback? onOpenTableEditor;
 
   /// 已上传的媒体 URL 列表
   final List<String> mediaUrls;
@@ -88,10 +96,9 @@ class MarkdownToolbar extends StatelessWidget {
           tooltip: '行内代码',
           onPressed: () => onInsert('`', '`'),
         ),
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedCodeSquare,
-          tooltip: '代码块',
-          onPressed: () => onInsert('\n```\n', '\n```\n'),
+        _CodeBlockMenu(
+          onInsert: onInsert,
+          onInsertLanguage: onInsertCodeBlockLanguage,
         ),
         _ToolbarButton(
           icon: HugeIcons.strokeRoundedLink01,
@@ -108,7 +115,7 @@ class MarkdownToolbar extends StatelessWidget {
         ),
 
         // 表格
-        _TableMenu(onInsert: onInsert),
+        _TableMenu(onInsert: onInsert, onOpenTableEditor: onOpenTableEditor),
 
         // 分割线
         _ToolbarButton(
@@ -173,6 +180,48 @@ class _EditModeSelector extends StatelessWidget {
   }
 }
 
+/// 代码块语言菜单
+class _CodeBlockMenu extends StatelessWidget {
+  const _CodeBlockMenu({
+    required this.onInsert,
+    required this.onInsertLanguage,
+  });
+
+  final void Function(String prefix, String suffix) onInsert;
+  final ValueChanged<String>? onInsertLanguage;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: '代码块',
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: HugeIcon(icon: HugeIcons.strokeRoundedCodeSquare, size: 20),
+      ),
+      onSelected: (language) {
+        if (onInsertLanguage == null) {
+          onInsert('\n```$language\n', '\n```\n');
+          return;
+        }
+        onInsertLanguage!(language);
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: '', child: Text('纯文本代码块')),
+        PopupMenuDivider(),
+        PopupMenuItem(value: 'bash', child: Text('Bash / Shell')),
+        PopupMenuItem(value: 'dart', child: Text('Dart / Flutter')),
+        PopupMenuItem(value: 'java', child: Text('Java')),
+        PopupMenuItem(value: 'kotlin', child: Text('Kotlin')),
+        PopupMenuItem(value: 'dockerfile', child: Text('Dockerfile')),
+        PopupMenuItem(value: 'json', child: Text('JSON')),
+        PopupMenuItem(value: 'yaml', child: Text('YAML')),
+        PopupMenuItem(value: 'typescript', child: Text('TypeScript')),
+        PopupMenuItem(value: 'sql', child: Text('SQL')),
+      ],
+    );
+  }
+}
+
 /// 标题下拉菜单
 class _HeadingMenu extends StatelessWidget {
   const _HeadingMenu({required this.onInsert});
@@ -221,9 +270,10 @@ class _HeadingMenu extends StatelessWidget {
 
 /// 表格下拉菜单
 class _TableMenu extends StatelessWidget {
-  const _TableMenu({required this.onInsert});
+  const _TableMenu({required this.onInsert, required this.onOpenTableEditor});
 
   final void Function(String prefix, String suffix) onInsert;
+  final VoidCallback? onOpenTableEditor;
 
   @override
   Widget build(BuildContext context) {
@@ -241,6 +291,10 @@ class _TableMenu extends StatelessWidget {
         ),
       ),
       onSelected: (value) {
+        if (value == 'custom') {
+          onOpenTableEditor?.call();
+          return;
+        }
         switch (value) {
           case '2x2':
             onInsert('\n| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n', '');
@@ -257,6 +311,9 @@ class _TableMenu extends StatelessWidget {
         }
       },
       itemBuilder: (context) => [
+        if (onOpenTableEditor != null)
+          const PopupMenuItem(value: 'custom', child: Text('自定义表格…')),
+        if (onOpenTableEditor != null) const PopupMenuDivider(),
         const PopupMenuItem(value: '2x2', child: Text('2×2 表格')),
         const PopupMenuItem(value: '3x3', child: Text('3×3 表格')),
         const PopupMenuItem(value: '4x4', child: Text('4×4 表格')),

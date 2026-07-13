@@ -15,8 +15,8 @@ import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -81,7 +81,7 @@ public class AiChatService {
 
     private final BlogProperties blogProperties;
     private final Clock clock;
-    private final UserRepository userRepository;
+    private final UserAccountService userAccountService;
     private final AiChatSessionRepository sessionRepository;
     private final AiChatMessageRepository messageRepository;
     private final ChatClient chatClient;
@@ -93,7 +93,7 @@ public class AiChatService {
     public AiChatService(
             BlogProperties blogProperties,
             Clock clock,
-            UserRepository userRepository,
+            UserAccountService userAccountService,
             AiChatSessionRepository sessionRepository,
             AiChatMessageRepository messageRepository,
             ChatClient chatClient,
@@ -104,7 +104,7 @@ public class AiChatService {
     ) {
         this.blogProperties = blogProperties;
         this.clock = clock;
-        this.userRepository = userRepository;
+        this.userAccountService = userAccountService;
         this.sessionRepository = sessionRepository;
         this.messageRepository = messageRepository;
         this.chatClient = chatClient;
@@ -125,10 +125,10 @@ public class AiChatService {
      * @return 包含会话 ID、回答文本、剩余提问次数、剩余消息数的响应
      */
     public AiChatResponse chat(AuthenticatedUser currentUser, AiChatRequest request) {
-        User user = activeUser(currentUser);
+        IdentityUser user = activeUser(currentUser);
         int dailyLimit = blogProperties.getAi().getDailyQuestionLimit();
 
-        AiQuotaService.Reservation reservation = quotaService.reserve(user.getId(), dailyLimit);
+        AiQuotaService.Reservation reservation = quotaService.reserve(user.id(), dailyLimit);
         boolean completed = false;
         try {
             AiChatSession session = resolveSession(user, request.sessionId());
@@ -144,7 +144,7 @@ public class AiChatService {
                     currentUser
             );
             long finalMessageCount = persistenceService.persistExchange(
-                    user.getId(),
+                    user.id(),
                     session.getId(),
                     userMessageText,
                     answer,
@@ -205,7 +205,7 @@ public class AiChatService {
      * 用户身份通过请求级 ToolContext 显式传递，线程切换不会丢失或串用身份。
      */
     private void doStreamChat(AuthenticatedUser currentUser, AiChatRequest request, SseEmitter emitter) {
-        User user;
+        IdentityUser user;
         try {
             user = activeUser(currentUser);
         } catch (Exception e) {
@@ -218,9 +218,9 @@ public class AiChatService {
 
         AiQuotaService.Reservation reservation;
         try {
-            reservation = quotaService.reserve(user.getId(), dailyLimit);
+            reservation = quotaService.reserve(user.id(), dailyLimit);
         } catch (BusinessException exception) {
-            log.warn("streamChat 配额用完: userId={}", user.getId());
+            log.warn("streamChat 配额用完: userId={}", user.id());
             sendSseError(emitter, exception.getMessage());
             return;
         }
@@ -230,7 +230,7 @@ public class AiChatService {
             session = resolveSession(user, request.sessionId());
         } catch (Exception e) {
             releaseReservation(reservation);
-            log.warn("streamChat 会话解析失败: userId={}, error={}", user.getId(), e.getMessage());
+            log.warn("streamChat 会话解析失败: userId={}, error={}", user.id(), e.getMessage());
             sendSseError(emitter, "会话不存在");
             return;
         }
@@ -245,7 +245,7 @@ public class AiChatService {
 
         String userMessageText = request.message().trim();
         log.info("streamChat 开始: userId={}, sessionId={}, messageLength={}",
-                user.getId(), session.getId(), userMessageText.length());
+                user.id(), session.getId(), userMessageText.length());
 
         StringBuffer fullAnswer = new StringBuffer();
         AtomicBoolean quotaFinalized = new AtomicBoolean();
@@ -290,7 +290,7 @@ public class AiChatService {
                             },
                             error -> {
                                 log.error("streamChat AI 流式调用失败: userId={}, sessionId={}, error={}",
-                                        user.getId(), session.getId(), error.getMessage(), error);
+                                        user.id(), session.getId(), error.getMessage(), error);
                                 releaseReservedQuota(reservation, quotaFinalized);
                                 sendSseError(emitter, "AI 服务暂时不可用，请稍后重试");
                             },
@@ -301,7 +301,7 @@ public class AiChatService {
                     );
             subscriptionRef.set(subscription);
         } catch (Exception e) {
-            log.error("streamChat 异常: userId={}, error={}", user.getId(), e.getMessage(), e);
+            log.error("streamChat 异常: userId={}, error={}", user.id(), e.getMessage(), e);
             releaseReservedQuota(reservation, quotaFinalized);
             sendSseError(emitter, "AI 服务暂时不可用，请稍后重试");
         }
@@ -331,7 +331,7 @@ public class AiChatService {
     private void persistStreamResult(
             StringBuffer fullAnswer,
             String userMessageText,
-            User user,
+            IdentityUser user,
             AiChatSession session,
             int dailyLimit,
             AiQuotaService.Reservation reservation,
@@ -340,7 +340,7 @@ public class AiChatService {
     ) {
         String answerText = fullAnswer.toString();
         log.info("streamChat 完成: userId={}, sessionId={}, answerLen={}",
-                user.getId(), session.getId(), answerText.length());
+                user.id(), session.getId(), answerText.length());
 
         if (!quotaFinalized.compareAndSet(false, true)) {
             return;
@@ -348,7 +348,7 @@ public class AiChatService {
         long finalMessageCount;
         try {
             finalMessageCount = persistenceService.persistExchange(
-                    user.getId(),
+                    user.id(),
                     session.getId(),
                     userMessageText,
                     answerText,
@@ -382,8 +382,8 @@ public class AiChatService {
      */
     @Transactional(readOnly = true)
     public AiQuotaResponse quota(AuthenticatedUser currentUser) {
-        User user = activeUser(currentUser);
-        int used = quotaService.used(user.getId());
+        IdentityUser user = activeUser(currentUser);
+        int used = quotaService.used(user.id());
         int dailyLimit = blogProperties.getAi().getDailyQuestionLimit();
         return new AiQuotaResponse(
                 LocalDate.now(clock.withZone(QUOTA_ZONE)),
@@ -397,9 +397,9 @@ public class AiChatService {
      */
     @Transactional
     public AiChatSessionResponse createSession(AuthenticatedUser currentUser, AiCreateSessionRequest request) {
-        User user = activeUser(currentUser);
+        IdentityUser user = activeUser(currentUser);
 
-        long sessionCount = sessionRepository.countByUserIdAndDeletedFalse(user.getId());
+        long sessionCount = sessionRepository.countByUserIdAndDeletedFalse(user.id());
         if (sessionCount >= MAX_SESSIONS_PER_USER) {
             throw new BusinessException(HttpStatus.CONFLICT,
                     "会话数量已达上限（" + MAX_SESSIONS_PER_USER + "个），请先删除旧会话再创建");
@@ -409,7 +409,7 @@ public class AiChatService {
         if (title.length() > MAX_SESSION_TITLE_LENGTH) {
             title = title.substring(0, MAX_SESSION_TITLE_LENGTH);
         }
-        AiChatSession session = sessionRepository.save(new AiChatSession(user, title));
+        AiChatSession session = sessionRepository.save(new AiChatSession(user.id(), title));
         return toSessionResponse(session, 0);
     }
 
@@ -418,8 +418,8 @@ public class AiChatService {
      */
     @Transactional(readOnly = true)
     public List<AiChatSessionResponse> listSessions(AuthenticatedUser currentUser) {
-        User user = activeUser(currentUser);
-        List<Object[]> results = sessionRepository.findTop20WithMessageCount(user.getId());
+        IdentityUser user = activeUser(currentUser);
+        List<Object[]> results = sessionRepository.findTop20WithMessageCount(user.id());
         return results.stream()
                 .map(row -> toSessionResponse((AiChatSession) row[0], ((Long) row[1]).intValue()))
                 .toList();
@@ -430,8 +430,8 @@ public class AiChatService {
      */
     @Transactional
     public void deleteSession(AuthenticatedUser currentUser, UUID sessionId) {
-        User user = activeUser(currentUser);
-        AiChatSession session = sessionRepository.findByIdAndUserIdAndDeletedFalse(sessionId, user.getId())
+        IdentityUser user = activeUser(currentUser);
+        AiChatSession session = sessionRepository.findByIdAndUserIdAndDeletedFalse(sessionId, user.id())
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "AI 会话不存在"));
         session.markDeleted();
         sessionRepository.save(session);
@@ -444,8 +444,8 @@ public class AiChatService {
     public PageResponse<AiChatMessageResponse> sessionMessages(
             AuthenticatedUser currentUser, UUID sessionId, int page, int size
     ) {
-        User user = activeUser(currentUser);
-        AiChatSession session = sessionRepository.findByIdAndUserIdAndDeletedFalse(sessionId, user.getId())
+        IdentityUser user = activeUser(currentUser);
+        AiChatSession session = sessionRepository.findByIdAndUserIdAndDeletedFalse(sessionId, user.id())
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "AI 会话不存在"));
 
         int safePage = Math.max(0, page);
@@ -465,13 +465,13 @@ public class AiChatService {
     /**
      * 解析会话：如果提供了 sessionId 则查找对应会话，否则复用用户最近的会话或自动创建新会话。
      */
-    private AiChatSession resolveSession(User user, UUID sessionId) {
+    private AiChatSession resolveSession(IdentityUser user, UUID sessionId) {
         if (sessionId != null) {
-            return sessionRepository.findByIdAndUserIdAndDeletedFalse(sessionId, user.getId())
+            return sessionRepository.findByIdAndUserIdAndDeletedFalse(sessionId, user.id())
                     .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "AI 会话不存在"));
         }
-        return sessionRepository.findFirstByUserIdAndDeletedFalseOrderByUpdatedAtDesc(user.getId())
-                .orElseGet(() -> sessionRepository.save(new AiChatSession(user, DEFAULT_SESSION_TITLE)));
+        return sessionRepository.findFirstByUserIdAndDeletedFalseOrderByUpdatedAtDesc(user.id())
+                .orElseGet(() -> sessionRepository.save(new AiChatSession(user.id(), DEFAULT_SESSION_TITLE)));
     }
 
     /**
@@ -525,9 +525,8 @@ public class AiChatService {
     /**
      * 根据认证信息获取活跃用户实体，若用户不存在或已禁用则抛出异常。
      */
-    private User activeUser(AuthenticatedUser currentUser) {
-        return userRepository.findById(currentUser.id())
-                .filter(User::isActive)
+    private IdentityUser activeUser(AuthenticatedUser currentUser) {
+        return userAccountService.findActiveById(currentUser.id())
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "登录状态无效"));
     }
 

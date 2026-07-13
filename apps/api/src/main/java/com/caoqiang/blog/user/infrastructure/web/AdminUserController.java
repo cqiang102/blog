@@ -2,7 +2,7 @@ package com.caoqiang.blog.user.infrastructure.web;
 
 import com.caoqiang.blog.user.application.dto.AdminUserRequest;
 import com.caoqiang.blog.user.application.dto.AdminUserResponse;
-import com.caoqiang.blog.user.application.dto.UserProfileResponse;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;

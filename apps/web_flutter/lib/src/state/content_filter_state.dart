@@ -1,7 +1,7 @@
 // 内容筛选状态管理
 // 使用 Riverpod 管理内容列表的筛选条件
 
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/models.dart';
 
@@ -72,8 +72,9 @@ class ContentFilterState {
 
 /// 内容筛选状态通知器
 /// 管理内容列表的筛选条件更新
-class ContentFilterNotifier extends StateNotifier<ContentFilterState> {
-  ContentFilterNotifier() : super(const ContentFilterState());
+class ContentFilterNotifier extends Notifier<ContentFilterState> {
+  @override
+  ContentFilterState build() => const ContentFilterState();
 
   /// 更新搜索关键词
   void updateQuery(String query) {

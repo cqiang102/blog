@@ -1,19 +1,11 @@
 package com.caoqiang.blog.admin.infrastructure.web;
 
-import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
-import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
 import com.caoqiang.blog.admin.application.dto.AdminDashboardResponse;
-import com.caoqiang.blog.audit.application.dto.AuditLogResponse;
-import com.caoqiang.blog.audit.application.service.AuditLogService;
+import com.caoqiang.blog.admin.application.service.AdminDashboardService;
+import com.caoqiang.blog.audit.application.api.AuditAccessService;
+import com.caoqiang.blog.audit.application.api.AuditLogView;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
-import com.caoqiang.blog.friend.domain.repository.FriendRepository;
-import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
-import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
-import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,49 +32,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/admin")
 public class AdminOverviewController {
 
-    /** 内容数据访问层 */
-    private final ContentRepository contentRepository;
-    /** 媒体资源数据访问层 */
-    private final MediaAssetRepository mediaAssetRepository;
-    /** 友链数据访问层 */
-    private final FriendRepository friendRepository;
-    /** 用户数据访问层 */
-    private final UserRepository userRepository;
-    /** 评论数据访问层 */
-    private final CommentRepository commentRepository;
-    /** 点赞数据访问层 */
-    private final LikeRepository likeRepository;
-    /** 浏览记录数据访问层 */
-    private final ViewRecordRepository viewRecordRepository;
-    /** AI 聊天会话数据访问层 */
-    private final AiChatSessionRepository aiChatSessionRepository;
-    /** 知识库文档数据访问层 */
-    private final KnowledgeDocRepository knowledgeDocRepository;
+    private final AdminDashboardService adminDashboardService;
     /** 审计日志服务 */
-    private final AuditLogService auditLogService;
+    private final AuditAccessService auditAccessService;
 
     public AdminOverviewController(
-            ContentRepository contentRepository,
-            MediaAssetRepository mediaAssetRepository,
-            FriendRepository friendRepository,
-            UserRepository userRepository,
-            CommentRepository commentRepository,
-            LikeRepository likeRepository,
-            ViewRecordRepository viewRecordRepository,
-            AiChatSessionRepository aiChatSessionRepository,
-            KnowledgeDocRepository knowledgeDocRepository,
-            AuditLogService auditLogService
+            AdminDashboardService adminDashboardService,
+            AuditAccessService auditAccessService
     ) {
-        this.contentRepository = contentRepository;
-        this.mediaAssetRepository = mediaAssetRepository;
-        this.friendRepository = friendRepository;
-        this.userRepository = userRepository;
-        this.commentRepository = commentRepository;
-        this.likeRepository = likeRepository;
-        this.viewRecordRepository = viewRecordRepository;
-        this.aiChatSessionRepository = aiChatSessionRepository;
-        this.knowledgeDocRepository = knowledgeDocRepository;
-        this.auditLogService = auditLogService;
+        this.adminDashboardService = adminDashboardService;
+        this.auditAccessService = auditAccessService;
     }
 
     /**
@@ -94,17 +53,7 @@ public class AdminOverviewController {
      */
     @GetMapping("/dashboard")
     public ApiResponse<AdminDashboardResponse> dashboard() {
-        return ApiResponse.ok(new AdminDashboardResponse(
-                contentRepository.count(),
-                mediaAssetRepository.count(),
-                friendRepository.count(),
-                userRepository.count(),
-                commentRepository.count(),
-                likeRepository.count(),
-                viewRecordRepository.count(),
-                aiChatSessionRepository.count(),
-                knowledgeDocRepository.count()
-        ));
+        return ApiResponse.ok(adminDashboardService.dashboard());
     }
 
     /**
@@ -118,14 +67,14 @@ public class AdminOverviewController {
      * @return 审计日志分页响应
      */
     @GetMapping("/logs")
-    public ApiResponse<PageResponse<AuditLogResponse>> logs(
+    public ApiResponse<PageResponse<AuditLogView>> logs(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String resourceType,
             @RequestParam(required = false) UUID actorUserId
     ) {
-        return ApiResponse.ok(auditLogService.list(page, size, action, resourceType, actorUserId));
+        return ApiResponse.ok(auditAccessService.list(page, size, action, resourceType, actorUserId));
     }
 
     /**

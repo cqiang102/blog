@@ -9,10 +9,18 @@ class _CommentList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (comments.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-          child: Text('暂无评论'),
+      return SliverToBoxAdapter(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: AppLayout.readingWidth),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.xl,
+              ),
+              child: Text('还没有评论，来留下第一句话吧。'),
+            ),
+          ),
         ),
       );
     }
@@ -23,88 +31,106 @@ class _CommentList extends ConsumerWidget {
       itemCount: comments.length,
       itemBuilder: (context, index) {
         final comment = comments[index];
-        return Column(
-          children: [
-            Padding(
-              key: ValueKey(comment.id),
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm + 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: AppLayout.readingWidth),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Column(
                 children: [
-                  _CommentAvatar(avatarUrl: comment.authorAvatarUrl),
-                  const SizedBox(width: AppSpacing.sm + 4),
-                  Expanded(
-                    child: Column(
+                  Padding(
+                    key: ValueKey(comment.id),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.sm + 4,
+                    ),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Text(
-                              comment.authorNickname,
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Text(
-                              _formatTime(comment.createdAt),
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                            const Spacer(),
-                            if (auth.isAuthenticated &&
-                                auth.user?.id == comment.authorId)
-                              IconButton(
-                                tooltip: '删除评论',
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () =>
-                                    _deleteComment(context, ref, comment),
-                                icon: HugeIcon(
-                                  icon: HugeIcons.strokeRoundedDelete01,
-                                  size: 18,
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        if (comment.blocked)
-                          Row(
+                        _CommentAvatar(avatarUrl: comment.authorAvatarUrl),
+                        const SizedBox(width: AppSpacing.sm + 4),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              HugeIcon(
-                                icon: HugeIcons.strokeRoundedBlocked,
-                                size: 14,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  '评论审核中，暂不可见',
-                                  style: TextStyle(
-                                    color: Theme.of(context).colorScheme.error,
-                                    fontStyle: FontStyle.italic,
-                                    fontSize: 13,
+                              Row(
+                                children: [
+                                  Text(
+                                    comment.authorNickname,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w600),
                                   ),
-                                ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Text(
+                                    _formatTime(comment.createdAt),
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                  const Spacer(),
+                                  if (auth.isAuthenticated &&
+                                      auth.user?.id == comment.authorId)
+                                    IconButton(
+                                      tooltip: '删除评论',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: () =>
+                                          _deleteComment(context, ref, comment),
+                                      icon: HugeIcon(
+                                        icon: HugeIcons.strokeRoundedDelete01,
+                                        size: 18,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.error,
+                                      ),
+                                    ),
+                                ],
                               ),
+                              const SizedBox(height: 4),
+                              if (comment.blocked)
+                                Row(
+                                  children: [
+                                    HugeIcon(
+                                      icon: HugeIcons.strokeRoundedBlocked,
+                                      size: 14,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        '评论审核中，暂不可见',
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.error,
+                                          fontStyle: FontStyle.italic,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else
+                                Text(
+                                  comment.body,
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
                             ],
-                          )
-                        else
-                          Text(
-                            comment.body,
-                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
+                        ),
                       ],
                     ),
-                  ),
+                  ).fadeSlideIn(delay: (index * 60).ms),
+                  if (index < comments.length - 1) const Divider(height: 1),
                 ],
               ),
-            ).fadeSlideIn(delay: (index * 60).ms),
-            if (index < comments.length - 1) const Divider(height: 1),
-          ],
+            ),
+          ),
         );
       },
     );

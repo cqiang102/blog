@@ -79,7 +79,7 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
     return Tooltip(
       message: _optimisticLiked ? '已点赞，点击取消' : '点赞',
       child: AnimatedSwitcher(
-        duration: AppAnimations.fast,
+        duration: AppMotion.duration(context, AppAnimations.fast),
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
         transitionBuilder: (child, animation) => FadeTransition(

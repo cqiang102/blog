@@ -1,9 +1,6 @@
 package com.caoqiang.blog.user.application.dto;
 
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.model.UserStatus;
-
-import com.caoqiang.blog.auth.domain.model.OAuthAccount;
+import com.caoqiang.blog.user.application.port.OAuthAccountPort.LinkedOAuthAccount;
 import java.time.Instant;
 
 /**
@@ -21,16 +18,16 @@ public record OAuthAccountResponse(
 ) {
 
     /**
-     * 从 OAuthAccount 实体创建响应 DTO
+     * 从身份边界公开的 OAuth 账户视图创建响应 DTO
      *
-     * @param account OAuth 账户实体
+     * @param account OAuth 账户视图
      * @return OAuthAccountResponse 响应 DTO
      */
-    public static OAuthAccountResponse from(OAuthAccount account) {
+    public static OAuthAccountResponse from(LinkedOAuthAccount account) {
         return new OAuthAccountResponse(
-                account.getProvider().name(),
-                account.getProviderUsername(),
-                account.getCreatedAt()
+                account.provider(),
+                account.providerUsername(),
+                account.createdAt()
         );
     }
 }

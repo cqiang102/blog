@@ -4,8 +4,7 @@ import com.caoqiang.blog.shared.util.EmailNormalizer;
 import com.caoqiang.blog.shared.util.PasswordPolicy;
 
 import com.caoqiang.blog.config.BlogProperties;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -59,7 +58,7 @@ public class AdminAccountInitializer implements ApplicationRunner {
     /** 博客配置属性，包含管理员账户配置 */
     private final BlogProperties blogProperties;
     /** 用户仓库，用于访问用户数据 */
-    private final UserRepository userRepository;
+    private final UserAccountService userAccountService;
     /** 密码编码器，用于密码加密 */
     private final PasswordEncoder passwordEncoder;
 
@@ -67,16 +66,16 @@ public class AdminAccountInitializer implements ApplicationRunner {
      * 构造函数，注入依赖
      *
      * @param blogProperties  博客配置属性
-     * @param userRepository  用户仓库
+     * @param userAccountService 用户模块公开账户服务
      * @param passwordEncoder 密码编码器
      */
     public AdminAccountInitializer(
             BlogProperties blogProperties,
-            UserRepository userRepository,
+            UserAccountService userAccountService,
             PasswordEncoder passwordEncoder
     ) {
         this.blogProperties = blogProperties;
-        this.userRepository = userRepository;
+        this.userAccountService = userAccountService;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -102,7 +101,7 @@ public class AdminAccountInitializer implements ApplicationRunner {
 
         // 规范化邮箱地址
         String email = EmailNormalizer.normalize(bootstrap.getEmail());
-        if (userRepository.findByEmail(email).isPresent()) {
+        if (userAccountService.findByEmail(email).isPresent()) {
             log.info("Admin bootstrap skipped because account already exists: {}", email);
             return;
         }
@@ -114,6 +113,6 @@ public class AdminAccountInitializer implements ApplicationRunner {
             throw new IllegalStateException("Admin bootstrap password does not satisfy the password policy", exception);
         }
         String passwordHash = passwordEncoder.encode(bootstrap.getPassword());
-        userRepository.save(User.admin(email, passwordHash, nickname));
+        userAccountService.createAdmin(email, passwordHash, nickname);
     }
 }

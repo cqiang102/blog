@@ -1,5 +1,7 @@
 package com.caoqiang.blog.interaction.application.service;
 
+import com.caoqiang.blog.content.application.api.ContentInteractionService;
+import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.application.dto.AdminCommentResponse;
 import com.caoqiang.blog.interaction.application.dto.AdminCommentStatusRequest;
 import com.caoqiang.blog.interaction.application.dto.AdminLikeResponse;
@@ -19,12 +21,12 @@ import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
 
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
-import com.caoqiang.blog.shared.domain.event.interaction.LikeRemovedEvent;
+import com.caoqiang.blog.interaction.event.LikeRemovedEvent;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -60,8 +62,9 @@ public class InteractionAdminService {
     /** 浏览记录仓储 */
     private final ViewRecordRepository viewRecordRepository;
     /** 内容仓储（用于更新计数） */
-    private final ContentRepository contentRepository;
+    private final ContentInteractionService contentInteractionService;
     private final DomainEventPublisher domainEventPublisher;
+    private final InteractionReferenceData referenceData;
 
     /**
      * 构造函数，注入依赖的仓储
@@ -73,13 +76,15 @@ public class InteractionAdminService {
     public InteractionAdminService(
             LikeRepository likeRepository,
             ViewRecordRepository viewRecordRepository,
-            ContentRepository contentRepository,
-            DomainEventPublisher domainEventPublisher
+            ContentInteractionService contentInteractionService,
+            DomainEventPublisher domainEventPublisher,
+            InteractionReferenceData referenceData
     ) {
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
-        this.contentRepository = contentRepository;
+        this.contentInteractionService = contentInteractionService;
         this.domainEventPublisher = domainEventPublisher;
+        this.referenceData = referenceData;
     }
 
     /**
@@ -100,8 +105,16 @@ public class InteractionAdminService {
                 filters(contentId, userId),
                 pageRequest(page, size)
         );
+        Map<UUID, ContentInteractionSnapshot> contents = referenceData.contents(
+                result.getContent().stream().map(Like::getContentId).toList()
+        );
+        var users = referenceData.users(result.getContent().stream().map(Like::getUserId).toList());
         return new PageResponse<>(
-                result.getContent().stream().map(AdminLikeResponse::from).toList(),
+                result.getContent().stream().map(like -> AdminLikeResponse.from(
+                        like,
+                        referenceData.content(contents, like.getContentId()),
+                        referenceData.user(users, like.getUserId())
+                )).toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements()
@@ -121,10 +134,10 @@ public class InteractionAdminService {
         Like like = likeRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "点赞记录不存在"));
         likeRepository.delete(like);
-        contentRepository.incrementLikeCount(like.getContent().getId(), -1);
+        contentInteractionService.incrementLikeCount(like.getContentId(), -1);
         domainEventPublisher.publishEvent(new LikeRemovedEvent(
-                like.getContent().getId(),
-                like.getUser().getId()
+                like.getContentId(),
+                like.getUserId()
         ));
     }
 
@@ -146,8 +159,17 @@ public class InteractionAdminService {
                 filters(contentId, userId),
                 pageRequest(page, size)
         );
+        Map<UUID, ContentInteractionSnapshot> contents = referenceData.contents(
+                result.getContent().stream().map(ViewRecord::getContentId).toList()
+        );
+        var users = referenceData.users(result.getContent().stream()
+                .map(ViewRecord::getUserId).filter(java.util.Objects::nonNull).toList());
         return new PageResponse<>(
-                result.getContent().stream().map(AdminViewRecordResponse::from).toList(),
+                result.getContent().stream().map(view -> AdminViewRecordResponse.from(
+                        view,
+                        referenceData.content(contents, view.getContentId()),
+                        view.getUserId() == null ? null : referenceData.user(users, view.getUserId())
+                )).toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements()
@@ -167,7 +189,7 @@ public class InteractionAdminService {
         ViewRecord viewRecord = viewRecordRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "浏览记录不存在"));
         viewRecordRepository.delete(viewRecord);
-        contentRepository.incrementViewCount(viewRecord.getContent().getId(), -1);
+        contentInteractionService.incrementViewCount(viewRecord.getContentId(), -1);
     }
 
     /**
@@ -185,10 +207,10 @@ public class InteractionAdminService {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (contentId != null) {
-                predicates.add(criteriaBuilder.equal(root.get("content").get("id"), contentId));
+                predicates.add(criteriaBuilder.equal(root.get("contentId"), contentId));
             }
             if (userId != null) {
-                predicates.add(criteriaBuilder.equal(root.get("user").get("id"), userId));
+                predicates.add(criteriaBuilder.equal(root.get("userId"), userId));
             }
             return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
         };

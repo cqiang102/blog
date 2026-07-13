@@ -1,13 +1,8 @@
 package com.caoqiang.blog.interaction.domain.model;
 
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -36,15 +31,13 @@ public class Like {
     @Column(nullable = false, updatable = false)
     private UUID id = UUID.randomUUID();
 
-    /** 关联的内容实体 */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "content_id", nullable = false)
-    private Content content;
+    /** 关联的内容 ID */
+    @Column(name = "content_id", nullable = false)
+    private UUID contentId;
 
-    /** 关联的用户实体（点赞用户） */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    /** 点赞用户 ID */
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
 
     /** 创建时间 */
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -59,12 +52,12 @@ public class Like {
     /**
      * 创建点赞记录
      *
-     * @param content 关联的内容
-     * @param user    点赞用户
+     * @param contentId 关联的内容 ID
+     * @param userId    点赞用户 ID
      */
-    public Like(Content content, User user) {
-        this.content = content;
-        this.user = user;
+    public Like(UUID contentId, UUID userId) {
+        this.contentId = contentId;
+        this.userId = userId;
     }
 
     /**
@@ -77,16 +70,16 @@ public class Like {
         }
     }
 
-    public Content getContent() {
-        return content;
+    public UUID getContentId() {
+        return contentId;
     }
 
     public UUID getId() {
         return id;
     }
 
-    public User getUser() {
-        return user;
+    public UUID getUserId() {
+        return userId;
     }
 
     public Instant getCreatedAt() {

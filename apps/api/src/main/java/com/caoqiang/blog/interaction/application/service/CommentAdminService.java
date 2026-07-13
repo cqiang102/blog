@@ -1,5 +1,7 @@
 package com.caoqiang.blog.interaction.application.service;
 
+import com.caoqiang.blog.content.application.api.ContentInteractionService;
+import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.application.dto.AdminCommentResponse;
 import com.caoqiang.blog.interaction.application.dto.AdminCommentStatusRequest;
 import com.caoqiang.blog.interaction.application.dto.AdminLikeResponse;
@@ -19,10 +21,10 @@ import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
 
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -57,7 +59,8 @@ public class CommentAdminService {
     /** 评论仓储 */
     private final CommentRepository commentRepository;
     /** 内容仓储（用于更新评论计数） */
-    private final ContentRepository contentRepository;
+    private final ContentInteractionService contentInteractionService;
+    private final InteractionReferenceData referenceData;
 
     /**
      * 构造函数，注入依赖的仓储
@@ -65,9 +68,14 @@ public class CommentAdminService {
      * @param commentRepository 评论仓储
      * @param contentRepository 内容仓储
      */
-    public CommentAdminService(CommentRepository commentRepository, ContentRepository contentRepository) {
+    public CommentAdminService(
+            CommentRepository commentRepository,
+            ContentInteractionService contentInteractionService,
+            InteractionReferenceData referenceData
+    ) {
         this.commentRepository = commentRepository;
-        this.contentRepository = contentRepository;
+        this.contentInteractionService = contentInteractionService;
+        this.referenceData = referenceData;
     }
 
     /**
@@ -95,8 +103,16 @@ public class CommentAdminService {
                 filters(status, contentId, userId),
                 pageRequest(page, size)
         );
+        Map<UUID, ContentInteractionSnapshot> contents = referenceData.contents(
+                result.getContent().stream().map(Comment::getContentId).toList()
+        );
+        var users = referenceData.users(result.getContent().stream().map(Comment::getUserId).toList());
         return new PageResponse<>(
-                result.getContent().stream().map(AdminCommentResponse::from).toList(),
+                result.getContent().stream().map(comment -> AdminCommentResponse.from(
+                        comment,
+                        referenceData.content(contents, comment.getContentId()),
+                        referenceData.user(users, comment.getUserId())
+                )).toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements()
@@ -125,7 +141,15 @@ public class CommentAdminService {
             // 同步评论计数
             syncCommentCount(comment, previousStatus, targetStatus);
         }
-        return AdminCommentResponse.from(comment);
+        var content = referenceData.content(
+                referenceData.contents(List.of(comment.getContentId())),
+                comment.getContentId()
+        );
+        var user = referenceData.user(
+                referenceData.users(List.of(comment.getUserId())),
+                comment.getUserId()
+        );
+        return AdminCommentResponse.from(comment, content, user);
     }
 
     /**
@@ -159,10 +183,10 @@ public class CommentAdminService {
                 predicates.add(criteriaBuilder.equal(root.get("status"), status));
             }
             if (contentId != null) {
-                predicates.add(criteriaBuilder.equal(root.get("content").get("id"), contentId));
+                predicates.add(criteriaBuilder.equal(root.get("contentId"), contentId));
             }
             if (userId != null) {
-                predicates.add(criteriaBuilder.equal(root.get("user").get("id"), userId));
+                predicates.add(criteriaBuilder.equal(root.get("userId"), userId));
             }
             return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
         };
@@ -181,10 +205,10 @@ public class CommentAdminService {
     private void syncCommentCount(Comment comment, CommentStatus previousStatus, CommentStatus targetStatus) {
         if (previousStatus == CommentStatus.VISIBLE && targetStatus != CommentStatus.VISIBLE) {
             // 从可见变为不可见，减少计数
-            contentRepository.incrementCommentCount(comment.getContent().getId(), -1);
+            contentInteractionService.incrementCommentCount(comment.getContentId(), -1);
         } else if (previousStatus != CommentStatus.VISIBLE && targetStatus == CommentStatus.VISIBLE) {
             // 从不可见变为可见，增加计数
-            contentRepository.incrementCommentCount(comment.getContent().getId(), 1);
+            contentInteractionService.incrementCommentCount(comment.getContentId(), 1);
         }
     }
 

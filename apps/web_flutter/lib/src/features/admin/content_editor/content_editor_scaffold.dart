@@ -133,9 +133,11 @@ extension _ContentEditorScaffold on _ContentEditorPageState {
       bodyFocusNode: _bodyFocusNode,
       onTitleChanged: _controller.updateTitle,
       onSummaryChanged: _controller.updateSummary,
-      onBodyChanged: _controller.updateBody,
+      onBodyChanged: _handleBodyChanged,
       onInsertMarkdown: _insertMarkdown,
+      onInsertCodeBlockLanguage: _insertCodeBlockLanguage,
       onInsertImage: _showImagePicker,
+      onOpenTableEditor: _showTableEditor,
       onEditModeChanged: _controller.setEditMode,
       mediaChild: _buildMediaSection(state),
     );
@@ -252,64 +254,6 @@ class _SubmitLabel extends StatelessWidget {
     return const SizedBox.square(
       dimension: 18,
       child: CircularProgressIndicator(strokeWidth: 2),
-    );
-  }
-}
-
-class _ImagePickerDialog extends StatelessWidget {
-  const _ImagePickerDialog({required this.mediaUrls, required this.onUpload});
-
-  final List<String> mediaUrls;
-  final VoidCallback onUpload;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('插入图片'),
-      content: SizedBox(
-        width: 560,
-        height: 420,
-        child: GridView.builder(
-          shrinkWrap: true,
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 160,
-            crossAxisSpacing: AppSpacing.sm,
-            mainAxisSpacing: AppSpacing.sm,
-          ),
-          itemCount: mediaUrls.length,
-          itemBuilder: (context, index) {
-            final url = mediaUrls[index];
-            return Semantics(
-              button: true,
-              label: '插入图片 ${index + 1}',
-              child: InkWell(
-                onTap: () => Navigator.of(context).pop(url),
-                borderRadius: BorderRadius.circular(10),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: CachedNetworkImage(
-                    imageUrl: resolveMediaUrl(url),
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) =>
-                        const Center(child: Icon(Icons.broken_image_outlined)),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-      actions: [
-        TextButton.icon(
-          onPressed: onUpload,
-          icon: const Icon(Icons.upload_outlined),
-          label: const Text('上传新图片'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-      ],
     );
   }
 }

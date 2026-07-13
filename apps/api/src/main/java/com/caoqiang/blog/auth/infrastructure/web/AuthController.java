@@ -1,6 +1,7 @@
 package com.caoqiang.blog.auth.infrastructure.web;
 
 import com.caoqiang.blog.auth.application.dto.AuthTokenResponse;
+import com.caoqiang.blog.auth.application.dto.IssuedAuthSession;
 import com.caoqiang.blog.auth.application.dto.OAuthExchangeRequest;
 import com.caoqiang.blog.auth.application.dto.OAuthProvidersResponse;
 import com.caoqiang.blog.auth.application.dto.LoginRequest;
@@ -8,19 +9,22 @@ import com.caoqiang.blog.auth.application.dto.RegisterRequest;
 import com.caoqiang.blog.auth.application.dto.SendCodeRequest;
 import com.caoqiang.blog.auth.domain.model.VerificationCode;
 import com.caoqiang.blog.auth.domain.model.OAuthProvider;
-import com.caoqiang.blog.auth.application.dto.RefreshTokenRequest;
 import com.caoqiang.blog.auth.application.service.AuthService;
 import com.caoqiang.blog.auth.application.service.JwtService;
 import com.caoqiang.blog.auth.application.service.OAuthLoginCodeService;
 import com.caoqiang.blog.auth.application.service.VerificationService;
 import com.caoqiang.blog.shared.util.EmailNormalizer;
 
+import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.ApiResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -51,6 +55,7 @@ public class AuthController {
     private final VerificationService verificationService;
     private final JwtService jwtService;
     private final OAuthLoginCodeService oAuthLoginCodeService;
+    private final RefreshTokenCookieService refreshTokenCookieService;
     /** GitHub OAuth 客户端 ID */
     private final String clientId;
     /** 前端基础地址 */
@@ -61,12 +66,14 @@ public class AuthController {
             VerificationService verificationService,
             JwtService jwtService,
             OAuthLoginCodeService oAuthLoginCodeService,
+            RefreshTokenCookieService refreshTokenCookieService,
             @Value("${blog.oauth.github.client-id:}") String clientId,
             @Value("${blog.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
         this.authService = authService;
         this.verificationService = verificationService;
         this.jwtService = jwtService;
         this.oAuthLoginCodeService = oAuthLoginCodeService;
+        this.refreshTokenCookieService = refreshTokenCookieService;
         this.clientId = clientId;
         this.frontendBaseUrl = frontendBaseUrl;
     }
@@ -86,45 +93,74 @@ public class AuthController {
 
     /**
      * 用户注册接口
-     * 接收注册请求，创建新用户账户，并返回访问令牌和刷新令牌。
+     * 接收注册请求，创建新用户账户，返回访问令牌并通过 HttpOnly Cookie 写入刷新令牌。
      *
      * @param request 注册请求，包含用户名、邮箱和密码
-     * @return 包含访问令牌和刷新令牌的 API 响应
+     * @return 包含访问令牌和用户信息的 API 响应
      */
     @PostMapping("/register")
-    public ApiResponse<AuthTokenResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ApiResponse.ok(authService.register(request));
+    public ApiResponse<AuthTokenResponse> register(
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletResponse response) {
+        return sessionResponse(authService.register(request), response);
     }
 
     /**
      * 用户登录接口
-     * 验证用户凭据，成功后返回访问令牌和刷新令牌。
+     * 验证用户凭据，成功后返回访问令牌并通过 HttpOnly Cookie 写入刷新令牌。
      *
      * @param request 登录请求，包含邮箱和密码
-     * @return 包含访问令牌和刷新令牌的 API 响应
+     * @return 包含访问令牌和用户信息的 API 响应
      */
     @PostMapping("/login")
-    public ApiResponse<AuthTokenResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ApiResponse.ok(authService.login(request));
+    public ApiResponse<AuthTokenResponse> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletResponse response) {
+        return sessionResponse(authService.login(request), response);
     }
 
     /**
      * 令牌刷新接口
      * 使用有效的刷新令牌获取新的访问令牌。
      *
-     * @param request 刷新令牌请求，包含刷新令牌
-     * @return 包含新访问令牌和刷新令牌的 API 响应
+     * @param refreshToken HttpOnly Cookie 中的刷新令牌
+     * @return 包含新访问令牌和用户信息的 API 响应
      */
     @PostMapping("/refresh")
-    public ApiResponse<AuthTokenResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
-        return ApiResponse.ok(authService.refresh(request));
+    public ApiResponse<AuthTokenResponse> refresh(
+            @CookieValue(name = RefreshTokenCookieService.COOKIE_NAME, required = false) String refreshToken,
+            HttpServletResponse response) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "刷新令牌无效");
+        }
+        return sessionResponse(authService.refresh(refreshToken), response);
+    }
+
+    /** 撤销刷新令牌并清除浏览器 Cookie。 */
+    @PostMapping("/logout")
+    public ApiResponse<Void> logout(
+            @CookieValue(name = RefreshTokenCookieService.COOKIE_NAME, required = false) String refreshToken,
+            HttpServletResponse response) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            authService.revokeRefreshToken(refreshToken);
+        }
+        refreshTokenCookieService.clear(response);
+        return ApiResponse.ok(null);
     }
 
     @PostMapping("/oauth/exchange")
     public ApiResponse<AuthTokenResponse> exchangeOAuthLogin(
-            @Valid @RequestBody OAuthExchangeRequest request
+            @Valid @RequestBody OAuthExchangeRequest request,
+            HttpServletResponse response
     ) {
-        return ApiResponse.ok(oAuthLoginCodeService.consume(request.code()));
+        return sessionResponse(oAuthLoginCodeService.consume(request.code()), response);
+    }
+
+    private ApiResponse<AuthTokenResponse> sessionResponse(
+            IssuedAuthSession session,
+            HttpServletResponse response) {
+        refreshTokenCookieService.write(response, session.refreshToken());
+        return ApiResponse.ok(session.toResponse());
     }
 
     /**

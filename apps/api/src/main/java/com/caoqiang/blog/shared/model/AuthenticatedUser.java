@@ -1,6 +1,5 @@
 package com.caoqiang.blog.shared.model;
 
-import com.caoqiang.blog.user.domain.model.User;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -17,13 +16,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
  * @param role     用户角色
  */
 public record AuthenticatedUser(UUID id, String email, String nickname, Role role) {
-
-    /**
-     * 从 User 实体创建 AuthenticatedUser
-     */
-    public static AuthenticatedUser from(User user) {
-        return new AuthenticatedUser(user.getId(), user.getEmail(), user.getNickname(), user.getRole());
-    }
 
     /**
      * 获取用户权限集合

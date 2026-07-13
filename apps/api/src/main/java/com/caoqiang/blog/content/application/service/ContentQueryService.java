@@ -11,6 +11,7 @@ import com.caoqiang.blog.content.domain.model.MediaAsset;
 import com.caoqiang.blog.content.domain.model.MediaReference;
 import com.caoqiang.blog.content.domain.model.Tag;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
+import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 
 import com.caoqiang.blog.config.CacheNames;
 import com.caoqiang.blog.content.infrastructure.web.ContentController;
@@ -18,7 +19,7 @@ import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
+import com.caoqiang.blog.interaction.application.api.InteractionStateService;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
@@ -26,7 +27,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
@@ -58,18 +61,21 @@ public class ContentQueryService {
     private static final int MAX_PAGE_SIZE = 50;
 
     private final ContentRepository contentRepository;
-    private final LikeRepository likeRepository;
+    private final MediaAssetRepository mediaAssetRepository;
+    private final InteractionStateService interactionStateService;
     private final MediaAdminService mediaAdminService;
     private final CacheManager cacheManager;
 
     public ContentQueryService(
             ContentRepository contentRepository,
-            LikeRepository likeRepository,
+            MediaAssetRepository mediaAssetRepository,
+            InteractionStateService interactionStateService,
             MediaAdminService mediaAdminService,
             CacheManager cacheManager
     ) {
         this.contentRepository = contentRepository;
-        this.likeRepository = likeRepository;
+        this.mediaAssetRepository = mediaAssetRepository;
+        this.interactionStateService = interactionStateService;
         this.mediaAdminService = mediaAdminService;
         this.cacheManager = cacheManager;
     }
@@ -85,13 +91,19 @@ public class ContentQueryService {
     @Transactional(readOnly = true)
     @Cacheable(value = CacheNames.RECOMMENDATIONS, key = "'all'")
     public RecommendationResponse recommendations() {
+        List<Content> pinned = contentRepository
+                .findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(
+                        ContentStatus.PUBLISHED);
+        List<Content> latest = contentRepository
+                .findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(
+                        ContentStatus.PUBLISHED);
+        List<Content> mostLiked = contentRepository
+                .findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(
+                        ContentStatus.PUBLISHED);
         return new RecommendationResponse(
-                contentRepository.findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(ContentStatus.PUBLISHED)
-                        .stream().map(this::toSummary).toList(),
-                contentRepository.findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(ContentStatus.PUBLISHED)
-                        .stream().map(this::toSummary).toList(),
-                contentRepository.findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(ContentStatus.PUBLISHED)
-                        .stream().map(this::toSummary).toList()
+                toSummaries(pinned),
+                toSummaries(latest),
+                toSummaries(mostLiked)
         );
     }
 
@@ -130,8 +142,9 @@ public class ContentQueryService {
                 publishedContentSpec(query, tags, type, from, to),
                 pageRequest
         );
+        List<Content> hydratedContents = hydrateSummaryRelations(result.getContent());
         return new PageResponse<>(
-                result.getContent().stream().map(this::toSummary).toList(),
+                toSummaries(hydratedContents),
                 safePage,
                 safeSize,
                 result.getTotalElements()
@@ -156,7 +169,7 @@ public class ContentQueryService {
                 : contentRepository.findByIdAndStatusAndDeletedAtIsNull(id, ContentStatus.PUBLISHED)
                         .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
         // 查询当前用户是否已点赞该内容
-        boolean liked = currentUser != null && likeRepository.existsByContentIdAndUserId(id, currentUser.id());
+        boolean liked = currentUser != null && interactionStateService.isLiked(id, currentUser.id());
 
         // 获取预签名 URL 列表
         List<MediaAssetResponse> mediaAssets = content.getMediaAssets().stream()
@@ -281,7 +294,7 @@ public class ContentQueryService {
      * @param content 内容实体
      * @return 内容摘要响应
      */
-    private ContentSummaryResponse toSummary(Content content) {
+    private ContentSummaryResponse toSummary(Content content, MediaAsset fallbackCover) {
         return new ContentSummaryResponse(
                 content.getId(),
                 content.getTitle(),
@@ -289,12 +302,48 @@ public class ContentQueryService {
                 content.getType(),
                 content.getStatus(),
                 content.getSummary(),
-                presignedCoverUrl(content),
+                presignedCoverUrl(content, fallbackCover),
                 content.isPinned(),
                 content.getLikeCount(),
                 content.getPublishedAt(),
                 tagNames(content)
         );
+    }
+
+    /**
+     * 保持数据库分页顺序，用一条固定查询批量加载 tags 与显式封面。
+     */
+    private List<Content> hydrateSummaryRelations(List<Content> contents) {
+        if (contents.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> ids = contents.stream().map(Content::getId).toList();
+        Map<UUID, Content> hydratedById = contentRepository
+                .findAllWithSummaryRelationsByIdIn(ids)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(Content::getId, content -> content));
+        return contents.stream()
+                .map(content -> hydratedById.getOrDefault(content.getId(), content))
+                .toList();
+    }
+
+    /**
+     * 批量读取回退封面，使查询次数保持常量，不随页面项目数增长。
+     */
+    private List<ContentSummaryResponse> toSummaries(List<Content> contents) {
+        if (contents.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> ids = contents.stream().map(Content::getId).toList();
+        Map<UUID, MediaAsset> firstMediaByContent = new LinkedHashMap<>();
+        for (MediaAsset media : mediaAssetRepository.findByContentIdInOrderByCreatedAtAsc(ids)) {
+            if (media.getContent() != null) {
+                firstMediaByContent.putIfAbsent(media.getContent().getId(), media);
+            }
+        }
+        return contents.stream()
+                .map(content -> toSummary(content, firstMediaByContent.get(content.getId())))
+                .toList();
     }
 
     /**
@@ -330,5 +379,12 @@ public class ContentQueryService {
             return null;
         }
         return mediaAdminService.getPresignedUrl(coverMedia.getId());
+    }
+
+    private String presignedCoverUrl(Content content, MediaAsset fallbackCover) {
+        MediaAsset coverMedia = content.getCoverMedia() == null
+                ? fallbackCover
+                : content.getCoverMedia();
+        return coverMedia == null ? null : mediaAdminService.getPresignedUrl(coverMedia.getId());
     }
 }

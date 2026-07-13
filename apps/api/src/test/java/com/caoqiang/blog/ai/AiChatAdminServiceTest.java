@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 import com.caoqiang.blog.ai.chat.application.dto.AdminAiChatDetailResponse;
 import com.caoqiang.blog.ai.chat.domain.model.AiChatMessage;
@@ -13,7 +14,9 @@ import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatMessageRepository;
 import com.caoqiang.blog.ai.chat.application.service.AiChatAdminService;
 import com.caoqiang.blog.shared.exception.BusinessException;
-import com.caoqiang.blog.user.domain.model.User;
+import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +25,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 @ExtendWith(MockitoExtension.class)
 class AiChatAdminServiceTest {
@@ -32,13 +38,16 @@ class AiChatAdminServiceTest {
     @Mock
     private AiChatMessageRepository messageRepository;
 
+    @Mock
+    private UserAccountService userAccountService;
+
     @Test
     void detailReturnsSessionAndMessages() {
-        User user = User.register("reader@example.com", "hash", "读者");
-        AiChatSession session = new AiChatSession(user, "关于我");
+        IdentityUser user = user();
+        AiChatSession session = new AiChatSession(user.id(), "关于我");
         AiChatMessage userMessage = new AiChatMessage(session, AiMessageRole.USER, "你是谁？");
         AiChatMessage assistantMessage = new AiChatMessage(session, AiMessageRole.ASSISTANT, "我是博客助手。");
-        AiChatAdminService service = new AiChatAdminService(sessionRepository, messageRepository);
+        AiChatAdminService service = service();
 
         when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
         when(messageRepository.findBySessionIdOrderByCreatedAtAsc(session.getId()))
@@ -46,6 +55,7 @@ class AiChatAdminServiceTest {
         when(messageRepository.findFirstBySessionIdOrderByCreatedAtDesc(session.getId()))
                 .thenReturn(Optional.of(assistantMessage));
         when(messageRepository.countBySessionId(session.getId())).thenReturn(2L);
+        when(userAccountService.findById(user.id())).thenReturn(Optional.of(user));
 
         AdminAiChatDetailResponse response = service.detail(session.getId());
 
@@ -57,9 +67,34 @@ class AiChatAdminServiceTest {
     }
 
     @Test
+    void sessionsResolveIdentityKeywordsAndBatchUserSnapshots() {
+        IdentityUser user = user();
+        AiChatSession session = new AiChatSession(user.id(), "身份查询");
+        AiChatAdminService service = service();
+        when(userAccountService.findIdsMatchingIdentity("reader")).thenReturn(List.of(user.id()));
+        when(sessionRepository.findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(session)));
+        when(userAccountService.findByIds(List.of(user.id()))).thenReturn(List.of(user));
+        when(messageRepository.findFirstBySessionIdOrderByCreatedAtDesc(session.getId()))
+                .thenReturn(Optional.empty());
+        when(messageRepository.countBySessionId(session.getId())).thenReturn(0L);
+
+        var response = service.sessions(0, 20, null, " Reader ");
+
+        assertThat(response.items()).singleElement().satisfies(item -> {
+            assertThat(item.userId()).isEqualTo(user.id());
+            assertThat(item.userEmail()).isEqualTo(user.email());
+        });
+        verify(userAccountService).findIdsMatchingIdentity("reader");
+        verify(userAccountService).findByIds(List.of(user.id()));
+    }
+
+    @Test
     void deleteRejectsMissingSession() {
         UUID id = UUID.randomUUID();
-        AiChatAdminService service = new AiChatAdminService(sessionRepository, messageRepository);
+        AiChatAdminService service = service();
         when(sessionRepository.findById(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.delete(id))
@@ -71,14 +106,32 @@ class AiChatAdminServiceTest {
 
     @Test
     void deleteRemovesExistingSession() {
-        User user = User.register("reader@example.com", "hash", "读者");
-        AiChatSession session = new AiChatSession(user, "关于我");
-        AiChatAdminService service = new AiChatAdminService(sessionRepository, messageRepository);
+        IdentityUser user = user();
+        AiChatSession session = new AiChatSession(user.id(), "关于我");
+        AiChatAdminService service = service();
         when(sessionRepository.findById(session.getId())).thenReturn(Optional.of(session));
 
         service.delete(session.getId());
 
         assertThat(session.isDeleted()).isTrue();
         verify(sessionRepository).save(session);
+    }
+
+    private AiChatAdminService service() {
+        return new AiChatAdminService(sessionRepository, messageRepository, userAccountService);
+    }
+
+    private IdentityUser user() {
+        return new IdentityUser(
+                UUID.randomUUID(),
+                "reader@example.com",
+                "读者",
+                null,
+                null,
+                null,
+                "hash",
+                Role.USER,
+                true
+        );
     }
 }

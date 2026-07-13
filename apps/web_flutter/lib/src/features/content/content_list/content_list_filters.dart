@@ -53,73 +53,81 @@ class _SearchAndFilterBarState extends State<_SearchAndFilterBar> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final design = AppDesignTokens.of(context);
     final hasText = widget.controller.text.isNotEmpty;
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                HugeIcon(
-                  icon: HugeIcons.strokeRoundedSearch01,
-                  color: scheme.onSurfaceVariant,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: widget.controller,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    decoration: InputDecoration(
-                      hintText: '搜索标题、摘要或正文',
-                      hintStyle: TextStyle(color: scheme.onSurfaceVariant),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      filled: false,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    onSubmitted: (_) => widget.onSearch(),
-                  ),
-                ),
-                if (hasText)
-                  GestureDetector(
-                    onTap: () {
-                      widget.controller.clear();
-                      widget.onSearch();
-                    },
-                    child: HugeIcon(
-                      icon: HugeIcons.strokeRoundedCancel01,
-                      size: 18,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+        border: Border.all(color: design.cardBorder),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: AppSpacing.md),
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedSearch01,
+            color: scheme.onSurfaceVariant,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: widget.controller,
+              style: Theme.of(context).textTheme.bodyMedium,
+              decoration: InputDecoration(
+                hintText: '搜索标题、摘要或正文',
+                hintStyle: TextStyle(color: scheme.onSurfaceVariant),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                filled: false,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onSubmitted: (_) => widget.onSearch(),
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Badge(
-          isLabelVisible: widget.filterCount > 0,
-          label: Text('${widget.filterCount}'),
-          child: IconButton(
-            tooltip: widget.filtersExpanded ? '收起筛选' : '展开筛选',
-            onPressed: widget.onToggleFilters,
-            icon: HugeIcon(
-              icon: widget.filtersExpanded
-                  ? HugeIcons.strokeRoundedFilterRemove
-                  : HugeIcons.strokeRoundedFilter,
-              size: 22,
+          if (hasText)
+            IconButton(
+              tooltip: '清除搜索',
+              onPressed: () {
+                widget.controller.clear();
+                widget.onSearch();
+              },
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedCancel01,
+                size: 18,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          SizedBox(
+            height: 24,
+            child: VerticalDivider(color: scheme.outlineVariant),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            child: Badge(
+              isLabelVisible: widget.filterCount > 0,
+              label: Text(
+                '${widget.filterCount}',
+                style: const TextStyle(
+                  fontFeatures: [ui.FontFeature.tabularFigures()],
+                ),
+              ),
+              child: IconButton(
+                tooltip: widget.filtersExpanded ? '收起筛选' : '展开筛选',
+                onPressed: widget.onToggleFilters,
+                icon: HugeIcon(
+                  icon: widget.filtersExpanded
+                      ? HugeIcons.strokeRoundedFilterRemove
+                      : HugeIcons.strokeRoundedFilter,
+                  size: 22,
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -142,32 +150,34 @@ class _FilterPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _FilterLabel(label: '内容类型'),
-          const SizedBox(height: AppSpacing.sm),
-          _TypeFilter(selectedType: filter.type, onTypeChanged: onTypeChanged),
-          const SizedBox(height: AppSpacing.md),
-          const _FilterLabel(label: '内容标签'),
-          const SizedBox(height: AppSpacing.sm),
-          _TagFilter(selectedTag: filter.tag, onTagChanged: onTagChanged),
-          const SizedBox(height: AppSpacing.md),
-          const _FilterLabel(label: '发布时间'),
-          const SizedBox(height: AppSpacing.sm),
-          _DateFilter(
-            startDate: filter.startDate,
-            endDate: filter.endDate,
-            onStartDateChanged: onStartDateChanged,
-            onEndDateChanged: onEndDateChanged,
-          ),
-        ],
+    return Card(
+      color: scheme.surfaceContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _FilterLabel(label: '内容类型'),
+            const SizedBox(height: AppSpacing.sm),
+            _TypeFilter(
+              selectedType: filter.type,
+              onTypeChanged: onTypeChanged,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            const _FilterLabel(label: '内容标签'),
+            const SizedBox(height: AppSpacing.sm),
+            _TagFilter(selectedTag: filter.tag, onTagChanged: onTagChanged),
+            const SizedBox(height: AppSpacing.md),
+            const _FilterLabel(label: '发布时间'),
+            const SizedBox(height: AppSpacing.sm),
+            _DateFilter(
+              startDate: filter.startDate,
+              endDate: filter.endDate,
+              onStartDateChanged: onStartDateChanged,
+              onEndDateChanged: onEndDateChanged,
+            ),
+          ],
+        ),
       ),
     );
   }

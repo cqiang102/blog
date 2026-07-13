@@ -5,7 +5,8 @@ import com.caoqiang.blog.audit.domain.model.AuditLog;
 import com.caoqiang.blog.audit.domain.repository.AuditLogRepository;
 
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.user.domain.model.User;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,9 +38,14 @@ public class AuditLogService {
 
     /** 审计日志数据访问层 */
     private final AuditLogRepository auditLogRepository;
+    private final UserAccountService userAccountService;
 
-    public AuditLogService(AuditLogRepository auditLogRepository) {
+    public AuditLogService(
+            AuditLogRepository auditLogRepository,
+            UserAccountService userAccountService
+    ) {
         this.auditLogRepository = auditLogRepository;
+        this.userAccountService = userAccountService;
     }
 
     /**
@@ -52,8 +58,8 @@ public class AuditLogService {
      * @param detail       操作详情，可选
      */
     @Transactional
-    public void log(User actor, String action, String resourceType, UUID resourceId, Map<String, Object> detail) {
-        AuditLog auditLog = new AuditLog(actor, action, resourceType, resourceId, detail);
+    public void log(UUID actorUserId, String action, String resourceType, UUID resourceId, Map<String, Object> detail) {
+        AuditLog auditLog = new AuditLog(actorUserId, action, resourceType, resourceId, detail);
         auditLogRepository.save(auditLog);
     }
 
@@ -66,8 +72,8 @@ public class AuditLogService {
      * @param resourceId   资源 ID
      */
     @Transactional
-    public void log(User actor, String action, String resourceType, UUID resourceId) {
-        log(actor, action, resourceType, resourceId, null);
+    public void log(UUID actorUserId, String action, String resourceType, UUID resourceId) {
+        log(actorUserId, action, resourceType, resourceId, null);
     }
 
     /**
@@ -90,8 +96,20 @@ public class AuditLogService {
                         Sort.by(Sort.Direction.DESC, "createdAt")
                 )
         );
+        Map<UUID, IdentityUser> actors = userAccountService.findByIds(
+                result.getContent().stream()
+                        .map(AuditLog::getActorUserId)
+                        .filter(java.util.Objects::nonNull)
+                        .distinct()
+                        .toList()
+        ).stream().collect(java.util.stream.Collectors.toMap(
+                IdentityUser::id,
+                java.util.function.Function.identity()
+        ));
         return new PageResponse<>(
-                result.getContent().stream().map(AuditLogResponse::from).toList(),
+                result.getContent().stream()
+                        .map(log -> AuditLogResponse.from(log, actors.get(log.getActorUserId())))
+                        .toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements()
@@ -124,7 +142,7 @@ public class AuditLogService {
             }
             // 操作者用户 ID 精确匹配
             if (actorUserId != null) {
-                predicates.add(criteriaBuilder.equal(root.get("actor").get("id"), actorUserId));
+                predicates.add(criteriaBuilder.equal(root.get("actorUserId"), actorUserId));
             }
             return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
         };

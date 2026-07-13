@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -223,6 +224,61 @@ class ContentEditorController extends Notifier<ContentEditorState> {
         );
       }
       return _errorMessage(error);
+    }
+  }
+
+  Future<({String? url, String? error})> uploadMediaBytes({
+    required Uint8List bytes,
+    required String filename,
+    MediaAssetType type = MediaAssetType.image,
+  }) async {
+    if (state.isUploading) return (url: null, error: null);
+
+    try {
+      final token = ref.read(authControllerProvider).accessToken;
+      if (token == null) return (url: null, error: '请先登录');
+
+      state = state.copyWith(
+        isUploading: true,
+        uploadedCount: 0,
+        uploadTotal: 1,
+      );
+
+      final media = await ref
+          .read(apiClientProvider)
+          .uploadAdminMedia(
+            accessToken: token,
+            bytes: bytes,
+            filename: filename,
+            type: type,
+            contentId: contentId ?? '',
+          );
+      if (_disposed) return (url: null, error: null);
+
+      final url = mediaFileReference(media.id);
+      final urls = [...state.mediaUrls, url];
+      _updateContent(
+        state.copyWith(
+          mediaUrls: urls,
+          coverUrl: state.coverUrl ?? urls.first,
+          uploadedCount: 1,
+        ),
+      );
+      state = state.copyWith(
+        isUploading: false,
+        uploadedCount: 0,
+        uploadTotal: 0,
+      );
+      return (url: url, error: null);
+    } catch (error) {
+      if (!_disposed) {
+        state = state.copyWith(
+          isUploading: false,
+          uploadedCount: 0,
+          uploadTotal: 0,
+        );
+      }
+      return (url: null, error: _errorMessage(error));
     }
   }
 

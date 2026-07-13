@@ -2,7 +2,6 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../core/api_client.dart';
 import '../auth/auth_controller.dart';
@@ -15,8 +14,14 @@ final apiClientProvider = Provider<BlogApiClient>((ref) {
 });
 
 /// 认证控制器 Provider
-final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
+final authControllerProvider = Provider<AuthController>((ref) {
   final controller = AuthController(ref.watch(apiClientProvider));
+  void notifyRiverpod() => ref.notifyListeners();
+  controller.addListener(notifyRiverpod);
+  ref.onDispose(() {
+    controller.removeListener(notifyRiverpod);
+    controller.dispose();
+  });
   controller.load(); // 初始化时加载认证状态
   return controller;
 });

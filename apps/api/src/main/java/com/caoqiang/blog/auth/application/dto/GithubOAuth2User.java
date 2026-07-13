@@ -1,6 +1,6 @@
 package com.caoqiang.blog.auth.application.dto;
 
-import com.caoqiang.blog.user.domain.model.User;
+import com.caoqiang.blog.user.application.api.IdentityUser;
 import java.util.Collection;
 import java.util.Map;
 import org.springframework.security.core.GrantedAuthority;
@@ -14,9 +14,9 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 public class GithubOAuth2User implements OAuth2User {
 
     private final OAuth2User delegate;
-    private final User user;
+    private final IdentityUser user;
 
-    public GithubOAuth2User(OAuth2User delegate, User user) {
+    public GithubOAuth2User(OAuth2User delegate, IdentityUser user) {
         this.delegate = delegate;
         this.user = user;
     }
@@ -28,15 +28,15 @@ public class GithubOAuth2User implements OAuth2User {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return AuthorityUtils.createAuthorityList("ROLE_" + user.getRole().name());
+        return AuthorityUtils.createAuthorityList("ROLE_" + user.role().name());
     }
 
     @Override
     public String getName() {
-        return user.getId().toString();
+        return user.id().toString();
     }
 
-    public User getUser() {
+    public IdentityUser getUser() {
         return user;
     }
 }

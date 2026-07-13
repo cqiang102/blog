@@ -4,7 +4,7 @@ import com.caoqiang.blog.auth.application.dto.JwtClaims;
 
 import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.user.domain.model.User;
+import com.caoqiang.blog.user.application.api.IdentityUser;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -81,7 +81,7 @@ public class JwtService {
      * @param user 用户实体
      * @return 包含 JWT 值和过期时间的 JwtToken 记录
      */
-    public JwtToken createAccessToken(User user) {
+    public JwtToken createAccessToken(IdentityUser user) {
         Instant issuedAt = clock.instant();
         // 计算过期时间：当前时间 + 配置的访问令牌有效期（分钟）
         Instant expiresAt = issuedAt.plusSeconds(blogProperties.getSecurity().getAccessTokenMinutes() * 60L);
@@ -94,10 +94,10 @@ public class JwtService {
         // 构建 JWT 载荷，包含标准声明和自定义声明
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("iss", "personal-blog-api");  // 签发者
-        payload.put("sub", user.getId().toString());  // 主题（用户 ID）
-        payload.put("email", user.getEmail());  // 用户邮箱
-        payload.put("nickname", user.getNickname());  // 用户昵称
-        payload.put("role", user.getRole().name());  // 用户角色
+        payload.put("sub", user.id().toString());  // 主题（用户 ID）
+        payload.put("email", user.email());  // 用户邮箱
+        payload.put("nickname", user.nickname());  // 用户昵称
+        payload.put("role", user.role().name());  // 用户角色
         payload.put("iat", issuedAt.getEpochSecond());  // 签发时间
         payload.put("exp", expiresAt.getEpochSecond());  // 过期时间
 

@@ -10,6 +10,7 @@ import com.caoqiang.blog.content.application.dto.MediaAssetResponse;
 import com.caoqiang.blog.content.application.dto.RecommendationResponse;
 import com.caoqiang.blog.content.application.dto.TagRequest;
 import com.caoqiang.blog.content.application.dto.TagResponse;
+import com.caoqiang.blog.content.application.port.MediaStorageProvisioner;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
@@ -22,7 +23,6 @@ import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 import com.caoqiang.blog.content.domain.repository.TagRepository;
 
 import com.caoqiang.blog.shared.exception.BusinessException;
-import com.caoqiang.blog.shared.infrastructure.storage.MinioBucketService;
 import com.caoqiang.blog.shared.response.PageResponse;
 import java.net.URI;
 import java.time.Clock;
@@ -77,7 +77,7 @@ public class MediaAdminService {
     private final MediaAssetRepository mediaAssetRepository;
     private final ContentRepository contentRepository;
     private final FileStorageService fileStorageService;
-    private final MinioBucketService minioBucketService;
+    private final MediaStorageProvisioner mediaStorageProvisioner;
     private final Clock clock;
     private final String minioEndpoint;
     private final String minioPublicEndpoint;
@@ -88,7 +88,7 @@ public class MediaAdminService {
             MediaAssetRepository mediaAssetRepository,
             ContentRepository contentRepository,
             FileStorageService fileStorageService,
-            MinioBucketService minioBucketService,
+            MediaStorageProvisioner mediaStorageProvisioner,
             Clock clock,
             @Value("${dromara.x-file-storage.minio[0].end-point:http://localhost:9000}") String minioEndpoint,
             @Value("${MINIO_PUBLIC_ENDPOINT:}") String minioPublicEndpoint,
@@ -98,7 +98,7 @@ public class MediaAdminService {
         this.mediaAssetRepository = mediaAssetRepository;
         this.contentRepository = contentRepository;
         this.fileStorageService = fileStorageService;
-        this.minioBucketService = minioBucketService;
+        this.mediaStorageProvisioner = mediaStorageProvisioner;
         this.clock = clock;
         this.minioEndpoint = minioEndpoint;
         this.minioPublicEndpoint = minioPublicEndpoint;
@@ -190,7 +190,7 @@ public class MediaAdminService {
     }
 
     public void ensureUploadStorageReady() {
-        minioBucketService.ensureBucketExists();
+        mediaStorageProvisioner.ensureReady();
     }
 
     /**

@@ -23,7 +23,7 @@ mixin ContentApi on ApiClientBase {
         if (query.startDate != null)
           'from': query.startDate!.toUtc().toIso8601String(),
         if (query.endDate != null)
-          'to': query.endDate!.toUtc().toIso8601String(),
+          'to': _endOfLocalDay(query.endDate!).toUtc().toIso8601String(),
         'page': query.page.toString(),
         'size': query.size.toString(),
       },
@@ -33,8 +33,7 @@ mixin ContentApi on ApiClientBase {
       items: (json['items'] as List? ?? const [])
           .whereType<Map>()
           .map(
-            (item) =>
-                BlogContent.fromSummaryJson(item.cast<String, dynamic>()),
+            (item) => BlogContent.fromSummaryJson(item.cast<String, dynamic>()),
           )
           .toList(),
       page: (json['page'] as num?)?.toInt() ?? 0,
@@ -118,3 +117,9 @@ mixin ContentApi on ApiClientBase {
     await post('/contents/$contentId/views', accessToken: accessToken);
   }
 }
+
+DateTime _endOfLocalDay(DateTime date) => DateTime(
+  date.year,
+  date.month,
+  date.day + 1,
+).subtract(const Duration(microseconds: 1));

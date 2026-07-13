@@ -10,11 +10,11 @@ import com.caoqiang.blog.auth.domain.model.OAuthAccount;
 import com.caoqiang.blog.auth.domain.model.OAuthProvider;
 import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
 import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.model.UserStatus;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,7 +28,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 class GithubOAuth2UserServiceTest {
 
     @Mock
-    private UserRepository userRepository;
+    private UserAccountService userAccountService;
 
     @Mock
     private OAuthAccountRepository oauthAccountRepository;
@@ -44,13 +44,13 @@ class GithubOAuth2UserServiceTest {
     @Test
     void doesNotAutoLinkAnExistingLocalUserByEmail() {
         GithubOAuth2UserService service = service();
-        User localUser = User.register("owner@example.com", "hash", "Owner");
+        IdentityUser localUser = identityUser("owner@example.com", "Owner", true);
         stubGithubUser("github-1", "owner", "owner@example.com");
         when(oauthAccountRepository.findByProviderAndProviderUserId(
                 OAuthProvider.GITHUB,
                 "github-1"
         )).thenReturn(Optional.empty());
-        when(userRepository.findByEmail("owner@example.com")).thenReturn(Optional.of(localUser));
+        when(userAccountService.findByEmail("owner@example.com")).thenReturn(Optional.of(localUser));
 
         assertThatThrownBy(() -> service.resolveUser(oauth2User))
                 .isInstanceOfSatisfying(OAuth2AuthenticationException.class, error ->
@@ -64,18 +64,9 @@ class GithubOAuth2UserServiceTest {
     @Test
     void rejectsADisabledLinkedUser() {
         GithubOAuth2UserService service = service();
-        User disabledUser = User.register("disabled@example.com", null, "Disabled");
-        disabledUser.applyAdminUpdate(
-                disabledUser.getEmail(),
-                disabledUser.getNickname(),
-                null,
-                null,
-                null,
-                Role.USER,
-                UserStatus.DISABLED
-        );
+        UUID disabledUserId = UUID.randomUUID();
         OAuthAccount account = new OAuthAccount(
-                disabledUser,
+                disabledUserId,
                 OAuthProvider.GITHUB,
                 "github-2",
                 "disabled"
@@ -85,7 +76,6 @@ class GithubOAuth2UserServiceTest {
                 OAuthProvider.GITHUB,
                 "github-2"
         )).thenReturn(Optional.of(account));
-
         assertThatThrownBy(() -> service.resolveUser(oauth2User))
                 .isInstanceOfSatisfying(OAuth2AuthenticationException.class, error ->
                         assertThat(error.getError().getErrorCode()).isEqualTo("account_disabled")
@@ -93,7 +83,21 @@ class GithubOAuth2UserServiceTest {
     }
 
     private GithubOAuth2UserService service() {
-        return new GithubOAuth2UserService(userRepository, oauthAccountRepository);
+        return new GithubOAuth2UserService(userAccountService, oauthAccountRepository);
+    }
+
+    private IdentityUser identityUser(String email, String nickname, boolean active) {
+        return new IdentityUser(
+                UUID.randomUUID(),
+                email,
+                nickname,
+                null,
+                null,
+                null,
+                "hash",
+                Role.USER,
+                active
+        );
     }
 
     private void stubGithubUser(String id, String login, String email) {

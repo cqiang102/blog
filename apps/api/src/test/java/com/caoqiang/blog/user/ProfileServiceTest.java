@@ -3,12 +3,13 @@ package com.caoqiang.blog.user;
 import com.caoqiang.blog.user.application.dto.ChangePasswordRequest;
 import com.caoqiang.blog.user.application.dto.SetPasswordRequest;
 import com.caoqiang.blog.user.application.dto.UpdateProfileRequest;
-import com.caoqiang.blog.user.application.dto.UserProfileResponse;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
+import com.caoqiang.blog.user.application.port.OAuthAccountPort;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
 import com.caoqiang.blog.user.application.service.ProfileService;
-import com.caoqiang.blog.content.application.service.MediaAdminService;
+import com.caoqiang.blog.content.application.api.ContentMediaService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -17,11 +18,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.time.Clock;
+import java.time.Instant;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.dromara.x.file.storage.core.FileStorageService;
@@ -46,10 +48,10 @@ class ProfileServiceTest {
     private FileStorageService fileStorageService;
 
     @Mock
-    private OAuthAccountRepository oauthAccountRepository;
+    private OAuthAccountPort oauthAccountPort;
 
     @Mock
-    private MediaAdminService mediaAdminService;
+    private ContentMediaService contentMediaService;
 
     private ProfileService profileService;
 
@@ -59,8 +61,8 @@ class ProfileServiceTest {
     @BeforeEach
     void setUp() {
         profileService = new ProfileService(userRepository, passwordEncoder,
-                fileStorageService, oauthAccountRepository, Clock.systemUTC(), "minio-1",
-                mediaAdminService);
+                fileStorageService, oauthAccountPort, Clock.systemUTC(), "minio-1",
+                contentMediaService);
         testUser = User.register("test@example.com", "hashedPassword", "测试用户");
         currentUser = new AuthenticatedUser(testUser.getId(), "test@example.com", "测试用户", Role.USER);
     }
@@ -135,5 +137,31 @@ class ProfileServiceTest {
         assertThatThrownBy(() -> profileService.uploadAvatar(file))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("仅支持 JPEG、PNG、GIF 或 WebP 图片");
+    }
+
+    @Test
+    void listsOAuthAccountsThroughUserApplicationPort() {
+        Instant linkedAt = Instant.parse("2026-07-12T08:00:00Z");
+        when(oauthAccountPort.findByUserId(testUser.getId())).thenReturn(List.of(
+                new OAuthAccountPort.LinkedOAuthAccount("GITHUB", "octocat", linkedAt)
+        ));
+
+        var accounts = profileService.getOAuthAccounts(currentUser);
+
+        assertThat(accounts).singleElement().satisfies(account -> {
+            assertThat(account.provider()).isEqualTo("GITHUB");
+            assertThat(account.providerUsername()).isEqualTo("octocat");
+            assertThat(account.createdAt()).isEqualTo(linkedAt);
+        });
+    }
+
+    @Test
+    void unbindsOAuthAccountThroughUserApplicationPort() {
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        when(oauthAccountPort.remove(testUser.getId(), "github")).thenReturn(true);
+
+        profileService.unbindOAuthAccount(currentUser, "github");
+
+        verify(oauthAccountPort).remove(testUser.getId(), "github");
     }
 }

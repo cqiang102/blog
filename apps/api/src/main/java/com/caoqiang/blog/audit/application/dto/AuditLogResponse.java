@@ -1,6 +1,7 @@
 package com.caoqiang.blog.audit.application.dto;
 
 import com.caoqiang.blog.audit.domain.model.AuditLog;
+import com.caoqiang.blog.user.application.api.IdentityUser;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -41,11 +42,11 @@ public record AuditLogResponse(
      * @param log 审计日志实体
      * @return 审计日志响应 DTO
      */
-    public static AuditLogResponse from(AuditLog log) {
+    public static AuditLogResponse from(AuditLog log, IdentityUser actor) {
         return new AuditLogResponse(
                 log.getId(),
-                log.getActor() != null ? log.getActor().getId() : null,
-                log.getActor() != null ? log.getActor().getNickname() : null,
+                log.getActorUserId(),
+                actor != null ? actor.nickname() : null,
                 log.getAction(),
                 log.getResourceType(),
                 log.getResourceId(),

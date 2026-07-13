@@ -135,4 +135,31 @@ void main() {
       expect(attempts, 2);
     },
   );
+
+  test('normalizes connection failures into a user-facing message', () async {
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) => handler.reject(
+          DioException(
+            requestOptions: options,
+            type: DioExceptionType.connectionError,
+            message: 'XMLHttpRequest error',
+          ),
+        ),
+      ),
+    );
+    final client = ApiClientBase(dio: dio);
+
+    await expectLater(
+      client.get('/contents'),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          '无法连接服务器，请检查网络后重试',
+        ),
+      ),
+    );
+  });
 }

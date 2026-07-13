@@ -149,7 +149,6 @@ void main() {
     test('fromJson parses correctly', () {
       final json = {
         'accessToken': 'access-token-123',
-        'refreshToken': 'refresh-token-456',
         'expiresAt': '2026-06-05T12:00:00Z',
         'user': {
           'id': 'user-001',
@@ -162,7 +161,6 @@ void main() {
       final session = AuthSession.fromJson(json);
 
       expect(session.accessToken, 'access-token-123');
-      expect(session.refreshToken, 'refresh-token-456');
       expect(session.user.id, 'user-001');
       expect(session.user.email, 'test@example.com');
     });

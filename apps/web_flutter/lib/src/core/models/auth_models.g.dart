@@ -32,7 +32,6 @@ Map<String, dynamic> _$UserProfileToJson(
 
 AuthSession _$AuthSessionFromJson(Map<String, dynamic> json) => AuthSession(
   accessToken: const SafeStringJsonConverter().fromJson(json['accessToken']),
-  refreshToken: const SafeStringJsonConverter().fromJson(json['refreshToken']),
   expiresAt: const SafeDateTimeJsonConverter().fromJson(json['expiresAt']),
   user: UserProfile.fromJson(json['user'] as Map<String, dynamic>),
 );
@@ -41,7 +40,6 @@ Map<String, dynamic> _$AuthSessionToJson(
   AuthSession instance,
 ) => <String, dynamic>{
   'accessToken': const SafeStringJsonConverter().toJson(instance.accessToken),
-  'refreshToken': const SafeStringJsonConverter().toJson(instance.refreshToken),
   'expiresAt': const SafeDateTimeJsonConverter().toJson(instance.expiresAt),
   'user': instance.user,
 };

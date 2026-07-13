@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:collection/collection.dart';
@@ -13,7 +15,9 @@ import '../../widgets/widgets.dart';
 import '../../core/constants.dart';
 import '../../core/media_url.dart';
 import '../../core/models.dart';
+import '../../theme/app_design_tokens.dart';
 import '../../theme/app_spacing.dart';
+import '../../theme/app_motion.dart';
 
 part 'content_list/content_list_filters.dart';
 part 'content_list/content_list_states.dart';
@@ -129,13 +133,13 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Text(
-                  //   '从文章、照片和视频中，找到你感兴趣的记录。',
-                  //   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  //     color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  //   ),
-                  // ),
-                  // const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    '文章、照片与视频，按时间慢慢收藏。',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   _SearchAndFilterBar(
                     controller: _searchController,
                     filterCount: _activeFilterCount(filter),
@@ -145,7 +149,7 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
                         setState(() => _showFilters = !_showFilters),
                   ),
                   AnimatedSize(
-                    duration: AppAnimations.normal,
+                    duration: AppMotion.duration(context, AppAnimations.normal),
                     curve: AppAnimations.slideCurve,
                     alignment: Alignment.topCenter,
                     child: _showFilters
@@ -221,12 +225,14 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
             sliver: SliverToBoxAdapter(
               child: Row(
                 children: [
-                  // Text(
-                  //   pagination.items.isEmpty
-                  //       ? '内容列表'
-                  //       : '已加载 ${pagination.items.length} 篇',
-                  //   style: Theme.of(context).textTheme.titleMedium,
-                  // ),
+                  Text(
+                    pagination.items.isEmpty
+                        ? '内容归档'
+                        : '已加载 ${pagination.items.length} 篇',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontFeatures: const [ui.FontFeature.tabularFigures()],
+                    ),
+                  ),
                   const Spacer(),
                   if (pagination.isLoading && pagination.items.isNotEmpty)
                     const SizedBox.square(
@@ -258,7 +264,7 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(
-                AppSpacing.sm,
+                AppSpacing.lg,
                 0,
                 AppSpacing.lg,
                 AppSpacing.xl,

@@ -7,15 +7,8 @@ import com.caoqiang.blog.ai.chat.application.dto.AiContentDetailResult;
 import com.caoqiang.blog.ai.chat.application.dto.AiContentItem;
 import com.caoqiang.blog.ai.chat.application.dto.AiSearchContentResult;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
-import com.caoqiang.blog.content.application.service.ContentQueryService;
-import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
-import com.caoqiang.blog.interaction.application.dto.CommentRequest;
-import com.caoqiang.blog.interaction.application.dto.CommentResponse;
-import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
-import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
-import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
+import com.caoqiang.blog.content.application.api.ContentAccessService;
+import com.caoqiang.blog.interaction.application.api.InteractionAccessService;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -29,18 +22,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class AiToolService {
 
-    private final ContentQueryService contentQueryService;
-    private final InteractionCommandService interactionCommandService;
-    private final InteractionQueryService interactionQueryService;
+    private final ContentAccessService contentAccessService;
+    private final InteractionAccessService interactionAccessService;
 
     public AiToolService(
-            ContentQueryService contentQueryService,
-            InteractionCommandService interactionCommandService,
-            InteractionQueryService interactionQueryService
+            ContentAccessService contentAccessService,
+            InteractionAccessService interactionAccessService
     ) {
-        this.contentQueryService = contentQueryService;
-        this.interactionCommandService = interactionCommandService;
-        this.interactionQueryService = interactionQueryService;
+        this.contentAccessService = contentAccessService;
+        this.interactionAccessService = interactionAccessService;
     }
 
     /**
@@ -51,16 +41,14 @@ public class AiToolService {
      * @return 搜索结果
      */
     public AiSearchContentResult searchContent(String query, int limit) {
-        PageResponse<ContentSummaryResponse> results = contentQueryService.list(
-                query, null, null, null, null, 0, Math.min(limit, 10)
-        );
+        var results = contentAccessService.searchPublished(query, Math.clamp(limit, 1, 10));
         return new AiSearchContentResult(
                 results.items().stream()
                         .map(item -> new AiContentItem(
                                 item.id().toString(),
                                 item.title(),
                                 item.summary() != null ? item.summary() : "",
-                                item.type().name()
+                                item.type()
                         ))
                         .toList(),
                 results.total()
@@ -75,13 +63,13 @@ public class AiToolService {
      */
     public AiContentDetailResult getContentDetail(UUID contentId) {
         try {
-            ContentDetailResponse detail = contentQueryService.detail(contentId, null);
+            var detail = contentAccessService.publishedDetail(contentId);
             return AiContentDetailResult.success(
                     detail.id().toString(),
                     detail.title(),
                     detail.summary() != null ? detail.summary() : "",
                     detail.bodyMarkdown() != null ? detail.bodyMarkdown() : "",
-                    detail.type().name(),
+                    detail.type(),
                     detail.likeCount(),
                     detail.viewCount(),
                     detail.commentCount()
@@ -100,7 +88,7 @@ public class AiToolService {
      */
     public AiActionResult likeContent(AuthenticatedUser currentUser, UUID contentId) {
         try {
-            LikeStateResponse result = interactionCommandService.like(currentUser, contentId);
+            var result = interactionAccessService.like(currentUser, contentId);
             return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
@@ -116,7 +104,7 @@ public class AiToolService {
      */
     public AiActionResult unlikeContent(AuthenticatedUser currentUser, UUID contentId) {
         try {
-            LikeStateResponse result = interactionCommandService.unlike(currentUser, contentId);
+            var result = interactionAccessService.unlike(currentUser, contentId);
             return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
@@ -133,7 +121,7 @@ public class AiToolService {
      */
     public AiActionResult commentContent(AuthenticatedUser currentUser, UUID contentId, String body) {
         try {
-            CommentResponse result = interactionCommandService.comment(currentUser, contentId, new CommentRequest(body));
+            var result = interactionAccessService.comment(currentUser, contentId, body);
             return AiActionResult.commentSuccess(result.id(), result.body());
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());
@@ -150,14 +138,12 @@ public class AiToolService {
      */
     public AiCommentListResult listComments(UUID contentId, int limit, UUID currentUserId) {
         try {
-            PageResponse<CommentResponse> result = interactionQueryService.comments(
-                    contentId, 0, Math.min(limit, 20), currentUserId
-            );
+            var result = interactionAccessService.comments(contentId, Math.clamp(limit, 1, 20), currentUserId);
             List<AiCommentItem> items = result.items().stream()
                     .map(c -> new AiCommentItem(
                             c.id(),
                             c.body(),
-                            c.author() != null ? c.author().nickname() : "匿名",
+                            c.authorNickname() != null ? c.authorNickname() : "匿名",
                             c.createdAt()
                     ))
                     .toList();
@@ -176,7 +162,7 @@ public class AiToolService {
      */
     public AiActionResult deleteComment(AuthenticatedUser currentUser, UUID commentId) {
         try {
-            interactionCommandService.deleteComment(currentUser, commentId);
+            interactionAccessService.deleteComment(currentUser, commentId);
             return AiActionResult.deleteSuccess();
         } catch (Exception e) {
             return AiActionResult.error(e.getMessage());

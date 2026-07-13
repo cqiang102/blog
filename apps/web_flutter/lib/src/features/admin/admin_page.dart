@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../../core/constants.dart';
 import '../../state/state.dart';
+import '../../theme/app_design_tokens.dart';
+import '../../theme/app_spacing.dart';
 import '../../widgets/widgets.dart';
 import 'tabs/ai_chat_admin_tab.dart';
 import 'tabs/audit_log_admin_tab.dart';
@@ -105,30 +108,88 @@ class _AdminPageState extends ConsumerState<AdminPage>
       const _AdminTab(
         id: 'overview',
         label: '概览',
+        group: '工作台',
+        icon: Icons.space_dashboard_outlined,
         builder: AdminDashboardTab(),
       ),
-      const _AdminTab(id: 'content', label: '内容', builder: AdminContentTab()),
+      const _AdminTab(
+        id: 'content',
+        label: '内容',
+        group: '内容',
+        icon: Icons.article_outlined,
+        builder: AdminContentTab(),
+      ),
 
-      const _AdminTab(id: 'comments', label: '评论', builder: AdminCommentTab()),
-      const _AdminTab(id: 'likes', label: '点赞', builder: AdminLikeTab()),
-      const _AdminTab(id: 'views', label: '浏览', builder: AdminViewTab()),
+      const _AdminTab(
+        id: 'comments',
+        label: '评论',
+        group: '内容',
+        icon: Icons.mode_comment_outlined,
+        builder: AdminCommentTab(),
+      ),
+      const _AdminTab(
+        id: 'likes',
+        label: '点赞',
+        group: '内容',
+        icon: Icons.favorite_border_rounded,
+        builder: AdminLikeTab(),
+      ),
+      const _AdminTab(
+        id: 'views',
+        label: '浏览',
+        group: '内容',
+        icon: Icons.visibility_outlined,
+        builder: AdminViewTab(),
+      ),
       // 以下标签页仅 ADMIN 可见
       if (isAdmin)
-        const _AdminTab(id: 'friends', label: '朋友', builder: AdminFriendTab()),
+        const _AdminTab(
+          id: 'friends',
+          label: '朋友',
+          group: '运营',
+          icon: Icons.link_rounded,
+          builder: AdminFriendTab(),
+        ),
       if (isAdmin)
-        const _AdminTab(id: 'tags', label: '标签', builder: AdminTagTab()),
+        const _AdminTab(
+          id: 'tags',
+          label: '标签',
+          group: '运营',
+          icon: Icons.label_outline_rounded,
+          builder: AdminTagTab(),
+        ),
       if (isAdmin)
-        const _AdminTab(id: 'users', label: '用户', builder: AdminUserTab()),
+        const _AdminTab(
+          id: 'users',
+          label: '用户',
+          group: '运营',
+          icon: Icons.group_outlined,
+          builder: AdminUserTab(),
+        ),
       if (isAdmin)
-        const _AdminTab(id: 'ai', label: 'AI', builder: AdminAiChatTab()),
+        const _AdminTab(
+          id: 'ai',
+          label: 'AI 会话',
+          group: 'AI',
+          icon: Icons.auto_awesome_outlined,
+          builder: AdminAiChatTab(),
+        ),
       if (isAdmin)
         const _AdminTab(
           id: 'knowledge',
           label: '知识库',
+          group: 'AI',
+          icon: Icons.library_books_outlined,
           builder: AdminKnowledgeTab(),
         ),
       if (isAdmin)
-        const _AdminTab(id: 'logs', label: '日志', builder: AdminAuditLogTab()),
+        const _AdminTab(
+          id: 'logs',
+          label: '日志',
+          group: '系统',
+          icon: Icons.history_rounded,
+          builder: AdminAuditLogTab(),
+        ),
     ];
 
     final selectedIndex = _selectedIndex.clamp(0, tabs.length - 1);
@@ -138,7 +199,7 @@ class _AdminPageState extends ConsumerState<AdminPage>
         children: [
           AppPageHeader(
             title: isAdmin ? '管理员中心' : '内容管理',
-            // subtitle: '当前模块：${tabs[selectedIndex].label}',
+            subtitle: '当前模块：${tabs[selectedIndex].label}',
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -151,23 +212,51 @@ class _AdminPageState extends ConsumerState<AdminPage>
               ],
             ),
           ),
-          AppHorizontalTabs(
-            labels: tabs.map((tab) => tab.label).toList(),
-            selectedIndex: selectedIndex,
-            onSelected: (index) {
-              _selectTab(index);
-              context.go('/admin?tab=${tabs[index].id}');
-            },
-          ),
           Expanded(
-            child: IndexedStack(
-              index: selectedIndex,
-              children: [
-                for (var index = 0; index < tabs.length; index++)
-                  _visitedTabs.contains(index)
-                      ? tabs[index].builder
-                      : const SizedBox.shrink(),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final pages = IndexedStack(
+                  index: selectedIndex,
+                  children: [
+                    for (var index = 0; index < tabs.length; index++)
+                      _visitedTabs.contains(index)
+                          ? tabs[index].builder
+                          : const SizedBox.shrink(),
+                  ],
+                );
+                void select(int index) {
+                  _selectTab(index);
+                  context.go('/admin?tab=${tabs[index].id}');
+                }
+
+                if (constraints.maxWidth >= kWideBreakpoint) {
+                  return Row(
+                    children: [
+                      SizedBox(
+                        width: 208,
+                        child: _AdminDesktopNavigation(
+                          tabs: tabs,
+                          selectedIndex: selectedIndex,
+                          onSelected: select,
+                        ),
+                      ),
+                      const VerticalDivider(width: 1),
+                      Expanded(child: pages),
+                    ],
+                  );
+                }
+
+                return Column(
+                  children: [
+                    AppHorizontalTabs(
+                      labels: tabs.map((tab) => tab.label).toList(),
+                      selectedIndex: selectedIndex,
+                      onSelected: select,
+                    ),
+                    Expanded(child: pages),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -198,10 +287,83 @@ class _AdminTab {
   const _AdminTab({
     required this.id,
     required this.label,
+    required this.group,
+    required this.icon,
     required this.builder,
   });
 
   final String id;
   final String label;
+  final String group;
+  final IconData icon;
   final Widget builder;
+}
+
+class _AdminDesktopNavigation extends StatelessWidget {
+  const _AdminDesktopNavigation({
+    required this.tabs,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final List<_AdminTab> tabs;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final design = AppDesignTokens.of(context);
+    final children = <Widget>[];
+    String? currentGroup;
+    for (var index = 0; index < tabs.length; index++) {
+      final tab = tabs[index];
+      if (currentGroup != tab.group) {
+        currentGroup = tab.group;
+        if (children.isNotEmpty) {
+          children.add(const SizedBox(height: AppSpacing.md));
+        }
+        children.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+            child: Text(
+              tab.group,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
+        );
+      }
+      final selected = index == selectedIndex;
+      children.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+          child: ListTile(
+            selected: selected,
+            selectedColor: scheme.primary,
+            selectedTileColor: design.mint,
+            leading: Icon(tab.icon, size: 20),
+            title: Text(tab.label),
+            dense: true,
+            minTileHeight: 44,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.control),
+            ),
+            onTap: () => onSelected(index),
+          ),
+        ),
+      );
+    }
+
+    return ColoredBox(
+      color: scheme.surfaceContainerLow.withValues(alpha: 0.68),
+      child: ListView(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        children: children,
+      ),
+    );
+  }
 }

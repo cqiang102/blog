@@ -6,7 +6,7 @@ import com.caoqiang.blog.user.application.dto.ChangePasswordRequest;
 import com.caoqiang.blog.user.application.dto.OAuthAccountResponse;
 import com.caoqiang.blog.user.application.dto.SetPasswordRequest;
 import com.caoqiang.blog.user.application.dto.UpdateProfileRequest;
-import com.caoqiang.blog.user.application.dto.UserProfileResponse;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;

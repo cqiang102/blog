@@ -6,7 +6,8 @@ import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeSourceType;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
 import com.caoqiang.blog.shared.util.VectorUtils;
-import com.caoqiang.blog.content.domain.model.Content;
+import com.caoqiang.blog.content.application.api.ContentKnowledgeService;
+import com.caoqiang.blog.content.application.api.ContentKnowledgeSource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -25,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>文本分块：按段落边界切分，支持长段落按句子二次切分，块间有 {@value #CHUNK_OVERLAP} 字符重叠</li>
  *   <li>向量嵌入：使用 Spring AI {@link EmbeddingModel} 生成 768 维向量</li>
- *   <li>双重索引源：支持知识文档（{@link KnowledgeDoc}）和博客内容（{@link Content}）两种来源</li>
+ *   <li>双重索引源：支持知识文档和博客内容两种来源</li>
  * </ul>
  */
 @Service
@@ -43,15 +44,18 @@ public class KnowledgeIndexService {
     private final KnowledgeDocRepository knowledgeDocRepository;
     private final KnowledgeChunkRepository knowledgeChunkRepository;
     private final EmbeddingService embeddingService;
+    private final ContentKnowledgeService contentKnowledgeService;
 
     public KnowledgeIndexService(
             KnowledgeDocRepository knowledgeDocRepository,
             KnowledgeChunkRepository knowledgeChunkRepository,
-            EmbeddingService embeddingService
+            EmbeddingService embeddingService,
+            ContentKnowledgeService contentKnowledgeService
     ) {
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.knowledgeChunkRepository = knowledgeChunkRepository;
         this.embeddingService = embeddingService;
+        this.contentKnowledgeService = contentKnowledgeService;
     }
 
     /**
@@ -90,23 +94,27 @@ public class KnowledgeIndexService {
      * 将标题、摘要、正文拼接后分块，为每个分块生成向量嵌入并保存。
      * 索引时关联 contentId 以便后续按内容查询和删除。
      *
-     * @param content 博客内容实体
+     * @param contentId 博客内容 ID
      */
     @Transactional
-    public void indexContent(Content content) {
+    public void indexContent(UUID contentId) {
         // 先删除该内容的旧索引
-        knowledgeChunkRepository.deleteByContentId(content.getId());
+        knowledgeChunkRepository.deleteByContentId(contentId);
+        ContentKnowledgeSource content = contentKnowledgeService.findIndexable(contentId).orElse(null);
+        if (content == null) {
+            return;
+        }
 
         // 构建要索引的文本：标题 + 摘要 + 正文
         StringBuilder textBuilder = new StringBuilder();
-        if (content.getTitle() != null && !content.getTitle().isBlank()) {
-            textBuilder.append(content.getTitle()).append("\n\n");
+        if (content.title() != null && !content.title().isBlank()) {
+            textBuilder.append(content.title()).append("\n\n");
         }
-        if (content.getSummary() != null && !content.getSummary().isBlank()) {
-            textBuilder.append(content.getSummary()).append("\n\n");
+        if (content.summary() != null && !content.summary().isBlank()) {
+            textBuilder.append(content.summary()).append("\n\n");
         }
-        if (content.getBodyMarkdown() != null && !content.getBodyMarkdown().isBlank()) {
-            textBuilder.append(content.getBodyMarkdown());
+        if (content.bodyMarkdown() != null && !content.bodyMarkdown().isBlank()) {
+            textBuilder.append(content.bodyMarkdown());
         }
 
         String fullText = textBuilder.toString().trim();
@@ -117,9 +125,9 @@ public class KnowledgeIndexService {
         List<String> chunks = splitText(fullText);
         for (int i = 0; i < chunks.size(); i++) {
             String chunkContent = chunks.get(i);
-            KnowledgeChunk chunk = new KnowledgeChunk(content.getId(), i, chunkContent);
+            KnowledgeChunk chunk = new KnowledgeChunk(contentId, i, chunkContent);
 
-            applyEmbedding(chunk, chunkContent, "content", content.getId());
+            applyEmbedding(chunk, chunkContent, "content", contentId);
 
             knowledgeChunkRepository.save(chunk);
         }

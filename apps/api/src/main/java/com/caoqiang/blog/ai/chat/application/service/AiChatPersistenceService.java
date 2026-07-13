@@ -6,7 +6,7 @@ import com.caoqiang.blog.ai.chat.domain.model.AiMessageRole;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatMessageRepository;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
 import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
-import com.caoqiang.blog.shared.domain.event.ai.AiChatMessagesCreatedEvent;
+import com.caoqiang.blog.ai.chat.event.AiChatMessagesCreatedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.util.List;
 import java.util.UUID;

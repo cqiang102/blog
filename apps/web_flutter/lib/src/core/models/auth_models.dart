@@ -66,15 +66,12 @@ class UserProfile {
 class AuthSession {
   const AuthSession({
     required this.accessToken,
-    required this.refreshToken,
     required this.expiresAt,
     required this.user,
   });
 
   @SafeStringJsonConverter()
   final String accessToken;
-  @SafeStringJsonConverter()
-  final String refreshToken;
   @SafeDateTimeJsonConverter()
   final DateTime expiresAt;
   final UserProfile user;

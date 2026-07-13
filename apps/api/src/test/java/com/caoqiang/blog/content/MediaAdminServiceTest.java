@@ -5,11 +5,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.content.application.service.MediaAdminService;
+import com.caoqiang.blog.content.application.port.MediaStorageProvisioner;
 import com.caoqiang.blog.content.domain.model.MediaAsset;
 import com.caoqiang.blog.content.domain.model.MediaAssetType;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
-import com.caoqiang.blog.shared.infrastructure.storage.MinioBucketService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -35,7 +35,7 @@ class MediaAdminServiceTest {
     private FileStorageService fileStorageService;
 
     @Mock
-    private MinioBucketService minioBucketService;
+    private MediaStorageProvisioner mediaStorageProvisioner;
 
     @Test
     void rewritesInternalMinioPresignedUrlToThePublicProxy() {
@@ -56,7 +56,7 @@ class MediaAdminServiceTest {
                 mediaAssetRepository,
                 contentRepository,
                 fileStorageService,
-                minioBucketService,
+                mediaStorageProvisioner,
                 Clock.fixed(Instant.parse("2026-06-14T00:00:00Z"), ZoneOffset.UTC),
                 "http://minio:9000",
                 "https://blog.example.com/minio/",
@@ -84,7 +84,7 @@ class MediaAdminServiceTest {
                 mediaAssetRepository,
                 contentRepository,
                 fileStorageService,
-                minioBucketService,
+                mediaStorageProvisioner,
                 Clock.fixed(Instant.parse("2026-06-14T00:00:00Z"), ZoneOffset.UTC),
                 "http://minio:9000",
                 "https://blog.example.com/minio",
@@ -106,7 +106,7 @@ class MediaAdminServiceTest {
                 mediaAssetRepository,
                 contentRepository,
                 fileStorageService,
-                minioBucketService,
+                mediaStorageProvisioner,
                 Clock.fixed(Instant.parse("2026-06-14T00:00:00Z"), ZoneOffset.UTC),
                 "http://minio:9000",
                 "https://blog.example.com/minio",
@@ -133,7 +133,7 @@ class MediaAdminServiceTest {
                 mediaAssetRepository,
                 contentRepository,
                 fileStorageService,
-                minioBucketService,
+                mediaStorageProvisioner,
                 Clock.fixed(Instant.parse("2026-06-14T00:00:00Z"), ZoneOffset.UTC),
                 "http://localhost:9000",
                 "",

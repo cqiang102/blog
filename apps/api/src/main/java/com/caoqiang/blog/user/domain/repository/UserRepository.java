@@ -4,9 +4,12 @@ import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * 用户数据访问层
@@ -44,4 +47,11 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
      * @return 如果邮箱已被其他用户使用返回 true
      */
     boolean existsByEmailAndIdNot(String email, UUID id);
+
+    @Query("""
+            select u.id from User u
+            where lower(u.email) like lower(concat('%', :query, '%'))
+               or lower(u.nickname) like lower(concat('%', :query, '%'))
+            """)
+    List<UUID> findIdsMatchingIdentity(@Param("query") String query);
 }

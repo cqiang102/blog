@@ -26,10 +26,7 @@ mixin AuthApi on ApiClientBase {
     final data = await send(
       'POST',
       '/auth/github/callback',
-      queryParameters: {
-        'code': code,
-        if (state != null) 'state': state,
-      },
+      queryParameters: {'code': code, if (state != null) 'state': state},
     );
     return AuthSession.fromJson((data as Map).cast<String, dynamic>());
   }
@@ -61,7 +58,12 @@ mixin AuthApi on ApiClientBase {
   }) async {
     final data = await post(
       '/auth/register',
-      body: {'email': email, 'password': password, 'nickname': nickname, 'code': code},
+      body: {
+        'email': email,
+        'password': password,
+        'nickname': nickname,
+        'code': code,
+      },
     );
     return AuthSession.fromJson((data as Map).cast<String, dynamic>());
   }
@@ -72,11 +74,13 @@ mixin AuthApi on ApiClientBase {
   }
 
   /// 刷新访问令牌
-  Future<AuthSession> refreshAccessToken(String refreshToken) async {
-    final data = await post(
-      '/auth/refresh',
-      body: {'refreshToken': refreshToken},
-    );
+  Future<AuthSession> refreshAccessToken() async {
+    final data = await post('/auth/refresh');
     return AuthSession.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  /// 撤销服务端刷新令牌并清除 HttpOnly Cookie。
+  Future<void> logout() async {
+    await post('/auth/logout');
   }
 }

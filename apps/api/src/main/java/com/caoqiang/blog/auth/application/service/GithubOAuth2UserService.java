@@ -5,8 +5,8 @@ import com.caoqiang.blog.auth.domain.model.OAuthAccount;
 import com.caoqiang.blog.auth.domain.model.OAuthProvider;
 import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.security.core.Authentication;
@@ -31,11 +31,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class GithubOAuth2UserService extends DefaultOAuth2UserService {
 
-    private final UserRepository userRepository;
+    private final UserAccountService userAccountService;
     private final OAuthAccountRepository oauthAccountRepository;
 
-    public GithubOAuth2UserService(UserRepository userRepository, OAuthAccountRepository oauthAccountRepository) {
-        this.userRepository = userRepository;
+    public GithubOAuth2UserService(UserAccountService userAccountService, OAuthAccountRepository oauthAccountRepository) {
+        this.userAccountService = userAccountService;
         this.oauthAccountRepository = oauthAccountRepository;
     }
 
@@ -73,9 +73,11 @@ public class GithubOAuth2UserService extends DefaultOAuth2UserService {
 
         // 场景 1：该 GitHub 已绑定 → 直接登录
         if (existingAccount.isPresent()) {
-            User user = requireActive(existingAccount.get().getUser());
-            user.setAvatarUrl(avatarUrl);
-            user.setNickname(nickname);
+            IdentityUser user = updateOAuthProfile(
+                    existingAccount.get().getUserId(),
+                    nickname,
+                    avatarUrl
+            );
             return new GithubOAuth2User(oauth2User, user);
         }
 
@@ -83,8 +85,7 @@ public class GithubOAuth2UserService extends DefaultOAuth2UserService {
         Authentication currentAuth = SecurityContextHolder.getContext().getAuthentication();
         if (currentAuth != null && currentAuth.isAuthenticated()
                 && currentAuth.getPrincipal() instanceof AuthenticatedUser currentUser) {
-            User user = userRepository.findById(currentUser.id())
-                    .filter(User::isActive)
+            IdentityUser user = userAccountService.findActiveById(currentUser.id())
                     .orElseThrow(() -> oauthError("user_not_found", "当前用户不存在或已禁用"));
 
             if (oauthAccountRepository.findByUserIdAndProvider(
@@ -94,36 +95,40 @@ public class GithubOAuth2UserService extends DefaultOAuth2UserService {
                 throw oauthError("already_bound", "当前用户已绑定 GitHub 账号");
             }
 
-            OAuthAccount oauthAccount = new OAuthAccount(user, OAuthProvider.GITHUB, providerUserId, login);
+            OAuthAccount oauthAccount = new OAuthAccount(user.id(), OAuthProvider.GITHUB, providerUserId, login);
             oauthAccountRepository.save(oauthAccount);
 
-            user.setAvatarUrl(avatarUrl);
+            user = updateOAuthProfile(user.id(), null, avatarUrl);
             return new GithubOAuth2User(oauth2User, user);
         }
 
         // 场景 3：未登录用户 → 仅创建全新用户，禁止按邮箱自动接管本地账户
-        Optional<User> existingUser = userRepository.findByEmail(email);
+        Optional<IdentityUser> existingUser = userAccountService.findByEmail(email);
         if (existingUser.isPresent()) {
             throw oauthError("email_already_registered", "该邮箱已注册，请先使用原账号登录后绑定 GitHub");
         }
 
-        User user = User.register(email, null, nickname);
-        user.setAvatarUrl(avatarUrl);
-        user.setBio(bio);
-        user.setBlogUrl(blogUrl);
-        user = userRepository.save(user);
+        IdentityUser user = userAccountService.registerOAuth(
+                email,
+                nickname,
+                avatarUrl,
+                bio,
+                blogUrl
+        );
 
-        OAuthAccount oauthAccount = new OAuthAccount(user, OAuthProvider.GITHUB, providerUserId, login);
+        OAuthAccount oauthAccount = new OAuthAccount(user.id(), OAuthProvider.GITHUB, providerUserId, login);
         oauthAccountRepository.save(oauthAccount);
 
         return new GithubOAuth2User(oauth2User, user);
     }
 
-    private User requireActive(User user) {
-        if (!user.isActive()) {
-            throw oauthError("account_disabled", "账号已被禁用");
-        }
-        return user;
+    private IdentityUser updateOAuthProfile(
+            java.util.UUID userId,
+            String nickname,
+            String avatarUrl
+    ) {
+        return userAccountService.updateOAuthProfile(userId, nickname, avatarUrl)
+                .orElseThrow(() -> oauthError("account_disabled", "账号已被禁用"));
     }
 
     private OAuth2AuthenticationException oauthError(String code, String message) {

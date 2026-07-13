@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,13 +17,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.caoqiang.blog.ai.chat.application.dto.AiChatRequest;
 import com.caoqiang.blog.ai.chat.application.service.AiChatService;
 import com.caoqiang.blog.ai.chat.infrastructure.web.AiChatController;
-import com.caoqiang.blog.auth.application.dto.AuthTokenResponse;
-import com.caoqiang.blog.auth.application.dto.RefreshTokenRequest;
+import com.caoqiang.blog.auth.application.dto.IssuedAuthSession;
 import com.caoqiang.blog.auth.application.service.AuthService;
 import com.caoqiang.blog.auth.application.service.JwtService;
 import com.caoqiang.blog.auth.application.service.OAuthLoginCodeService;
 import com.caoqiang.blog.auth.application.service.VerificationService;
 import com.caoqiang.blog.auth.infrastructure.web.AuthController;
+import com.caoqiang.blog.auth.infrastructure.web.RefreshTokenCookieService;
+import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.content.application.dto.AdminContentRequest;
 import com.caoqiang.blog.content.application.dto.AdminContentResponse;
 import com.caoqiang.blog.content.application.dto.AdminMediaResponse;
@@ -35,7 +37,9 @@ import com.caoqiang.blog.content.infrastructure.web.AdminContentController;
 import com.caoqiang.blog.content.infrastructure.web.AdminMediaController;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.user.application.dto.UserProfileResponse;
+import com.caoqiang.blog.shared.exception.GlobalExceptionHandler;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
+import jakarta.servlet.http.Cookie;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -63,11 +67,12 @@ class ApiContractTest {
                 mock(VerificationService.class),
                 mock(JwtService.class),
                 mock(OAuthLoginCodeService.class),
+                refreshTokenCookieService(),
                 "github-client",
                 "http://localhost:3000"
         );
         UUID userId = UUID.randomUUID();
-        when(authService.refresh(any(RefreshTokenRequest.class))).thenReturn(new AuthTokenResponse(
+        when(authService.refresh("refresh-token")).thenReturn(new IssuedAuthSession(
                 "access-token",
                 "refresh-token-next",
                 Instant.parse("2026-06-20T06:00:00Z"),
@@ -85,19 +90,64 @@ class ApiContractTest {
 
         mockMvc(controller)
                 .perform(post("/api/v1/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"refreshToken":"refresh-token"}
-                                """))
+                        .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, "refresh-token")))
                 .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("blog_refresh_token=refresh-token-next"),
+                        org.hamcrest.Matchers.containsString("HttpOnly"),
+                        org.hamcrest.Matchers.containsString("SameSite=Lax"))))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("ok"))
                 .andExpect(jsonPath("$.data.accessToken").value("access-token"))
-                .andExpect(jsonPath("$.data.refreshToken").value("refresh-token-next"))
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
                 .andExpect(jsonPath("$.data.user.id").value(userId.toString()))
                 .andExpect(jsonPath("$.data.user.role").value("USER"));
 
-        verify(authService).refresh(any(RefreshTokenRequest.class));
+        verify(authService).refresh("refresh-token");
+    }
+
+    @Test
+    void logoutRevokesRefreshTokenAndExpiresCookie() throws Exception {
+        AuthService authService = mock(AuthService.class);
+        AuthController controller = new AuthController(
+                authService,
+                mock(VerificationService.class),
+                mock(JwtService.class),
+                mock(OAuthLoginCodeService.class),
+                refreshTokenCookieService(),
+                "github-client",
+                "http://localhost:3000"
+        );
+
+        mockMvc(controller)
+                .perform(post("/api/v1/auth/logout")
+                        .cookie(new Cookie(RefreshTokenCookieService.COOKIE_NAME, "refresh-token")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("blog_refresh_token="),
+                        org.hamcrest.Matchers.containsString("Max-Age=0"),
+                        org.hamcrest.Matchers.containsString("HttpOnly"))))
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(authService).revokeRefreshToken("refresh-token");
+    }
+
+    @Test
+    void refreshWithoutCookieIsRejectedAsUnauthorized() throws Exception {
+        AuthService authService = mock(AuthService.class);
+        AuthController controller = new AuthController(
+                authService,
+                mock(VerificationService.class),
+                mock(JwtService.class),
+                mock(OAuthLoginCodeService.class),
+                refreshTokenCookieService(),
+                "github-client",
+                "http://localhost:3000"
+        );
+
+        mockMvc(controller)
+                .perform(post("/api/v1/auth/refresh"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -227,7 +277,13 @@ class ApiContractTest {
     }
 
     private static MockMvc mockMvc(Object controller) {
-        return MockMvcBuilders.standaloneSetup(controller).build();
+        return MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+    }
+
+    private static RefreshTokenCookieService refreshTokenCookieService() {
+        return new RefreshTokenCookieService(new BlogProperties());
     }
 
     private static MockMvc mockMvc(
@@ -236,6 +292,7 @@ class ApiContractTest {
     ) {
         return MockMvcBuilders
                 .standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(argumentResolver)
                 .build();
     }

@@ -1,12 +1,8 @@
 package com.caoqiang.blog.ai.chat.domain.model;
 
-import com.caoqiang.blog.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -29,10 +25,9 @@ public class AiDailyQuota {
     @Column(nullable = false, updatable = false)
     private UUID id = UUID.randomUUID();
 
-    /** 所属用户（懒加载） */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    /** 所属用户 ID */
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
 
     /** 配额日期（UTC） */
     @Column(name = "quota_date", nullable = false)
@@ -51,8 +46,8 @@ public class AiDailyQuota {
     protected AiDailyQuota() {
     }
 
-    public AiDailyQuota(User user, LocalDate quotaDate) {
-        this.user = user;
+    public AiDailyQuota(UUID userId, LocalDate quotaDate) {
+        this.userId = userId;
         this.quotaDate = quotaDate;
     }
 
@@ -79,5 +74,13 @@ public class AiDailyQuota {
 
     public int getQuestionCount() {
         return questionCount;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public LocalDate getQuotaDate() {
+        return quotaDate;
     }
 }

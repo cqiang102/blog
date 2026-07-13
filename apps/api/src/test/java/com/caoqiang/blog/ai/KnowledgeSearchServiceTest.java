@@ -17,14 +17,8 @@ import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeSourceType;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
 import com.caoqiang.blog.config.BlogProperties;
-import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
-import com.caoqiang.blog.content.application.service.ContentQueryService;
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.shared.response.PageResponse;
-import java.time.Instant;
+import com.caoqiang.blog.content.application.api.ContentKnowledgeService;
+import com.caoqiang.blog.content.application.api.ContentKnowledgeSource;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,9 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class KnowledgeSearchServiceTest {
 
     @Mock
-    private ContentQueryService contentQueryService;
-    @Mock
-    private ContentRepository contentRepository;
+    private ContentKnowledgeService contentKnowledgeService;
     @Mock
     private KnowledgeChunkRepository knowledgeChunkRepository;
     @Mock
@@ -55,8 +47,7 @@ class KnowledgeSearchServiceTest {
         properties.getAi().setKnowledgeMinSimilarity(0.60);
         service = new KnowledgeSearchService(
                 properties,
-                contentQueryService,
-                contentRepository,
+                contentKnowledgeService,
                 knowledgeChunkRepository,
                 knowledgeDocRepository,
                 embeddingService
@@ -72,23 +63,15 @@ class KnowledgeSearchServiceTest {
                 "Java 后端开发",
                 true
         );
-        ContentSummaryResponse content = new ContentSummaryResponse(
+        ContentKnowledgeSource content = new ContentKnowledgeSource(
                 UUID.randomUUID(),
                 "测试文章",
-                "test",
-                ContentType.ARTICLE,
-                ContentStatus.PUBLISHED,
                 "文章摘要",
-                null,
-                false,
-                0,
-                Instant.now(),
-                List.of()
+                null
         );
         when(knowledgeDocRepository.findByEnabledTrueOrderByUpdatedAtDesc(any()))
                 .thenReturn(List.of(doc));
-        when(contentQueryService.list(isNull(), isNull(), isNull(), isNull(), isNull(), eq(0), eq(4)))
-                .thenReturn(new PageResponse<>(List.of(content), 0, 4, 1));
+        when(contentKnowledgeService.searchPublished(null, 4)).thenReturn(List.of(content));
 
         List<KnowledgeSearchResult> results = service.search(" ");
 
@@ -108,8 +91,7 @@ class KnowledgeSearchServiceTest {
         );
         when(knowledgeDocRepository.searchEnabled(eq("Java"), any()))
                 .thenReturn(List.of(doc));
-        when(contentQueryService.list(eq("Java"), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5)))
-                .thenReturn(emptyPage());
+        when(contentKnowledgeService.searchPublished("Java", 5)).thenReturn(List.of());
 
         List<KnowledgeSearchResult> results = service.search("Java");
 
@@ -132,8 +114,7 @@ class KnowledgeSearchServiceTest {
         );
         when(knowledgeDocRepository.searchEnabled(eq("目标关键词"), any()))
                 .thenReturn(List.of(doc));
-        when(contentQueryService.list(eq("目标关键词"), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5)))
-                .thenReturn(emptyPage());
+        when(contentKnowledgeService.searchPublished("目标关键词", 5)).thenReturn(List.of());
 
         List<KnowledgeSearchResult> results = service.search("目标关键词");
 
@@ -147,8 +128,7 @@ class KnowledgeSearchServiceTest {
     void filtersLowSimilarityVectorCandidates() {
         UUID docId = UUID.randomUUID();
         when(knowledgeDocRepository.searchEnabled(eq("量子引力"), any())).thenReturn(List.of());
-        when(contentQueryService.list(eq("量子引力"), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5)))
-                .thenReturn(emptyPage());
+        when(contentKnowledgeService.searchPublished("量子引力", 5)).thenReturn(List.of());
         when(embeddingService.embed("量子引力")).thenReturn(new float[768]);
         when(knowledgeChunkRepository.findSimilarChunks(any(String.class), anyInt()))
                 .thenReturn(List.<Object[]>of(new Object[]{
@@ -157,7 +137,7 @@ class KnowledgeSearchServiceTest {
 
         assertThat(service.search("量子引力")).isEmpty();
         verify(knowledgeDocRepository, never()).findAllById(any());
-        verify(contentRepository, never()).findAllById(any());
+        verify(contentKnowledgeService, never()).findPublishedByIds(any());
     }
 
     @Test
@@ -170,8 +150,7 @@ class KnowledgeSearchServiceTest {
                 true
         );
         when(knowledgeDocRepository.searchEnabled(eq("博主是谁"), any())).thenReturn(List.of());
-        when(contentQueryService.list(eq("博主是谁"), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5)))
-                .thenReturn(emptyPage());
+        when(contentKnowledgeService.searchPublished("博主是谁", 5)).thenReturn(List.of());
         when(embeddingService.embed("博主是谁")).thenReturn(new float[768]);
         when(knowledgeChunkRepository.findSimilarChunks(any(String.class), eq(25)))
                 .thenReturn(List.<Object[]>of(new Object[]{
@@ -197,8 +176,7 @@ class KnowledgeSearchServiceTest {
                 true
         );
         when(knowledgeDocRepository.searchEnabled(eq("服务端工程"), any())).thenReturn(List.of());
-        when(contentQueryService.list(eq("服务端工程"), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5)))
-                .thenReturn(emptyPage());
+        when(contentKnowledgeService.searchPublished("服务端工程", 5)).thenReturn(List.of());
         when(embeddingService.embed("服务端工程")).thenReturn(new float[768]);
         when(knowledgeChunkRepository.findSimilarChunks(any(String.class), eq(25)))
                 .thenReturn(List.of(
@@ -221,7 +199,4 @@ class KnowledgeSearchServiceTest {
         });
     }
 
-    private PageResponse<ContentSummaryResponse> emptyPage() {
-        return new PageResponse<>(List.of(), 0, 5, 0);
-    }
 }

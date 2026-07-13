@@ -42,7 +42,7 @@ public interface AiChatSessionRepository extends JpaRepository<AiChatSession, UU
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT s FROM AiChatSession s
-            WHERE s.id = :id AND s.user.id = :userId AND s.deleted = false
+            WHERE s.id = :id AND s.userId = :userId AND s.deleted = false
             """)
     Optional<AiChatSession> findForUpdate(
             @Param("id") UUID id,
@@ -68,7 +68,7 @@ public interface AiChatSessionRepository extends JpaRepository<AiChatSession, UU
             SELECT s, COUNT(m) 
             FROM AiChatSession s 
             LEFT JOIN AiChatMessage m ON m.session.id = s.id AND m.deleted = false
-            WHERE s.user.id = :userId AND s.deleted = false
+            WHERE s.userId = :userId AND s.deleted = false
             GROUP BY s 
             ORDER BY s.updatedAt DESC 
             LIMIT 20

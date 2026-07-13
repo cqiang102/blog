@@ -37,7 +37,7 @@ const double kAdminThumbWidth = 96;
 const double kAdminThumbHeight = 64;
 
 /// 密码最小长度
-const int kMinPasswordLength = 6;
+const int kMinPasswordLength = 8;
 
 /// 日期范围起始年
 const int kDateRangeStartYear = 2017;

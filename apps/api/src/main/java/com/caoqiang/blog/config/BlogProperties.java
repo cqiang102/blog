@@ -150,6 +150,7 @@ public class BlogProperties {
         private int accessTokenMinutes = 30;         // 访问令牌有效期，默认 30 分钟
         @Min(1)
         private int refreshTokenDays = 30;           // 刷新令牌有效期，默认 30 天
+        private boolean refreshCookieSecure = false; // HTTPS 部署必须开启
 
         public String getJwtSecret() {
             return jwtSecret;
@@ -173,6 +174,14 @@ public class BlogProperties {
 
         public void setRefreshTokenDays(int refreshTokenDays) {
             this.refreshTokenDays = refreshTokenDays;
+        }
+
+        public boolean isRefreshCookieSecure() {
+            return refreshCookieSecure;
+        }
+
+        public void setRefreshCookieSecure(boolean refreshCookieSecure) {
+            this.refreshCookieSecure = refreshCookieSecure;
         }
     }
 

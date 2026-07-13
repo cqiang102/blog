@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 
 import '../models.dart';
 import 'api_exception.dart';
+import 'dio_credentials.dart';
 
 /// API 基础 URL，通过编译时常量配置
 const apiBaseUrl = String.fromEnvironment(
@@ -25,6 +26,7 @@ class ApiClientBase {
   ApiClientBase({required Dio dio, String baseUrl = apiBaseUrl})
     : _dio = dio,
       baseUrl = _normalizeBaseUrl(baseUrl) {
+    configureDioCredentials(_dio);
     _dio.options.baseUrl = this.baseUrl;
     _dio.options.headers = {'Accept': 'application/json'};
   }
@@ -126,15 +128,11 @@ class ApiClientBase {
             );
             return extractData(retryResponse);
           } on DioException catch (retryError) {
-            final apiError = _apiException(retryError);
-            if (apiError != null) throw apiError;
-            rethrow;
+            throw _apiException(retryError);
           }
         }
       }
-      final apiError = _apiException(e);
-      if (apiError != null) throw apiError;
-      rethrow;
+      throw _apiException(e);
     }
   }
 
@@ -149,9 +147,21 @@ class ApiClientBase {
     return body != null ? jsonEncode(body) : null;
   }
 
-  ApiException? _apiException(DioException error) {
+  ApiException _apiException(DioException error) {
     final response = error.response;
-    if (response == null) return null;
+    if (response == null) {
+      return switch (error.type) {
+        DioExceptionType.connectionTimeout ||
+        DioExceptionType.sendTimeout ||
+        DioExceptionType.receiveTimeout => const ApiException('请求超时，请稍后重试'),
+        DioExceptionType.connectionError => const ApiException(
+          '无法连接服务器，请检查网络后重试',
+        ),
+        DioExceptionType.badCertificate => const ApiException('安全连接验证失败，请稍后重试'),
+        DioExceptionType.cancel => const ApiException('请求已取消'),
+        _ => const ApiException('网络请求失败，请稍后重试'),
+      };
+    }
 
     if (response.data is Map) {
       final envelope = (response.data as Map).cast<String, dynamic>();

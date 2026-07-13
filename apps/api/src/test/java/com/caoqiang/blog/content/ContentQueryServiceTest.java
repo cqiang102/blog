@@ -7,6 +7,7 @@ import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
+import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 import com.caoqiang.blog.content.application.service.ContentQueryService;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -17,7 +18,7 @@ import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
+import com.caoqiang.blog.interaction.application.api.InteractionStateService;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -40,7 +41,10 @@ class ContentQueryServiceTest {
     private ContentRepository contentRepository;
 
     @Mock
-    private LikeRepository likeRepository;
+    private InteractionStateService interactionStateService;
+
+    @Mock
+    private MediaAssetRepository mediaAssetRepository;
 
     @InjectMocks
     private ContentQueryService contentQueryService;
@@ -90,6 +94,8 @@ class ContentQueryServiceTest {
                 any(Pageable.class)
         ))
                 .thenReturn(page);
+        when(contentRepository.findAllWithSummaryRelationsByIdIn(anyList()))
+                .thenReturn(List.of(publishedContent));
 
         PageResponse<ContentSummaryResponse> result = contentQueryService.list(
                 "test", null, null, null, null, 0, 10
@@ -98,6 +104,8 @@ class ContentQueryServiceTest {
         assertNotNull(result);
         assertEquals(1, result.items().size());
         assertEquals("Test Article", result.items().get(0).title());
+        verify(contentRepository).findAllWithSummaryRelationsByIdIn(anyList());
+        verify(mediaAssetRepository).findByContentIdInOrderByCreatedAtAsc(anyList());
     }
 
     @Test
@@ -107,7 +115,7 @@ class ContentQueryServiceTest {
                 eq(ContentStatus.PUBLISHED)
         ))
                 .thenReturn(Optional.of(publishedContent));
-        when(likeRepository.existsByContentIdAndUserId(eq(contentId), any(UUID.class)))
+        when(interactionStateService.isLiked(eq(contentId), any(UUID.class)))
                 .thenReturn(true);
 
         AuthenticatedUser user = new AuthenticatedUser(UUID.randomUUID(), "test@example.com", "Test", Role.USER);

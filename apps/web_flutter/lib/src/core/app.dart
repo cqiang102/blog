@@ -12,7 +12,11 @@ import '../theme/theme_controller.dart';
 /// Web 平台隐藏滚动条，保留触摸板和鼠标滚轮滚动
 class _AppScrollBehavior extends MaterialScrollBehavior {
   @override
-  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) => child;
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => child;
 }
 
 /// 博客应用根 Widget
@@ -25,7 +29,7 @@ class BlogApp extends ConsumerWidget {
   /// [ref] Riverpod 引用，用于监听 Provider
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeController = ref.watch(themeControllerProvider);
+    final themeMode = ref.watch(themeControllerProvider);
 
     return MaterialApp.router(
       title: '沐凉·日记',
@@ -38,10 +42,7 @@ class BlogApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('zh', 'CN'),
-        Locale('en'),
-      ],
+      supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
       locale: const Locale('zh', 'CN'),
 
       // 浅色主题
@@ -51,7 +52,7 @@ class BlogApp extends ConsumerWidget {
       darkTheme: buildDarkAppTheme(),
 
       // 默认跟随系统，也允许用户手动切换并持久化
-      themeMode: themeController.mode,
+      themeMode: themeMode,
 
       // GoRouter 路由配置
       routerConfig: ref.watch(routerProvider),

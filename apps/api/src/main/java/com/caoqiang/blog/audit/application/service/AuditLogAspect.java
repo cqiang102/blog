@@ -2,8 +2,6 @@ package com.caoqiang.blog.audit.application.service;
 
 import com.caoqiang.blog.audit.domain.model.AuditAction;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
 import java.util.UUID;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
@@ -39,12 +37,9 @@ public class AuditLogAspect {
 
     /** 审计日志服务 */
     private final AuditLogService auditLogService;
-    /** 用户数据访问层，用于获取操作者信息 */
-    private final UserRepository userRepository;
 
-    public AuditLogAspect(AuditLogService auditLogService, UserRepository userRepository) {
+    public AuditLogAspect(AuditLogService auditLogService) {
         this.auditLogService = auditLogService;
-        this.userRepository = userRepository;
     }
 
     /**
@@ -87,22 +82,15 @@ public class AuditLogAspect {
 
             log.info("获取到当前用户: id={}, nickname={}", currentUser.id(), currentUser.nickname());
 
-            // 获取用户实体
-            User actor = userRepository.findById(currentUser.id()).orElse(null);
-            if (actor == null) {
-                log.warn("未找到用户实体: id={}", currentUser.id());
-            }
-
             // 提取资源 ID
             UUID resourceId = extractResourceId(joinPoint);
 
             log.info("记录审计日志: actor={}, action={}, resourceType={}, resourceId={}", 
-                    actor != null ? actor.getNickname() : "null", action, resourceType, resourceId);
+                    currentUser.nickname(), action, resourceType, resourceId);
 
-            // 记录审计日志（actor 可能为 null，log 方法需要处理）
-            auditLogService.log(actor, action.name(), resourceType, resourceId);
+            auditLogService.log(currentUser.id(), action.name(), resourceType, resourceId);
             log.info("审计日志记录成功: actor={}, action={}, resourceType={}, resourceId={}",
-                    actor != null ? actor.getId() : "null", action, resourceType, resourceId);
+                    currentUser.id(), action, resourceType, resourceId);
         } catch (Exception e) {
             // 日志记录失败不应影响正常业务
             log.error("Failed to log audit: {}", e.getMessage(), e);

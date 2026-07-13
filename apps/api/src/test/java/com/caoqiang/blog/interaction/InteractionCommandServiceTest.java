@@ -1,5 +1,8 @@
 package com.caoqiang.blog.interaction;
 
+import com.caoqiang.blog.content.application.api.ContentInteractionService;
+import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
+import com.caoqiang.blog.interaction.application.service.InteractionReferenceData;
 import com.caoqiang.blog.interaction.application.dto.CommentRequest;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
 import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
@@ -26,16 +29,9 @@ import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.shared.exception.BusinessException;
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.user.application.service.ProfileService;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
-import java.time.Instant;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,10 +43,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class InteractionCommandServiceTest {
 
     @Mock
-    private ContentRepository contentRepository;
+    private ContentInteractionService contentInteractionService;
 
     @Mock
-    private UserRepository userRepository;
+    private UserAccountService userAccountService;
 
     @Mock
     private CommentRepository commentRepository;
@@ -65,105 +61,85 @@ class InteractionCommandServiceTest {
     private DomainEventPublisher domainEventPublisher;
 
     @Mock
-    private ProfileService profileService;
+    private InteractionReferenceData referenceData;
 
     private InteractionCommandService interactionCommandService;
 
-    private Content testContent;
-    private User testUser;
+    private ContentInteractionSnapshot testContent;
+    private IdentityUser testUser;
     private AuthenticatedUser currentUser;
 
     @BeforeEach
     void setUp() {
         interactionCommandService = new InteractionCommandService(
-                contentRepository, userRepository, commentRepository, likeRepository,
-                viewRecordRepository, domainEventPublisher, profileService
+                contentInteractionService, userAccountService, commentRepository, likeRepository,
+                viewRecordRepository, domainEventPublisher, referenceData
         );
 
-        testContent = new Content(
-                "测试内容",
-                "test-content",
-                ContentType.ARTICLE,
-                ContentStatus.PUBLISHED,
-                "测试摘要",
-                "# 测试正文",
-                false,
-                Instant.now(),
-                Set.of()
+        testContent = new ContentInteractionSnapshot(UUID.randomUUID(), "测试内容", 0, 0, 0);
+        testUser = new IdentityUser(
+                UUID.randomUUID(), "test@example.com", "测试用户", null,
+                null, null, "hash", Role.USER, true
         );
-
-        testUser = User.register("test@example.com", "hash", "测试用户");
-        currentUser = new AuthenticatedUser(testUser.getId(), "test@example.com", "测试用户", Role.USER);
+        currentUser = new AuthenticatedUser(testUser.id(), "test@example.com", "测试用户", Role.USER);
     }
 
     @Test
     void recordViewForAuthenticatedUser() {
-        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                testContent.getId(),
-                ContentStatus.PUBLISHED
-        ))
-                .thenReturn(Optional.of(testContent));
-        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        when(contentInteractionService.findPublished(testContent.id())).thenReturn(Optional.of(testContent));
+        when(userAccountService.findActiveById(testUser.id())).thenReturn(Optional.of(testUser));
         when(viewRecordRepository.insertIfAbsent(
                 any(UUID.class),
-                eq(testContent.getId()),
-                eq(testUser.getId()),
+                eq(testContent.id()),
+                eq(testUser.id()),
                 any(),
                 any(),
                 eq("Mozilla/5.0")
         )).thenReturn(1);
 
         ViewStateResponse response = interactionCommandService.recordView(
-                currentUser, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
+                currentUser, testContent.id(), "192.168.1.1", "Mozilla/5.0"
         );
 
         assertThat(response.recorded()).isTrue();
         verify(viewRecordRepository).insertIfAbsent(
                 any(UUID.class),
-                eq(testContent.getId()),
-                eq(testUser.getId()),
+                eq(testContent.id()),
+                eq(testUser.id()),
                 any(),
                 any(),
                 eq("Mozilla/5.0")
         );
-        verify(contentRepository).incrementViewCount(testContent.getId(), 1);
+        verify(contentInteractionService).incrementViewCount(testContent.id(), 1);
     }
 
     @Test
     void skipDuplicateViewForAuthenticatedUser() {
-        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                testContent.getId(),
-                ContentStatus.PUBLISHED
-        ))
-                .thenReturn(Optional.of(testContent));
-        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        when(contentInteractionService.findPublished(testContent.id())).thenReturn(Optional.of(testContent));
+        when(userAccountService.findActiveById(testUser.id())).thenReturn(Optional.of(testUser));
         when(viewRecordRepository.insertIfAbsent(
                 any(UUID.class),
-                eq(testContent.getId()),
-                eq(testUser.getId()),
+                eq(testContent.id()),
+                eq(testUser.id()),
                 any(),
                 any(),
                 eq("Mozilla/5.0")
         )).thenReturn(0);
 
         ViewStateResponse response = interactionCommandService.recordView(
-                currentUser, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
+                currentUser, testContent.id(), "192.168.1.1", "Mozilla/5.0"
         );
 
         assertThat(response.recorded()).isTrue();
-        verify(contentRepository, never()).incrementViewCount(any(UUID.class), anyLong());
+        verify(contentInteractionService, never()).incrementViewCount(any(UUID.class), anyLong());
     }
 
     @Test
     void recordViewForAnonymousUser() {
-        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                testContent.getId(),
-                ContentStatus.PUBLISHED
-        ))
-                .thenReturn(Optional.of(testContent));
+        when(contentInteractionService.findPublished(testContent.id())).thenReturn(Optional.of(testContent));
         when(viewRecordRepository.insertIfAbsent(
                 any(UUID.class),
-                eq(testContent.getId()),
+                eq(testContent.id()),
                 eq(null),
                 any(),
                 any(),
@@ -171,23 +147,19 @@ class InteractionCommandServiceTest {
         )).thenReturn(1);
 
         ViewStateResponse response = interactionCommandService.recordView(
-                null, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
+                null, testContent.id(), "192.168.1.1", "Mozilla/5.0"
         );
 
         assertThat(response.recorded()).isTrue();
-        verify(contentRepository).incrementViewCount(testContent.getId(), 1);
+        verify(contentInteractionService).incrementViewCount(testContent.id(), 1);
     }
 
     @Test
     void skipDuplicateViewForAnonymousUser() {
-        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                testContent.getId(),
-                ContentStatus.PUBLISHED
-        ))
-                .thenReturn(Optional.of(testContent));
+        when(contentInteractionService.findPublished(testContent.id())).thenReturn(Optional.of(testContent));
         when(viewRecordRepository.insertIfAbsent(
                 any(UUID.class),
-                eq(testContent.getId()),
+                eq(testContent.id()),
                 eq(null),
                 any(),
                 any(),
@@ -195,117 +167,104 @@ class InteractionCommandServiceTest {
         )).thenReturn(0);
 
         ViewStateResponse response = interactionCommandService.recordView(
-                null, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
+                null, testContent.id(), "192.168.1.1", "Mozilla/5.0"
         );
 
         assertThat(response.recorded()).isTrue();
-        verify(contentRepository, never()).incrementViewCount(any(UUID.class), anyLong());
+        verify(contentInteractionService, never()).incrementViewCount(any(UUID.class), anyLong());
     }
 
     @Test
     void skipViewWhenContentIsNotPublished() {
-        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                testContent.getId(),
-                ContentStatus.PUBLISHED
-        ))
-                .thenReturn(Optional.empty());
+        when(contentInteractionService.findPublished(testContent.id())).thenReturn(Optional.empty());
 
         ViewStateResponse response = interactionCommandService.recordView(
-                null, testContent.getId(), "192.168.1.1", "Mozilla/5.0"
+                null, testContent.id(), "192.168.1.1", "Mozilla/5.0"
         );
 
         assertThat(response.recorded()).isFalse();
         assertThat(response.viewCount()).isZero();
-        verify(contentRepository, never()).incrementViewCount(any(UUID.class), anyLong());
+        verify(contentInteractionService, never()).incrementViewCount(any(UUID.class), anyLong());
     }
 
     @Test
     void incrementLikeCountOnlyWhenInsertSucceeds() {
-        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                testContent.getId(),
-                ContentStatus.PUBLISHED
-        )).thenReturn(Optional.of(testContent));
-        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
-        when(likeRepository.insertIfAbsent(any(UUID.class), eq(testContent.getId()), eq(testUser.getId())))
+        when(contentInteractionService.findPublished(testContent.id())).thenReturn(Optional.of(testContent));
+        when(userAccountService.findActiveById(testUser.id())).thenReturn(Optional.of(testUser));
+        when(likeRepository.insertIfAbsent(any(UUID.class), eq(testContent.id()), eq(testUser.id())))
                 .thenReturn(1);
 
-        LikeStateResponse response = interactionCommandService.like(currentUser, testContent.getId());
+        LikeStateResponse response = interactionCommandService.like(currentUser, testContent.id());
 
         assertThat(response.liked()).isTrue();
-        verify(contentRepository).incrementLikeCount(testContent.getId(), 1);
+        verify(contentInteractionService).incrementLikeCount(testContent.id(), 1);
         verify(domainEventPublisher).publishEvent(any());
     }
 
     @Test
     void skipLikeCountWhenConcurrentInsertAlreadyWon() {
-        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                testContent.getId(),
-                ContentStatus.PUBLISHED
-        )).thenReturn(Optional.of(testContent));
-        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
-        when(likeRepository.insertIfAbsent(any(UUID.class), eq(testContent.getId()), eq(testUser.getId())))
+        when(contentInteractionService.findPublished(testContent.id())).thenReturn(Optional.of(testContent));
+        when(userAccountService.findActiveById(testUser.id())).thenReturn(Optional.of(testUser));
+        when(likeRepository.insertIfAbsent(any(UUID.class), eq(testContent.id()), eq(testUser.id())))
                 .thenReturn(0);
 
-        LikeStateResponse response = interactionCommandService.like(currentUser, testContent.getId());
+        LikeStateResponse response = interactionCommandService.like(currentUser, testContent.id());
 
         assertThat(response.liked()).isTrue();
-        verify(contentRepository, never()).incrementLikeCount(any(UUID.class), anyLong());
+        verify(contentInteractionService, never()).incrementLikeCount(any(UUID.class), anyLong());
         verify(domainEventPublisher, never()).publishEvent(any());
     }
 
     @Test
     void deletingVisibleCommentUsesLockedLookupAndDecrementsCount() {
-        Comment comment = new Comment(testContent, testUser, "待删除评论");
+        Comment comment = new Comment(testContent.id(), testUser.id(), "待删除评论");
         when(commentRepository.findByIdForUpdate(comment.getId())).thenReturn(Optional.of(comment));
 
         interactionCommandService.deleteComment(currentUser, comment.getId());
 
         assertThat(comment.getStatus()).isEqualTo(CommentStatus.DELETED);
         verify(commentRepository).findByIdForUpdate(comment.getId());
-        verify(contentRepository).incrementCommentCount(testContent.getId(), -1);
+        verify(contentInteractionService).incrementCommentCount(testContent.id(), -1);
     }
 
     @Test
     void resolvesAuthorAvatarWhenCreatingComment() {
-        testUser.setAvatarUrl("/minio/blog-media/avatars/me.png");
-        Comment savedComment = new Comment(testContent, testUser, "新评论");
-        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                testContent.getId(),
-                ContentStatus.PUBLISHED
-        )).thenReturn(Optional.of(testContent));
-        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        testUser = new IdentityUser(
+                testUser.id(), testUser.email(), testUser.nickname(), "/minio/blog-media/avatars/me.png",
+                null, null, "hash", Role.USER, true
+        );
+        Comment savedComment = new Comment(testContent.id(), testUser.id(), "新评论");
+        when(contentInteractionService.findPublished(testContent.id())).thenReturn(Optional.of(testContent));
+        when(userAccountService.findActiveById(testUser.id())).thenReturn(Optional.of(testUser));
         when(commentRepository.save(any(Comment.class))).thenReturn(savedComment);
-        when(profileService.generatePresignedAvatarUrl(testUser.getAvatarUrl()))
+        when(referenceData.avatarUrl(testUser))
                 .thenReturn("http://localhost:9000/blog-media/avatars/me.png?X-Amz-Signature=abc");
 
         CommentResponse response = interactionCommandService.comment(
                 currentUser,
-                testContent.getId(),
+                testContent.id(),
                 new CommentRequest("新评论")
         );
 
         assertThat(response.author().avatarUrl())
                 .isEqualTo("http://localhost:9000/blog-media/avatars/me.png?X-Amz-Signature=abc");
-        verify(profileService).generatePresignedAvatarUrl(testUser.getAvatarUrl());
+        verify(referenceData).avatarUrl(testUser);
     }
 
     @Test
     void rejectsCommentThatIsEmptyAfterHtmlSanitization() {
-        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                testContent.getId(),
-                ContentStatus.PUBLISHED
-        )).thenReturn(Optional.of(testContent));
-        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        when(contentInteractionService.findPublished(testContent.id())).thenReturn(Optional.of(testContent));
+        when(userAccountService.findActiveById(testUser.id())).thenReturn(Optional.of(testUser));
 
         assertThatThrownBy(() -> interactionCommandService.comment(
                 currentUser,
-                testContent.getId(),
+                testContent.id(),
                 new CommentRequest("<b></b>")
         ))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("评论内容不能为空");
 
         verify(commentRepository, never()).save(any(Comment.class));
-        verify(contentRepository, never()).incrementCommentCount(any(UUID.class), anyLong());
+        verify(contentInteractionService, never()).incrementCommentCount(any(UUID.class), anyLong());
     }
 }

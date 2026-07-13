@@ -1,12 +1,8 @@
 package com.caoqiang.blog.ai.chat.domain.model;
 
-import com.caoqiang.blog.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -28,10 +24,9 @@ public class AiChatSession {
     @Column(nullable = false, updatable = false)
     private UUID id = UUID.randomUUID();
 
-    /** 所属用户（懒加载） */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    /** 所属用户 ID */
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
 
     /** 会话标题，最大 160 字符 */
     @Column(length = 160)
@@ -50,8 +45,8 @@ public class AiChatSession {
     protected AiChatSession() {
     }
 
-    public AiChatSession(User user, String title) {
-        this.user = user;
+    public AiChatSession(UUID userId, String title) {
+        this.userId = userId;
         this.title = title;
     }
 
@@ -84,8 +79,8 @@ public class AiChatSession {
         return id;
     }
 
-    public User getUser() {
-        return user;
+    public UUID getUserId() {
+        return userId;
     }
 
     public String getTitle() {

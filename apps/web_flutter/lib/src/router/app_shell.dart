@@ -13,7 +13,9 @@ import 'package:hugeicons/hugeicons.dart';
 import '../state/state.dart';
 import '../core/constants.dart';
 import '../core/media_url.dart';
+import '../theme/app_design_tokens.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_motion.dart';
 
 /// 响应式 Shell 布局组件
 /// 使用 StatefulNavigationShell 保持页面状态，避免切换标签时销毁重建
@@ -29,6 +31,7 @@ class BlogShell extends ConsumerStatefulWidget {
 class _BlogShellState extends ConsumerState<BlogShell> {
   bool? _sidebarExpandedOverride;
   bool _sidebarShowText = true;
+  Timer? _sidebarTextTimer;
 
   @override
   void initState() {
@@ -36,6 +39,12 @@ class _BlogShellState extends ConsumerState<BlogShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_prewarmPublicData().catchError((_) {}));
     });
+  }
+
+  @override
+  void dispose() {
+    _sidebarTextTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _prewarmPublicData() async {
@@ -60,8 +69,9 @@ class _BlogShellState extends ConsumerState<BlogShell> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final nickname = auth.user?.nickname.trim();
-    final avatarText =
-        nickname == null || nickname.isEmpty ? 'C' : nickname.characters.first;
+    final avatarText = nickname == null || nickname.isEmpty
+        ? 'C'
+        : nickname.characters.first;
     final currentPath = _destinations[widget.navigationShell.currentIndex].path;
 
     return LayoutBuilder(
@@ -75,7 +85,7 @@ class _BlogShellState extends ConsumerState<BlogShell> {
           return Scaffold(
             body: CustomPaint(
               painter: _GridPatternPainter(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.03),
+                color: AppDesignTokens.of(context).grid,
               ),
               size: Size.infinite,
               child: Row(
@@ -92,14 +102,21 @@ class _BlogShellState extends ConsumerState<BlogShell> {
                     onNavigate: _goTo,
                     onToggleExpand: () {
                       final willExpand = !expanded;
+                      final reduceMotion = AppMotion.reduce(context);
+                      _sidebarTextTimer?.cancel();
                       setState(() {
                         _sidebarExpandedOverride = willExpand;
-                        _sidebarShowText = false;
+                        _sidebarShowText = willExpand && reduceMotion;
                       });
-                      if (willExpand) {
-                        Future.delayed(const Duration(milliseconds: 280), () {
-                          if (mounted) setState(() => _sidebarShowText = true);
-                        });
+                      if (willExpand && !reduceMotion) {
+                        _sidebarTextTimer = Timer(
+                          const Duration(milliseconds: 280),
+                          () {
+                            if (mounted) {
+                              setState(() => _sidebarShowText = true);
+                            }
+                          },
+                        );
                       }
                     },
                   ),
@@ -117,27 +134,26 @@ class _BlogShellState extends ConsumerState<BlogShell> {
         return Scaffold(
           body: CustomPaint(
             painter: _GridPatternPainter(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.03),
+              color: AppDesignTokens.of(context).grid,
             ),
             size: Size.infinite,
             child: widget.navigationShell,
           ),
-          bottomNavigationBar:
-              showBottomNavigation
-                  ? NavigationBar(
-                    selectedIndex: selectedIndex,
-                    onDestinationSelected:
-                        (index) => _goTo(_publicDestinations[index]),
-                    destinations: [
-                      for (final item in _publicDestinations)
-                        NavigationDestination(
-                          icon: item.icon,
-                          selectedIcon: item.selectedIcon,
-                          label: item.label,
-                        ),
-                    ],
-                  )
-                  : null,
+          bottomNavigationBar: showBottomNavigation
+              ? NavigationBar(
+                  selectedIndex: selectedIndex,
+                  onDestinationSelected: (index) =>
+                      _goTo(_publicDestinations[index]),
+                  destinations: [
+                    for (final item in _publicDestinations)
+                      NavigationDestination(
+                        icon: item.icon,
+                        selectedIcon: item.selectedIcon,
+                        label: item.label,
+                      ),
+                  ],
+                )
+              : null,
         );
       },
     );
@@ -187,100 +203,100 @@ class _BrandSidebar extends StatelessWidget {
     ];
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 280),
+      duration: AppMotion.duration(context, const Duration(milliseconds: 280)),
       curve: Curves.easeInOutCubic,
-      width: expanded ? 164 : 56,
+      width: expanded ? 216 : 72,
       child: ClipRect(
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: Container(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow.withValues(alpha: 0.72),
-        border: Border(
-          right: BorderSide(
-            color: scheme.outlineVariant.withValues(alpha: 0.5),
-          ),
-        ),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: showText ? AppSpacing.sm + 4 : AppSpacing.sm,
-            vertical: AppSpacing.md,
-          ),
-          child: Column(
-            children: [
-              _SidebarIdentity(
-                expanded: expanded,
-                showText: showText,
-                avatarExpanded: showText,
-                avatarText: avatarText,
-                avatarUrl: avatarUrl,
-                nickname: nickname,
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              for (final item in _publicDestinations)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                  child: _SidebarItem(
-                    item: item,
-                    expanded: expanded,
-                    showText: showText,
-                    selected: currentPath == item.path,
-                    onTap: () => onNavigate(item),
-                  ),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow.withValues(alpha: 0.72),
+              border: Border(
+                right: BorderSide(
+                  color: scheme.outlineVariant.withValues(alpha: 0.5),
                 ),
-              const Spacer(),
-              Divider(
-                color: scheme.outlineVariant.withValues(alpha: 0.5),
               ),
-              const SizedBox(height: AppSpacing.sm),
-              for (final item in accountItems) ...[
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                  child: item == _destinations[6]
-                      ? _SidebarCapsuleButton(
-                          item: item,
-                          expanded: expanded,
-                          showText: showText,
-                          onTap: () => onNavigate(item),
-                        )
-                      : _SidebarItem(
+            ),
+            child: SafeArea(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: showText ? AppSpacing.sm + 4 : AppSpacing.sm,
+                  vertical: AppSpacing.md,
+                ),
+                child: Column(
+                  children: [
+                    _SidebarIdentity(
+                      expanded: expanded,
+                      showText: showText,
+                      avatarExpanded: showText,
+                      avatarText: avatarText,
+                      avatarUrl: avatarUrl,
+                      nickname: nickname,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    for (final item in _publicDestinations)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        child: _SidebarItem(
                           item: item,
                           expanded: expanded,
                           showText: showText,
                           selected: currentPath == item.path,
                           onTap: () => onNavigate(item),
                         ),
-                ),
-                // 管理按钮下方插入收起/展开按钮
-                if (isAdmin && item == _destinations[5])
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                    child: _SidebarExpandToggle(
-                      expanded: expanded,
-                      showText: showText,
-                      onTap: onToggleExpand,
+                      ),
+                    const Spacer(),
+                    Divider(
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
                     ),
-                  ),
-              ],
-              // 非管理员时，收起/展开按钮放在最底部
-              if (!isAdmin)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                  child: _SidebarExpandToggle(
-                    expanded: expanded,
-                    showText: showText,
-                    onTap: onToggleExpand,
-                  ),
+                    const SizedBox(height: AppSpacing.sm),
+                    for (final item in accountItems) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        child: item == _destinations[6]
+                            ? _SidebarCapsuleButton(
+                                item: item,
+                                expanded: expanded,
+                                showText: showText,
+                                onTap: () => onNavigate(item),
+                              )
+                            : _SidebarItem(
+                                item: item,
+                                expanded: expanded,
+                                showText: showText,
+                                selected: currentPath == item.path,
+                                onTap: () => onNavigate(item),
+                              ),
+                      ),
+                      // 管理按钮下方插入收起/展开按钮
+                      if (isAdmin && item == _destinations[5])
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                          child: _SidebarExpandToggle(
+                            expanded: expanded,
+                            showText: showText,
+                            onTap: onToggleExpand,
+                          ),
+                        ),
+                    ],
+                    // 非管理员时，收起/展开按钮放在最底部
+                    if (!isAdmin)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                        child: _SidebarExpandToggle(
+                          expanded: expanded,
+                          showText: showText,
+                          onTap: onToggleExpand,
+                        ),
+                      ),
+                  ],
                 ),
-            ],
+              ),
+            ),
           ),
         ),
       ),
-      ),
-      ),
-    ),
     );
   }
 }
@@ -341,9 +357,9 @@ class _SidebarIdentity extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
           ).animate().fade(begin: 0, duration: 200.ms, curve: Curves.easeOut),
@@ -386,8 +402,9 @@ class _SidebarItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
-          mainAxisAlignment:
-              showText ? MainAxisAlignment.start : MainAxisAlignment.center,
+          mainAxisAlignment: showText
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.center,
           children: [
             SizedBox(
               width: 22,
@@ -408,13 +425,16 @@ class _SidebarItem extends StatelessWidget {
                   Text(
                     item.label,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: foreground,
-                          fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w500,
-                        ),
+                      color: foreground,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
                   ),
                 ],
-              ).animate().fade(begin: 0, duration: 200.ms, curve: Curves.easeOut),
+              ).animate().fade(
+                begin: 0,
+                duration: 200.ms,
+                curve: Curves.easeOut,
+              ),
           ],
         ),
       ),
@@ -451,8 +471,9 @@ class _SidebarCapsuleButton extends StatelessWidget {
           height: 44,
           padding: EdgeInsets.symmetric(horizontal: showText ? 12 : 0),
           child: Row(
-            mainAxisAlignment:
-                showText ? MainAxisAlignment.start : MainAxisAlignment.center,
+            mainAxisAlignment: showText
+                ? MainAxisAlignment.start
+                : MainAxisAlignment.center,
             children: [
               SizedBox(
                 width: 22,
@@ -471,12 +492,16 @@ class _SidebarCapsuleButton extends StatelessWidget {
                     Text(
                       item.label,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: scheme.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
-                ).animate().fade(begin: 0, duration: 200.ms, curve: Curves.easeOut),
+                ).animate().fade(
+                  begin: 0,
+                  duration: 200.ms,
+                  curve: Curves.easeOut,
+                ),
             ],
           ),
         ),
@@ -509,12 +534,11 @@ class _SidebarExpandToggle extends StatelessWidget {
       child: Container(
         height: 44,
         padding: EdgeInsets.symmetric(horizontal: showText ? 10 : 0),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
         child: Row(
-          mainAxisAlignment:
-              showText ? MainAxisAlignment.start : MainAxisAlignment.center,
+          mainAxisAlignment: showText
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.center,
           children: [
             SizedBox(
               width: 22,
@@ -535,12 +559,16 @@ class _SidebarExpandToggle extends StatelessWidget {
                   Text(
                     '收起',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: foreground,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      color: foreground,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
-              ).animate().fade(begin: 0, duration: 200.ms, curve: Curves.easeOut),
+              ).animate().fade(
+                begin: 0,
+                duration: 200.ms,
+                curve: Curves.easeOut,
+              ),
           ],
         ),
       ),

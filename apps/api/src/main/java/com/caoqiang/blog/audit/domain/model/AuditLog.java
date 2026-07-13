@@ -1,12 +1,8 @@
 package com.caoqiang.blog.audit.domain.model;
 
-import com.caoqiang.blog.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -41,10 +37,9 @@ public class AuditLog {
     @Column(nullable = false, updatable = false)
     private UUID id = UUID.randomUUID();
 
-    /** 操作者用户，延迟加载 */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "actor_user_id")
-    private User actor;
+    /** 操作者用户 ID；用户删除后由数据库置空 */
+    @Column(name = "actor_user_id")
+    private UUID actorUserId;
 
     /** 操作类型（CREATE/UPDATE/DELETE/READ） */
     @Column(nullable = false, length = 120)
@@ -74,14 +69,14 @@ public class AuditLog {
     /**
      * 创建审计日志
      *
-     * @param actor        操作者用户
+     * @param actorUserId  操作者用户 ID
      * @param action       操作类型
      * @param resourceType 资源类型
      * @param resourceId   资源 ID
      * @param detail       操作详情，可为 null
      */
-    public AuditLog(User actor, String action, String resourceType, UUID resourceId, Map<String, Object> detail) {
-        this.actor = actor;
+    public AuditLog(UUID actorUserId, String action, String resourceType, UUID resourceId, Map<String, Object> detail) {
+        this.actorUserId = actorUserId;
         this.action = action;
         this.resourceType = resourceType;
         this.resourceId = resourceId;
@@ -105,8 +100,8 @@ public class AuditLog {
         return id;
     }
 
-    public User getActor() {
-        return actor;
+    public UUID getActorUserId() {
+        return actorUserId;
     }
 
     public String getAction() {

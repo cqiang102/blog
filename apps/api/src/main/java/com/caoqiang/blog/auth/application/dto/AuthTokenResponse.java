@@ -1,6 +1,6 @@
 package com.caoqiang.blog.auth.application.dto;
 
-import com.caoqiang.blog.user.application.dto.UserProfileResponse;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import java.time.Instant;
 
 /**
@@ -11,7 +11,7 @@ import java.time.Instant;
  * <p>关键特性：</p>
  * <ul>
  *   <li>不可变数据 - 使用 Java Record 实现，所有字段都是 final 的</li>
- *   <li>令牌信息 - 包含访问令牌、刷新令牌和过期时间</li>
+ *   <li>令牌信息 - 包含访问令牌和过期时间</li>
  *   <li>用户信息 - 包含用户资料信息</li>
  *   <li>JSON 序列化 - 可以直接序列化为 JSON 响应</li>
  * </ul>
@@ -19,7 +19,6 @@ import java.time.Instant;
  * <p>字段说明：</p>
  * <ul>
  *   <li>accessToken - JWT 访问令牌，用于 API 认证</li>
- *   <li>refreshToken - 刷新令牌，用于获取新的访问令牌</li>
  *   <li>expiresAt - 访问令牌的过期时间</li>
  *   <li>user - 用户资料信息</li>
  * </ul>
@@ -33,7 +32,6 @@ import java.time.Instant;
  * </ul>
  *
  * @param accessToken  JWT 访问令牌
- * @param refreshToken 刷新令牌
  * @param expiresAt    访问令牌的过期时间
  * @param user         用户资料信息
  * @author blog-mimo
@@ -41,8 +39,6 @@ import java.time.Instant;
 public record AuthTokenResponse(
         /** JWT 访问令牌，用于 API 认证 */
         String accessToken,
-        /** 刷新令牌，用于获取新的访问令牌 */
-        String refreshToken,
         /** 访问令牌的过期时间 */
         Instant expiresAt,
         /** 用户资料信息 */

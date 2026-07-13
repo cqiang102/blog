@@ -1,6 +1,5 @@
 package com.caoqiang.blog.auth;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -8,9 +7,11 @@ import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.auth.application.init.AdminAccountInitializer;
 import com.caoqiang.blog.config.BlogProperties;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
+import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -22,7 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 class AdminAccountInitializerTest {
 
     @Mock
-    private UserRepository userRepository;
+    private UserAccountService userAccountService;
     @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
@@ -31,34 +32,48 @@ class AdminAccountInitializerTest {
     @Test
     void doesNotResetOrElevateAnExistingAccount() {
         BlogProperties properties = enabledProperties();
-        User existing = User.register("admin@example.com", "existing-hash", "原昵称");
-        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(existing));
+        IdentityUser existing = new IdentityUser(
+                UUID.randomUUID(),
+                "admin@example.com",
+                "原昵称",
+                null,
+                null,
+                null,
+                "existing-hash",
+                Role.USER,
+                true
+        );
+        when(userAccountService.findByEmail("admin@example.com")).thenReturn(Optional.of(existing));
         AdminAccountInitializer initializer = new AdminAccountInitializer(
                 properties,
-                userRepository,
+                userAccountService,
                 passwordEncoder
         );
 
         initializer.run(applicationArguments);
 
         verifyNoInteractions(passwordEncoder);
-        verify(userRepository, never()).save(any(User.class));
+        verify(userAccountService, never()).createAdmin(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString()
+        );
     }
 
     @Test
     void createsAdminWhenAccountDoesNotExist() {
         BlogProperties properties = enabledProperties();
-        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.empty());
+        when(userAccountService.findByEmail("admin@example.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("strong-password")).thenReturn("encoded");
         AdminAccountInitializer initializer = new AdminAccountInitializer(
                 properties,
-                userRepository,
+                userAccountService,
                 passwordEncoder
         );
 
         initializer.run(applicationArguments);
 
-        verify(userRepository).save(any(User.class));
+        verify(userAccountService).createAdmin("admin@example.com", "encoded", "站长");
     }
 
     private BlogProperties enabledProperties() {

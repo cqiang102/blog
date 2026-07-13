@@ -2,7 +2,7 @@ package com.caoqiang.blog.user;
 
 import com.caoqiang.blog.user.application.dto.AdminUserRequest;
 import com.caoqiang.blog.user.application.dto.AdminUserResponse;
-import com.caoqiang.blog.user.application.dto.UserProfileResponse;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
@@ -62,7 +62,14 @@ class UserAdminServiceTest {
         UserAdminService service = new UserAdminService(userRepository, profileService);
         when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
 
-        assertThatThrownBy(() -> service.disable(AuthenticatedUser.from(admin), admin.getId()))
+        AuthenticatedUser currentAdmin = new AuthenticatedUser(
+                admin.getId(),
+                admin.getEmail(),
+                admin.getNickname(),
+                admin.getRole()
+        );
+
+        assertThatThrownBy(() -> service.disable(currentAdmin, admin.getId()))
                 .isInstanceOfSatisfying(BusinessException.class, error -> {
                     assertThat(error.status()).isEqualTo(HttpStatus.FORBIDDEN);
                     assertThat(error.getMessage()).isEqualTo("不能禁用自己或移除自己的管理员权限");

@@ -1,9 +1,7 @@
 package com.caoqiang.blog.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.ai.chat.application.dto.AiActionResult;
@@ -13,17 +11,10 @@ import com.caoqiang.blog.ai.chat.application.service.AiToolService;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
-import com.caoqiang.blog.content.application.service.ContentQueryService;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
-import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.interaction.application.dto.CommentResponse;
-import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
-import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
-import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import java.time.Instant;
+import com.caoqiang.blog.content.application.api.ContentAccessDetail;
+import com.caoqiang.blog.content.application.api.ContentAccessService;
+import com.caoqiang.blog.content.application.api.ContentAccessSummary;
+import com.caoqiang.blog.interaction.application.api.InteractionAccessService;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,13 +27,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class AiToolServiceTest {
 
     @Mock
-    private ContentQueryService contentQueryService;
+    private ContentAccessService contentAccessService;
 
     @Mock
-    private InteractionCommandService interactionCommandService;
-
-    @Mock
-    private InteractionQueryService interactionQueryService;
+    private InteractionAccessService interactionAccessService;
 
     private AiToolService aiToolService;
 
@@ -51,22 +39,20 @@ class AiToolServiceTest {
     @BeforeEach
     void setUp() {
         aiToolService = new AiToolService(
-                contentQueryService,
-                interactionCommandService,
-                interactionQueryService
+                contentAccessService,
+                interactionAccessService
         );
         currentUser = new AuthenticatedUser(UUID.randomUUID(), "test@example.com", "测试用户", Role.USER);
     }
 
     @Test
     void searchContentSuccessfully() {
-        ContentSummaryResponse summary = new ContentSummaryResponse(
-                UUID.randomUUID(), "测试标题", "test-slug", ContentType.ARTICLE,
-                ContentStatus.PUBLISHED, "测试摘要", "", false, 10, Instant.now(), List.of("tag1")
+        ContentAccessSummary summary = new ContentAccessSummary(
+                UUID.randomUUID(), "测试标题", "测试摘要", "ARTICLE"
         );
-        PageResponse<ContentSummaryResponse> page = new PageResponse<>(List.of(summary), 0, 10, 1);
+        PageResponse<ContentAccessSummary> page = new PageResponse<>(List.of(summary), 0, 5, 1);
 
-        when(contentQueryService.list(any(), isNull(), isNull(), isNull(), isNull(), eq(0), eq(5))).thenReturn(page);
+        when(contentAccessService.searchPublished("测试", 5)).thenReturn(page);
 
         AiSearchContentResult result = aiToolService.searchContent("测试", 5);
 
@@ -77,13 +63,11 @@ class AiToolServiceTest {
     @Test
     void getContentDetailSuccessfully() {
         UUID contentId = UUID.randomUUID();
-        ContentDetailResponse detail = new ContentDetailResponse(
-                contentId, "测试标题", "test-slug", ContentType.ARTICLE, ContentStatus.PUBLISHED,
-                "测试摘要", "测试内容", "", List.of("tag1"), List.of(),
-                false, 10, 100, 5, Instant.now()
+        ContentAccessDetail detail = new ContentAccessDetail(
+                contentId, "测试标题", "测试摘要", "测试内容", "ARTICLE", 10, 100, 5
         );
 
-        when(contentQueryService.detail(eq(contentId), isNull())).thenReturn(detail);
+        when(contentAccessService.publishedDetail(contentId)).thenReturn(detail);
 
         AiContentDetailResult result = aiToolService.getContentDetail(contentId);
 
@@ -94,9 +78,9 @@ class AiToolServiceTest {
     @Test
     void likeContentSuccessfully() {
         UUID contentId = UUID.randomUUID();
-        LikeStateResponse likeResponse = new LikeStateResponse(contentId, true, 11);
+        var likeResponse = new InteractionAccessService.LikeResult(true, 11);
 
-        when(interactionCommandService.like(eq(currentUser), eq(contentId))).thenReturn(likeResponse);
+        when(interactionAccessService.like(eq(currentUser), eq(contentId))).thenReturn(likeResponse);
 
         AiActionResult result = aiToolService.likeContent(currentUser, contentId);
 
@@ -108,9 +92,9 @@ class AiToolServiceTest {
     @Test
     void unlikeContentSuccessfully() {
         UUID contentId = UUID.randomUUID();
-        LikeStateResponse unlikeResponse = new LikeStateResponse(contentId, false, 9);
+        var unlikeResponse = new InteractionAccessService.LikeResult(false, 9);
 
-        when(interactionCommandService.unlike(eq(currentUser), eq(contentId))).thenReturn(unlikeResponse);
+        when(interactionAccessService.unlike(eq(currentUser), eq(contentId))).thenReturn(unlikeResponse);
 
         AiActionResult result = aiToolService.unlikeContent(currentUser, contentId);
 
@@ -123,14 +107,10 @@ class AiToolServiceTest {
     void commentContentSuccessfully() {
         UUID contentId = UUID.randomUUID();
         UUID commentId = UUID.randomUUID();
-        CommentResponse.CommentAuthor author = new CommentResponse.CommentAuthor(
-                UUID.randomUUID(), "测试用户", null
-        );
-        CommentResponse commentResponse = new CommentResponse(
-                commentId, contentId, "测试标题", "测试评论", author, CommentStatus.VISIBLE, Instant.now()
-        );
+        var commentResponse = new InteractionAccessService.CommentResult(commentId, "测试评论");
 
-        when(interactionCommandService.comment(eq(currentUser), eq(contentId), any())).thenReturn(commentResponse);
+        when(interactionAccessService.comment(currentUser, contentId, "测试评论"))
+                .thenReturn(commentResponse);
 
         AiActionResult result = aiToolService.commentContent(currentUser, contentId, "测试评论");
 

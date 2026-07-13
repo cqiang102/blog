@@ -1,16 +1,10 @@
 package com.caoqiang.blog.auth.domain.model;
 
-import com.caoqiang.blog.auth.domain.model.OAuthProvider;
-
-import com.caoqiang.blog.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -57,10 +51,9 @@ public class OAuthAccount {
     @Column(nullable = false, updatable = false)
     private UUID id = UUID.randomUUID();
 
-    /** 关联的本地用户实体，懒加载 */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    /** 关联用户 ID；OAuth 领域不直接持有用户模块的 JPA 实体。 */
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
 
     /** OAuth 提供者枚举（如 GITHUB、QQ 等） */
     @Enumerated(EnumType.STRING)
@@ -88,13 +81,13 @@ public class OAuthAccount {
     /**
      * 构造函数，创建新的 OAuth 账户关联
      *
-     * @param user             关联的本地用户实体
+     * @param userId           关联用户 ID
      * @param provider         OAuth 提供者枚举
      * @param providerUserId   第三方平台的用户 ID
      * @param providerUsername 第三方平台的用户名
      */
-    public OAuthAccount(User user, OAuthProvider provider, String providerUserId, String providerUsername) {
-        this.user = user;
+    public OAuthAccount(UUID userId, OAuthProvider provider, String providerUserId, String providerUsername) {
+        this.userId = userId;
         this.provider = provider;
         this.providerUserId = providerUserId;
         this.providerUsername = providerUsername;
@@ -120,12 +113,12 @@ public class OAuthAccount {
     }
 
     /**
-     * 获取关联的本地用户实体
+     * 获取关联用户 ID
      *
-     * @return 用户实体
+     * @return 用户 ID
      */
-    public User getUser() {
-        return user;
+    public UUID getUserId() {
+        return userId;
     }
 
     /**

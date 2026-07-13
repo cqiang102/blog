@@ -6,12 +6,9 @@ import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
 import com.caoqiang.blog.config.BlogProperties;
-import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
-import com.caoqiang.blog.content.application.service.ContentQueryService;
-import com.caoqiang.blog.shared.response.PageResponse;
+import com.caoqiang.blog.content.application.api.ContentKnowledgeService;
+import com.caoqiang.blog.content.application.api.ContentKnowledgeSource;
 import com.caoqiang.blog.shared.util.VectorUtils;
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,23 +49,20 @@ public class KnowledgeSearchService {
     private static final int MAX_EXCERPT_LENGTH = 1200;
 
     private final BlogProperties blogProperties;
-    private final ContentQueryService contentQueryService;
-    private final ContentRepository contentRepository;
+    private final ContentKnowledgeService contentKnowledgeService;
     private final KnowledgeChunkRepository knowledgeChunkRepository;
     private final KnowledgeDocRepository knowledgeDocRepository;
     private final EmbeddingService embeddingService;
 
     public KnowledgeSearchService(
             BlogProperties blogProperties,
-            ContentQueryService contentQueryService,
-            ContentRepository contentRepository,
+            ContentKnowledgeService contentKnowledgeService,
             KnowledgeChunkRepository knowledgeChunkRepository,
             KnowledgeDocRepository knowledgeDocRepository,
             EmbeddingService embeddingService
     ) {
         this.blogProperties = blogProperties;
-        this.contentQueryService = contentQueryService;
-        this.contentRepository = contentRepository;
+        this.contentKnowledgeService = contentKnowledgeService;
         this.knowledgeChunkRepository = knowledgeChunkRepository;
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.embeddingService = embeddingService;
@@ -123,10 +117,8 @@ public class KnowledgeSearchService {
             ));
         }
 
-        PageResponse<ContentSummaryResponse> searchResults = contentQueryService.list(
-                query, null, null, null, null, 0, MAX_RESULTS
-        );
-        for (ContentSummaryResponse item : searchResults.items()) {
+        List<ContentKnowledgeSource> searchResults = contentKnowledgeService.searchPublished(query, MAX_RESULTS);
+        for (ContentKnowledgeSource item : searchResults) {
             addResult(results, new KnowledgeSearchResult(
                     excerpt(item.summary(), item.title(), query),
                     1.0,
@@ -155,10 +147,8 @@ public class KnowledgeSearchService {
 
         int remaining = MAX_RESULTS - results.size();
         if (remaining > 0) {
-            PageResponse<ContentSummaryResponse> contents = contentQueryService.list(
-                    null, null, null, null, null, 0, remaining
-            );
-            for (ContentSummaryResponse item : contents.items()) {
+            List<ContentKnowledgeSource> contents = contentKnowledgeService.searchPublished(null, remaining);
+            for (ContentKnowledgeSource item : contents) {
                 addResult(results, new KnowledgeSearchResult(
                         excerpt(item.summary(), item.title(), null),
                         1.0,
@@ -191,8 +181,12 @@ public class KnowledgeSearchService {
                 .distinct()
                 .toList();
 
-        Map<UUID, Content> contentMap = contentRepository.findAllById(contentIds).stream()
-                .collect(java.util.stream.Collectors.toMap(Content::getId, content -> content));
+        Map<UUID, ContentKnowledgeSource> contentMap = contentKnowledgeService
+                .findPublishedByIds(contentIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        ContentKnowledgeSource::id,
+                        content -> content
+                ));
         Map<UUID, KnowledgeDoc> docMap = knowledgeDocRepository.findAllById(docIds).stream()
                 .filter(KnowledgeDoc::isEnabled)
                 .collect(java.util.stream.Collectors.toMap(KnowledgeDoc::getId, doc -> doc));
@@ -205,7 +199,7 @@ public class KnowledgeSearchService {
             String sourceId = null;
             KnowledgeSearchSourceType sourceType = null;
             if (contentId != null && contentMap.containsKey(contentId)) {
-                title = contentMap.get(contentId).getTitle();
+                title = contentMap.get(contentId).title();
                 sourceId = contentId.toString();
                 sourceType = KnowledgeSearchSourceType.CONTENT;
             } else if (docId != null && docMap.containsKey(docId)) {

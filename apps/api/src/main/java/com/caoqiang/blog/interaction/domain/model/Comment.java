@@ -1,15 +1,10 @@
 package com.caoqiang.blog.interaction.domain.model;
 
-import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.shared.domain.model.AggregateRoot;
-import com.caoqiang.blog.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -35,15 +30,13 @@ import java.util.UUID;
 @Table(name = "comments")
 public class Comment extends AggregateRoot {
 
-    /** 关联的内容实体 */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "content_id", nullable = false)
-    private Content content;
+    /** 关联的内容 ID */
+    @Column(name = "content_id", nullable = false)
+    private UUID contentId;
 
-    /** 关联的用户实体（评论作者） */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    /** 评论作者 ID */
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
 
     /** 评论内容 */
     @Column(nullable = false, columnDefinition = "TEXT")
@@ -80,13 +73,13 @@ public class Comment extends AggregateRoot {
     /**
      * 创建评论
      *
-     * @param content 关联的内容
-     * @param user    评论作者
+     * @param contentId 关联的内容 ID
+     * @param userId    评论作者 ID
      * @param body    评论内容
      */
-    public Comment(Content content, User user, String body) {
-        this.content = content;
-        this.user = user;
+    public Comment(UUID contentId, UUID userId, String body) {
+        this.contentId = contentId;
+        this.userId = userId;
         this.body = body;
     }
 
@@ -178,12 +171,12 @@ public class Comment extends AggregateRoot {
         }
     }
 
-    public Content getContent() {
-        return content;
+    public UUID getContentId() {
+        return contentId;
     }
 
-    public User getUser() {
-        return user;
+    public UUID getUserId() {
+        return userId;
     }
 
     public String getBody() {

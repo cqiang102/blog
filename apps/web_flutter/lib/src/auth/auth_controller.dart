@@ -19,7 +19,7 @@ class AuthController extends ChangeNotifier {
 
   // SharedPreferences 存储键
   static const _accessTokenKey = 'auth.accessToken';
-  static const _refreshTokenKey = 'auth.refreshToken';
+  static const _legacyRefreshTokenKey = 'auth.refreshToken';
   static const _expiresAtKey = 'auth.expiresAt';
   static const _userKey = 'auth.user';
 
@@ -55,6 +55,8 @@ class AuthController extends ChangeNotifier {
     if (_loaded) return;
 
     final preferences = await SharedPreferences.getInstance();
+    // 旧版本曾将 refresh token 放入 JavaScript 可读存储；升级后立即清理。
+    await preferences.remove(_legacyRefreshTokenKey);
     _accessToken = preferences.getString(_accessTokenKey);
     final expiresAtMs = preferences.getInt(_expiresAtKey);
     if (expiresAtMs != null) {
@@ -196,14 +198,23 @@ class AuthController extends ChangeNotifier {
   }
 
   /// 用户登出
-  /// 清除本地存储的令牌和用户信息
+  /// 尽力撤销服务端刷新令牌，然后清除本地会话。
   Future<void> logout() async {
+    try {
+      await _apiClient.logout();
+    } catch (_) {
+      // 即使服务暂不可用，也不能阻止用户退出当前设备上的会话。
+    }
+    await _clearLocalSession();
+  }
+
+  Future<void> _clearLocalSession() async {
     final preferences = await SharedPreferences.getInstance();
     _accessToken = null;
     _expiresAt = null;
     _user = null;
     await preferences.remove(_accessTokenKey);
-    await preferences.remove(_refreshTokenKey);
+    await preferences.remove(_legacyRefreshTokenKey);
     await preferences.remove(_expiresAtKey);
     await preferences.remove(_userKey);
     _loaded = true;
@@ -218,7 +229,6 @@ class AuthController extends ChangeNotifier {
 
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_accessTokenKey, session.accessToken);
-    await preferences.setString(_refreshTokenKey, session.refreshToken);
     await preferences.setInt(
       _expiresAtKey,
       session.expiresAt.millisecondsSinceEpoch,
@@ -238,7 +248,6 @@ class AuthController extends ChangeNotifier {
 
       final preferences = await SharedPreferences.getInstance();
       await preferences.setString(_accessTokenKey, session.accessToken);
-      await preferences.setString(_refreshTokenKey, session.refreshToken);
       await preferences.setInt(
         _expiresAtKey,
         session.expiresAt.millisecondsSinceEpoch,
@@ -282,20 +291,12 @@ class AuthController extends ChangeNotifier {
 
     try {
       final preferences = await SharedPreferences.getInstance();
-      final refreshToken = preferences.getString(_refreshTokenKey);
-      if (refreshToken == null) {
-        await logout();
-        _refreshCompleter!.complete(null);
-        return null;
-      }
-
-      final session = await _apiClient.refreshAccessToken(refreshToken);
+      final session = await _apiClient.refreshAccessToken();
       _accessToken = session.accessToken;
       _expiresAt = session.expiresAt;
       _user = session.user;
 
       await preferences.setString(_accessTokenKey, session.accessToken);
-      await preferences.setString(_refreshTokenKey, session.refreshToken);
       await preferences.setInt(
         _expiresAtKey,
         session.expiresAt.millisecondsSinceEpoch,
@@ -307,7 +308,7 @@ class AuthController extends ChangeNotifier {
       return session.accessToken;
     } on ApiException catch (error) {
       if (error.statusCode == 400 || error.statusCode == 401) {
-        await logout();
+        await _clearLocalSession();
       }
       _refreshCompleter!.complete(null);
       return null;

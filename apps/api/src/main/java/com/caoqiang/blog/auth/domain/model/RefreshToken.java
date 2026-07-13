@@ -1,12 +1,8 @@
 package com.caoqiang.blog.auth.domain.model;
 
-import com.caoqiang.blog.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -46,10 +42,9 @@ public class RefreshToken {
     @Column(nullable = false, updatable = false)
     private UUID id = UUID.randomUUID();
 
-    /** 关联的用户实体，懒加载 */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    /** 关联用户 ID；认证领域不直接持有用户模块的 JPA 实体。 */
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
 
     /** 令牌的 SHA-256 哈希值 */
     @Column(name = "token_hash", nullable = false, columnDefinition = "TEXT")
@@ -76,12 +71,12 @@ public class RefreshToken {
     /**
      * 构造函数，创建新的刷新令牌
      *
-     * @param user      关联的用户实体
+     * @param userId    关联用户 ID
      * @param tokenHash 令牌的哈希值
      * @param expiresAt 过期时间
      */
-    public RefreshToken(User user, String tokenHash, Instant expiresAt) {
-        this.user = user;
+    public RefreshToken(UUID userId, String tokenHash, Instant expiresAt) {
+        this.userId = userId;
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;
     }
@@ -97,12 +92,12 @@ public class RefreshToken {
     }
 
     /**
-     * 获取关联的用户实体
+     * 获取关联用户 ID
      *
-     * @return 用户实体
+     * @return 用户 ID
      */
-    public User getUser() {
-        return user;
+    public UUID getUserId() {
+        return userId;
     }
 
     /**

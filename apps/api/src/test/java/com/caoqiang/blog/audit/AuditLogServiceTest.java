@@ -10,7 +10,9 @@ import com.caoqiang.blog.audit.application.service.AuditLogService;
 import com.caoqiang.blog.audit.domain.model.AuditLog;
 import com.caoqiang.blog.audit.domain.repository.AuditLogRepository;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.user.domain.model.User;
+import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,14 +34,20 @@ class AuditLogServiceTest {
     @Mock
     private AuditLogRepository auditLogRepository;
 
+    @Mock
+    private UserAccountService userAccountService;
+
     private AuditLogService auditLogService;
 
-    private User testUser;
+    private IdentityUser testUser;
 
     @BeforeEach
     void setUp() {
-        auditLogService = new AuditLogService(auditLogRepository);
-        testUser = User.register("admin@example.com", "hash", "管理员");
+        auditLogService = new AuditLogService(auditLogRepository, userAccountService);
+        testUser = new IdentityUser(
+                UUID.randomUUID(), "admin@example.com", "管理员", null,
+                null, null, "hash", Role.ADMIN, true
+        );
     }
 
     @Test
@@ -47,13 +55,13 @@ class AuditLogServiceTest {
         UUID resourceId = UUID.randomUUID();
         Map<String, Object> detail = Map.of("field", "value");
 
-        auditLogService.log(testUser, "CREATE", "CONTENT", resourceId, detail);
+        auditLogService.log(testUser.id(), "CREATE", "CONTENT", resourceId, detail);
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
         verify(auditLogRepository).save(captor.capture());
 
         AuditLog savedLog = captor.getValue();
-        assertThat(savedLog.getActor()).isEqualTo(testUser);
+        assertThat(savedLog.getActorUserId()).isEqualTo(testUser.id());
         assertThat(savedLog.getAction()).isEqualTo("CREATE");
         assertThat(savedLog.getResourceType()).isEqualTo("CONTENT");
         assertThat(savedLog.getResourceId()).isEqualTo(resourceId);
@@ -64,13 +72,13 @@ class AuditLogServiceTest {
     void logActionWithoutDetail() {
         UUID resourceId = UUID.randomUUID();
 
-        auditLogService.log(testUser, "DELETE", "COMMENT", resourceId);
+        auditLogService.log(testUser.id(), "DELETE", "COMMENT", resourceId);
 
         ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
         verify(auditLogRepository).save(captor.capture());
 
         AuditLog savedLog = captor.getValue();
-        assertThat(savedLog.getActor()).isEqualTo(testUser);
+        assertThat(savedLog.getActorUserId()).isEqualTo(testUser.id());
         assertThat(savedLog.getAction()).isEqualTo("DELETE");
         assertThat(savedLog.getResourceType()).isEqualTo("COMMENT");
         assertThat(savedLog.getResourceId()).isEqualTo(resourceId);
@@ -80,16 +88,19 @@ class AuditLogServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void listAuditLogs() {
-        AuditLog log1 = new AuditLog(testUser, "CREATE", "CONTENT", UUID.randomUUID(), null);
-        AuditLog log2 = new AuditLog(testUser, "UPDATE", "TAG", UUID.randomUUID(), null);
+        AuditLog log1 = new AuditLog(testUser.id(), "CREATE", "CONTENT", UUID.randomUUID(), null);
+        AuditLog log2 = new AuditLog(testUser.id(), "UPDATE", "TAG", UUID.randomUUID(), null);
 
         Page<AuditLog> page = new PageImpl<>(List.of(log1, log2));
         when(auditLogRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+        when(userAccountService.findByIds(List.of(testUser.id())))
+                .thenReturn(List.of(testUser));
 
         PageResponse<AuditLogResponse> result = auditLogService.list(0, 10, null, null, null);
 
         assertThat(result.items()).hasSize(2);
         assertThat(result.items().get(0).action()).isEqualTo("CREATE");
         assertThat(result.items().get(1).action()).isEqualTo("UPDATE");
+        assertThat(result.items().getFirst().actorNickname()).isEqualTo("管理员");
     }
 }

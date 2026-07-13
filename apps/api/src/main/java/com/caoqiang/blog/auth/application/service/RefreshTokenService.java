@@ -4,7 +4,6 @@ import com.caoqiang.blog.auth.domain.model.RefreshToken;
 import com.caoqiang.blog.auth.domain.repository.RefreshTokenRepository;
 
 import com.caoqiang.blog.config.BlogProperties;
-import com.caoqiang.blog.user.domain.model.User;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -76,16 +75,16 @@ public class RefreshTokenService {
      * 为用户创建刷新令牌
      * 生成随机令牌，计算哈希值，保存到数据库，并返回原始令牌。
      *
-     * @param user 用户实体
+     * @param userId 用户 ID
      * @return 包含原始令牌值和过期时间的 RawRefreshToken 记录
      */
-    public RawRefreshToken createFor(User user) {
+    public RawRefreshToken createFor(java.util.UUID userId) {
         // 生成随机令牌
         String value = randomToken();
         // 计算过期时间：当前时间 + 配置的刷新令牌有效期（天）
         Instant expiresAt = clock.instant().plus(blogProperties.getSecurity().getRefreshTokenDays(), ChronoUnit.DAYS);
         // 保存令牌哈希到数据库（不保存原始令牌）
-        refreshTokenRepository.save(new RefreshToken(user, hash(value), expiresAt));
+        refreshTokenRepository.save(new RefreshToken(userId, hash(value), expiresAt));
         // 返回原始令牌（客户端需要保存）
         return new RawRefreshToken(value, expiresAt);
     }

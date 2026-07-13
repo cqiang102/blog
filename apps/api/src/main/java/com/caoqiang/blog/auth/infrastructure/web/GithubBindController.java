@@ -6,12 +6,13 @@ import com.caoqiang.blog.auth.domain.model.OAuthProvider;
 import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
 import com.caoqiang.blog.auth.application.service.JwtService;
 import com.caoqiang.blog.auth.application.service.RefreshTokenService;
-import com.caoqiang.blog.content.application.service.MediaAdminService;
+import com.caoqiang.blog.content.application.api.ContentMediaService;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.ApiResponse;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.application.dto.UserProfileResponse;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
+import com.caoqiang.blog.user.application.api.UserAccountService;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -43,28 +44,31 @@ public class GithubBindController {
     private static final Logger log = LoggerFactory.getLogger(GithubBindController.class);
 
     private final JwtService jwtService;
-    private final UserRepository userRepository;
+    private final UserAccountService userAccountService;
     private final OAuthAccountRepository oauthAccountRepository;
     private final RefreshTokenService refreshTokenService;
-    private final MediaAdminService mediaAdminService;
+    private final ContentMediaService contentMediaService;
+    private final RefreshTokenCookieService refreshTokenCookieService;
     private final String clientId;
     private final String clientSecret;
     private final String frontendBaseUrl;
 
     public GithubBindController(
             JwtService jwtService,
-            UserRepository userRepository,
+            UserAccountService userAccountService,
             OAuthAccountRepository oauthAccountRepository,
             RefreshTokenService refreshTokenService,
-            MediaAdminService mediaAdminService,
+            ContentMediaService contentMediaService,
+            RefreshTokenCookieService refreshTokenCookieService,
             @Value("${blog.oauth.github.client-id:}") String clientId,
             @Value("${blog.oauth.github.client-secret:}") String clientSecret,
             @Value("${blog.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
         this.jwtService = jwtService;
-        this.userRepository = userRepository;
+        this.userAccountService = userAccountService;
         this.oauthAccountRepository = oauthAccountRepository;
         this.refreshTokenService = refreshTokenService;
-        this.mediaAdminService = mediaAdminService;
+        this.contentMediaService = contentMediaService;
+        this.refreshTokenCookieService = refreshTokenCookieService;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.frontendBaseUrl = frontendBaseUrl;
@@ -105,7 +109,8 @@ public class GithubBindController {
     @Transactional
     public ApiResponse<AuthTokenResponse> callback(
             @RequestParam String code,
-            @RequestParam String state) {
+            @RequestParam String state,
+            HttpServletResponse response) {
 
         if (clientId == null || clientId.isBlank()) {
             log.error("GitHub client-id is not configured!");
@@ -143,15 +148,14 @@ public class GithubBindController {
         }
         String nickname = (name != null && !name.isBlank()) ? name : login;
 
-        User user;
+        IdentityUser user;
 
         if (bindUserId != null) {
-            user = userRepository.findById(bindUserId)
-                    .filter(User::isActive)
+            user = userAccountService.findActiveById(bindUserId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "用户不存在"));
             // 检查该 GitHub 是否已被其他人绑定
             var conflict = oauthAccountRepository.findByProviderAndProviderUserId(OAuthProvider.GITHUB, providerUserId);
-            if (conflict.isPresent() && !conflict.get().getUser().getId().equals(bindUserId)) {
+            if (conflict.isPresent() && !conflict.get().getUserId().equals(bindUserId)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "该 GitHub 账号已被其他用户绑定");
             }
             // 检查当前用户是否已绑定该 GitHub
@@ -159,53 +163,55 @@ public class GithubBindController {
             if (alreadyBound.isPresent()) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "您已绑定 GitHub 账号");
             }
-            OAuthAccount oauthAccount = new OAuthAccount(user, OAuthProvider.GITHUB, providerUserId, login);
+            OAuthAccount oauthAccount = new OAuthAccount(user.id(), OAuthProvider.GITHUB, providerUserId, login);
             oauthAccountRepository.save(oauthAccount);
-            user.setAvatarUrl(avatarUrl);
+            user = updateOAuthProfile(user.id(), null, avatarUrl);
             log.info("GitHub 绑定成功: userId={}, github={}", bindUserId, login);
         } else {
             var existingAccount = oauthAccountRepository
                     .findByProviderAndProviderUserId(OAuthProvider.GITHUB, providerUserId);
             if (existingAccount.isPresent()) {
-                user = requireActive(existingAccount.get().getUser());
-                user.setAvatarUrl(avatarUrl);
-                user.setNickname(nickname);
+                user = updateOAuthProfile(
+                        existingAccount.get().getUserId(),
+                        nickname,
+                        avatarUrl
+                );
             } else {
-                var existingUser = userRepository.findByEmail(email);
+                var existingUser = userAccountService.findByEmail(email);
                 if (existingUser.isPresent()) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
                             "该邮箱已注册，请先使用原账号登录后绑定 GitHub"
                     );
                 } else {
-                    user = User.register(email, null, nickname);
-                    user.setAvatarUrl(avatarUrl);
-                    user.setBio(bio);
-                    user.setBlogUrl(blogUrl);
-                    user = userRepository.save(user);
+                    user = userAccountService.registerOAuth(
+                            email,
+                            nickname,
+                            avatarUrl,
+                            bio,
+                            blogUrl
+                    );
                 }
-                OAuthAccount oauthAccount = new OAuthAccount(user, OAuthProvider.GITHUB, providerUserId, login);
+                OAuthAccount oauthAccount = new OAuthAccount(user.id(), OAuthProvider.GITHUB, providerUserId, login);
                 oauthAccountRepository.save(oauthAccount);
             }
-            log.info("GitHub 登录成功: userId={}, github={}", user.getId(), login);
+            log.info("GitHub 登录成功: userId={}, github={}", user.id(), login);
         }
 
         JwtService.JwtToken token = jwtService.createAccessToken(user);
-        RefreshTokenService.RawRefreshToken refreshToken = refreshTokenService.createFor(user);
+        RefreshTokenService.RawRefreshToken refreshToken = refreshTokenService.createFor(user.id());
+        refreshTokenCookieService.write(response, refreshToken.value());
 
         return ApiResponse.ok(new AuthTokenResponse(
                 token.value(),
-                refreshToken.value(),
                 token.expiresAt(),
-                UserProfileResponse.from(user, mediaAdminService.resolveUrl(user.getAvatarUrl()))
+                UserProfileResponse.from(user, contentMediaService.resolveUrl(user.avatarUrl()))
         ));
     }
 
-    private User requireActive(User user) {
-        if (!user.isActive()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "账号已被禁用");
-        }
-        return user;
+    private IdentityUser updateOAuthProfile(UUID userId, String nickname, String avatarUrl) {
+        return userAccountService.updateOAuthProfile(userId, nickname, avatarUrl)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "账号已被禁用"));
     }
 
     private String exchangeCodeForToken(String code) {

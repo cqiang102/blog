@@ -2,7 +2,7 @@ package com.caoqiang.blog.ai.chat.application.dto;
 
 import com.caoqiang.blog.ai.chat.domain.model.AiChatMessage;
 import com.caoqiang.blog.ai.chat.domain.model.AiChatSession;
-import com.caoqiang.blog.user.domain.model.User;
+import com.caoqiang.blog.user.application.api.IdentityUser;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -43,15 +43,15 @@ public record AdminAiChatSessionResponse(
      */
     public static AdminAiChatSessionResponse from(
             AiChatSession session,
+            IdentityUser user,
             long messageCount,
             AiChatMessage lastMessage
     ) {
-        User user = session.getUser();
         return new AdminAiChatSessionResponse(
                 session.getId(),
-                user.getId(),
-                user.getNickname(),
-                user.getEmail(),
+                session.getUserId(),
+                user.nickname(),
+                user.email(),
                 session.getTitle(),
                 messageCount,
                 lastMessage == null ? null : lastMessage.getContent(),

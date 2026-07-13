@@ -3,8 +3,8 @@ package com.caoqiang.blog.content;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
-import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeIndexService;
 import com.caoqiang.blog.content.application.dto.AdminContentRequest;
 import com.caoqiang.blog.content.application.service.ContentAdminService;
 import com.caoqiang.blog.content.application.service.MediaAdminService;
@@ -16,6 +16,7 @@ import com.caoqiang.blog.content.domain.model.MediaAssetType;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 import com.caoqiang.blog.content.domain.repository.TagRepository;
+import com.caoqiang.blog.content.event.ContentArchivedEvent;
 import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import java.util.List;
 import java.util.Optional;
@@ -35,8 +36,6 @@ class ContentAdminServiceTest {
     private TagRepository tagRepository;
     @Mock
     private MediaAssetRepository mediaAssetRepository;
-    @Mock
-    private KnowledgeIndexService knowledgeIndexService;
     @Mock
     private DomainEventPublisher domainEventPublisher;
     @Mock
@@ -75,7 +74,6 @@ class ContentAdminServiceTest {
                 contentRepository,
                 tagRepository,
                 mediaAssetRepository,
-                knowledgeIndexService,
                 domainEventPublisher,
                 mediaAdminService
         );
@@ -90,5 +88,6 @@ class ContentAdminServiceTest {
         assertThat(content.getMediaAssets()).singleElement()
                 .extracting(MediaAsset::getType)
                 .isEqualTo(MediaAssetType.VIDEO);
+        verify(domainEventPublisher).publishEvent(any(ContentArchivedEvent.class));
     }
 }

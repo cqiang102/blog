@@ -1,5 +1,7 @@
 package com.caoqiang.blog.interaction.application.service;
 
+import com.caoqiang.blog.content.application.api.ContentInteractionService;
+import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.application.dto.CommentRequest;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
 import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
@@ -14,16 +16,12 @@ import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
-import com.caoqiang.blog.shared.domain.event.interaction.CommentCreatedEvent;
-import com.caoqiang.blog.shared.domain.event.interaction.LikeAddedEvent;
-import com.caoqiang.blog.shared.domain.event.interaction.LikeRemovedEvent;
+import com.caoqiang.blog.interaction.event.CommentCreatedEvent;
+import com.caoqiang.blog.interaction.event.LikeAddedEvent;
+import com.caoqiang.blog.interaction.event.LikeRemovedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.user.application.service.ProfileService;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
@@ -53,114 +51,110 @@ public class InteractionCommandService {
 
     private static final Base64.Encoder BASE64_ENCODER = Base64.getUrlEncoder().withoutPadding();
 
-    private final ContentRepository contentRepository;
-    private final UserRepository userRepository;
+    private final ContentInteractionService contentInteractionService;
+    private final UserAccountService userAccountService;
     private final CommentRepository commentRepository;
     private final LikeRepository likeRepository;
     private final ViewRecordRepository viewRecordRepository;
     private final DomainEventPublisher domainEventPublisher;
-    private final ProfileService profileService;
+    private final InteractionReferenceData referenceData;
 
     public InteractionCommandService(
-            ContentRepository contentRepository,
-            UserRepository userRepository,
+            ContentInteractionService contentInteractionService,
+            UserAccountService userAccountService,
             CommentRepository commentRepository,
             LikeRepository likeRepository,
             ViewRecordRepository viewRecordRepository,
             DomainEventPublisher domainEventPublisher,
-            ProfileService profileService
+            InteractionReferenceData referenceData
     ) {
-        this.contentRepository = contentRepository;
-        this.userRepository = userRepository;
+        this.contentInteractionService = contentInteractionService;
+        this.userAccountService = userAccountService;
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
         this.domainEventPublisher = domainEventPublisher;
-        this.profileService = profileService;
+        this.referenceData = referenceData;
     }
 
     @Transactional
     public CommentResponse comment(AuthenticatedUser currentUser, UUID contentId, CommentRequest request) {
-        Content content = publishedContent(contentId);
-        User user = activeUser(currentUser.id());
+        ContentInteractionSnapshot content = publishedContent(contentId);
+        IdentityUser user = activeUser(currentUser.id());
         String sanitizedBody = sanitizeHtml(request.body().trim());
         if (sanitizedBody.isBlank()) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "评论内容不能为空");
         }
-        Comment comment = commentRepository.save(new Comment(content, user, sanitizedBody));
-        contentRepository.incrementCommentCount(contentId, 1);
+        Comment comment = commentRepository.save(new Comment(contentId, user.id(), sanitizedBody));
+        contentInteractionService.incrementCommentCount(contentId, 1);
         domainEventPublisher.publishEvent(new CommentCreatedEvent(comment.getId(), contentId, currentUser.id()));
-        return CommentResponse.from(comment, profileService.generatePresignedAvatarUrl(user.getAvatarUrl()));
+        return CommentResponse.from(comment, content, user, referenceData.avatarUrl(user));
     }
 
     @Transactional
     public void deleteComment(AuthenticatedUser currentUser, UUID commentId) {
         Comment comment = commentRepository.findByIdForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "评论不存在"));
-        if (!comment.getUser().getId().equals(currentUser.id()) && currentUser.role() != Role.ADMIN) {
+        if (!comment.getUserId().equals(currentUser.id()) && currentUser.role() != Role.ADMIN) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "只能删除自己的评论");
         }
         if (comment.getStatus() == CommentStatus.DELETED) {
             return;
         }
         if (comment.isVisible()) {
-            contentRepository.incrementCommentCount(comment.getContent().getId(), -1);
+            contentInteractionService.incrementCommentCount(comment.getContentId(), -1);
         }
         comment.markDeleted();
     }
 
     @Transactional
     public LikeStateResponse like(AuthenticatedUser currentUser, UUID contentId) {
-        Content content = publishedContent(contentId);
+        ContentInteractionSnapshot content = publishedContent(contentId);
         activeUser(currentUser.id());
         int inserted = likeRepository.insertIfAbsent(UUID.randomUUID(), contentId, currentUser.id());
         if (inserted == 0) {
-            return new LikeStateResponse(contentId, true, content.getLikeCount());
+            return new LikeStateResponse(contentId, true, content.likeCount());
         }
-        contentRepository.incrementLikeCount(contentId, 1);
+        contentInteractionService.incrementLikeCount(contentId, 1);
         domainEventPublisher.publishEvent(new LikeAddedEvent(contentId, currentUser.id()));
-        return new LikeStateResponse(contentId, true, content.getLikeCount() + 1);
+        return new LikeStateResponse(contentId, true, content.likeCount() + 1);
     }
 
     @Transactional
     public LikeStateResponse unlike(AuthenticatedUser currentUser, UUID contentId) {
-        Content content = publishedContent(contentId);
+        ContentInteractionSnapshot content = publishedContent(contentId);
         int deleted = likeRepository.deleteByContentIdAndUserId(contentId, currentUser.id());
         if (deleted == 0) {
-            return new LikeStateResponse(contentId, false, content.getLikeCount());
+            return new LikeStateResponse(contentId, false, content.likeCount());
         }
-        contentRepository.incrementLikeCount(contentId, -1);
+        contentInteractionService.incrementLikeCount(contentId, -1);
         domainEventPublisher.publishEvent(new LikeRemovedEvent(contentId, currentUser.id()));
-        return new LikeStateResponse(contentId, false, Math.max(0, content.getLikeCount() - 1));
+        return new LikeStateResponse(contentId, false, Math.max(0, content.likeCount() - 1));
     }
 
     @Transactional
     public ViewStateResponse recordView(AuthenticatedUser currentUser, UUID contentId, String clientIp, String userAgent) {
-        Content content = contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                        contentId,
-                        ContentStatus.PUBLISHED
-                )
-                .orElse(null);
+        ContentInteractionSnapshot content = contentInteractionService.findPublished(contentId).orElse(null);
         if (content == null) {
             return new ViewStateResponse(contentId, false, 0);
         }
-        User user = currentUser == null ? null : activeUser(currentUser.id());
+        IdentityUser user = currentUser == null ? null : activeUser(currentUser.id());
         String anonymousId = generateAnonymousId(clientIp, userAgent);
         String ipHash = hashIp(clientIp);
 
         int inserted = viewRecordRepository.insertIfAbsent(
                 UUID.randomUUID(),
                 contentId,
-                user != null ? user.getId() : null,
+                user != null ? user.id() : null,
                 anonymousId,
                 ipHash,
                 userAgent
         );
         if (inserted == 0) {
-            return new ViewStateResponse(contentId, true, content.getViewCount());
+            return new ViewStateResponse(contentId, true, content.viewCount());
         }
-        contentRepository.incrementViewCount(contentId, 1);
-        return new ViewStateResponse(contentId, true, content.getViewCount() + 1);
+        contentInteractionService.incrementViewCount(contentId, 1);
+        return new ViewStateResponse(contentId, true, content.viewCount() + 1);
     }
 
     @Transactional
@@ -173,21 +167,17 @@ public class InteractionCommandService {
         ViewRecord viewRecord = viewRecordRepository.findByIdAndUserId(viewRecordId, currentUser.id())
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "浏览记录不存在"));
         if (viewRecordRepository.deleteByIdAndUserId(viewRecordId, currentUser.id()) == 1) {
-            contentRepository.incrementViewCount(viewRecord.getContent().getId(), -1);
+            contentInteractionService.incrementViewCount(viewRecord.getContentId(), -1);
         }
     }
 
-    private Content publishedContent(UUID contentId) {
-        return contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                        contentId,
-                        ContentStatus.PUBLISHED
-                )
+    private ContentInteractionSnapshot publishedContent(UUID contentId) {
+        return contentInteractionService.findPublished(contentId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
     }
 
-    private User activeUser(UUID userId) {
-        return userRepository.findById(userId)
-                .filter(User::isActive)
+    private IdentityUser activeUser(UUID userId) {
+        return userAccountService.findActiveById(userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "登录状态无效"));
     }
 

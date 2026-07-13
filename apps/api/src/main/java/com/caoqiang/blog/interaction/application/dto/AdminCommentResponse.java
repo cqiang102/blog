@@ -1,9 +1,9 @@
 package com.caoqiang.blog.interaction.application.dto;
 
+import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.domain.model.Comment;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
+import com.caoqiang.blog.user.application.api.IdentityUser;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -52,14 +52,18 @@ public record AdminCommentResponse(
      * @param comment 评论实体
      * @return 管理端评论响应 DTO
      */
-    public static AdminCommentResponse from(Comment comment) {
+    public static AdminCommentResponse from(
+            Comment comment,
+            ContentInteractionSnapshot content,
+            IdentityUser user
+    ) {
         return new AdminCommentResponse(
                 comment.getId(),
-                comment.getContent().getId(),
-                comment.getContent().getTitle(),
-                comment.getUser().getId(),
-                comment.getUser().getNickname(),
-                comment.getUser().getEmail(),
+                comment.getContentId(),
+                content.title(),
+                comment.getUserId(),
+                user.nickname(),
+                user.email(),
                 comment.getStatus(),
                 comment.getBody(),
                 comment.getCreatedAt(),

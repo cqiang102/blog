@@ -4,20 +4,18 @@ import com.caoqiang.blog.user.application.dto.ChangePasswordRequest;
 import com.caoqiang.blog.user.application.dto.OAuthAccountResponse;
 import com.caoqiang.blog.user.application.dto.SetPasswordRequest;
 import com.caoqiang.blog.user.application.dto.UpdateProfileRequest;
-import com.caoqiang.blog.user.application.dto.UserProfileResponse;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
 import com.caoqiang.blog.user.application.service.ProfileService;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.auth.domain.model.OAuthProvider;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
-import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
-import com.caoqiang.blog.interaction.application.dto.UserActivityResponse;
+import com.caoqiang.blog.interaction.application.api.UserActivityItem;
+import com.caoqiang.blog.interaction.application.api.UserActivityService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -55,14 +53,11 @@ public class ProfileController {
     /** 个人资料服务 */
     private final ProfileService profileService;
     /** 互动查询服务 */
-    private final InteractionQueryService interactionQueryService;
-    /** 互动命令服务 */
-    private final InteractionCommandService interactionCommandService;
+    private final UserActivityService userActivityService;
 
-    public ProfileController(ProfileService profileService, InteractionQueryService interactionQueryService, InteractionCommandService interactionCommandService) {
+    public ProfileController(ProfileService profileService, UserActivityService userActivityService) {
         this.profileService = profileService;
-        this.interactionQueryService = interactionQueryService;
-        this.interactionCommandService = interactionCommandService;
+        this.userActivityService = userActivityService;
     }
 
     /**
@@ -133,8 +128,7 @@ public class ProfileController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable String provider
     ) {
-        OAuthProvider oauthProvider = OAuthProvider.valueOf(provider.toUpperCase());
-        profileService.unbindOAuthAccount(currentUser, oauthProvider);
+        profileService.unbindOAuthAccount(currentUser, provider);
         return ApiResponse.ok(OperationResult.success("解绑成功"));
     }
 
@@ -179,12 +173,12 @@ public class ProfileController {
      * @return 评论记录分页响应
      */
     @GetMapping("/comments")
-    public ApiResponse<PageResponse<UserActivityResponse>> comments(
+    public ApiResponse<PageResponse<UserActivityItem>> comments(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ApiResponse.ok(interactionQueryService.myComments(currentUser, page, size));
+        return ApiResponse.ok(userActivityService.comments(currentUser, page, size));
     }
 
     /**
@@ -196,12 +190,12 @@ public class ProfileController {
      * @return 点赞记录分页响应
      */
     @GetMapping("/likes")
-    public ApiResponse<PageResponse<UserActivityResponse>> likes(
+    public ApiResponse<PageResponse<UserActivityItem>> likes(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ApiResponse.ok(interactionQueryService.myLikes(currentUser, page, size));
+        return ApiResponse.ok(userActivityService.likes(currentUser, page, size));
     }
 
     /**
@@ -213,12 +207,12 @@ public class ProfileController {
      * @return 浏览记录分页响应
      */
     @GetMapping("/views")
-    public ApiResponse<PageResponse<UserActivityResponse>> views(
+    public ApiResponse<PageResponse<UserActivityItem>> views(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ApiResponse.ok(interactionQueryService.myViews(currentUser, page, size));
+        return ApiResponse.ok(userActivityService.views(currentUser, page, size));
     }
 
     /**
@@ -233,7 +227,7 @@ public class ProfileController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID commentId
     ) {
-        interactionCommandService.deleteComment(currentUser, commentId);
+        userActivityService.deleteComment(currentUser, commentId);
         return ApiResponse.ok(OperationResult.deleted(commentId));
     }
 
@@ -249,7 +243,7 @@ public class ProfileController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID contentId
     ) {
-        interactionCommandService.deleteMyLike(currentUser, contentId);
+        userActivityService.deleteLike(currentUser, contentId);
         return ApiResponse.ok(OperationResult.deleted(contentId));
     }
 
@@ -265,7 +259,7 @@ public class ProfileController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID viewRecordId
     ) {
-        interactionCommandService.deleteMyView(currentUser, viewRecordId);
+        userActivityService.deleteView(currentUser, viewRecordId);
         return ApiResponse.ok(OperationResult.deleted(viewRecordId));
     }
 }

@@ -1,7 +1,7 @@
 // 分页状态管理
 // 使用 Riverpod 管理分页列表的状态
 
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants.dart';
 import '../core/models.dart';
@@ -47,11 +47,11 @@ class PaginationState<T> {
 
 /// 分页状态通知器
 /// 管理分页列表的加载、重置等操作
-class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
-  PaginationNotifier(this._fetchPage) : super(const PaginationState());
-
-  final Future<PageResult<T>> Function(int page, int size) _fetchPage;
+abstract class PaginationNotifier<T> extends Notifier<PaginationState<T>> {
   static const int _pageSize = kDefaultPageSize;
+
+  @override
+  PaginationState<T> build() => const PaginationState();
 
   /// 加载更多数据
   Future<void> loadMore() async {
@@ -60,8 +60,8 @@ class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final result = await _fetchPage(state.currentPage, _pageSize);
-      if (!mounted) return;
+      final result = await fetchPage(state.currentPage, _pageSize);
+      if (!ref.mounted) return;
       state = state.copyWith(
         items: [...state.items, ...result.items],
         currentPage: state.currentPage + 1,
@@ -70,11 +70,8 @@ class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
         isLoading: false,
       );
     } catch (e) {
-      if (!mounted) return;
-      state = state.copyWith(
-        error: e.toString(),
-        isLoading: false,
-      );
+      if (!ref.mounted) return;
+      state = state.copyWith(error: e.toString(), isLoading: false);
     }
   }
 
@@ -82,8 +79,8 @@ class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
   Future<void> resetAndLoad() async {
     state = const PaginationState(isLoading: true);
     try {
-      final result = await _fetchPage(0, _pageSize);
-      if (!mounted) return;
+      final result = await fetchPage(0, _pageSize);
+      if (!ref.mounted) return;
       state = PaginationState(
         items: result.items,
         currentPage: 1,
@@ -92,11 +89,8 @@ class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
         isLoading: false,
       );
     } catch (e) {
-      if (!mounted) return;
-      state = PaginationState(
-        error: e.toString(),
-        isLoading: false,
-      );
+      if (!ref.mounted) return;
+      state = PaginationState(error: e.toString(), isLoading: false);
     }
   }
 
@@ -104,4 +98,6 @@ class PaginationNotifier<T> extends StateNotifier<PaginationState<T>> {
   void clearError() {
     state = state.copyWith(error: null);
   }
+
+  Future<PageResult<T>> fetchPage(int page, int size);
 }

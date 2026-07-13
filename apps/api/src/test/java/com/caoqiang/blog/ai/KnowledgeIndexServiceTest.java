@@ -12,6 +12,8 @@ import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
 import com.caoqiang.blog.ai.knowledge.application.service.EmbeddingService;
 import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeIndexService;
+import com.caoqiang.blog.content.application.api.ContentKnowledgeService;
+import com.caoqiang.blog.content.application.api.ContentKnowledgeSource;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,12 +36,18 @@ class KnowledgeIndexServiceTest {
     @Mock
     private EmbeddingService embeddingService;
 
+    @Mock
+    private ContentKnowledgeService contentKnowledgeService;
+
     private KnowledgeIndexService knowledgeIndexService;
 
     @BeforeEach
     void setUp() {
         knowledgeIndexService = new KnowledgeIndexService(
-                knowledgeDocRepository, knowledgeChunkRepository, embeddingService
+                knowledgeDocRepository,
+                knowledgeChunkRepository,
+                embeddingService,
+                contentKnowledgeService
         );
     }
 
@@ -119,5 +127,22 @@ class KnowledgeIndexServiceTest {
         assertThat(captor.getValue().getEmbedding()).isNull();
         assertThat(captor.getValue().getMetadata()).contains("embedding_generation_failed");
         assertThat(captor.getValue().getContent()).isEqualTo("测试内容");
+    }
+
+    @Test
+    void indexesContentFromThePublicContentSnapshot() {
+        UUID contentId = UUID.randomUUID();
+        when(contentKnowledgeService.findIndexable(contentId)).thenReturn(Optional.of(
+                new ContentKnowledgeSource(contentId, "标题", "摘要", "正文")
+        ));
+        when(embeddingService.embed(any(String.class))).thenReturn(new float[768]);
+
+        knowledgeIndexService.indexContent(contentId);
+
+        verify(knowledgeChunkRepository).deleteByContentId(contentId);
+        ArgumentCaptor<KnowledgeChunk> captor = ArgumentCaptor.forClass(KnowledgeChunk.class);
+        verify(knowledgeChunkRepository).save(captor.capture());
+        assertThat(captor.getValue().getContentId()).isEqualTo(contentId);
+        assertThat(captor.getValue().getContent()).contains("标题", "摘要", "正文");
     }
 }

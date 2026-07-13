@@ -1,11 +1,8 @@
 package com.caoqiang.blog.interaction.application.dto;
 
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
+import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.domain.model.ViewRecord;
-
-import com.caoqiang.blog.user.domain.model.User;
+import com.caoqiang.blog.user.application.api.IdentityUser;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -48,15 +45,18 @@ public record AdminViewRecordResponse(
      * @param viewRecord 浏览记录实体
      * @return 管理端浏览记录响应 DTO
      */
-    public static AdminViewRecordResponse from(ViewRecord viewRecord) {
-        User user = viewRecord.getUser();
+    public static AdminViewRecordResponse from(
+            ViewRecord viewRecord,
+            ContentInteractionSnapshot content,
+            IdentityUser user
+    ) {
         return new AdminViewRecordResponse(
                 viewRecord.getId(),
-                viewRecord.getContent().getId(),
-                viewRecord.getContent().getTitle(),
-                user == null ? null : user.getId(),
-                user == null ? null : user.getNickname(),
-                user == null ? null : user.getEmail(),
+                viewRecord.getContentId(),
+                content.title(),
+                viewRecord.getUserId(),
+                user == null ? null : user.nickname(),
+                user == null ? null : user.email(),
                 viewRecord.getAnonymousId(),
                 viewRecord.getIpHash(),
                 viewRecord.getUserAgent(),

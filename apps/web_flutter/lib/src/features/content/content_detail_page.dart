@@ -7,6 +7,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/api_client.dart';
@@ -14,10 +15,13 @@ import '../../state/state.dart';
 import '../../widgets/widgets.dart';
 import '../../auth/auth_controller.dart';
 
+import '../../core/constants.dart';
 import '../../core/media_url.dart';
 import '../../core/models.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_design_tokens.dart';
+import '../../theme/app_motion.dart';
 
 part 'content_detail/content_error_scaffold.dart';
 part 'content_detail/content_comments.dart';
@@ -82,89 +86,131 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     AsyncValue<PageResult<CommentItem>> comments,
     AuthController auth,
   ) {
-    return CustomScrollView(
-      slivers: [
-        // AppBar
-        SliverAppBar(
-          expandedHeight: 240,
-          pinned: true,
-          title: Text(content.title),
-          actions: const [
-            AppThemeToggle(),
-            SizedBox(width: AppSpacing.sm),
-          ],
-          flexibleSpace: FlexibleSpaceBar(
-            background: _HeroCover(content: content),
-          ),
-        ),
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final expandedHeight = viewportWidth >= kDesktopBreakpoint ? 420.0 : 320.0;
+    final commentCount = comments.value?.total ?? content.commentCount;
 
-        // 内容区域
-        SliverPadding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          sliver: SliverList.list(
-            children: [
-              // 标签
-              _buildTags(context, content),
-              const SizedBox(height: AppSpacing.md),
-
-              // 摘要
-              if (content.summary.isNotEmpty) ...[
-                Text(
-                  content.summary,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-              ],
-
-              // 内容查看器
-              _ContentViewer(content: content),
-              const SizedBox(height: AppSpacing.xl),
-
-              // 评论输入
-              _buildCommentInput(context, content),
-              const SizedBox(height: AppSpacing.md),
-
-              // 评论标题
-              Row(
-                children: [
-                  Text('评论', style: Theme.of(context).textTheme.titleLarge),
-                  const Spacer(),
-                  Text(
-                    '共${(comments.value?.total ?? content.commentCount) > 99 ? '99+' : comments.value?.total ?? content.commentCount}条',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm + 4),
+    return AppPageFrame(
+      maxWidth: 1320,
+      child: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: expandedHeight,
+            pinned: true,
+            foregroundColor: AppColors.onOverlay,
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            actions: const [
+              AppThemeToggle(color: AppColors.onOverlay),
+              SizedBox(width: AppSpacing.sm),
             ],
-          ),
-        ),
-
-        // 评论列表（使用 SliverList 优化性能）
-        comments.when(
-          loading: () => const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-              child: Center(child: CircularProgressIndicator()),
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                0,
+                72,
+                AppSpacing.lg,
+              ),
+              expandedTitleScale: viewportWidth < kSmallTabletBreakpoint
+                  ? 1.35
+                  : 1.75,
+              title: Text(
+                content.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.onOverlay,
+                  fontWeight: FontWeight.w700,
+                  shadows: [
+                    Shadow(
+                      color: Color(0x8A000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+              background: _ArticleHero(content: content),
             ),
           ),
-          error: (error, stackTrace) => SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Text(error.toString()),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.xl,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: AppLayout.readingWidth,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ArticleMeta(content: content),
+                      const SizedBox(height: AppSpacing.md),
+                      _buildTags(context, content),
+                      if (content.summary.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.lg),
+                        _ArticleSummary(summary: content.summary),
+                      ],
+                      const SizedBox(height: AppSpacing.xl),
+                      _ContentViewer(content: content),
+                      const SizedBox(height: AppSpacing.xxl),
+                      _buildCommentInput(context, content),
+                      const SizedBox(height: AppSpacing.lg),
+                      Row(
+                        children: [
+                          Text(
+                            '读者评论',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const Spacer(),
+                          Text(
+                            '共${commentCount > 99 ? '99+' : commentCount}条',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-          data: (page) => SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            sliver: _CommentList(comments: page.items, contentId: widget.id),
+          comments.when(
+            loading: () => const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                child: Center(child: CircularProgressIndicator.adaptive()),
+              ),
+            ),
+            error: (error, stackTrace) => SliverToBoxAdapter(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: AppLayout.readingWidth,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Text(error.toString()),
+                  ),
+                ),
+              ),
+            ),
+            data: (page) =>
+                _CommentList(comments: page.items, contentId: widget.id),
           ),
-        ),
-
-        // 底部间距
-        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
-      ],
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
+        ],
+      ),
     );
   }
 
@@ -275,5 +321,113 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _ArticleMeta extends StatelessWidget {
+  const _ArticleMeta({required this.content});
+
+  final BlogContent content;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final design = AppDesignTokens.of(context);
+    final textLength = content.markdown.trim().runes.length;
+    final readingMinutes = (textLength / 500).ceil().clamp(1, 99);
+    final publishedAt = DateFormat('yyyy年 M月 d日').format(content.publishedAt);
+
+    return Wrap(
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: design.mint,
+            borderRadius: BorderRadius.circular(AppRadii.pill),
+          ),
+          child: Text(
+            content.type.label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: scheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        _ArticleMetaItem(
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCalendar03),
+          label: publishedAt,
+        ),
+        _ArticleMetaItem(
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01),
+          label: '约 $readingMinutes 分钟',
+        ),
+        _ArticleMetaItem(
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedView),
+          label: '${content.viewCount} 阅读',
+        ),
+        _ArticleMetaItem(
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedComment01),
+          label: '${content.commentCount} 评论',
+        ),
+      ],
+    );
+  }
+}
+
+class _ArticleMetaItem extends StatelessWidget {
+  const _ArticleMetaItem({required this.icon, required this.label});
+
+  final Widget icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    return IconTheme(
+      data: IconThemeData(size: 16, color: color),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox.square(dimension: 16, child: icon),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArticleSummary extends StatelessWidget {
+  const _ArticleSummary({required this.summary});
+
+  final String summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final design = AppDesignTokens.of(context);
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: design.mint,
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        border: Border(left: BorderSide(color: scheme.primary, width: 4)),
+      ),
+      child: Text(
+        summary,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
   }
 }

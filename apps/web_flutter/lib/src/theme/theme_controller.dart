@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final themeControllerProvider = ChangeNotifierProvider<ThemeController>((ref) {
-  final controller = ThemeController();
-  controller.load();
-  return controller;
-});
+final themeControllerProvider = NotifierProvider<ThemeController, ThemeMode>(
+  ThemeController.new,
+);
 
-class ThemeController extends ChangeNotifier {
+class ThemeController extends Notifier<ThemeMode> {
   static const _preferenceKey = 'app.themeMode';
 
-  ThemeMode _mode = ThemeMode.system;
-
-  ThemeMode get mode => _mode;
+  @override
+  ThemeMode build() {
+    Future.microtask(load);
+    return ThemeMode.system;
+  }
 
   Future<void> load() async {
     final preferences = await SharedPreferences.getInstance();
@@ -24,9 +24,8 @@ class ThemeController extends ChangeNotifier {
       _ => ThemeMode.system,
     };
 
-    if (_mode == nextMode) return;
-    _mode = nextMode;
-    notifyListeners();
+    if (state == nextMode || !ref.mounted) return;
+    state = nextMode;
   }
 
   Future<void> toggle(Brightness currentBrightness) async {
@@ -36,9 +35,8 @@ class ThemeController extends ChangeNotifier {
   }
 
   Future<void> setMode(ThemeMode mode) async {
-    if (_mode == mode) return;
-    _mode = mode;
-    notifyListeners();
+    if (state == mode) return;
+    state = mode;
 
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_preferenceKey, mode.name);

@@ -5,7 +5,7 @@ import com.caoqiang.blog.friend.domain.repository.FriendRepository;
 import com.caoqiang.blog.friend.application.dto.FriendRequest;
 import com.caoqiang.blog.friend.application.dto.FriendResponse;
 
-import com.caoqiang.blog.content.application.service.MediaAdminService;
+import com.caoqiang.blog.content.application.api.ContentMediaService;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.util.List;
 import java.util.UUID;
@@ -32,11 +32,11 @@ public class FriendAdminService {
 
     /** 友链数据访问层 */
     private final FriendRepository friendRepository;
-    private final MediaAdminService mediaAdminService;
+    private final ContentMediaService contentMediaService;
 
-    public FriendAdminService(FriendRepository friendRepository, MediaAdminService mediaAdminService) {
+    public FriendAdminService(FriendRepository friendRepository, ContentMediaService contentMediaService) {
         this.friendRepository = friendRepository;
-        this.mediaAdminService = mediaAdminService;
+        this.contentMediaService = contentMediaService;
     }
 
     /**
@@ -50,7 +50,7 @@ public class FriendAdminService {
     public List<FriendResponse> list() {
         return friendRepository.findAllByOrderBySortOrderAscCreatedAtDesc()
                 .stream()
-                .map(friend -> FriendResponse.from(friend, mediaAdminService::resolveUrl))
+                .map(friend -> FriendResponse.from(friend, contentMediaService::resolveUrl))
                 .toList();
     }
 
@@ -64,13 +64,13 @@ public class FriendAdminService {
     public FriendResponse create(FriendRequest request) {
         Friend friend = new Friend(
                 request.name().trim(),
-                mediaAdminService.normalizeStorageUrlForPersistence(request.avatarUrl()),
+                contentMediaService.normalizeForPersistence(request.avatarUrl()),
                 clean(request.intro()),
                 request.siteUrl().trim(),
                 request.visible(),
                 request.sortOrder()
         );
-        return FriendResponse.from(friendRepository.save(friend), mediaAdminService::resolveUrl);
+        return FriendResponse.from(friendRepository.save(friend), contentMediaService::resolveUrl);
     }
 
     /**
@@ -87,13 +87,13 @@ public class FriendAdminService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "朋友不存在"));
         friend.update(
                 request.name().trim(),
-                mediaAdminService.normalizeStorageUrlForPersistence(request.avatarUrl()),
+                contentMediaService.normalizeForPersistence(request.avatarUrl()),
                 clean(request.intro()),
                 request.siteUrl().trim(),
                 request.visible(),
                 request.sortOrder()
         );
-        return FriendResponse.from(friend, mediaAdminService::resolveUrl);
+        return FriendResponse.from(friend, contentMediaService::resolveUrl);
     }
 
     /**

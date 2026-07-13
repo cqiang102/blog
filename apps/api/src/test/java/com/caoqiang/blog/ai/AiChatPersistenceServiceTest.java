@@ -13,9 +13,8 @@ import com.caoqiang.blog.ai.chat.domain.model.AiChatSession;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatMessageRepository;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
 import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
-import com.caoqiang.blog.shared.domain.event.ai.AiChatMessagesCreatedEvent;
+import com.caoqiang.blog.ai.chat.event.AiChatMessagesCreatedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
-import com.caoqiang.blog.user.domain.model.User;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,9 +47,8 @@ class AiChatPersistenceServiceTest {
                 messageRepository,
                 domainEventPublisher
         );
-        User user = User.register("reader@example.com", "hash", "读者");
-        userId = user.getId();
-        session = new AiChatSession(user, "并发测试");
+        userId = UUID.randomUUID();
+        session = new AiChatSession(userId, "并发测试");
     }
 
     @Test

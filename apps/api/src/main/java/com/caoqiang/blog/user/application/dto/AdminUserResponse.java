@@ -1,5 +1,7 @@
 package com.caoqiang.blog.user.application.dto;
 
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
+
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
 

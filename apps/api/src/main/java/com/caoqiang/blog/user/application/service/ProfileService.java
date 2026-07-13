@@ -6,16 +6,15 @@ import com.caoqiang.blog.user.application.dto.ChangePasswordRequest;
 import com.caoqiang.blog.user.application.dto.OAuthAccountResponse;
 import com.caoqiang.blog.user.application.dto.SetPasswordRequest;
 import com.caoqiang.blog.user.application.dto.UpdateProfileRequest;
-import com.caoqiang.blog.user.application.dto.UserProfileResponse;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
+import com.caoqiang.blog.user.application.port.OAuthAccountPort;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
+import com.caoqiang.blog.content.application.api.ContentMediaService;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.util.PasswordPolicy;
-import com.caoqiang.blog.auth.domain.model.OAuthAccount;
-import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
-import com.caoqiang.blog.auth.domain.model.OAuthProvider;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import org.dromara.x.file.storage.core.FileInfo;
 import org.dromara.x.file.storage.core.FileStorageService;
@@ -65,25 +64,25 @@ public class ProfileService {
     /** 文件存储服务 */
     private final FileStorageService fileStorageService;
     /** OAuth 账户数据访问层 */
-    private final OAuthAccountRepository oauthAccountRepository;
+    private final OAuthAccountPort oauthAccountPort;
     /** 系统时钟 */
     private final Clock clock;
     /** MinIO platform 名称 */
     private final String platform;
     /** 媒体服务，用于统一 URL 解析 */
-    private final com.caoqiang.blog.content.application.service.MediaAdminService mediaAdminService;
+    private final ContentMediaService contentMediaService;
 
     public ProfileService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                          FileStorageService fileStorageService, OAuthAccountRepository oauthAccountRepository,
+                          FileStorageService fileStorageService, OAuthAccountPort oauthAccountPort,
                           Clock clock, @Value("${dromara.x-file-storage.default-platform}") String platform,
-                          com.caoqiang.blog.content.application.service.MediaAdminService mediaAdminService) {
+                          ContentMediaService contentMediaService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.fileStorageService = fileStorageService;
-        this.oauthAccountRepository = oauthAccountRepository;
+        this.oauthAccountPort = oauthAccountPort;
         this.clock = clock;
         this.platform = platform;
-        this.mediaAdminService = mediaAdminService;
+        this.contentMediaService = contentMediaService;
     }
 
     /**
@@ -121,7 +120,7 @@ public class ProfileService {
         user.updateProfile(
                 user.getEmail(),
                 StringUtils.hasText(request.nickname()) ? request.nickname().trim() : user.getNickname(),
-                mediaAdminService.normalizeStorageUrlForPersistence(request.avatarUrl()),
+                contentMediaService.normalizeForPersistence(request.avatarUrl()),
                 request.bio(),
                 request.blogUrl()
         );
@@ -203,14 +202,14 @@ public class ProfileService {
         String path = "avatars/" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd")) + "/";
         String filename = "avatar_" + System.currentTimeMillis() + format.extension();
 
-        mediaAdminService.ensureUploadStorageReady();
+        contentMediaService.ensureUploadStorageReady();
         FileInfo fileInfo = fileStorageService.of(file)
                 .setPath(path)
                 .setSaveFilename(filename)
                 .setContentType(format.contentType())
                 .upload();
 
-        return mediaAdminService.portableStoragePath(fileInfo.getPath() + fileInfo.getFilename());
+        return contentMediaService.portableStoragePath(fileInfo.getPath() + fileInfo.getFilename());
     }
 
     /**
@@ -238,8 +237,7 @@ public class ProfileService {
      */
     @Transactional(readOnly = true)
     public List<OAuthAccountResponse> getOAuthAccounts(AuthenticatedUser currentUser) {
-        List<OAuthAccount> accounts = oauthAccountRepository.findByUserId(currentUser.id());
-        return accounts.stream()
+        return oauthAccountPort.findByUserId(currentUser.id()).stream()
                 .map(OAuthAccountResponse::from)
                 .toList();
     }
@@ -254,7 +252,7 @@ public class ProfileService {
      * @throws BusinessException 如果用户未设置密码或未绑定该提供者
      */
     @Transactional
-    public void unbindOAuthAccount(AuthenticatedUser currentUser, OAuthProvider provider) {
+    public void unbindOAuthAccount(AuthenticatedUser currentUser, String provider) {
         User user = findActiveUser(currentUser);
 
         // OAuth-only 用户（无密码）不能解绑
@@ -262,10 +260,9 @@ public class ProfileService {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "请先设置密码后再解绑");
         }
 
-        OAuthAccount account = oauthAccountRepository.findByUserIdAndProvider(currentUser.id(), provider)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "未绑定该账号"));
-
-        oauthAccountRepository.delete(account);
+        if (!StringUtils.hasText(provider) || !oauthAccountPort.remove(currentUser.id(), provider)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "未绑定该账号");
+        }
     }
 
     private AvatarFormat detectAvatarFormat(MultipartFile file) {
@@ -315,11 +312,11 @@ public class ProfileService {
      * @return 预签名 URL 或原 URL
      */
     public String generatePresignedAvatarUrl(String avatarUrl) {
-        return mediaAdminService.resolveUrl(avatarUrl);
+        return contentMediaService.resolveUrl(avatarUrl);
     }
 
     public String normalizeAvatarUrlForPersistence(String avatarUrl) {
-        return mediaAdminService.normalizeStorageUrlForPersistence(avatarUrl);
+        return contentMediaService.normalizeForPersistence(avatarUrl);
     }
 
     /**

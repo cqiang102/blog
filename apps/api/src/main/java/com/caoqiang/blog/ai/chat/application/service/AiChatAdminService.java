@@ -9,10 +9,13 @@ import com.caoqiang.blog.ai.chat.domain.repository.AiChatMessageRepository;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserAccountService;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -36,13 +39,16 @@ public class AiChatAdminService {
 
     private final AiChatSessionRepository sessionRepository;
     private final AiChatMessageRepository messageRepository;
+    private final UserAccountService userAccountService;
 
     public AiChatAdminService(
             AiChatSessionRepository sessionRepository,
-            AiChatMessageRepository messageRepository
+            AiChatMessageRepository messageRepository,
+            UserAccountService userAccountService
     ) {
         this.sessionRepository = sessionRepository;
         this.messageRepository = messageRepository;
+        this.userAccountService = userAccountService;
     }
 
     /**
@@ -56,16 +62,25 @@ public class AiChatAdminService {
      */
     @Transactional(readOnly = true)
     public PageResponse<AdminAiChatSessionResponse> sessions(int page, int size, UUID userId, String query) {
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        List<UUID> matchingUserIds = normalizedQuery.isEmpty()
+                ? List.of()
+                : userAccountService.findIdsMatchingIdentity(normalizedQuery);
         Page<AiChatSession> result = sessionRepository.findAll(
-                filters(userId, query),
+                filters(userId, normalizedQuery, matchingUserIds),
                 PageRequest.of(
                         Math.max(0, page),
                         Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
                         Sort.by(Sort.Direction.DESC, "updatedAt")
                 )
         );
+        Map<UUID, IdentityUser> users = usersById(
+                result.getContent().stream().map(AiChatSession::getUserId).toList()
+        );
         return new PageResponse<>(
-                result.getContent().stream().map(this::toSessionResponse).toList(),
+                result.getContent().stream()
+                        .map(session -> toSessionResponse(session, requireUser(users, session.getUserId())))
+                        .toList(),
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements()
@@ -86,7 +101,12 @@ public class AiChatAdminService {
                 .stream()
                 .map(AdminAiChatMessageResponse::from)
                 .toList();
-        return new AdminAiChatDetailResponse(toSessionResponse(session), messages);
+        IdentityUser user = userAccountService.findById(session.getUserId())
+                .orElseThrow(() -> new BusinessException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "AI 会话关联的用户不存在"
+                ));
+        return new AdminAiChatDetailResponse(toSessionResponse(session, user), messages);
     }
 
     /**
@@ -103,35 +123,53 @@ public class AiChatAdminService {
     }
 
     /** 将会话实体转换为管理端响应 DTO，附带消息数和最后一条消息。 */
-    private AdminAiChatSessionResponse toSessionResponse(AiChatSession session) {
+    private AdminAiChatSessionResponse toSessionResponse(AiChatSession session, IdentityUser user) {
         AiChatMessage lastMessage = messageRepository.findFirstBySessionIdOrderByCreatedAtDesc(session.getId())
                 .orElse(null);
         return AdminAiChatSessionResponse.from(
                 session,
+                user,
                 messageRepository.countBySessionId(session.getId()),
                 lastMessage
         );
     }
 
     /** 构建 JPA 动态查询条件：按用户 ID 和关键词（标题/邮箱/昵称）过滤，排除已删除记录。 */
-    private Specification<AiChatSession> filters(UUID userId, String queryText) {
+    private Specification<AiChatSession> filters(
+            UUID userId,
+            String normalizedQuery,
+            List<UUID> matchingUserIds
+    ) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
             // 过滤已删除记录
             predicates.add(criteriaBuilder.equal(root.get("deleted"), false));
             if (userId != null) {
-                predicates.add(criteriaBuilder.equal(root.get("user").get("id"), userId));
+                predicates.add(criteriaBuilder.equal(root.get("userId"), userId));
             }
-            String normalizedQuery = queryText == null ? "" : queryText.trim().toLowerCase(Locale.ROOT);
             if (!normalizedQuery.isEmpty()) {
                 String like = "%" + normalizedQuery + "%";
-                predicates.add(criteriaBuilder.or(
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), like),
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")), like),
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("nickname")), like)
-                ));
+                Predicate titleMatches = criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), like);
+                predicates.add(matchingUserIds.isEmpty()
+                        ? titleMatches
+                        : criteriaBuilder.or(titleMatches, root.get("userId").in(matchingUserIds)));
             }
             return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
         };
+    }
+
+    private Map<UUID, IdentityUser> usersById(List<UUID> userIds) {
+        return userAccountService.findByIds(userIds).stream().collect(java.util.stream.Collectors.toMap(
+                IdentityUser::id,
+                java.util.function.Function.identity()
+        ));
+    }
+
+    private IdentityUser requireUser(Map<UUID, IdentityUser> users, UUID userId) {
+        IdentityUser user = users.get(userId);
+        if (user == null) {
+            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "AI 会话关联的用户不存在");
+        }
+        return user;
     }
 }

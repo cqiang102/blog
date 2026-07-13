@@ -1,13 +1,8 @@
 package com.caoqiang.blog.interaction.domain.model;
 
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.user.domain.model.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -38,15 +33,13 @@ public class ViewRecord {
     @Column(nullable = false, updatable = false)
     private UUID id = UUID.randomUUID();
 
-    /** 关联的内容实体 */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "content_id", nullable = false)
-    private Content content;
+    /** 关联的内容 ID */
+    @Column(name = "content_id", nullable = false)
+    private UUID contentId;
 
-    /** 关联的用户实体（可为 null，表示匿名用户） */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+    /** 关联的用户 ID（可为 null，表示匿名用户） */
+    @Column(name = "user_id")
+    private UUID userId;
 
     /** 匿名用户 ID（IP + User-Agent 的 SHA-256 哈希） */
     @Column(name = "anonymous_id", length = 120)
@@ -73,15 +66,15 @@ public class ViewRecord {
     /**
      * 创建浏览记录
      *
-     * @param content     关联的内容
-     * @param user        关联的用户（可为 null）
+     * @param contentId   关联的内容 ID
+     * @param userId      关联的用户 ID（可为 null）
      * @param anonymousId 匿名用户 ID
      * @param ipHash      IP 哈希值
      * @param userAgent   User-Agent 字符串
      */
-    public ViewRecord(Content content, User user, String anonymousId, String ipHash, String userAgent) {
-        this.content = content;
-        this.user = user;
+    public ViewRecord(UUID contentId, UUID userId, String anonymousId, String ipHash, String userAgent) {
+        this.contentId = contentId;
+        this.userId = userId;
         this.anonymousId = anonymousId;
         this.ipHash = ipHash;
         this.userAgent = userAgent;
@@ -97,16 +90,16 @@ public class ViewRecord {
         }
     }
 
-    public Content getContent() {
-        return content;
+    public UUID getContentId() {
+        return contentId;
     }
 
     public UUID getId() {
         return id;
     }
 
-    public User getUser() {
-        return user;
+    public UUID getUserId() {
+        return userId;
     }
 
     public String getAnonymousId() {

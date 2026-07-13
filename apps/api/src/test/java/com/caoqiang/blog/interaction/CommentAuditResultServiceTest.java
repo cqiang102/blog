@@ -6,18 +6,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.repository.ContentRepository;
+import com.caoqiang.blog.content.application.api.ContentInteractionService;
 import com.caoqiang.blog.interaction.application.service.CommentAuditResultService;
 import com.caoqiang.blog.interaction.domain.model.Comment;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
 import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
-import com.caoqiang.blog.user.domain.model.User;
-import java.time.Instant;
 import java.util.Optional;
-import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,29 +26,19 @@ class CommentAuditResultServiceTest {
     private CommentRepository commentRepository;
 
     @Mock
-    private ContentRepository contentRepository;
+    private ContentInteractionService contentInteractionService;
 
     private CommentAuditResultService service;
-    private Content content;
+    private UUID contentId;
     private Comment comment;
 
     @BeforeEach
     void setUp() {
-        service = new CommentAuditResultService(commentRepository, contentRepository);
-        content = new Content(
-                "评论审核测试",
-                "comment-audit-test",
-                ContentType.ARTICLE,
-                ContentStatus.PUBLISHED,
-                "摘要",
-                "正文",
-                false,
-                Instant.parse("2026-06-01T00:00:00Z"),
-                Set.of()
-        );
+        service = new CommentAuditResultService(commentRepository, contentInteractionService);
+        contentId = UUID.randomUUID();
         comment = new Comment(
-                content,
-                User.register("reader@example.com", "hash", "读者"),
+                contentId,
+                UUID.randomUUID(),
                 "测试评论"
         );
         when(commentRepository.findByIdForUpdate(comment.getId())).thenReturn(Optional.of(comment));
@@ -64,7 +49,7 @@ class CommentAuditResultServiceTest {
         service.apply(comment.getId(), CommentStatus.BLOCKED, "不适合展示");
 
         assertThat(comment.getStatus()).isEqualTo(CommentStatus.BLOCKED);
-        verify(contentRepository).incrementCommentCount(content.getId(), -1);
+        verify(contentInteractionService).incrementCommentCount(contentId, -1);
     }
 
     @Test
@@ -74,7 +59,7 @@ class CommentAuditResultServiceTest {
         service.apply(comment.getId(), CommentStatus.VISIBLE, "正常");
 
         assertThat(comment.getStatus()).isEqualTo(CommentStatus.DELETED);
-        verifyNoInteractions(contentRepository);
+        verifyNoInteractions(contentInteractionService);
     }
 
     @Test
@@ -84,7 +69,7 @@ class CommentAuditResultServiceTest {
         service.apply(comment.getId(), CommentStatus.VISIBLE, "正常");
 
         assertThat(comment.getStatus()).isEqualTo(CommentStatus.BLOCKED);
-        verify(contentRepository, never()).incrementCommentCount(content.getId(), 1);
-        verifyNoInteractions(contentRepository);
+        verify(contentInteractionService, never()).incrementCommentCount(contentId, 1);
+        verifyNoInteractions(contentInteractionService);
     }
 }

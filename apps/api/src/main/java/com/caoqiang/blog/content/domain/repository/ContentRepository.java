@@ -35,6 +35,14 @@ import org.springframework.data.jpa.domain.Specification;
 public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpecificationExecutor<Content> {
 
     /**
+     * 第二阶段批量加载列表页关联。分页仍由无 fetch join 的查询完成，避免集合
+     * fetch join 让 Hibernate 在内存中分页。
+     */
+    @EntityGraph(attributePaths = {"tags", "coverMedia"})
+    @Query("select distinct c from Content c where c.id in :ids")
+    List<Content> findAllWithSummaryRelationsByIdIn(@Param("ids") List<UUID> ids);
+
+    /**
      * 查询最新发布的 10 条内容（用于推荐列表的"最新"分组）。
      * 预加载 tags 和 coverMedia 以避免 N+1 查询。
      */
@@ -63,6 +71,8 @@ public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpec
      */
     @EntityGraph(attributePaths = {"tags", "coverMedia"})
     Optional<Content> findByIdAndStatusAndDeletedAtIsNull(UUID id, ContentStatus status);
+
+    List<Content> findByIdInAndStatusAndDeletedAtIsNull(List<UUID> ids, ContentStatus status);
 
     /**
      * 根据 ID 查询未删除的内容，预加载 tags 和 coverMedia。

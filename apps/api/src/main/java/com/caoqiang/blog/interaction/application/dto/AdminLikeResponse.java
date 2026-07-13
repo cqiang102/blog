@@ -1,9 +1,8 @@
 package com.caoqiang.blog.interaction.application.dto;
 
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
+import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
+import com.caoqiang.blog.user.application.api.IdentityUser;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -41,14 +40,18 @@ public record AdminLikeResponse(
      * @param like 点赞实体
      * @return 管理端点赞响应 DTO
      */
-    public static AdminLikeResponse from(Like like) {
+    public static AdminLikeResponse from(
+            Like like,
+            ContentInteractionSnapshot content,
+            IdentityUser user
+    ) {
         return new AdminLikeResponse(
                 like.getId(),
-                like.getContent().getId(),
-                like.getContent().getTitle(),
-                like.getUser().getId(),
-                like.getUser().getNickname(),
-                like.getUser().getEmail(),
+                like.getContentId(),
+                content.title(),
+                like.getUserId(),
+                user.nickname(),
+                user.email(),
                 like.getCreatedAt()
         );
     }

@@ -1,14 +1,14 @@
 package com.caoqiang.blog.auth.infrastructure.web;
 
 import com.caoqiang.blog.auth.application.dto.GithubOAuth2User;
-import com.caoqiang.blog.auth.application.dto.AuthTokenResponse;
+import com.caoqiang.blog.auth.application.dto.IssuedAuthSession;
 import com.caoqiang.blog.auth.application.service.JwtService;
 import com.caoqiang.blog.auth.application.service.OAuthLoginCodeService;
 import com.caoqiang.blog.auth.application.service.RefreshTokenService;
 
-import com.caoqiang.blog.content.application.service.MediaAdminService;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.application.dto.UserProfileResponse;
+import com.caoqiang.blog.content.application.api.ContentMediaService;
+import com.caoqiang.blog.user.application.api.IdentityUser;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,19 +28,19 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final OAuthLoginCodeService oAuthLoginCodeService;
-    private final MediaAdminService mediaAdminService;
+    private final ContentMediaService contentMediaService;
     private final String frontendBaseUrl;
 
     public OAuth2LoginSuccessHandler(
             JwtService jwtService,
             RefreshTokenService refreshTokenService,
             OAuthLoginCodeService oAuthLoginCodeService,
-            MediaAdminService mediaAdminService,
+            ContentMediaService contentMediaService,
             @Value("${blog.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
         this.oAuthLoginCodeService = oAuthLoginCodeService;
-        this.mediaAdminService = mediaAdminService;
+        this.contentMediaService = contentMediaService;
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
@@ -48,16 +48,16 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
         GithubOAuth2User oauth2User = (GithubOAuth2User) authentication.getPrincipal();
-        User user = oauth2User.getUser();
+        IdentityUser user = oauth2User.getUser();
 
         JwtService.JwtToken accessToken = jwtService.createAccessToken(user);
-        RefreshTokenService.RawRefreshToken refreshToken = refreshTokenService.createFor(user);
+        RefreshTokenService.RawRefreshToken refreshToken = refreshTokenService.createFor(user.id());
 
-        AuthTokenResponse session = new AuthTokenResponse(
+        IssuedAuthSession session = new IssuedAuthSession(
                 accessToken.value(),
                 refreshToken.value(),
                 accessToken.expiresAt(),
-                UserProfileResponse.from(user, mediaAdminService.resolveUrl(user.getAvatarUrl()))
+                UserProfileResponse.from(user, contentMediaService.resolveUrl(user.avatarUrl()))
         );
         String loginCode = oAuthLoginCodeService.create(session);
         String redirectUrl = frontendBaseUrl + "/login/oauth2/code/github?login_code=" + loginCode;

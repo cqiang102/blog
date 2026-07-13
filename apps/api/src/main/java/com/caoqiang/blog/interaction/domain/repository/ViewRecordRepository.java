@@ -6,7 +6,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
@@ -43,7 +42,6 @@ public interface ViewRecordRepository extends JpaRepository<ViewRecord, UUID>, J
      * @return 浏览记录分页结果
      */
     @Override
-    @EntityGraph(attributePaths = {"content", "user"})
     Page<ViewRecord> findAll(Specification<ViewRecord> specification, Pageable pageable);
 
     /**
@@ -53,7 +51,6 @@ public interface ViewRecordRepository extends JpaRepository<ViewRecord, UUID>, J
      * @return 浏览记录（可能为空）
      */
     @Override
-    @EntityGraph(attributePaths = {"content", "user"})
     Optional<ViewRecord> findById(UUID id);
 
     /**
@@ -121,6 +118,6 @@ public interface ViewRecordRepository extends JpaRepository<ViewRecord, UUID>, J
      * 原子删除用户自己的浏览记录，返回实际删除行数。
      */
     @Modifying
-    @Query("delete from ViewRecord v where v.id = :id and v.user.id = :userId")
+    @Query("delete from ViewRecord v where v.id = :id and v.userId = :userId")
     int deleteByIdAndUserId(@Param("id") UUID id, @Param("userId") UUID userId);
 }

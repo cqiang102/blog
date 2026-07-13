@@ -1,9 +1,9 @@
 package com.caoqiang.blog.interaction.application.dto;
 
+import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.domain.model.Comment;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
+import com.caoqiang.blog.user.application.api.IdentityUser;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -41,26 +41,20 @@ public record CommentResponse(
      * @param comment 评论实体
      * @return 评论响应 DTO
      */
-    public static CommentResponse from(Comment comment) {
-        return from(comment, comment.getUser().getAvatarUrl());
-    }
-
-    /**
-     * 从评论实体创建响应 DTO（使用预签名头像 URL）
-     *
-     * @param comment           评论实体
-     * @param presignedAvatarUrl 预签名头像 URL
-     * @return 评论响应 DTO
-     */
-    public static CommentResponse from(Comment comment, String presignedAvatarUrl) {
+    public static CommentResponse from(
+            Comment comment,
+            ContentInteractionSnapshot content,
+            IdentityUser author,
+            String presignedAvatarUrl
+    ) {
         return new CommentResponse(
                 comment.getId(),
-                comment.getContent().getId(),
-                comment.getContent().getTitle(),
+                comment.getContentId(),
+                content.title(),
                 comment.getBody(),
                 new CommentAuthor(
-                        comment.getUser().getId(),
-                        comment.getUser().getNickname(),
+                        comment.getUserId(),
+                        author.nickname(),
                         presignedAvatarUrl
                 ),
                 comment.getAuditStatus(),
