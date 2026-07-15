@@ -47,24 +47,6 @@ extension _ContentEditorScaffold on _ContentEditorPageState {
 
   List<Widget> _buildActions(ContentEditorState state) {
     return [
-      TextButton.icon(
-        onPressed: state.isSubmitting || !state.isPreviewable
-            ? null
-            : () => _controller.setEditMode(EditorEditMode.preview),
-        icon: const HugeIcon(icon: HugeIcons.strokeRoundedView, size: 18),
-        label: const Text('预览'),
-      ),
-      TextButton.icon(
-        onPressed:
-            state.isSubmitting ||
-                state.isUploading ||
-                state.isSavingDraft ||
-                !state.hasUnsavedChanges
-            ? null
-            : _saveLocalDraft,
-        icon: const Icon(Icons.cloud_download_outlined, size: 18),
-        label: const Text('保存到本机'),
-      ),
       ..._serverActionButtons(state),
       const SizedBox(width: AppSpacing.sm),
     ];
@@ -80,21 +62,7 @@ extension _ContentEditorScaffold on _ContentEditorPageState {
             vertical: AppSpacing.sm,
           ),
           child: Row(
-            children: [
-              IconButton(
-                tooltip: '保存到本机',
-                onPressed:
-                    state.isSubmitting ||
-                        state.isUploading ||
-                        state.isSavingDraft ||
-                        !state.hasUnsavedChanges
-                    ? null
-                    : _saveLocalDraft,
-                icon: const Icon(Icons.cloud_download_outlined),
-              ),
-              const Spacer(),
-              ..._serverActionButtons(state),
-            ],
+            children: [const Spacer(), ..._serverActionButtons(state)],
           ),
         ),
       ),
@@ -134,7 +102,7 @@ extension _ContentEditorScaffold on _ContentEditorPageState {
       onTitleChanged: _controller.updateTitle,
       onSummaryChanged: _controller.updateSummary,
       onBodyChanged: _handleBodyChanged,
-      onInsertMarkdown: _insertMarkdown,
+      onMarkdownAction: _applyMarkdownAction,
       onInsertCodeBlockLanguage: _insertCodeBlockLanguage,
       onInsertImage: _showImagePicker,
       onOpenTableEditor: _showTableEditor,
@@ -153,6 +121,7 @@ extension _ContentEditorScaffold on _ContentEditorPageState {
       onPublishedAtCleared: () => _controller.updatePublishedAt(null),
       onTagToggled: _controller.toggleTag,
       onCoverPressed: _pickCover,
+      onCollapse: wide ? _toggleSettings : null,
     );
 
     if (!wide) {
@@ -171,32 +140,74 @@ extension _ContentEditorScaffold on _ContentEditorPageState {
       );
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    const settingsWidth = 320.0;
+    final scheme = Theme.of(context).colorScheme;
+    final duration = AppMotion.duration(
+      context,
+      const Duration(milliseconds: 220),
+    );
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            children: [
-              mainPanel,
-              if (!state.isMediaType) ...[
-                const SizedBox(height: AppSpacing.md),
-                _buildMediaSection(state),
-              ],
-            ],
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: AnimatedPadding(
+                duration: duration,
+                curve: Curves.easeOutCubic,
+                padding: EdgeInsets.only(right: _settingsExpanded ? 0 : 48),
+                child: ListView(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  children: [
+                    mainPanel,
+                    if (!state.isMediaType) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      _buildMediaSection(state),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            CollapsibleInspector(
+              expanded: _settingsExpanded,
+              width: settingsWidth,
+              duration: duration,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  VerticalDivider(width: 1, color: scheme.outlineVariant),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.lg,
+                      ),
+                      children: [settings],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (!_settingsExpanded)
+          Positioned(
+            top: AppSpacing.lg,
+            right: AppSpacing.sm,
+            child: IconButton(
+              key: const ValueKey('content-editor-settings-expand'),
+              tooltip: '展开发布设置',
+              constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+              padding: EdgeInsets.zero,
+              onPressed: _toggleSettings,
+              icon: HugeIcon(
+                icon: HugeIcons.strokeRoundedSidebarLeft01,
+                size: 22,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
           ),
-        ),
-        VerticalDivider(
-          width: 1,
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
-        SizedBox(
-          width: 360,
-          child: ListView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            children: [settings],
-          ),
-        ),
       ],
     );
   }
@@ -225,13 +236,13 @@ class _SaveStatusText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = state.isSavingDraft
-        ? '正在保存到本机…'
+        ? '正在自动保存…'
         : state.hasUnsavedChanges
         ? state.lastLocalSavedAt == null
-              ? '尚未提交'
-              : '本机草稿已更新，仍未提交'
+              ? '更改将在本机自动保存'
+              : '已自动保存到本机 · 尚未提交'
         : isNew
-        ? '尚未编辑'
+        ? '本机自动保存已开启'
         : '已与服务器同步';
     return Text(
       text,

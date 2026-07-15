@@ -76,18 +76,67 @@ class _MarkdownHeadingBuilder extends MarkdownElementBuilder {
         preferredStyle ??
         Theme.of(context).textTheme.titleMedium ??
         const TextStyle();
+    final headingStyle = style.copyWith(fontWeight: FontWeight.w700);
     return Padding(
       key: keyForHeading(element.textContent),
       padding: EdgeInsets.only(
         top: level == 1 ? AppSpacing.sm : AppSpacing.xs,
         bottom: AppSpacing.xs,
       ),
-      child: SelectableText(
-        element.textContent,
-        style: style.copyWith(fontWeight: FontWeight.w700),
+      child: SelectableText.rich(
+        TextSpan(
+          style: headingStyle,
+          children: _headingInlineSpans(
+            context,
+            element.children,
+            headingStyle,
+          ),
+        ),
       ),
     );
   }
+}
+
+List<InlineSpan> _headingInlineSpans(
+  BuildContext context,
+  List<md.Node>? nodes,
+  TextStyle parentStyle,
+) {
+  if (nodes == null) return const [];
+  return [
+    for (final node in nodes)
+      if (node is md.Text)
+        TextSpan(text: node.text)
+      else if (node is md.Element)
+        TextSpan(
+          style: _headingInlineStyle(context, node.tag, parentStyle),
+          children: _headingInlineSpans(context, node.children, parentStyle),
+        ),
+  ];
+}
+
+TextStyle? _headingInlineStyle(
+  BuildContext context,
+  String tag,
+  TextStyle parentStyle,
+) {
+  final scheme = Theme.of(context).colorScheme;
+  return switch (tag) {
+    'strong' || 'b' => parentStyle.copyWith(fontWeight: FontWeight.w800),
+    'em' || 'i' => parentStyle.copyWith(fontStyle: FontStyle.italic),
+    'del' ||
+    's' => parentStyle.copyWith(decoration: TextDecoration.lineThrough),
+    'code' => parentStyle.copyWith(
+      fontFamily: 'monospace',
+      backgroundColor: scheme.surfaceContainerHighest,
+    ),
+    'a' => parentStyle.copyWith(
+      color: scheme.primary,
+      decoration: TextDecoration.underline,
+      decorationColor: scheme.primary,
+    ),
+    _ => null,
+  };
 }
 
 class _MarkdownHeading {
@@ -116,7 +165,7 @@ List<_MarkdownHeading> _extractMarkdownHeadings(String data) {
     }
     if (inCodeFence) continue;
 
-    final match = RegExp(r'^(#{1,3})\s+(.+?)\s*#*\s*$').firstMatch(line);
+    final match = RegExp(r'^(#{1,6})\s+(.+?)\s*#*\s*$').firstMatch(line);
     if (match == null) continue;
 
     final text = _cleanHeadingText(match.group(2)!);

@@ -56,11 +56,22 @@ extension _ContentEditorActions on _ContentEditorPageState {
     _controller.setCover(selected.isEmpty ? null : selected);
   }
 
-  void _insertMarkdown(String prefix, String suffix) {
-    _applyMarkdownEdit(
-      (value) =>
-          MarkdownEditCommand.wrap(value, prefix: prefix, suffix: suffix),
-    );
+  void _applyMarkdownAction(MarkdownEditAction action) {
+    _applyMarkdownEdit((value) => MarkdownEditCommand.apply(value, action));
+  }
+
+  void _applyMarkdownShortcut(MarkdownEditAction action) {
+    if (!_bodyFocusNode.hasFocus) return;
+    _applyMarkdownAction(action);
+  }
+
+  void _applyCodeBlockShortcut() {
+    if (!_bodyFocusNode.hasFocus) return;
+    _insertCodeBlockLanguage('');
+  }
+
+  void _insertMarkdownImage(String url) {
+    _applyMarkdownEdit((value) => MarkdownEditCommand.image(value, url: url));
   }
 
   void _insertCodeBlockLanguage(String language) {
@@ -109,11 +120,11 @@ extension _ContentEditorActions on _ContentEditorPageState {
   Future<void> _showImagePicker() async {
     var state = ref.read(contentEditorControllerProvider(widget.contentId));
     if (state.mediaUrls.isEmpty) {
-      await _uploadMedia(forceImage: true);
+      await _uploadMedia(forceImage: true, allowMultiple: false);
       if (!mounted) return;
       state = ref.read(contentEditorControllerProvider(widget.contentId));
       if (state.mediaUrls.isNotEmpty) {
-        _insertMarkdown('![图片](${state.mediaUrls.last})', '');
+        _insertMarkdownImage(state.mediaUrls.last);
       }
       return;
     }
@@ -128,15 +139,15 @@ extension _ContentEditorActions on _ContentEditorPageState {
     if (!mounted || selected == null) return;
     if (selected == '__upload__') {
       final previousLength = state.mediaUrls.length;
-      await _uploadMedia(forceImage: true);
+      await _uploadMedia(forceImage: true, allowMultiple: false);
       if (!mounted) return;
       final next = ref.read(contentEditorControllerProvider(widget.contentId));
       if (next.mediaUrls.length > previousLength) {
-        _insertMarkdown('![图片](${next.mediaUrls.last})', '');
+        _insertMarkdownImage(next.mediaUrls.last);
       }
       return;
     }
-    _insertMarkdown('![图片]($selected)', '');
+    _insertMarkdownImage(selected);
   }
 
   Future<void> _showTableEditor() async {
@@ -148,9 +159,44 @@ extension _ContentEditorActions on _ContentEditorPageState {
     _insertTable(spec.columns, spec.rows);
   }
 
-  Future<void> _uploadPastedImage(PastedMarkdownImage image) async {
+  void _queuePastedImage(PastedMarkdownImage image) {
     final state = ref.read(contentEditorControllerProvider(widget.contentId));
-    if (state.isSubmitting || state.isUploading) return;
+    if (state.isSubmitting) {
+      showAdminSnack(context, '正在提交，暂时无法粘贴图片');
+      return;
+    }
+
+    final marker = '<!-- image-upload-${++_pastedImageSequence} -->';
+    _applyMarkdownEdit((value) => MarkdownEditCommand.insert(value, marker));
+
+    final previousUpload = _pastedImageQueue;
+    _pastedImageQueue = () async {
+      try {
+        await previousUpload;
+      } catch (_) {
+        // 前一项失败不应阻断后续粘贴任务。
+      }
+      if (!mounted) return;
+      await _uploadPastedImage(image, marker);
+    }();
+  }
+
+  Future<void> _uploadPastedImage(
+    PastedMarkdownImage image,
+    String marker,
+  ) async {
+    while (true) {
+      if (!mounted) return;
+      final state = ref.read(contentEditorControllerProvider(widget.contentId));
+      if (state.isSubmitting) {
+        _replacePastedImageMarker(marker, '');
+        showAdminSnack(context, '图片未插入：内容正在提交');
+        return;
+      }
+      if (!state.isUploading) break;
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+    }
+    if (!mounted) return;
 
     final result = await _controller.uploadMediaBytes(
       bytes: image.bytes,
@@ -159,30 +205,42 @@ extension _ContentEditorActions on _ContentEditorPageState {
     );
     if (!mounted) return;
     if (result.error != null) {
+      _replacePastedImageMarker(marker, '');
       showAdminSnack(context, result.error!);
       return;
     }
     final url = result.url;
     if (url != null) {
-      _insertMarkdown('![图片]($url)', '');
+      _replacePastedImageMarker(marker, '![图片]($url)');
       showAdminSnack(context, '图片已上传并插入正文');
+      return;
     }
+    _replacePastedImageMarker(marker, '');
+    showAdminSnack(context, '图片上传未完成，请重试');
   }
 
-  Future<void> _uploadMedia({required bool forceImage}) async {
+  void _replacePastedImageMarker(String marker, String replacement) {
+    final current = _bodyController.value;
+    final next = MarkdownEditCommand.replaceMarker(
+      current,
+      marker: marker,
+      replacement: replacement,
+    );
+    if (identical(current, next) || current.text == next.text) return;
+    _setBodyEditingValue(next);
+  }
+
+  Future<void> _uploadMedia({
+    required bool forceImage,
+    bool allowMultiple = true,
+  }) async {
     final state = ref.read(contentEditorControllerProvider(widget.contentId));
     if (state.isSubmitting) return;
     final error = await _controller.uploadMedia(
       forceImage: forceImage,
-      allowMultiple: true,
+      allowMultiple: allowMultiple,
     );
     if (error != null && mounted) showAdminSnack(context, error);
-  }
-
-  Future<void> _saveLocalDraft() async {
-    final success = await _controller.saveLocalDraft();
-    if (!mounted) return;
-    showAdminSnack(context, success ? '草稿已保存到本机' : '当前没有需要保存的更改');
   }
 
   void _saveCurrentToServer() {

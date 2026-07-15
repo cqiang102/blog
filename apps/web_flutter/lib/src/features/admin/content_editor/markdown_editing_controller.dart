@@ -11,11 +11,54 @@ class MarkdownEditingController extends TextEditingController {
   }) {
     final baseStyle = style ?? DefaultTextStyle.of(context).style;
     final scheme = Theme.of(context).colorScheme;
-    return TextSpan(
-      style: baseStyle,
-      children: _highlightMarkdownText(text, baseStyle, scheme),
-    );
+    var children = _highlightMarkdownText(text, baseStyle, scheme);
+    if (withComposing && value.isComposingRangeValid) {
+      children = _applyComposingUnderline(children, value.composing);
+    }
+    return TextSpan(style: baseStyle, children: children);
   }
+}
+
+List<TextSpan> _applyComposingUnderline(
+  List<TextSpan> spans,
+  TextRange composing,
+) {
+  final result = <TextSpan>[];
+  var documentOffset = 0;
+
+  for (final span in spans) {
+    final text = span.text ?? '';
+    final spanStart = documentOffset;
+    final spanEnd = spanStart + text.length;
+    final composingStart = composing.start.clamp(spanStart, spanEnd).toInt();
+    final composingEnd = composing.end.clamp(spanStart, spanEnd).toInt();
+
+    if (composingStart >= composingEnd) {
+      result.add(span);
+    } else {
+      final localStart = composingStart - spanStart;
+      final localEnd = composingEnd - spanStart;
+      if (localStart > 0) {
+        result.add(
+          TextSpan(text: text.substring(0, localStart), style: span.style),
+        );
+      }
+      result.add(
+        TextSpan(
+          text: text.substring(localStart, localEnd),
+          style: (span.style ?? const TextStyle()).copyWith(
+            decoration: TextDecoration.underline,
+          ),
+        ),
+      );
+      if (localEnd < text.length) {
+        result.add(TextSpan(text: text.substring(localEnd), style: span.style));
+      }
+    }
+    documentOffset = spanEnd;
+  }
+
+  return result;
 }
 
 List<TextSpan> _highlightMarkdownText(
@@ -26,14 +69,16 @@ List<TextSpan> _highlightMarkdownText(
   if (text.isEmpty) return const [TextSpan(text: '')];
 
   final spans = <TextSpan>[];
-  var inCodeFence = false;
+  String? openCodeFence;
   final lines = text.split('\n');
 
   for (var index = 0; index < lines.length; index++) {
     final line = lines[index];
     final fenceMatch = RegExp(r'^(\s*)(```|~~~)(.*)$').firstMatch(line);
 
-    if (fenceMatch != null) {
+    final fenceMarker = fenceMatch?.group(2)?[0];
+    if (fenceMatch != null &&
+        (openCodeFence == null || openCodeFence == fenceMarker)) {
       spans.add(
         TextSpan(
           text: line,
@@ -43,8 +88,8 @@ List<TextSpan> _highlightMarkdownText(
           ),
         ),
       );
-      inCodeFence = !inCodeFence;
-    } else if (inCodeFence) {
+      openCodeFence = openCodeFence == null ? fenceMarker : null;
+    } else if (openCodeFence != null) {
       spans.add(
         TextSpan(
           text: line,
@@ -112,7 +157,7 @@ List<TextSpan> _highlightMarkdownLine(
   }
 
   final list = RegExp(
-    r'^(\s*(?:[-*+]|\d+\.|- \[[ xX]\])\s+)(.*)$',
+    r'^(\s*(?:- \[[ xX]\]|[-*+]|\d+\.)\s+)(.*)$',
   ).firstMatch(line);
   if (list != null) {
     return [
@@ -137,7 +182,7 @@ List<TextSpan> _highlightInlineMarkdown(
 ) {
   final spans = <TextSpan>[];
   final pattern = RegExp(
-    r'(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[[^\]]+\]\([^)]+\))|(!?\[[^\]]*\]\([^)]+\))',
+    r'(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(\*[^*]+\*)|(\[[^\]]+\]\([^)]+\))|(!?\[[^\]]*\]\([^)]+\))',
   );
   var cursor = 0;
 
@@ -176,6 +221,12 @@ TextStyle _inlineTokenStyle(
     return baseStyle.copyWith(
       color: scheme.onSurface,
       fontWeight: FontWeight.w800,
+    );
+  }
+  if (token.startsWith('~~')) {
+    return baseStyle.copyWith(
+      color: scheme.onSurfaceVariant,
+      decoration: TextDecoration.lineThrough,
     );
   }
   if (token.startsWith('*')) {

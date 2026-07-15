@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -33,10 +34,12 @@ import 'package:highlight/languages/typescript.dart' as highlight_typescript;
 import 'package:highlight/languages/xml.dart' as highlight_xml;
 import 'package:highlight/languages/yaml.dart' as highlight_yaml;
 import 'package:markdown/markdown.dart' as md;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/constants.dart';
 import '../../../../core/media_url.dart';
 import '../../../../theme/app_spacing.dart';
+import '../markdown_edit_command.dart';
 import '../content_editor_state.dart';
 import 'markdown_toolbar.dart';
 
@@ -53,7 +56,7 @@ class EditorMainPanel extends StatelessWidget {
     required this.onTitleChanged,
     required this.onSummaryChanged,
     required this.onBodyChanged,
-    required this.onInsertMarkdown,
+    required this.onMarkdownAction,
     required this.onInsertCodeBlockLanguage,
     required this.onInsertImage,
     required this.onOpenTableEditor,
@@ -69,7 +72,7 @@ class EditorMainPanel extends StatelessWidget {
   final ValueChanged<String> onTitleChanged;
   final ValueChanged<String> onSummaryChanged;
   final ValueChanged<String> onBodyChanged;
-  final void Function(String prefix, String suffix) onInsertMarkdown;
+  final ValueChanged<MarkdownEditAction> onMarkdownAction;
   final ValueChanged<String> onInsertCodeBlockLanguage;
   final VoidCallback onInsertImage;
   final VoidCallback onOpenTableEditor;
@@ -82,13 +85,14 @@ class EditorMainPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextFormField(
+          key: const ValueKey('content-editor-title-field'),
           controller: titleController,
-          style: Theme.of(context).textTheme.headlineSmall,
-          decoration: const InputDecoration(
-            hintText: '输入一个清晰的内容标题',
-            labelText: '标题',
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontSize: 18, height: 1.3),
+          decoration: _editorMetadataDecoration(context, hintText: '标题'),
           maxLength: 180,
+          buildCounter: _hideEditorLengthCounter,
           textInputAction: TextInputAction.next,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           validator: (value) =>
@@ -97,15 +101,13 @@ class EditorMainPanel extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         TextFormField(
+          key: const ValueKey('content-editor-summary-field'),
           controller: summaryController,
-          decoration: const InputDecoration(
-            labelText: '摘要',
-            hintText: '用于列表、搜索结果和分享卡片的简短介绍',
-            alignLabelWithHint: true,
-          ),
-          minLines: 2,
-          maxLines: 4,
+          decoration: _editorMetadataDecoration(context, hintText: '摘要（可选）'),
+          minLines: 1,
+          maxLines: 3,
           maxLength: 2000,
+          buildCounter: _hideEditorLengthCounter,
           onChanged: onSummaryChanged,
         ),
         const SizedBox(height: AppSpacing.md),
@@ -117,7 +119,7 @@ class EditorMainPanel extends StatelessWidget {
             bodyController: bodyController,
             bodyFocusNode: bodyFocusNode,
             onBodyChanged: onBodyChanged,
-            onInsertMarkdown: onInsertMarkdown,
+            onMarkdownAction: onMarkdownAction,
             onInsertCodeBlockLanguage: onInsertCodeBlockLanguage,
             onInsertImage: onInsertImage,
             onOpenTableEditor: onOpenTableEditor,
@@ -128,13 +130,49 @@ class EditorMainPanel extends StatelessWidget {
   }
 }
 
+InputDecoration _editorMetadataDecoration(
+  BuildContext context, {
+  required String hintText,
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  final radius = BorderRadius.circular(12);
+  final enabledBorder = OutlineInputBorder(
+    borderRadius: radius,
+    borderSide: BorderSide(color: scheme.outlineVariant),
+  );
+  return InputDecoration(
+    hintText: hintText,
+    counterText: '',
+    isDense: true,
+    filled: true,
+    fillColor: scheme.surfaceContainerLowest,
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md,
+      vertical: 12,
+    ),
+    border: enabledBorder,
+    enabledBorder: enabledBorder,
+    focusedBorder: OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: scheme.primary, width: 1.5),
+    ),
+  );
+}
+
+Widget? _hideEditorLengthCounter(
+  BuildContext context, {
+  required int currentLength,
+  required bool isFocused,
+  required int? maxLength,
+}) => null;
+
 class _MarkdownPanel extends StatefulWidget {
   const _MarkdownPanel({
     required this.state,
     required this.bodyController,
     required this.bodyFocusNode,
     required this.onBodyChanged,
-    required this.onInsertMarkdown,
+    required this.onMarkdownAction,
     required this.onInsertCodeBlockLanguage,
     required this.onInsertImage,
     required this.onOpenTableEditor,
@@ -145,7 +183,7 @@ class _MarkdownPanel extends StatefulWidget {
   final TextEditingController bodyController;
   final FocusNode bodyFocusNode;
   final ValueChanged<String> onBodyChanged;
-  final void Function(String prefix, String suffix) onInsertMarkdown;
+  final ValueChanged<MarkdownEditAction> onMarkdownAction;
   final ValueChanged<String> onInsertCodeBlockLanguage;
   final VoidCallback onInsertImage;
   final VoidCallback onOpenTableEditor;
@@ -257,104 +295,151 @@ class _MarkdownPanelState extends State<_MarkdownPanel> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final panelHeight = (MediaQuery.sizeOf(context).height - 240)
-        .clamp(520.0, 860.0)
+    final viewport = MediaQuery.sizeOf(context);
+    final compact = viewport.width < kTabletBreakpoint;
+    final panelHeight = (viewport.height * 0.56)
+        .clamp(compact ? 420.0 : 480.0, compact ? 600.0 : 660.0)
         .toDouble();
     final characterCount = widget.state.bodyMarkdown.trim().runes.length;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 520),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) => Padding(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: MarkdownToolbar(
-                      onInsert: widget.onInsertMarkdown,
-                      editMode: widget.state.editMode,
-                      onSetEditMode: widget.onEditModeChanged,
-                      onInsertImage: widget.onInsertImage,
-                      onInsertCodeBlockLanguage:
-                          widget.onInsertCodeBlockLanguage,
-                      onOpenTableEditor: widget.onOpenTableEditor,
-                      mediaUrls: widget.state.mediaUrls,
-                    ),
-                  ),
-                  if (constraints.maxWidth >= kTabletBreakpoint) ...[
-                    const SizedBox(width: AppSpacing.md),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10, right: 6),
-                      child: Text(
-                        '$characterCount 字',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+    return RepaintBoundary(
+      key: const ValueKey('content-editor-markdown-panel'),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 520),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: scheme.shadow.withValues(alpha: 0.08),
+              blurRadius: 0,
+              spreadRadius: 1,
+            ),
+            BoxShadow(
+              color: scheme.shadow.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) => Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.sm,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: MarkdownToolbar(
+                        onAction: widget.onMarkdownAction,
+                        editMode: widget.state.editMode,
+                        onSetEditMode: widget.onEditModeChanged,
+                        onInsertImage: widget.onInsertImage,
+                        onInsertCodeBlockLanguage:
+                            widget.onInsertCodeBlockLanguage,
+                        onOpenTableEditor: widget.onOpenTableEditor,
                       ),
                     ),
+                    if (constraints.maxWidth >= kTabletBreakpoint) ...[
+                      const SizedBox(width: AppSpacing.md),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 11, right: 6),
+                        child: _CharacterCount(value: characterCount),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          Divider(height: 1, color: scheme.outlineVariant),
-          SizedBox(
-            height: panelHeight,
-            child: switch (widget.state.editMode) {
-              EditorEditMode.source => _SourceEditor(
-                controller: widget.bodyController,
-                focusNode: widget.bodyFocusNode,
-                scrollController: _sourceScrollController,
-                onScrollMetrics: (metrics) => _syncScrollMetrics(
-                  sourceMetrics: metrics,
-                  target: _previewScrollController,
+            Divider(height: 1, color: scheme.outlineVariant),
+            SizedBox(
+              height: panelHeight,
+              child: switch (widget.state.editMode) {
+                EditorEditMode.source => _buildSourcePane(scheme),
+                EditorEditMode.split => LayoutBuilder(
+                  builder: (context, constraints) {
+                    final source = _buildSourcePane(scheme);
+                    final preview = _buildPreviewPane(scheme);
+                    if (constraints.maxWidth >= kTabletBreakpoint) {
+                      return Row(
+                        children: [
+                          Expanded(flex: 11, child: source),
+                          VerticalDivider(
+                            width: 1,
+                            color: scheme.outlineVariant,
+                          ),
+                          Expanded(flex: 9, child: preview),
+                        ],
+                      );
+                    }
+                    return Column(
+                      children: [
+                        Expanded(flex: 11, child: source),
+                        Divider(height: 1, color: scheme.outlineVariant),
+                        Expanded(flex: 9, child: preview),
+                      ],
+                    );
+                  },
                 ),
-                onChanged: widget.onBodyChanged,
-              ),
-              EditorEditMode.split => Row(
-                children: [
-                  Expanded(
-                    child: _SourceEditor(
-                      controller: widget.bodyController,
-                      focusNode: widget.bodyFocusNode,
-                      scrollController: _sourceScrollController,
-                      onScrollMetrics: (metrics) => _syncScrollMetrics(
-                        sourceMetrics: metrics,
-                        target: _previewScrollController,
-                      ),
-                      onChanged: widget.onBodyChanged,
-                    ),
-                  ),
-                  VerticalDivider(width: 1, color: scheme.outlineVariant),
-                  Expanded(
-                    child: _MarkdownPreview(
-                      data: widget.state.bodyMarkdown,
-                      scrollController: _previewScrollController,
-                      onScrollMetrics: (metrics) => _syncScrollMetrics(
-                        sourceMetrics: metrics,
-                        target: _sourceScrollController,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              EditorEditMode.preview => _MarkdownPreview(
-                data: widget.state.bodyMarkdown,
-                scrollController: _previewScrollController,
-                onScrollMetrics: (_) {},
-              ),
-            },
-          ),
-        ],
+                EditorEditMode.preview => _buildPreviewPane(scheme),
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSourcePane(ColorScheme scheme) {
+    return ColoredBox(
+      key: const ValueKey('content-editor-source-pane'),
+      color: scheme.surfaceContainerLow.withValues(alpha: 0.46),
+      child: _SourceEditor(
+        controller: widget.bodyController,
+        focusNode: widget.bodyFocusNode,
+        scrollController: _sourceScrollController,
+        onScrollMetrics: (metrics) => _syncScrollMetrics(
+          sourceMetrics: metrics,
+          target: _previewScrollController,
+        ),
+        onChanged: widget.onBodyChanged,
+      ),
+    );
+  }
+
+  Widget _buildPreviewPane(ColorScheme scheme) {
+    return ColoredBox(
+      key: const ValueKey('content-editor-preview-pane'),
+      color: scheme.surface,
+      child: _MarkdownPreview(
+        data: widget.state.bodyMarkdown,
+        scrollController: _previewScrollController,
+        onScrollMetrics: (metrics) => _syncScrollMetrics(
+          sourceMetrics: metrics,
+          target: _sourceScrollController,
+        ),
+      ),
+    );
+  }
+}
+
+class _CharacterCount extends StatelessWidget {
+  const _CharacterCount({required this.value});
+
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '$value 字',
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
   }
@@ -387,6 +472,7 @@ class _SourceEditor extends StatelessWidget {
       child: Scrollbar(
         controller: scrollController,
         child: TextFormField(
+          key: const ValueKey('content-editor-source-field'),
           controller: controller,
           focusNode: focusNode,
           scrollController: scrollController,
@@ -396,12 +482,18 @@ class _SourceEditor extends StatelessWidget {
           textAlignVertical: TextAlignVertical.top,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontFamily: 'monospace',
-            height: 1.45,
+            height: 1.55,
           ),
           decoration: const InputDecoration(
             border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
+            filled: false,
             hintText: '开始撰写 Markdown 内容…',
-            contentPadding: EdgeInsets.all(AppSpacing.md),
+            contentPadding: EdgeInsets.all(AppSpacing.lg),
           ),
           onChanged: onChanged,
         ),
@@ -431,6 +523,8 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
   @override
   Widget build(BuildContext context) {
     final headings = _extractMarkdownHeadings(widget.data);
+    final currentSlugs = headings.map((heading) => heading.slug).toSet();
+    _headingKeys.removeWhere((slug, _) => !currentSlugs.contains(slug));
     for (final heading in headings) {
       _headingKeys.putIfAbsent(heading.slug, GlobalKey.new);
     }
@@ -480,7 +574,7 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
     final headingUsage = <String, int>{};
     final builders = <String, MarkdownElementBuilder>{
       'pre': _MarkdownCodeBlockBuilder(),
-      for (final level in [1, 2, 3])
+      for (final level in [1, 2, 3, 4, 5, 6])
         'h$level': _MarkdownHeadingBuilder(
           level: level,
           keyForHeading: (text) {
@@ -496,6 +590,10 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
           0.0,
           constraints.maxWidth - AppSpacing.lg * 2,
         );
+        final contentHeight = math.max(
+          0.0,
+          constraints.maxHeight - AppSpacing.lg * 2,
+        );
         return NotificationListener<ScrollNotification>(
           onNotification: (notification) {
             if (notification.metrics.axis == Axis.vertical) {
@@ -508,31 +606,39 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
             child: SingleChildScrollView(
               controller: widget.scrollController,
               padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: contentWidth),
-                  child: MarkdownBody(
-                    data: widget.data.trim().isEmpty ? '*暂无内容*' : widget.data,
-                    selectable: true,
-                    fitContent: false,
-                    softLineBreak: true,
-                    styleSheet: _editorPreviewMarkdownStyle(context),
-                    builders: builders,
-                    imageBuilder: (uri, title, alt) => ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: CachedNetworkImage(
-                        imageUrl: resolveMediaUrl(uri.toString()),
-                        fit: BoxFit.contain,
-                        placeholder: (_, __) => const Padding(
-                          padding: EdgeInsets.all(AppSpacing.lg),
-                          child: Center(
-                            child: CircularProgressIndicator.adaptive(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: contentWidth,
+                  minHeight: contentHeight,
+                ),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: contentWidth,
+                    child: MarkdownBody(
+                      key: const ValueKey('content-editor-markdown-preview'),
+                      data: widget.data.trim().isEmpty ? '*暂无内容*' : widget.data,
+                      selectable: true,
+                      fitContent: false,
+                      softLineBreak: true,
+                      styleSheet: _editorPreviewMarkdownStyle(context),
+                      builders: builders,
+                      onTapLink: (_, href, _) => _openLink(context, href),
+                      imageBuilder: (uri, title, alt) => ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: CachedNetworkImage(
+                          imageUrl: resolveMediaUrl(uri.toString()),
+                          fit: BoxFit.contain,
+                          placeholder: (_, __) => const Padding(
+                            padding: EdgeInsets.all(AppSpacing.lg),
+                            child: Center(
+                              child: CircularProgressIndicator.adaptive(),
+                            ),
                           ),
-                        ),
-                        errorWidget: (_, __, ___) => Padding(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
-                          child: Text(alt ?? '图片加载失败'),
+                          errorWidget: (_, __, ___) => Padding(
+                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            child: Text(alt ?? '图片加载失败'),
+                          ),
                         ),
                       ),
                     ),
@@ -555,5 +661,31 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
       curve: Curves.easeOutCubic,
       alignment: 0.05,
     );
+  }
+
+  void _openLink(BuildContext context, String? href) {
+    if (href == null || href.trim().isEmpty) return;
+    unawaited(_launchPreviewLink(context, href));
+  }
+
+  Future<void> _launchPreviewLink(BuildContext context, String href) async {
+    final parsed = Uri.tryParse(href);
+    if (parsed == null) return;
+    final uri = parsed.hasScheme ? parsed : Uri.base.resolveUri(parsed);
+    if (!const {'http', 'https', 'mailto'}.contains(uri.scheme)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('该链接类型无法预览')));
+      }
+      return;
+    }
+
+    final opened = await launchUrl(uri, webOnlyWindowName: '_blank');
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('无法打开链接')));
+    }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
+import '../markdown_edit_command.dart';
 import '../content_editor_state.dart';
 
 /// Markdown 工具栏
@@ -8,17 +9,16 @@ import '../content_editor_state.dart';
 class MarkdownToolbar extends StatelessWidget {
   const MarkdownToolbar({
     super.key,
-    required this.onInsert,
+    required this.onAction,
     this.onSetEditMode,
     this.editMode = EditorEditMode.source,
     this.onInsertImage,
     this.onInsertCodeBlockLanguage,
     this.onOpenTableEditor,
-    this.mediaUrls = const [],
   });
 
-  /// 插入 Markdown 语法的回调
-  final void Function(String prefix, String suffix) onInsert;
+  /// 应用 Markdown 编辑命令的回调
+  final ValueChanged<MarkdownEditAction> onAction;
 
   /// 设置编辑模式的回调
   final void Function(EditorEditMode mode)? onSetEditMode;
@@ -35,97 +35,81 @@ class MarkdownToolbar extends StatelessWidget {
   /// 打开表格编辑器
   final VoidCallback? onOpenTableEditor;
 
-  /// 已上传的媒体 URL 列表
-  final List<String> mediaUrls;
-
   @override
   Widget build(BuildContext context) {
+    final editingEnabled = editMode != EditorEditMode.preview;
     return Wrap(
       spacing: 4,
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        // 格式化按钮
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedTextBold,
-          tooltip: '粗体 (Ctrl+B)',
-          onPressed: () => onInsert('**', '**'),
-        ),
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedTextItalic,
-          tooltip: '斜体 (Ctrl+I)',
-          onPressed: () => onInsert('*', '*'),
-        ),
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedTextStrikethrough,
-          tooltip: '删除线',
-          onPressed: () => onInsert('~~', '~~'),
-        ),
-        const _Divider(),
-
-        // 标题下拉菜单
-        _HeadingMenu(onInsert: onInsert),
-        const _Divider(),
-
-        // 列表和引用
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedLeftToRightListBullet,
-          tooltip: '无序列表',
-          onPressed: () => onInsert('\n- ', '\n'),
-        ),
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedLeftToRightListNumber,
-          tooltip: '有序列表',
-          onPressed: () => onInsert('\n1. ', '\n'),
-        ),
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedCheckList,
-          tooltip: '任务列表',
-          onPressed: () => onInsert('\n- [ ] ', '\n'),
-        ),
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedLeftToRightBlockQuote,
-          tooltip: '引用',
-          onPressed: () => onInsert('\n> ', '\n'),
-        ),
-        const _Divider(),
-
-        // 代码和链接
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedCode,
-          tooltip: '行内代码',
-          onPressed: () => onInsert('`', '`'),
-        ),
-        _CodeBlockMenu(
-          onInsert: onInsert,
-          onInsertLanguage: onInsertCodeBlockLanguage,
-        ),
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedLink01,
-          tooltip: '链接',
-          onPressed: () => onInsert('[', '](url)'),
-        ),
-        const _Divider(),
-
-        // 图片
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedImage01,
-          tooltip: '插入图片',
-          onPressed: onInsertImage,
-        ),
-
-        // 表格
-        _TableMenu(onInsert: onInsert, onOpenTableEditor: onOpenTableEditor),
-
-        // 分割线
-        _ToolbarButton(
-          icon: HugeIcons.strokeRoundedSeparatorHorizontal,
-          tooltip: '分割线',
-          onPressed: () => onInsert('\n---\n', ''),
-        ),
+        if (editingEnabled) ...[
+          _ToolbarButton(
+            icon: HugeIcons.strokeRoundedTextBold,
+            tooltip: '粗体 (Ctrl/⌘ B)',
+            onPressed: () => onAction(MarkdownEditAction.bold),
+          ),
+          _ToolbarButton(
+            icon: HugeIcons.strokeRoundedTextItalic,
+            tooltip: '斜体 (Ctrl/⌘ I)',
+            onPressed: () => onAction(MarkdownEditAction.italic),
+          ),
+          _ToolbarButton(
+            icon: HugeIcons.strokeRoundedTextStrikethrough,
+            tooltip: '删除线',
+            onPressed: () => onAction(MarkdownEditAction.strikethrough),
+          ),
+          const _Divider(),
+          _HeadingMenu(onAction: onAction),
+          const _Divider(),
+          _ToolbarButton(
+            icon: HugeIcons.strokeRoundedLeftToRightListBullet,
+            tooltip: '无序列表 (Ctrl/⌘ Shift U)',
+            onPressed: () => onAction(MarkdownEditAction.unorderedList),
+          ),
+          _ToolbarButton(
+            icon: HugeIcons.strokeRoundedLeftToRightListNumber,
+            tooltip: '有序列表 (Ctrl/⌘ Shift O)',
+            onPressed: () => onAction(MarkdownEditAction.orderedList),
+          ),
+          _ToolbarButton(
+            icon: HugeIcons.strokeRoundedCheckList,
+            tooltip: '任务列表',
+            onPressed: () => onAction(MarkdownEditAction.taskList),
+          ),
+          _ToolbarButton(
+            icon: HugeIcons.strokeRoundedLeftToRightBlockQuote,
+            tooltip: '引用 (Ctrl/⌘ Shift Q)',
+            onPressed: () => onAction(MarkdownEditAction.quote),
+          ),
+          const _Divider(),
+          _ToolbarButton(
+            icon: HugeIcons.strokeRoundedCode,
+            tooltip: '行内代码',
+            onPressed: () => onAction(MarkdownEditAction.inlineCode),
+          ),
+          _CodeBlockMenu(onInsertLanguage: onInsertCodeBlockLanguage),
+          _ToolbarButton(
+            icon: HugeIcons.strokeRoundedLink01,
+            tooltip: '链接 (Ctrl/⌘ K)',
+            onPressed: () => onAction(MarkdownEditAction.link),
+          ),
+          const _Divider(),
+          _ToolbarButton(
+            icon: HugeIcons.strokeRoundedImage01,
+            tooltip: '插入图片',
+            onPressed: onInsertImage,
+          ),
+          _TableMenu(onAction: onAction, onOpenTableEditor: onOpenTableEditor),
+          _ToolbarButton(
+            icon: HugeIcons.strokeRoundedSeparatorHorizontal,
+            tooltip: '分割线',
+            onPressed: () => onAction(MarkdownEditAction.horizontalRule),
+          ),
+        ],
 
         if (onSetEditMode != null) ...[
-          const _Divider(),
+          if (editingEnabled) const _Divider(),
           // 编辑模式切换
           _EditModeSelector(editMode: editMode, onSetEditMode: onSetEditMode!),
         ],
@@ -159,21 +143,22 @@ class _EditModeSelector extends StatelessWidget {
             icon: HugeIcons.strokeRoundedVerticalScrollPoint,
             size: 16,
           ),
-          tooltip: '分屏模式',
+          tooltip: '实时预览模式',
         ),
         ButtonSegment(
           value: EditorEditMode.preview,
           icon: HugeIcon(icon: HugeIcons.strokeRoundedView, size: 16),
-          tooltip: '预览模式',
+          tooltip: '纯预览模式',
         ),
       ],
       selected: {editMode},
+      showSelectedIcon: false,
       onSelectionChanged: (modes) => onSetEditMode(modes.first),
       style: ButtonStyle(
         visualDensity: VisualDensity.compact,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        minimumSize: WidgetStateProperty.all(const Size(0, 40)),
         padding: WidgetStateProperty.all(
-          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
       ),
     );
@@ -182,41 +167,44 @@ class _EditModeSelector extends StatelessWidget {
 
 /// 代码块语言菜单
 class _CodeBlockMenu extends StatelessWidget {
-  const _CodeBlockMenu({
-    required this.onInsert,
-    required this.onInsertLanguage,
-  });
+  const _CodeBlockMenu({required this.onInsertLanguage});
 
-  final void Function(String prefix, String suffix) onInsert;
   final ValueChanged<String>? onInsertLanguage;
 
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      tooltip: '代码块',
+      tooltip: '代码块 (Ctrl/⌘ Shift C)',
       child: const Padding(
         padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: HugeIcon(icon: HugeIcons.strokeRoundedCodeSquare, size: 20),
       ),
       onSelected: (language) {
-        if (onInsertLanguage == null) {
-          onInsert('\n```$language\n', '\n```\n');
-          return;
-        }
-        onInsertLanguage!(language);
+        onInsertLanguage?.call(language);
       },
       itemBuilder: (context) => const [
         PopupMenuItem(value: '', child: Text('纯文本代码块')),
         PopupMenuDivider(),
         PopupMenuItem(value: 'bash', child: Text('Bash / Shell')),
+        PopupMenuItem(value: 'cpp', child: Text('C / C++')),
+        PopupMenuItem(value: 'css', child: Text('CSS')),
         PopupMenuItem(value: 'dart', child: Text('Dart / Flutter')),
-        PopupMenuItem(value: 'java', child: Text('Java')),
-        PopupMenuItem(value: 'kotlin', child: Text('Kotlin')),
+        PopupMenuItem(value: 'diff', child: Text('Diff')),
         PopupMenuItem(value: 'dockerfile', child: Text('Dockerfile')),
+        PopupMenuItem(value: 'go', child: Text('Go')),
+        PopupMenuItem(value: 'java', child: Text('Java')),
+        PopupMenuItem(value: 'javascript', child: Text('JavaScript')),
         PopupMenuItem(value: 'json', child: Text('JSON')),
-        PopupMenuItem(value: 'yaml', child: Text('YAML')),
-        PopupMenuItem(value: 'typescript', child: Text('TypeScript')),
+        PopupMenuItem(value: 'kotlin', child: Text('Kotlin')),
+        PopupMenuItem(value: 'markdown', child: Text('Markdown')),
+        PopupMenuItem(value: 'nginx', child: Text('Nginx')),
+        PopupMenuItem(value: 'python', child: Text('Python')),
+        PopupMenuItem(value: 'rust', child: Text('Rust')),
         PopupMenuItem(value: 'sql', child: Text('SQL')),
+        PopupMenuItem(value: 'swift', child: Text('Swift')),
+        PopupMenuItem(value: 'typescript', child: Text('TypeScript')),
+        PopupMenuItem(value: 'xml', child: Text('XML / HTML')),
+        PopupMenuItem(value: 'yaml', child: Text('YAML')),
       ],
     );
   }
@@ -224,9 +212,9 @@ class _CodeBlockMenu extends StatelessWidget {
 
 /// 标题下拉菜单
 class _HeadingMenu extends StatelessWidget {
-  const _HeadingMenu({required this.onInsert});
+  const _HeadingMenu({required this.onAction});
 
-  final void Function(String prefix, String suffix) onInsert;
+  final ValueChanged<MarkdownEditAction> onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -244,8 +232,14 @@ class _HeadingMenu extends StatelessWidget {
         ),
       ),
       onSelected: (level) {
-        final prefix = '\n${'#' * level} ';
-        onInsert(prefix, '\n');
+        onAction(switch (level) {
+          1 => MarkdownEditAction.heading1,
+          2 => MarkdownEditAction.heading2,
+          3 => MarkdownEditAction.heading3,
+          4 => MarkdownEditAction.heading4,
+          5 => MarkdownEditAction.heading5,
+          _ => MarkdownEditAction.heading6,
+        });
       },
       itemBuilder: (context) => [
         const PopupMenuItem(
@@ -270,9 +264,9 @@ class _HeadingMenu extends StatelessWidget {
 
 /// 表格下拉菜单
 class _TableMenu extends StatelessWidget {
-  const _TableMenu({required this.onInsert, required this.onOpenTableEditor});
+  const _TableMenu({required this.onAction, required this.onOpenTableEditor});
 
-  final void Function(String prefix, String suffix) onInsert;
+  final ValueChanged<MarkdownEditAction> onAction;
   final VoidCallback? onOpenTableEditor;
 
   @override
@@ -297,17 +291,11 @@ class _TableMenu extends StatelessWidget {
         }
         switch (value) {
           case '2x2':
-            onInsert('\n| 列1 | 列2 |\n| --- | --- |\n| 内容 | 内容 |\n', '');
+            onAction(MarkdownEditAction.table2x2);
           case '3x3':
-            onInsert(
-              '\n| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| 内容 | 内容 | 内容 |\n',
-              '',
-            );
+            onAction(MarkdownEditAction.table3x3);
           case '4x4':
-            onInsert(
-              '\n| 列1 | 列2 | 列3 | 列4 |\n| --- | --- | --- | --- |\n| 内容 | 内容 | 内容 | 内容 |\n',
-              '',
-            );
+            onAction(MarkdownEditAction.table4x4);
         }
       },
       itemBuilder: (context) => [

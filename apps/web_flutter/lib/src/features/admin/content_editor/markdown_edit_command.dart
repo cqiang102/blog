@@ -1,7 +1,56 @@
 import 'package:flutter/services.dart';
 
+enum MarkdownEditAction {
+  bold,
+  italic,
+  strikethrough,
+  heading1,
+  heading2,
+  heading3,
+  heading4,
+  heading5,
+  heading6,
+  unorderedList,
+  orderedList,
+  taskList,
+  quote,
+  inlineCode,
+  link,
+  horizontalRule,
+  table2x2,
+  table3x3,
+  table4x4,
+}
+
 class MarkdownEditCommand {
   const MarkdownEditCommand._();
+
+  static TextEditingValue apply(
+    TextEditingValue value,
+    MarkdownEditAction action,
+  ) {
+    return switch (action) {
+      MarkdownEditAction.bold => bold(value),
+      MarkdownEditAction.italic => italic(value),
+      MarkdownEditAction.strikethrough => strikethrough(value),
+      MarkdownEditAction.heading1 => heading(value, 1),
+      MarkdownEditAction.heading2 => heading(value, 2),
+      MarkdownEditAction.heading3 => heading(value, 3),
+      MarkdownEditAction.heading4 => heading(value, 4),
+      MarkdownEditAction.heading5 => heading(value, 5),
+      MarkdownEditAction.heading6 => heading(value, 6),
+      MarkdownEditAction.unorderedList => unorderedList(value),
+      MarkdownEditAction.orderedList => orderedList(value),
+      MarkdownEditAction.taskList => taskList(value),
+      MarkdownEditAction.quote => quote(value),
+      MarkdownEditAction.inlineCode => inlineCode(value),
+      MarkdownEditAction.link => link(value),
+      MarkdownEditAction.horizontalRule => horizontalRule(value),
+      MarkdownEditAction.table2x2 => table(value, columns: 2, rows: 1),
+      MarkdownEditAction.table3x3 => table(value, columns: 3, rows: 2),
+      MarkdownEditAction.table4x4 => table(value, columns: 4, rows: 3),
+    };
+  }
 
   static TextEditingValue wrap(
     TextEditingValue value, {
@@ -11,6 +60,53 @@ class MarkdownEditCommand {
   }) {
     final range = _selectionRange(value);
     final selected = value.text.substring(range.start, range.end);
+
+    final outerStart = range.start - prefix.length;
+    final outerEnd = range.end + suffix.length;
+    final hasOuterWrapper =
+        outerStart >= 0 &&
+        outerEnd <= value.text.length &&
+        value.text.substring(outerStart, range.start) == prefix &&
+        value.text.substring(range.end, outerEnd) == suffix &&
+        !_isAmbiguousSingleAsteriskWrapper(
+          value.text,
+          prefix: prefix,
+          outerStart: outerStart,
+          outerEnd: outerEnd,
+        );
+    if (hasOuterWrapper) {
+      final nextText = value.text.replaceRange(outerStart, outerEnd, selected);
+      return value.copyWith(
+        text: nextText,
+        selection: TextSelection(
+          baseOffset: outerStart,
+          extentOffset: outerStart + selected.length,
+        ),
+        composing: TextRange.empty,
+      );
+    }
+
+    final selectionIncludesWrapper =
+        selected.length >= prefix.length + suffix.length &&
+        selected.startsWith(prefix) &&
+        selected.endsWith(suffix) &&
+        !(prefix == '*' && selected.startsWith('**'));
+    if (selectionIncludesWrapper) {
+      final inner = selected.substring(
+        prefix.length,
+        selected.length - suffix.length,
+      );
+      final nextText = value.text.replaceRange(range.start, range.end, inner);
+      return value.copyWith(
+        text: nextText,
+        selection: TextSelection(
+          baseOffset: range.start,
+          extentOffset: range.start + inner.length,
+        ),
+        composing: TextRange.empty,
+      );
+    }
+
     final inner = selected.isEmpty ? placeholder : selected;
     final nextText = value.text.replaceRange(
       range.start,
@@ -48,6 +144,42 @@ class MarkdownEditCommand {
     );
   }
 
+  static TextEditingValue replaceMarker(
+    TextEditingValue value, {
+    required String marker,
+    required String replacement,
+  }) {
+    final markerStart = value.text.indexOf(marker);
+    if (markerStart < 0) return value;
+    final markerEnd = markerStart + marker.length;
+    final nextText = value.text.replaceRange(
+      markerStart,
+      markerEnd,
+      replacement,
+    );
+    final delta = replacement.length - marker.length;
+
+    int mapOffset(int offset) {
+      if (offset <= markerStart) return offset;
+      if (offset >= markerEnd) return offset + delta;
+      return markerStart + replacement.length;
+    }
+
+    final selection = value.selection;
+    return value.copyWith(
+      text: nextText,
+      selection: selection.isValid
+          ? TextSelection(
+              baseOffset: mapOffset(selection.baseOffset),
+              extentOffset: mapOffset(selection.extentOffset),
+              affinity: selection.affinity,
+              isDirectional: selection.isDirectional,
+            )
+          : TextSelection.collapsed(offset: nextText.length),
+      composing: TextRange.empty,
+    );
+  }
+
   static TextEditingValue bold(TextEditingValue value) =>
       wrap(value, prefix: '**', suffix: '**', placeholder: '粗体文字');
 
@@ -59,6 +191,25 @@ class MarkdownEditCommand {
 
   static TextEditingValue inlineCode(TextEditingValue value) =>
       wrap(value, prefix: '`', suffix: '`', placeholder: 'code');
+
+  static TextEditingValue heading(TextEditingValue value, int level) {
+    final safeLevel = level.clamp(1, 6);
+    final marker = '${'#' * safeLevel} ';
+    final lines = _selectedLines(value);
+    final headingPattern = RegExp(r'^(\s{0,3})(#{1,6})\s+(.*)$');
+    final removeHeading = lines.every((line) {
+      final match = headingPattern.firstMatch(line);
+      return match != null && match.group(2)!.length == safeLevel;
+    });
+
+    return _transformSelectedLines(value, (line, _) {
+      final match = headingPattern.firstMatch(line);
+      final indentation = match?.group(1) ?? '';
+      final content = match?.group(3) ?? line.substring(indentation.length);
+      if (removeHeading) return '$indentation$content';
+      return '$indentation$marker$content';
+    });
+  }
 
   static TextEditingValue link(TextEditingValue value) {
     final range = _selectionRange(value);
@@ -73,6 +224,23 @@ class MarkdownEditCommand {
       selection: TextSelection(
         baseOffset: urlStart,
         extentOffset: urlStart + 3,
+      ),
+      composing: TextRange.empty,
+    );
+  }
+
+  static TextEditingValue image(TextEditingValue value, {required String url}) {
+    final range = _selectionRange(value);
+    final selected = value.text.substring(range.start, range.end).trim();
+    final alt = selected.isEmpty ? '图片描述' : selected;
+    final markdown = '![$alt]($url)';
+    final nextText = value.text.replaceRange(range.start, range.end, markdown);
+    final altStart = range.start + 2;
+    return value.copyWith(
+      text: nextText,
+      selection: TextSelection(
+        baseOffset: altStart,
+        extentOffset: altStart + alt.length,
       ),
       composing: TextRange.empty,
     );
@@ -100,8 +268,9 @@ class MarkdownEditCommand {
     }
 
     final selected = value.text.substring(range.start, range.end);
-    final code = selected.isEmpty ? '' : selected.trimRight();
-    final block = '\n```$language\n$code\n```\n';
+    final code = selected;
+    final closingLineBreak = code.isEmpty || !code.endsWith('\n') ? '\n' : '';
+    final block = '\n```$language\n$code$closingLineBreak```\n';
     final cursorOffset = code.isEmpty
         ? 5 + language.length
         : block.indexOf(code) + code.length;
@@ -115,14 +284,20 @@ class MarkdownEditCommand {
       _toggleLinePrefix(value, '- ');
 
   static TextEditingValue orderedList(TextEditingValue value) {
+    final orderedPattern = RegExp(r'^\s*\d+\.\s+');
+    final removeMarkers = _selectedLines(value).every(orderedPattern.hasMatch);
     return _transformSelectedLines(value, (line, index) {
       final stripped = line.replaceFirst(RegExp(r'^\s*\d+\.\s+'), '');
+      if (removeMarkers) return stripped;
       return '${index + 1}. $stripped';
     });
   }
 
   static TextEditingValue taskList(TextEditingValue value) =>
       _toggleLinePrefix(value, '- [ ] ');
+
+  static TextEditingValue horizontalRule(TextEditingValue value) =>
+      insert(value, '\n\n---\n\n');
 
   static TextEditingValue table(
     TextEditingValue value, {
@@ -163,8 +338,11 @@ class MarkdownEditCommand {
     if (inserted == null) return null;
 
     return switch (inserted) {
-      '[' => _completeLinkBrackets(value),
-      '`' => _completeCodeFence(value),
+      '[' =>
+        _isInsideCodeFenceAt(value.text, selection.end - 1) ||
+                _isInsideInlineCodeAt(value.text, selection.end - 1)
+            ? null
+            : _completeLinkBrackets(value),
       '\n' => _completeNewLine(value),
       _ => null,
     };
@@ -185,10 +363,28 @@ class MarkdownEditCommand {
     TextEditingValue value,
     String prefix,
   ) {
+    final removePrefix = _selectedLines(
+      value,
+    ).every((line) => line.startsWith(prefix));
     return _transformSelectedLines(value, (line, _) {
-      if (line.startsWith(prefix)) return line.substring(prefix.length);
+      if (removePrefix) return line.substring(prefix.length);
+      if (line.startsWith(prefix)) return line;
       return '$prefix$line';
     });
+  }
+
+  static List<String> _selectedLines(TextEditingValue value) {
+    final range = _selectionRange(value);
+    final lineStart = _lineStartAt(value.text, range.start);
+    final selectionEnd =
+        range.end > range.start &&
+            range.end > 0 &&
+            value.text[range.end - 1] == '\n'
+        ? range.end - 1
+        : range.end;
+    final nextLineBreak = value.text.indexOf('\n', selectionEnd);
+    final lineEnd = nextLineBreak == -1 ? value.text.length : nextLineBreak;
+    return value.text.substring(lineStart, lineEnd).split('\n');
   }
 
   static TextEditingValue _transformSelectedLines(
@@ -196,8 +392,14 @@ class MarkdownEditCommand {
     String Function(String line, int index) transform,
   ) {
     final range = _selectionRange(value);
-    final lineStart = value.text.lastIndexOf('\n', range.start - 1) + 1;
-    final nextLineBreak = value.text.indexOf('\n', range.end);
+    final lineStart = _lineStartAt(value.text, range.start);
+    final selectionEnd =
+        range.end > range.start &&
+            range.end > 0 &&
+            value.text[range.end - 1] == '\n'
+        ? range.end - 1
+        : range.end;
+    final nextLineBreak = value.text.indexOf('\n', selectionEnd);
     final lineEnd = nextLineBreak == -1 ? value.text.length : nextLineBreak;
     final selectedBlock = value.text.substring(lineStart, lineEnd);
     final lines = selectedBlock.split('\n');
@@ -208,18 +410,96 @@ class MarkdownEditCommand {
     final nextText = value.text.replaceRange(lineStart, lineEnd, nextBlock);
     final delta = nextBlock.length - selectedBlock.length;
 
+    int mapOffset(int offset) {
+      if (offset < lineStart) return offset;
+      if (offset > lineEnd) return offset + delta;
+
+      final relativeOffset = offset - lineStart;
+      var oldLineStart = 0;
+      var newLineStart = 0;
+      for (var index = 0; index < lines.length; index++) {
+        final oldLine = lines[index];
+        final newLine = transform(oldLine, index);
+        final oldLineEnd = oldLineStart + oldLine.length;
+        if (relativeOffset <= oldLineEnd) {
+          final oldColumn = relativeOffset - oldLineStart;
+          return lineStart +
+              newLineStart +
+              _mapTransformedColumn(oldLine, newLine, oldColumn);
+        }
+        oldLineStart = oldLineEnd + 1;
+        newLineStart += newLine.length + 1;
+      }
+      return lineStart + nextBlock.length;
+    }
+
+    final selection = value.selection;
+    final nextSelection = selection.isValid
+        ? TextSelection(
+            baseOffset: mapOffset(
+              selection.baseOffset,
+            ).clamp(0, nextText.length).toInt(),
+            extentOffset: mapOffset(
+              selection.extentOffset,
+            ).clamp(0, nextText.length).toInt(),
+            affinity: selection.affinity,
+            isDirectional: selection.isDirectional,
+          )
+        : TextSelection.collapsed(offset: nextText.length);
+
     return value.copyWith(
       text: nextText,
-      selection: TextSelection(
-        baseOffset: range.start + (range.start == lineStart ? 0 : delta),
-        extentOffset: range.end + delta,
-      ),
+      selection: nextSelection,
       composing: TextRange.empty,
     );
   }
 
+  static int _mapTransformedColumn(
+    String oldLine,
+    String newLine,
+    int oldColumn,
+  ) {
+    var commonSuffixLength = 0;
+    while (commonSuffixLength < oldLine.length &&
+        commonSuffixLength < newLine.length &&
+        oldLine[oldLine.length - commonSuffixLength - 1] ==
+            newLine[newLine.length - commonSuffixLength - 1]) {
+      commonSuffixLength++;
+    }
+
+    final oldPrefixLength = oldLine.length - commonSuffixLength;
+    final newPrefixLength = newLine.length - commonSuffixLength;
+    if (oldColumn < oldPrefixLength) {
+      return oldColumn.clamp(0, newPrefixLength).toInt();
+    }
+    return (newPrefixLength + oldColumn - oldPrefixLength)
+        .clamp(0, newLine.length)
+        .toInt();
+  }
+
+  static bool _isAmbiguousSingleAsteriskWrapper(
+    String text, {
+    required String prefix,
+    required int outerStart,
+    required int outerEnd,
+  }) {
+    if (prefix != '*') return false;
+    final touchesLeadingAsterisk =
+        outerStart > 0 && text[outerStart - 1] == '*';
+    final touchesTrailingAsterisk =
+        outerEnd < text.length && text[outerEnd] == '*';
+    return touchesLeadingAsterisk || touchesTrailingAsterisk;
+  }
+
   static TextEditingValue? _completeLinkBrackets(TextEditingValue value) {
     final offset = value.selection.end;
+    final beforeBracket = value.text.substring(0, offset - 1);
+    final lineStart = beforeBracket.lastIndexOf('\n') + 1;
+    final currentLine = beforeBracket.substring(lineStart);
+    if (currentLine.endsWith('\\') ||
+        RegExp(r'^\s*[-*+]\s+$').hasMatch(currentLine)) {
+      return null;
+    }
     final nextText = value.text.replaceRange(offset, offset, ']()');
     return value.copyWith(
       text: nextText,
@@ -228,30 +508,36 @@ class MarkdownEditCommand {
     );
   }
 
-  static TextEditingValue? _completeCodeFence(TextEditingValue value) {
-    final offset = value.selection.end;
-    final before = value.text.substring(0, offset);
-    final lineStart = before.lastIndexOf('\n') + 1;
-    final currentLine = before.substring(lineStart);
-    if (currentLine != '```') return null;
-
-    final nextText = value.text.replaceRange(offset, offset, '\n\n```');
-    return value.copyWith(
-      text: nextText,
-      selection: TextSelection.collapsed(offset: offset + 1),
-      composing: TextRange.empty,
-    );
-  }
-
   static TextEditingValue? _completeNewLine(TextEditingValue value) {
     final offset = value.selection.end;
     final previousLineEnd = offset - 1;
-    final previousLineStart =
-        value.text.lastIndexOf('\n', previousLineEnd - 1) + 1;
+    final previousLineStart = _lineStartAt(value.text, previousLineEnd);
     final previousLine = value.text.substring(
       previousLineStart,
       previousLineEnd,
     );
+
+    final fenceMatch = RegExp(
+      r'^(\s*)(`{3,}|~{3,})[^`~]*$',
+    ).firstMatch(previousLine);
+    final insideFenceBeforeLine = _isInsideCodeFenceAt(
+      value.text,
+      previousLineStart,
+    );
+    if (fenceMatch != null && !insideFenceBeforeLine) {
+      final closingFence = '${fenceMatch.group(1)!}${fenceMatch.group(2)!}';
+      final nextText = value.text.replaceRange(
+        offset,
+        offset,
+        '\n$closingFence',
+      );
+      return value.copyWith(
+        text: nextText,
+        selection: TextSelection.collapsed(offset: offset),
+        composing: TextRange.empty,
+      );
+    }
+    if (insideFenceBeforeLine) return null;
 
     final emptyMarker = RegExp(r'^(\s*)(?:[-*+]|\d+\.|>\s?|- \[[ xX]\])\s*$');
     if (emptyMarker.hasMatch(previousLine)) {
@@ -298,6 +584,44 @@ class MarkdownEditCommand {
     }
 
     return null;
+  }
+
+  static bool _isInsideCodeFenceAt(String text, int offset) {
+    final safeOffset = offset.clamp(0, text.length).toInt();
+    final prefix = text.substring(0, safeOffset);
+    String? openMarker;
+    for (final match in RegExp(
+      r'^\s*(`{3,}|~{3,})',
+      multiLine: true,
+    ).allMatches(prefix)) {
+      final marker = match.group(1)!;
+      final markerType = marker[0];
+      if (openMarker == null) {
+        openMarker = markerType;
+      } else if (openMarker == markerType) {
+        openMarker = null;
+      }
+    }
+    return openMarker != null;
+  }
+
+  static bool _isInsideInlineCodeAt(String text, int offset) {
+    final safeOffset = offset.clamp(0, text.length).toInt();
+    final lineStart = _lineStartAt(text, safeOffset);
+    final line = text.substring(lineStart, safeOffset);
+    var backtickCount = 0;
+    for (var index = 0; index < line.length; index++) {
+      if (line[index] == '`' && (index == 0 || line[index - 1] != '\\')) {
+        backtickCount++;
+      }
+    }
+    return backtickCount.isOdd;
+  }
+
+  static int _lineStartAt(String text, int offset) {
+    if (offset <= 0 || text.isEmpty) return 0;
+    final searchFrom = (offset - 1).clamp(0, text.length - 1).toInt();
+    return text.lastIndexOf('\n', searchFrom) + 1;
   }
 
   static TextEditingValue _insertAfterNewline(

@@ -8,11 +8,14 @@ class _ImagePickerDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final dialogWidth = (viewport.width - 96).clamp(240.0, 560.0).toDouble();
+    final dialogHeight = (viewport.height - 240).clamp(240.0, 420.0).toDouble();
     return AlertDialog(
       title: const Text('插入图片'),
       content: SizedBox(
-        width: 560,
-        height: 420,
+        width: dialogWidth,
+        height: dialogHeight,
         child: GridView.builder(
           shrinkWrap: true,
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -78,10 +81,13 @@ class _TableEditorDialogState extends State<_TableEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final dialogWidth = (MediaQuery.sizeOf(context).width - 96)
+        .clamp(240.0, 360.0)
+        .toDouble();
     return AlertDialog(
       title: const Text('插入表格'),
       content: SizedBox(
-        width: 360,
+        width: dialogWidth,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

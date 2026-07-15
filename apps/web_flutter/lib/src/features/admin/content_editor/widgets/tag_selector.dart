@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/models.dart';
 import '../../../../theme/app_spacing.dart';
 
-class TagSelector extends StatefulWidget {
+class TagSelector extends StatelessWidget {
   const TagSelector({
     super.key,
     required this.tags,
@@ -18,40 +18,17 @@ class TagSelector extends StatefulWidget {
   final bool showTitle;
 
   @override
-  State<TagSelector> createState() => _TagSelectorState();
-}
-
-class _TagSelectorState extends State<TagSelector> {
-  String _query = '';
-
-  @override
   Widget build(BuildContext context) {
-    final normalized = _query.trim().toLowerCase();
-    final visible = widget.tags.where((tag) {
-      if (normalized.isEmpty) return true;
-      return tag.name.toLowerCase().contains(normalized) ||
-          tag.slug.toLowerCase().contains(normalized);
-    }).toList();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.showTitle) ...[
+        if (showTitle) ...[
           Text('标签', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: AppSpacing.sm),
         ],
-        TextField(
-          decoration: const InputDecoration(
-            hintText: '搜索标签',
-            prefixIcon: Icon(Icons.search, size: 20),
-            isDense: true,
-          ),
-          onChanged: (value) => setState(() => _query = value),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        if (visible.isEmpty)
+        if (tags.isEmpty)
           Text(
-            '没有匹配的标签',
+            '暂无标签',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -61,11 +38,11 @@ class _TagSelectorState extends State<TagSelector> {
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
             children: [
-              for (final tag in visible)
+              for (final tag in tags)
                 FilterChip(
                   label: Text(tag.name),
-                  selected: widget.selectedSlugs.contains(tag.slug),
-                  onSelected: (_) => widget.onToggle(tag.slug),
+                  selected: selectedSlugs.contains(tag.slug),
+                  onSelected: (_) => onToggle(tag.slug),
                 ),
             ],
           ),

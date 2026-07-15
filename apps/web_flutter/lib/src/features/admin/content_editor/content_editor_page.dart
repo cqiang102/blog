@@ -12,6 +12,7 @@ import '../../../core/constants.dart';
 import '../../../core/media_url.dart';
 import '../../../core/models.dart';
 import '../../../state/state.dart';
+import '../../../theme/app_motion.dart';
 import '../../../theme/app_spacing.dart';
 import '../admin_widgets.dart';
 import 'content_editor_controller.dart';
@@ -21,6 +22,7 @@ import 'markdown_editing_controller.dart';
 import 'markdown_paste_image.dart';
 import 'content_editor_state.dart';
 import 'widgets/cover_picker_dialog.dart';
+import 'widgets/collapsible_inspector.dart';
 import 'widgets/editor_main_panel.dart';
 import 'widgets/media_section.dart';
 import 'widgets/publish_settings_panel.dart';
@@ -51,10 +53,17 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
   Object? _loadError;
   bool _loading = true;
   bool _updatingBodyFromCommand = false;
+  bool _settingsExpanded = true;
+  Future<void> _pastedImageQueue = Future<void>.value();
+  int _pastedImageSequence = 0;
   String _lastBodyText = '';
 
   ContentEditorController get _controller =>
       ref.read(contentEditorControllerProvider(widget.contentId).notifier);
+
+  void _toggleSettings() {
+    setState(() => _settingsExpanded = !_settingsExpanded);
+  }
 
   @override
   void initState() {
@@ -177,69 +186,64 @@ class _ContentEditorPageState extends ConsumerState<ContentEditorPage> {
         const SingleActivator(LogicalKeyboardKey.keyS, meta: true):
             _saveCurrentToServer,
         const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.bold),
+            _applyMarkdownShortcut(MarkdownEditAction.bold),
         const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.bold),
+            _applyMarkdownShortcut(MarkdownEditAction.bold),
         const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.italic),
+            _applyMarkdownShortcut(MarkdownEditAction.italic),
         const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.italic),
+            _applyMarkdownShortcut(MarkdownEditAction.italic),
         const SingleActivator(LogicalKeyboardKey.keyK, control: true): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.link),
+            _applyMarkdownShortcut(MarkdownEditAction.link),
         const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.link),
+            _applyMarkdownShortcut(MarkdownEditAction.link),
         const SingleActivator(
           LogicalKeyboardKey.keyC,
           control: true,
           shift: true,
-        ): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.codeBlock),
-        const SingleActivator(
-          LogicalKeyboardKey.keyC,
-          meta: true,
-          shift: true,
-        ): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.codeBlock),
+        ): _applyCodeBlockShortcut,
+        const SingleActivator(LogicalKeyboardKey.keyC, meta: true, shift: true):
+            _applyCodeBlockShortcut,
         const SingleActivator(
           LogicalKeyboardKey.keyQ,
           control: true,
           shift: true,
         ): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.quote),
+            _applyMarkdownShortcut(MarkdownEditAction.quote),
         const SingleActivator(
           LogicalKeyboardKey.keyQ,
           meta: true,
           shift: true,
         ): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.quote),
+            _applyMarkdownShortcut(MarkdownEditAction.quote),
         const SingleActivator(
           LogicalKeyboardKey.keyU,
           control: true,
           shift: true,
         ): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.unorderedList),
+            _applyMarkdownShortcut(MarkdownEditAction.unorderedList),
         const SingleActivator(
           LogicalKeyboardKey.keyU,
           meta: true,
           shift: true,
         ): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.unorderedList),
+            _applyMarkdownShortcut(MarkdownEditAction.unorderedList),
         const SingleActivator(
           LogicalKeyboardKey.keyO,
           control: true,
           shift: true,
         ): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.orderedList),
+            _applyMarkdownShortcut(MarkdownEditAction.orderedList),
         const SingleActivator(
           LogicalKeyboardKey.keyO,
           meta: true,
           shift: true,
         ): () =>
-            _applyMarkdownEdit(MarkdownEditCommand.orderedList),
+            _applyMarkdownShortcut(MarkdownEditAction.orderedList),
       },
       child: MarkdownPasteImageListener(
         focusNode: _bodyFocusNode,
-        onImage: (image) => unawaited(_uploadPastedImage(image)),
+        onImage: _queuePastedImage,
         child: FocusTraversalGroup(
           child: PopScope(
             canPop: false,

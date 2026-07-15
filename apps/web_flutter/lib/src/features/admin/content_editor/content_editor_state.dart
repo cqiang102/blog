@@ -17,8 +17,8 @@ enum EditorEditMode {
   String get label {
     return switch (this) {
       EditorEditMode.source => '源码',
-      EditorEditMode.split => '分屏',
-      EditorEditMode.preview => '预览',
+      EditorEditMode.split => '实时预览',
+      EditorEditMode.preview => '纯预览',
     };
   }
 
