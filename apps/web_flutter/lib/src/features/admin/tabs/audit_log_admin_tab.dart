@@ -146,13 +146,6 @@ class _AuditLogList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionToolbar(
-          title: '操作日志',
-          actionLabel: '刷新',
-          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
-          onAction: onApply,
-        ),
-        const SizedBox(height: AppSpacing.sm + 4),
         _AuditLogFilters(
           action: action,
           resourceType: resourceType,
@@ -208,53 +201,54 @@ class _AuditLogFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.sm + 4,
-      runSpacing: AppSpacing.sm + 4,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 180,
+    return AdminFilterBar(
+      items: [
+        AdminFilterItem(
           child: DropdownButtonFormField<String?>(
+            key: ValueKey(action),
             initialValue: action,
-            decoration: const InputDecoration(labelText: '操作类型'),
+            isExpanded: true,
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '操作类型 · 全部',
+            ),
             items: [
-              const DropdownMenuItem(value: null, child: Text('全部')),
+              const DropdownMenuItem(value: null, child: Text('操作类型 · 全部')),
               for (final a in actions)
                 DropdownMenuItem(
                   value: a,
-                  child: Text(actionLabels[a] ?? a),
+                  child: Text('操作类型 · ${actionLabels[a] ?? a}'),
                 ),
             ],
             onChanged: onActionChanged,
           ),
         ),
-        SizedBox(
-          width: 180,
+        AdminFilterItem(
           child: DropdownButtonFormField<String?>(
+            key: ValueKey(resourceType),
             initialValue: resourceType,
-            decoration: const InputDecoration(labelText: '资源类型'),
+            isExpanded: true,
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '资源类型 · 全部',
+            ),
             items: [
-              const DropdownMenuItem(value: null, child: Text('全部')),
+              const DropdownMenuItem(value: null, child: Text('资源类型 · 全部')),
               for (final r in resourceTypes)
                 DropdownMenuItem(
                   value: r,
-                  child: Text(resourceTypeLabels[r] ?? r),
+                  child: Text('资源类型 · ${resourceTypeLabels[r] ?? r}'),
                 ),
             ],
             onChanged: onResourceTypeChanged,
           ),
         ),
-        FilledButton.icon(
-          onPressed: onApply,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
-          label: const Text('筛选'),
-        ),
-        OutlinedButton.icon(
-          onPressed: onClear,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
-          label: const Text('清空'),
-        ),
+      ],
+      actions: [
+        AdminFilterApplyButton(onPressed: onApply),
+        AdminFilterClearButton(onPressed: onClear),
       ],
     );
   }
@@ -339,10 +333,7 @@ class _AuditLogRow extends StatelessWidget {
           visualDensity: VisualDensity.compact,
         ),
         const SizedBox(width: AppSpacing.sm),
-        Chip(
-          label: Text(resourceLabel),
-          visualDensity: VisualDensity.compact,
-        ),
+        Chip(label: Text(resourceLabel), visualDensity: VisualDensity.compact),
         const Spacer(),
         Text(
           formatAdminDate(log.createdAt),
@@ -392,9 +383,9 @@ class _AuditLogRow extends StatelessWidget {
       ),
       child: SelectableText(
         log.detail!,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
       ),
     );
   }

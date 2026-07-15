@@ -10,6 +10,7 @@ import '../../state/state.dart';
 import '../../theme/app_design_tokens.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/widgets.dart';
+import 'admin_widgets.dart';
 import 'tabs/ai_chat_admin_tab.dart';
 import 'tabs/audit_log_admin_tab.dart';
 import 'tabs/comment_admin_tab.dart';
@@ -197,17 +198,26 @@ class _AdminPageState extends ConsumerState<AdminPage>
     return AppPageFrame(
       child: Column(
         children: [
-          AppPageHeader(
-            title: isAdmin ? '管理员中心' : '内容管理',
-            subtitle: '当前模块：${tabs[selectedIndex].label}',
+          AdminShellHeader(
+            title: isAdmin ? '管理后台' : '内容管理',
+            module: tabs[selectedIndex].label,
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const AppThemeToggle(),
-                IconButton(
+                const SizedBox(width: AppSpacing.sm),
+                IconButton.outlined(
                   tooltip: '刷新当前管理数据',
                   onPressed: () => _refresh(ref),
-                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size.square(kAdminDenseControlHeight),
+                    fixedSize: const Size.square(kAdminDenseControlHeight),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedRefresh,
+                    size: 20,
+                  ),
                 ),
               ],
             ),

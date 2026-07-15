@@ -193,13 +193,6 @@ class _UserList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionToolbar(
-          title: '用户管理',
-          actionLabel: '刷新',
-          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
-          onAction: onApply,
-        ),
-        const SizedBox(height: AppSpacing.sm + 4),
         _UserFilters(
           queryController: queryController,
           role: role,
@@ -246,60 +239,74 @@ class _UserFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.sm + 4,
-      runSpacing: AppSpacing.sm + 4,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 260,
+    return AdminFilterBar(
+      items: [
+        AdminFilterItem(
           child: TextField(
             controller: queryController,
-            decoration: const InputDecoration(labelText: '邮箱 / 昵称'),
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '邮箱 / 昵称',
+            ),
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => onApply(),
           ),
         ),
-        SizedBox(
-          width: 180,
+        AdminFilterItem(
+          width: 152,
           child: DropdownButtonFormField<AdminUserRole?>(
+            key: ValueKey(role),
             initialValue: role,
-            decoration: const InputDecoration(labelText: '角色'),
+            isExpanded: true,
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '角色 · 全部',
+            ),
             items: const [
-              DropdownMenuItem(value: null, child: Text('全部角色')),
-              DropdownMenuItem(value: AdminUserRole.user, child: Text('普通用户')),
-              DropdownMenuItem(value: AdminUserRole.admin, child: Text('管理员')),
+              DropdownMenuItem(value: null, child: Text('角色 · 全部')),
+              DropdownMenuItem(
+                value: AdminUserRole.user,
+                child: Text('角色 · 普通用户'),
+              ),
+              DropdownMenuItem(
+                value: AdminUserRole.admin,
+                child: Text('角色 · 管理员'),
+              ),
             ],
             onChanged: onRoleChanged,
           ),
         ),
-        SizedBox(
-          width: 180,
+        AdminFilterItem(
+          width: 152,
           child: DropdownButtonFormField<AdminUserStatus?>(
+            key: ValueKey(status),
             initialValue: status,
-            decoration: const InputDecoration(labelText: '状态'),
+            isExpanded: true,
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '状态 · 全部',
+            ),
             items: const [
-              DropdownMenuItem(value: null, child: Text('全部状态')),
+              DropdownMenuItem(value: null, child: Text('状态 · 全部')),
               DropdownMenuItem(
                 value: AdminUserStatus.active,
-                child: Text('启用'),
+                child: Text('状态 · 启用'),
               ),
               DropdownMenuItem(
                 value: AdminUserStatus.disabled,
-                child: Text('禁用'),
+                child: Text('状态 · 禁用'),
               ),
             ],
             onChanged: onStatusChanged,
           ),
         ),
-        FilledButton.icon(
-          onPressed: onApply,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
-          label: const Text('筛选'),
-        ),
-        OutlinedButton.icon(
-          onPressed: onClear,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
-          label: const Text('清空'),
-        ),
+      ],
+      actions: [
+        AdminFilterApplyButton(onPressed: onApply),
+        AdminFilterClearButton(onPressed: onClear),
       ],
     );
   }
@@ -359,8 +366,8 @@ class _UserAdminRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   if (isCurrentUser) const Chip(label: Text('当前账号')),
@@ -390,26 +397,38 @@ class _UserAdminRow extends StatelessWidget {
   }
 
   Widget _buildActions(BuildContext context, String createdAt) {
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
+    final scheme = Theme.of(context).colorScheme;
+    return AdminRowFooter(
+      metadata: [
         AdminUserRoleChip(role: user.role),
         AdminUserStatusChip(status: user.status),
         if (user.blogUrl.isNotEmpty)
-          AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18), text: user.blogUrl),
-        AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18), text: createdAt),
+          AdminMetaText(
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedLink01, size: 18),
+            text: user.blogUrl,
+          ),
+        AdminMetaText(
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
+          text: createdAt,
+        ),
+      ],
+      actions: [
         OutlinedButton.icon(
           onPressed: onEdit,
+          style: adminCompactButtonStyle(),
           icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
           label: const Text('编辑'),
         ),
-        OutlinedButton.icon(
-          onPressed: onDisable,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedBlocked, size: 18),
-          label: const Text('禁用'),
-        ),
+        if (onDisable != null)
+          TextButton.icon(
+            onPressed: onDisable,
+            style: adminCompactButtonStyle(foregroundColor: scheme.error),
+            icon: const HugeIcon(
+              icon: HugeIcons.strokeRoundedBlocked,
+              size: 18,
+            ),
+            label: const Text('禁用'),
+          ),
       ],
     );
   }
@@ -423,8 +442,9 @@ class _AdminUserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback =
-        user.nickname.isEmpty ? '?' : user.nickname.substring(0, 1);
+    final fallback = user.nickname.isEmpty
+        ? '?'
+        : user.nickname.substring(0, 1);
     if (user.avatarUrl.isEmpty) {
       return CircleAvatar(radius: 24, child: Text(fallback));
     }

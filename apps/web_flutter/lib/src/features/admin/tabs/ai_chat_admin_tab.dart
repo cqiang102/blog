@@ -178,13 +178,6 @@ class _AiChatList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionToolbar(
-          title: 'AI 聊天记录',
-          actionLabel: '刷新',
-          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
-          onAction: onApply,
-        ),
-        const SizedBox(height: AppSpacing.sm + 4),
         _AiChatFilters(
           queryController: queryController,
           userIdController: userIdController,
@@ -222,35 +215,33 @@ class _AiChatFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.sm + 4,
-      runSpacing: AppSpacing.sm + 4,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 260,
+    return AdminFilterBar(
+      items: [
+        AdminFilterItem(
           child: TextField(
             controller: queryController,
-            decoration: const InputDecoration(labelText: '标题 / 用户'),
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '标题 / 用户',
+            ),
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => onApply(),
           ),
         ),
-        SizedBox(
-          width: 300,
+        AdminFilterItem(
           child: TextField(
             controller: userIdController,
-            decoration: const InputDecoration(labelText: '用户 ID'),
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(context, hintText: '用户 ID'),
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => onApply(),
           ),
         ),
-        FilledButton.icon(
-          onPressed: onApply,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
-          label: const Text('筛选'),
-        ),
-        OutlinedButton.icon(
-          onPressed: onClear,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
-          label: const Text('清空'),
-        ),
+      ],
+      actions: [
+        AdminFilterApplyButton(onPressed: onApply),
+        AdminFilterClearButton(onPressed: onClear),
       ],
     );
   }
@@ -271,10 +262,12 @@ class _AiChatAdminRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = session.title.isEmpty ? '未命名会话' : session.title;
-    final userLabel =
-        session.userNickname.isEmpty ? session.userEmail : session.userNickname;
-    final lastMessage =
-        session.lastMessage.isEmpty ? '暂无消息' : session.lastMessage;
+    final userLabel = session.userNickname.isEmpty
+        ? session.userEmail
+        : session.userNickname;
+    final lastMessage = session.lastMessage.isEmpty
+        ? '暂无消息'
+        : session.lastMessage;
 
     return Card(
       child: Padding(
@@ -312,9 +305,9 @@ class _AiChatAdminRow extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
               Text(
@@ -331,29 +324,41 @@ class _AiChatAdminRow extends StatelessWidget {
   }
 
   Widget _buildActions(BuildContext context, String userLabel) {
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18), text: userLabel),
-        if (session.userEmail.isNotEmpty)
-          AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 18), text: session.userEmail),
+    return AdminRowFooter(
+      metadata: [
         AdminMetaText(
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedMessage01, size: 18),
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18),
+          text: userLabel,
+        ),
+        if (session.userEmail.isNotEmpty)
+          AdminMetaText(
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 18),
+            text: session.userEmail,
+          ),
+        AdminMetaText(
+          icon: const HugeIcon(
+            icon: HugeIcons.strokeRoundedMessage01,
+            size: 18,
+          ),
           text: '${session.messageCount} 条消息',
         ),
         AdminMetaText(
           icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
           text: formatAdminDate(session.updatedAt),
         ),
+      ],
+      actions: [
         OutlinedButton.icon(
           onPressed: onOpen,
+          style: adminCompactButtonStyle(),
           icon: const HugeIcon(icon: HugeIcons.strokeRoundedView, size: 18),
           label: const Text('查看'),
         ),
-        OutlinedButton.icon(
+        TextButton.icon(
           onPressed: onDelete,
+          style: adminCompactButtonStyle(
+            foregroundColor: Theme.of(context).colorScheme.error,
+          ),
           icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
           label: const Text('删除'),
         ),
@@ -372,8 +377,9 @@ class _AiChatDetailDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = detail.session;
     final title = session.title.isEmpty ? '未命名会话' : session.title;
-    final userLabel =
-        session.userNickname.isEmpty ? session.userEmail : session.userNickname;
+    final userLabel = session.userNickname.isEmpty
+        ? session.userEmail
+        : session.userNickname;
 
     return AlertDialog(
       title: const Text('AI 聊天详情'),
@@ -388,9 +394,9 @@ class _AiChatDetailDialog extends StatelessWidget {
               title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: AppSpacing.sm),
 
@@ -399,18 +405,33 @@ class _AiChatDetailDialog extends StatelessWidget {
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: [
-                AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18), text: userLabel),
+                AdminMetaText(
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedUser,
+                    size: 18,
+                  ),
+                  text: userLabel,
+                ),
                 if (session.userEmail.isNotEmpty)
                   AdminMetaText(
-                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 18),
+                    icon: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedMail01,
+                      size: 18,
+                    ),
                     text: session.userEmail,
                   ),
                 AdminMetaText(
-                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedMessage01, size: 18),
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedMessage01,
+                    size: 18,
+                  ),
                   text: '${session.messageCount} 条消息',
                 ),
                 AdminMetaText(
-                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedClock01,
+                    size: 18,
+                  ),
                   text: formatAdminDate(session.createdAt),
                 ),
               ],
@@ -489,21 +510,30 @@ class _AiChatMessageRow extends StatelessWidget {
                     reason: message.auditReason,
                   )
                 else if (message.auditStatus == 'VISIBLE')
-                  _AuditStatusChip(
-                    label: '正常',
-                    color: scheme.primary,
-                  ),
+                  _AuditStatusChip(label: '正常', color: scheme.primary),
                 AdminMetaText(
-                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedClock01,
+                    size: 18,
+                  ),
                   text: formatAdminDate(message.createdAt),
                 ),
                 if (message.toolName.isNotEmpty)
                   AdminMetaText(
-                    icon: const HugeIcon(icon: HugeIcons.strokeRoundedSettings01, size: 18),
+                    icon: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedSettings01,
+                      size: 18,
+                    ),
                     text: message.toolName,
                   ),
                 if (tokenText.isNotEmpty)
-                  AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedDataRecovery, size: 18), text: tokenText),
+                  AdminMetaText(
+                    icon: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedDataRecovery,
+                      size: 18,
+                    ),
+                    text: tokenText,
+                  ),
               ],
             ),
             const SizedBox(height: 10),
@@ -556,10 +586,7 @@ class _AuditStatusChip extends StatelessWidget {
     return Tooltip(
       message: reason ?? '',
       child: Chip(
-        label: Text(
-          label,
-          style: TextStyle(color: color, fontSize: 12),
-        ),
+        label: Text(label, style: TextStyle(color: color, fontSize: 12)),
         backgroundColor: color.withValues(alpha: 0.12),
         side: BorderSide(color: color.withValues(alpha: 0.3)),
       ),

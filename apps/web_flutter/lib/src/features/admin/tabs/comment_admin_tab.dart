@@ -1,5 +1,7 @@
 // 管理后台 - 评论管理标签页
 // 展示评论列表，支持筛选和状态管理
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,11 +24,13 @@ class AdminCommentTab extends ConsumerStatefulWidget {
 class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
   final _contentIdController = TextEditingController();
   final _userIdController = TextEditingController();
+  Timer? _filterDebounce;
   AdminCommentStatus? _status;
   AdminCommentQuery _query = const AdminCommentQuery();
 
   @override
   void dispose() {
+    _filterDebounce?.cancel();
     _contentIdController.dispose();
     _userIdController.dispose();
     super.dispose();
@@ -44,30 +48,52 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
       ),
       data: (page) => _CommentList(
         page: page,
-        query: _query,
         status: _status,
         contentIdController: _contentIdController,
         userIdController: _userIdController,
-        onStatusChanged: (value) => setState(() => _status = value),
+        onStatusChanged: _changeStatus,
+        onFilterTextChanged: _scheduleFilters,
         onApply: _applyFilters,
         onClear: _clearFilters,
         onDelete: (comment) => _deleteComment(context, comment),
-        onRestore: (comment) => _setStatus(context, comment, AdminCommentStatus.visible),
+        onRestore: (comment) =>
+            _setStatus(context, comment, AdminCommentStatus.visible),
       ),
     );
   }
 
-  void _applyFilters() {
-    setState(() {
-      _query = AdminCommentQuery(
-        status: _status,
-        contentId: _contentIdController.text.trim(),
-        userId: _userIdController.text.trim(),
-      );
+  void _scheduleFilters(String _) {
+    _filterDebounce?.cancel();
+    _filterDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) _applyFilters();
     });
   }
 
+  void _changeStatus(AdminCommentStatus? value) {
+    _filterDebounce?.cancel();
+    setState(() {
+      _status = value;
+      _query = _currentQuery();
+    });
+  }
+
+  AdminCommentQuery _currentQuery() {
+    return AdminCommentQuery(
+      status: _status,
+      contentId: _contentIdController.text.trim(),
+      userId: _userIdController.text.trim(),
+    );
+  }
+
+  void _applyFilters() {
+    _filterDebounce?.cancel();
+    final next = _currentQuery();
+    if (next == _query) return;
+    setState(() => _query = next);
+  }
+
   void _clearFilters() {
+    _filterDebounce?.cancel();
     setState(() {
       _status = null;
       _contentIdController.clear();
@@ -115,7 +141,9 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
     if (token == null) return;
 
     try {
-      await ref.read(apiClientProvider).updateAdminCommentStatus(
+      await ref
+          .read(apiClientProvider)
+          .updateAdminCommentStatus(
             accessToken: token,
             id: comment.id,
             status: status,
@@ -146,11 +174,11 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
 class _CommentList extends StatelessWidget {
   const _CommentList({
     required this.page,
-    required this.query,
     required this.status,
     required this.contentIdController,
     required this.userIdController,
     required this.onStatusChanged,
+    required this.onFilterTextChanged,
     required this.onApply,
     required this.onClear,
     required this.onDelete,
@@ -158,11 +186,11 @@ class _CommentList extends StatelessWidget {
   });
 
   final PageResult<AdminCommentItem> page;
-  final AdminCommentQuery query;
   final AdminCommentStatus? status;
   final TextEditingController contentIdController;
   final TextEditingController userIdController;
   final ValueChanged<AdminCommentStatus?> onStatusChanged;
+  final ValueChanged<String> onFilterTextChanged;
   final VoidCallback onApply;
   final VoidCallback onClear;
   final ValueChanged<AdminCommentItem> onDelete;
@@ -192,18 +220,12 @@ class _CommentList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionToolbar(
-          title: '评论管理',
-          actionLabel: '刷新',
-          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
-          onAction: onApply,
-        ),
-        const SizedBox(height: AppSpacing.sm + 4),
         _CommentFilters(
           status: status,
           contentIdController: contentIdController,
           userIdController: userIdController,
           onStatusChanged: onStatusChanged,
+          onFilterTextChanged: onFilterTextChanged,
           onApply: onApply,
           onClear: onClear,
         ),
@@ -229,6 +251,7 @@ class _CommentFilters extends StatelessWidget {
     required this.contentIdController,
     required this.userIdController,
     required this.onStatusChanged,
+    required this.onFilterTextChanged,
     required this.onApply,
     required this.onClear,
   });
@@ -237,58 +260,71 @@ class _CommentFilters extends StatelessWidget {
   final TextEditingController contentIdController;
   final TextEditingController userIdController;
   final ValueChanged<AdminCommentStatus?> onStatusChanged;
+  final ValueChanged<String> onFilterTextChanged;
   final VoidCallback onApply;
   final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.sm + 4,
-      runSpacing: AppSpacing.sm + 4,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 180,
+    final hasFilters =
+        status != null ||
+        contentIdController.text.trim().isNotEmpty ||
+        userIdController.text.trim().isNotEmpty;
+
+    return AdminFilterBar(
+      onReset: onClear,
+      resetEnabled: hasFilters,
+      items: [
+        AdminFilterItem(
+          width: 152,
           child: DropdownButtonFormField<AdminCommentStatus?>(
+            key: ValueKey(status),
             initialValue: status,
-            decoration: const InputDecoration(labelText: '状态'),
+            isExpanded: true,
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '状态 · 全部',
+            ),
             items: const [
-              DropdownMenuItem(value: null, child: Text('全部状态')),
+              DropdownMenuItem(value: null, child: Text('状态 · 全部')),
               DropdownMenuItem(
                 value: AdminCommentStatus.visible,
-                child: Text('可见'),
+                child: Text('状态 · 可见'),
               ),
               DropdownMenuItem(
                 value: AdminCommentStatus.deleted,
-                child: Text('已删除'),
+                child: Text('状态 · 已删除'),
               ),
             ],
             onChanged: onStatusChanged,
           ),
         ),
-        SizedBox(
-          width: 300,
+        AdminFilterItem(
           child: TextField(
             controller: contentIdController,
-            decoration: const InputDecoration(labelText: '内容 ID'),
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '按内容 ID 筛选',
+            ),
+            textInputAction: TextInputAction.search,
+            onChanged: onFilterTextChanged,
+            onSubmitted: (_) => onApply(),
           ),
         ),
-        SizedBox(
-          width: 300,
+        AdminFilterItem(
           child: TextField(
             controller: userIdController,
-            decoration: const InputDecoration(labelText: '用户 ID'),
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '按用户 ID 筛选',
+            ),
+            textInputAction: TextInputAction.search,
+            onChanged: onFilterTextChanged,
+            onSubmitted: (_) => onApply(),
           ),
-        ),
-        FilledButton.icon(
-          onPressed: onApply,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
-          label: const Text('筛选'),
-        ),
-        OutlinedButton.icon(
-          onPressed: onClear,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
-          label: const Text('清空'),
         ),
       ],
     );
@@ -310,8 +346,9 @@ class _CommentAdminRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final createdAt = formatAdminDate(comment.createdAt);
-    final userLabel =
-        comment.userNickname.isEmpty ? comment.userEmail : comment.userNickname;
+    final userLabel = comment.userNickname.isEmpty
+        ? comment.userEmail
+        : comment.userNickname;
 
     return Card(
       child: Padding(
@@ -323,8 +360,8 @@ class _CommentAdminRow extends StatelessWidget {
             _buildContent(context),
             const SizedBox(height: AppSpacing.sm + 4),
 
-            // 标签和操作
-            _buildActions(context, userLabel, createdAt),
+            // 元信息和当前可执行操作
+            _buildFooter(context, userLabel, createdAt),
           ],
         ),
       ),
@@ -352,8 +389,8 @@ class _CommentAdminRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               const SizedBox(height: 6),
@@ -370,28 +407,54 @@ class _CommentAdminRow extends StatelessWidget {
     );
   }
 
-  Widget _buildActions(BuildContext context, String userLabel, String createdAt) {
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
+  Widget _buildFooter(
+    BuildContext context,
+    String userLabel,
+    String createdAt,
+  ) {
+    return AdminRowFooter(
+      metadata: [
         AdminCommentStatusChip(status: comment.status),
-        AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18), text: userLabel),
-        if (comment.userEmail.isNotEmpty)
-          AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 18), text: comment.userEmail),
-        AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18), text: createdAt),
-        OutlinedButton.icon(
-          onPressed: onRestore,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedArchiveRestore, size: 18),
-          label: const Text('恢复'),
+        AdminMetaText(
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18),
+          text: userLabel,
         ),
-        OutlinedButton.icon(
-          onPressed: onDelete,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-          label: const Text('删除'),
+        if (comment.userEmail.isNotEmpty)
+          AdminMetaText(
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 18),
+            text: comment.userEmail,
+          ),
+        AdminMetaText(
+          icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
+          text: createdAt,
         ),
       ],
+      actions: [_buildStateAction(context)],
+    );
+  }
+
+  Widget _buildStateAction(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    if (comment.deleted) {
+      return FilledButton.icon(
+        onPressed: onRestore,
+        style: adminCompactButtonStyle(
+          backgroundColor: scheme.primaryContainer,
+          foregroundColor: scheme.onPrimaryContainer,
+        ),
+        icon: const HugeIcon(
+          icon: HugeIcons.strokeRoundedArchiveRestore,
+          size: 18,
+        ),
+        label: const Text('恢复'),
+      );
+    }
+
+    return TextButton.icon(
+      onPressed: onDelete,
+      style: adminCompactButtonStyle(foregroundColor: scheme.error),
+      icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+      label: const Text('删除'),
     );
   }
 }

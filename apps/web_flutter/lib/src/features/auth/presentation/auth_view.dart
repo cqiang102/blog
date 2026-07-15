@@ -62,6 +62,32 @@ class _AuthPageState extends ConsumerState<AuthPage> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 820;
+            final form = KeyedSubtree(
+              key: const ValueKey('auth-form'),
+              child: _AuthForm(
+                formKey: _formKey,
+                register: flow.isRegister,
+                rememberMe: flow.rememberMe,
+                obscurePassword: flow.obscurePassword,
+                countdown: flow.countdown,
+                formError: flow.formError,
+                busy: auth.isBusy,
+                emailController: _emailController,
+                passwordController: _passwordController,
+                nicknameController: _nicknameController,
+                codeController: _codeController,
+                onModeChanged: _switchMode,
+                onRememberChanged: ref
+                    .read(authFlowControllerProvider.notifier)
+                    .setRememberMe,
+                onTogglePassword: ref
+                    .read(authFlowControllerProvider.notifier)
+                    .togglePasswordVisibility,
+                onSendCode: _sendCode,
+                onSubmit: _submit,
+                onGithubLogin: _openGithubLogin,
+              ).fadeSlideIn(delay: 200.ms),
+            );
             return ConstrainedBox(
               constraints: BoxConstraints(
                 minHeight: (MediaQuery.sizeOf(context).height - 48).clamp(
@@ -71,7 +97,8 @@ class _AuthPageState extends ConsumerState<AuthPage> {
               ),
               child: Center(
                 child: Container(
-                  constraints: const BoxConstraints(maxWidth: 1040),
+                  key: const ValueKey('auth-card'),
+                  constraints: const BoxConstraints(maxWidth: 1000),
                   decoration: wide
                       ? BoxDecoration(
                           color: Theme.of(
@@ -85,43 +112,49 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                       : null,
                   clipBehavior: wide ? Clip.antiAlias : Clip.none,
                   child: wide
-                      ? SizedBox(
-                          height: 640,
+                      ? AnimatedContainer(
+                          duration: AppMotion.duration(
+                            context,
+                            AppAnimations.normal,
+                          ),
+                          curve: AppAnimations.slideCurve,
+                          // BoxDecoration 的 1px 描边会计入外尺寸。
+                          height: flow.isRegister ? 678 : 598,
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const Expanded(flex: 5, child: _AuthBrandPanel()),
+                              const Expanded(
+                                flex: 13,
+                                child: _AuthBrandPanel(),
+                              ),
                               Expanded(
-                                flex: 5,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(AppSpacing.xl),
-                                  child: _AuthForm(
-                                    formKey: _formKey,
-                                    register: flow.isRegister,
-                                    rememberMe: flow.rememberMe,
-                                    obscurePassword: flow.obscurePassword,
-                                    countdown: flow.countdown,
-                                    formError: flow.formError,
-                                    busy: auth.isBusy,
-                                    emailController: _emailController,
-                                    passwordController: _passwordController,
-                                    nicknameController: _nicknameController,
-                                    codeController: _codeController,
-                                    onModeChanged: _switchMode,
-                                    onRememberChanged: ref
-                                        .read(
-                                          authFlowControllerProvider.notifier,
-                                        )
-                                        .setRememberMe,
-                                    onTogglePassword: ref
-                                        .read(
-                                          authFlowControllerProvider.notifier,
-                                        )
-                                        .togglePasswordVisibility,
-                                    onSendCode: _sendCode,
-                                    onSubmit: _submit,
-                                    onGithubLogin: _openGithubLogin,
-                                  ).fadeSlideIn(delay: 200.ms),
+                                flex: 12,
+                                child: LayoutBuilder(
+                                  builder: (context, panelConstraints) {
+                                    final minContentHeight =
+                                        panelConstraints.maxHeight > 64
+                                        ? panelConstraints.maxHeight - 64
+                                        : 0.0;
+                                    return SingleChildScrollView(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 40,
+                                        vertical: AppSpacing.xl,
+                                      ),
+                                      child: ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          minHeight: minContentHeight,
+                                        ),
+                                        child: Center(
+                                          child: ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                              maxWidth: 400,
+                                            ),
+                                            child: form,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
                             ],
@@ -132,29 +165,15 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                           children: [
                             const _MobileAuthBrand(),
                             const SizedBox(height: AppSpacing.xl),
-                            _AuthForm(
-                              formKey: _formKey,
-                              register: flow.isRegister,
-                              rememberMe: flow.rememberMe,
-                              obscurePassword: flow.obscurePassword,
-                              countdown: flow.countdown,
-                              formError: flow.formError,
-                              busy: auth.isBusy,
-                              emailController: _emailController,
-                              passwordController: _passwordController,
-                              nicknameController: _nicknameController,
-                              codeController: _codeController,
-                              onModeChanged: _switchMode,
-                              onRememberChanged: ref
-                                  .read(authFlowControllerProvider.notifier)
-                                  .setRememberMe,
-                              onTogglePassword: ref
-                                  .read(authFlowControllerProvider.notifier)
-                                  .togglePasswordVisibility,
-                              onSendCode: _sendCode,
-                              onSubmit: _submit,
-                              onGithubLogin: _openGithubLogin,
-                            ).fadeSlideIn(delay: 200.ms),
+                            Align(
+                              alignment: Alignment.topCenter,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 420,
+                                ),
+                                child: form,
+                              ),
+                            ),
                           ],
                         ),
                 ),
@@ -396,34 +415,24 @@ class _AuthForm extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('登录')),
-                ButtonSegment(value: true, label: Text('注册')),
-              ],
-              selected: {register},
-              onSelectionChanged: busy
-                  ? null
-                  : (selection) => onModeChanged(selection.first),
-              showSelectedIcon: false,
+            const SizedBox(height: AppSpacing.md + 4),
+            _AuthModeSwitch(
+              register: register,
+              busy: busy,
+              onChanged: onModeChanged,
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md + 4),
             if (formError != null) ...[
               _FormError(message: formError!),
               const SizedBox(height: AppSpacing.md),
             ],
             TextFormField(
+              key: const ValueKey('auth-email-field'),
               controller: emailController,
+              style: Theme.of(context).textTheme.bodyMedium,
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
-              decoration: const InputDecoration(
-                labelText: '邮箱',
-                prefixIcon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedMail01,
-                  size: 20,
-                ),
-              ),
+              decoration: _authFieldDecoration(context, label: '邮箱'),
               validator: (value) {
                 final email = value?.trim() ?? '';
                 if (email.isEmpty) return '请输入邮箱';
@@ -434,15 +443,11 @@ class _AuthForm extends StatelessWidget {
             if (register) ...[
               const SizedBox(height: AppSpacing.sm + 4),
               TextFormField(
+                key: const ValueKey('auth-nickname-field'),
                 controller: nicknameController,
+                style: Theme.of(context).textTheme.bodyMedium,
                 autofillHints: const [AutofillHints.nickname],
-                decoration: const InputDecoration(
-                  labelText: '昵称（可选）',
-                  prefixIcon: HugeIcon(
-                    icon: HugeIcons.strokeRoundedUser,
-                    size: 20,
-                  ),
-                ),
+                decoration: _authFieldDecoration(context, label: '昵称（可选）'),
               ),
               const SizedBox(height: AppSpacing.sm + 4),
               Row(
@@ -450,15 +455,11 @@ class _AuthForm extends StatelessWidget {
                 children: [
                   Expanded(
                     child: TextFormField(
+                      key: const ValueKey('auth-code-field'),
                       controller: codeController,
+                      style: Theme.of(context).textTheme.bodyMedium,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: '邮箱验证码',
-                        prefixIcon: HugeIcon(
-                          icon: HugeIcons.strokeRoundedTick01,
-                          size: 20,
-                        ),
-                      ),
+                      decoration: _authFieldDecoration(context, label: '邮箱验证码'),
                       validator: (value) {
                         if ((value ?? '').trim().isEmpty) return '请输入验证码';
                         return null;
@@ -466,26 +467,28 @@ class _AuthForm extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm + 4),
-                  FilledButton.tonal(
-                    onPressed: countdown > 0 ? null : onSendCode,
-                    child: Text(countdown > 0 ? '${countdown}s' : '获取验证码'),
+                  SizedBox(
+                    height: 52,
+                    child: FilledButton.tonal(
+                      onPressed: countdown > 0 ? null : onSendCode,
+                      child: Text(countdown > 0 ? '${countdown}s' : '获取验证码'),
+                    ),
                   ),
                 ],
               ),
             ],
             const SizedBox(height: AppSpacing.sm + 4),
             TextFormField(
+              key: const ValueKey('auth-password-field'),
               controller: passwordController,
+              style: Theme.of(context).textTheme.bodyMedium,
               obscureText: obscurePassword,
               autofillHints: [
                 register ? AutofillHints.newPassword : AutofillHints.password,
               ],
-              decoration: InputDecoration(
-                labelText: '密码',
-                prefixIcon: const HugeIcon(
-                  icon: HugeIcons.strokeRoundedLock,
-                  size: 20,
-                ),
+              decoration: _authFieldDecoration(
+                context,
+                label: '密码',
                 suffixIcon: IconButton(
                   tooltip: obscurePassword ? '显示密码' : '隐藏密码',
                   onPressed: onTogglePassword,
@@ -572,6 +575,145 @@ class _AuthForm extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AuthModeSwitch extends StatelessWidget {
+  const _AuthModeSwitch({
+    required this.register,
+    required this.busy,
+    required this.onChanged,
+  });
+
+  final bool register;
+  final bool busy;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey('auth-mode-switch'),
+      height: 48,
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          _AuthModeOption(
+            label: '登录',
+            selected: !register,
+            onTap: busy ? null : () => onChanged(false),
+          ),
+          _AuthModeOption(
+            label: '注册',
+            selected: register,
+            onTap: busy ? null : () => onChanged(true),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuthModeOption extends StatelessWidget {
+  const _AuthModeOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: AnimatedContainer(
+          duration: AppMotion.duration(context, AppAnimations.fast),
+          curve: AppAnimations.slideCurve,
+          decoration: BoxDecoration(
+            color: selected
+                ? scheme.surfaceContainerLowest
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: scheme.shadow.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(10),
+              child: Center(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+InputDecoration _authFieldDecoration(
+  BuildContext context, {
+  required String label,
+  Widget? suffixIcon,
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  final radius = BorderRadius.circular(12);
+  final border = OutlineInputBorder(
+    borderRadius: radius,
+    borderSide: BorderSide(color: scheme.outlineVariant),
+  );
+  return InputDecoration(
+    labelText: label,
+    floatingLabelBehavior: FloatingLabelBehavior.never,
+    isDense: true,
+    filled: true,
+    fillColor: scheme.surfaceContainer,
+    constraints: const BoxConstraints(minHeight: 52),
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md,
+      vertical: 12,
+    ),
+    border: border,
+    enabledBorder: border,
+    focusedBorder: OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: scheme.primary, width: 1.5),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: scheme.error),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: scheme.error, width: 1.5),
+    ),
+    suffixIcon: suffixIcon,
+    suffixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+  );
 }
 
 class _FormError extends StatelessWidget {

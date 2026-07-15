@@ -61,7 +61,7 @@ class _ContentList extends StatelessWidget {
             ),
             children: [
               _ContentHeader(onCreate: onCreate),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm + 4),
               _ContentFilters(
                 searchController: searchController,
                 statusFilter: statusFilter,
@@ -143,45 +143,15 @@ class _ContentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final title = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '内容管理',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '统一维护文章、图片和视频内容',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        );
-        final action = FilledButton.icon(
+    return AdminListActions(
+      actions: [
+        FilledButton.icon(
           onPressed: onCreate,
+          style: adminCompactButtonStyle(),
           icon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
           label: const Text('新增内容'),
-        );
-
-        if (constraints.maxWidth < 520) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [title, const SizedBox(height: 12), action],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: title),
-            action,
-          ],
-        );
-      },
+        ),
+      ],
     );
   }
 }
@@ -213,106 +183,124 @@ class _ContentFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 300,
-              child: TextField(
-                controller: searchController,
-                decoration: InputDecoration(
-                  labelText: '搜索标题或摘要',
-                  prefixIcon: const HugeIcon(
-                    icon: HugeIcons.strokeRoundedSearch01,
-                    size: 20,
-                  ),
-                  suffixIcon: searchController.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: '清空搜索',
-                          onPressed: () {
-                            searchController.clear();
-                            onApply();
-                          },
-                          icon: const HugeIcon(
-                            icon: HugeIcons.strokeRoundedCancel01,
-                            size: 18,
-                          ),
-                        ),
-                ),
-                textInputAction: TextInputAction.search,
-                onChanged: onSearchChanged,
-                onSubmitted: (_) => onApply(),
+    final hasFilters =
+        searchController.text.trim().isNotEmpty ||
+        statusFilter != null ||
+        typeFilter != null ||
+        includeDeleted;
+
+    return AdminFilterBar(
+      onReset: onClear,
+      resetEnabled: hasFilters,
+      items: [
+        AdminFilterItem(
+          flex: 2,
+          child: TextField(
+            controller: searchController,
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '搜索标题或摘要',
+              prefixIcon: const HugeIcon(
+                icon: HugeIcons.strokeRoundedSearch01,
+                size: 20,
               ),
+              suffixIcon: searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: '清空搜索',
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size.square(36),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: EdgeInsets.zero,
+                      ),
+                      onPressed: () {
+                        searchController.clear();
+                        onApply();
+                      },
+                      icon: const HugeIcon(
+                        icon: HugeIcons.strokeRoundedCancel01,
+                        size: 18,
+                      ),
+                    ),
             ),
-            SizedBox(
-              width: 156,
-              child: DropdownButtonFormField<ContentStatus?>(
-                key: ValueKey(statusFilter),
-                initialValue: statusFilter,
-                decoration: const InputDecoration(labelText: '状态'),
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('全部状态')),
-                  DropdownMenuItem(
-                    value: ContentStatus.draft,
-                    child: Text('草稿'),
-                  ),
-                  DropdownMenuItem(
-                    value: ContentStatus.published,
-                    child: Text('已发布'),
-                  ),
-                  DropdownMenuItem(
-                    value: ContentStatus.archived,
-                    child: Text('已归档'),
-                  ),
-                ],
-                onChanged: onStatusFilterChanged,
-              ),
-            ),
-            SizedBox(
-              width: 156,
-              child: DropdownButtonFormField<ContentType?>(
-                key: ValueKey(typeFilter),
-                initialValue: typeFilter,
-                decoration: const InputDecoration(labelText: '类型'),
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('全部类型')),
-                  DropdownMenuItem(
-                    value: ContentType.markdown,
-                    child: Text('文章'),
-                  ),
-                  DropdownMenuItem(value: ContentType.image, child: Text('图片')),
-                  DropdownMenuItem(value: ContentType.video, child: Text('视频')),
-                ],
-                onChanged: onTypeFilterChanged,
-              ),
-            ),
-            FilterChip(
-              selected: includeDeleted,
-              onSelected: onToggleIncludeDeleted,
-              avatar: const HugeIcon(
-                icon: HugeIcons.strokeRoundedDelete01,
-                size: 18,
-              ),
-              label: const Text('显示已删除'),
-            ),
-            OutlinedButton.icon(
-              onPressed: onClear,
-              icon: const HugeIcon(
-                icon: HugeIcons.strokeRoundedRefresh,
-                size: 18,
-              ),
-              label: const Text('重置'),
-            ),
-          ],
+            textInputAction: TextInputAction.search,
+            onChanged: onSearchChanged,
+            onSubmitted: (_) => onApply(),
+          ),
         ),
-      ),
+        AdminFilterItem(
+          width: 152,
+          child: DropdownButtonFormField<ContentStatus?>(
+            key: ValueKey(statusFilter),
+            initialValue: statusFilter,
+            isExpanded: true,
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '状态 · 全部',
+            ),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('状态 · 全部')),
+              DropdownMenuItem(
+                value: ContentStatus.draft,
+                child: Text('状态 · 草稿'),
+              ),
+              DropdownMenuItem(
+                value: ContentStatus.published,
+                child: Text('状态 · 已发布'),
+              ),
+              DropdownMenuItem(
+                value: ContentStatus.archived,
+                child: Text('状态 · 已归档'),
+              ),
+            ],
+            onChanged: onStatusFilterChanged,
+          ),
+        ),
+        AdminFilterItem(
+          width: 152,
+          child: DropdownButtonFormField<ContentType?>(
+            key: ValueKey(typeFilter),
+            initialValue: typeFilter,
+            isExpanded: true,
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '类型 · 全部',
+            ),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('类型 · 全部')),
+              DropdownMenuItem(
+                value: ContentType.markdown,
+                child: Text('类型 · 文章'),
+              ),
+              DropdownMenuItem(
+                value: ContentType.image,
+                child: Text('类型 · 图片'),
+              ),
+              DropdownMenuItem(
+                value: ContentType.video,
+                child: Text('类型 · 视频'),
+              ),
+            ],
+            onChanged: onTypeFilterChanged,
+          ),
+        ),
+        AdminFilterItem(
+          width: 140,
+          child: AdminFilterToggle(
+            selected: includeDeleted,
+            onChanged: onToggleIncludeDeleted,
+            icon: const HugeIcon(icon: HugeIcons.strokeRoundedView, size: 18),
+            selectedIcon: const HugeIcon(
+              icon: HugeIcons.strokeRoundedTick01,
+              size: 18,
+            ),
+            label: '包含已删除',
+          ),
+        ),
+      ],
     );
   }
 }

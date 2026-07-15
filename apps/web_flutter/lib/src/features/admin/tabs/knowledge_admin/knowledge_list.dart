@@ -56,14 +56,18 @@ class _KnowledgeList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionToolbar(
-          title: '个人知识库',
-          actionLabel: '新增',
-          actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
-          onAction: () => onOpenEditor(null),
-          secondaryLabel: '刷新',
-          secondaryIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
-          onSecondaryAction: onApply,
+        AdminListActions(
+          actions: [
+            FilledButton.icon(
+              onPressed: () => onOpenEditor(null),
+              style: adminCompactButtonStyle(),
+              icon: const HugeIcon(
+                icon: HugeIcons.strokeRoundedAdd01,
+                size: 18,
+              ),
+              label: const Text('新增'),
+            ),
+          ],
         ),
         const SizedBox(height: AppSpacing.sm + 4),
         _KnowledgeIndexStatus(
@@ -113,41 +117,43 @@ class _KnowledgeFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.sm + 4,
-      runSpacing: AppSpacing.sm + 4,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 280,
+    return AdminFilterBar(
+      items: [
+        AdminFilterItem(
           child: TextField(
             controller: queryController,
-            decoration: const InputDecoration(labelText: '标题 / 来源 / 正文'),
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '标题 / 来源 / 正文',
+            ),
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => onApply(),
           ),
         ),
-        SizedBox(
-          width: 180,
+        AdminFilterItem(
+          width: 152,
           child: DropdownButtonFormField<bool?>(
+            key: ValueKey(enabled),
             initialValue: enabled,
-            decoration: const InputDecoration(labelText: '状态'),
+            isExpanded: true,
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(
+              context,
+              hintText: '状态 · 全部',
+            ),
             items: const [
-              DropdownMenuItem(value: null, child: Text('全部状态')),
-              DropdownMenuItem(value: true, child: Text('启用')),
-              DropdownMenuItem(value: false, child: Text('停用')),
+              DropdownMenuItem(value: null, child: Text('状态 · 全部')),
+              DropdownMenuItem(value: true, child: Text('状态 · 启用')),
+              DropdownMenuItem(value: false, child: Text('状态 · 停用')),
             ],
             onChanged: onEnabledChanged,
           ),
         ),
-        FilledButton.icon(
-          onPressed: onApply,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
-          label: const Text('筛选'),
-        ),
-        OutlinedButton.icon(
-          onPressed: onClear,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
-          label: const Text('清空'),
-        ),
+      ],
+      actions: [
+        AdminFilterApplyButton(onPressed: onApply),
+        AdminFilterClearButton(onPressed: onClear),
       ],
     );
   }
@@ -223,11 +229,8 @@ class _KnowledgeDocRow extends StatelessWidget {
   }
 
   Widget _buildActions(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
+    return AdminRowFooter(
+      metadata: [
         _KnowledgeSourceChip(sourceType: doc.sourceType),
         _KnowledgeEnabledChip(enabled: doc.enabled),
         if (doc.sourceRef.isNotEmpty)
@@ -239,13 +242,19 @@ class _KnowledgeDocRow extends StatelessWidget {
           icon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
           text: formatAdminDate(doc.updatedAt),
         ),
+      ],
+      actions: [
         OutlinedButton.icon(
           onPressed: onEdit,
+          style: adminCompactButtonStyle(),
           icon: const HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
           label: const Text('编辑'),
         ),
-        OutlinedButton.icon(
+        TextButton.icon(
           onPressed: onDelete,
+          style: adminCompactButtonStyle(
+            foregroundColor: Theme.of(context).colorScheme.error,
+          ),
           icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
           label: const Text('删除'),
         ),

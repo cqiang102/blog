@@ -309,65 +309,71 @@ class _MobileContentCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
+              AdminRowFooter(
+                stackBreakpoint: 600,
+                metadata: [
                   _Metric(
                     icon: HugeIcons.strokeRoundedView,
                     value: content.viewCount,
                     tooltip: '浏览',
                   ),
-                  const SizedBox(width: 14),
                   _Metric(
                     icon: HugeIcons.strokeRoundedFavourite,
                     value: content.likeCount,
                     tooltip: '点赞',
                   ),
-                  const SizedBox(width: 14),
                   _Metric(
                     icon: HugeIcons.strokeRoundedMessage01,
                     value: content.commentCount,
                     tooltip: '评论',
                   ),
-                  const Spacer(),
                   Text(
                     formatAdminDate(content.publishedAt),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
-              ),
-              const Divider(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: onPreview,
-                    icon: const HugeIcon(
-                      icon: HugeIcons.strokeRoundedView,
-                      size: 18,
+                actions: [
+                  if (onPreview != null)
+                    TextButton.icon(
+                      onPressed: onPreview,
+                      style: adminCompactButtonStyle(),
+                      icon: const HugeIcon(
+                        icon: HugeIcons.strokeRoundedView,
+                        size: 18,
+                      ),
+                      label: const Text('预览'),
                     ),
-                    label: const Text('预览'),
-                  ),
-                  TextButton.icon(
-                    onPressed: onEdit,
-                    icon: const HugeIcon(
-                      icon: HugeIcons.strokeRoundedEdit01,
-                      size: 18,
+                  if (onEdit != null)
+                    TextButton.icon(
+                      onPressed: onEdit,
+                      style: adminCompactButtonStyle(),
+                      icon: const HugeIcon(
+                        icon: HugeIcons.strokeRoundedEdit01,
+                        size: 18,
+                      ),
+                      label: const Text('编辑'),
                     ),
-                    label: const Text('编辑'),
-                  ),
                   if (onRestore != null)
                     TextButton.icon(
                       onPressed: onRestore,
+                      style: adminCompactButtonStyle(),
                       icon: const HugeIcon(
                         icon: HugeIcons.strokeRoundedRefresh,
                         size: 18,
                       ),
                       label: const Text('恢复'),
                     )
-                  else
+                  else if (onDelete != null)
                     IconButton(
                       tooltip: '删除',
                       onPressed: onDelete,
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size.square(
+                          kAdminDenseControlHeight,
+                        ),
+                        fixedSize: const Size.square(kAdminDenseControlHeight),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       icon: HugeIcon(
                         icon: HugeIcons.strokeRoundedDelete01,
                         size: 20,

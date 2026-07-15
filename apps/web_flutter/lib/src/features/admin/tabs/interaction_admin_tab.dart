@@ -38,54 +38,44 @@ class AdminLikeTabState extends ConsumerState<AdminLikeTab> {
 
     return likes.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, stackTrace) => AdminErrorPane(
-            message: error.toString(),
-            onRetry: () => ref.invalidate(adminLikesProvider(_query)),
-          ),
-      data:
-          (page) => ListView.builder(
-            padding: const EdgeInsets.all(24),
-            itemCount: page.items.length + 1,
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SectionToolbar(
-                      title: '点赞记录',
-                      actionLabel: '刷新',
-                      actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
-                      onAction: () => ref.invalidate(adminLikesProvider(_query)),
-                    ),
-                    const SizedBox(height: 12),
-                    _RecordFilters(
-                      contentIdController: _contentIdController,
-                      userIdController: _userIdController,
-                      onApply: _applyFilters,
-                      onClear: _clearFilters,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '共 ${page.total} 条点赞记录',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    if (page.items.isEmpty)
-                      const AdminEmptyPane(message: '暂无点赞记录'),
-                  ],
-                );
-              }
-              final like = page.items[index - 1];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _LikeAdminRow(
-                  like: like,
-                  onDelete: () => _deleteLike(context, like),
+      error: (error, stackTrace) => AdminErrorPane(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(adminLikesProvider(_query)),
+      ),
+      data: (page) => ListView.builder(
+        padding: const EdgeInsets.all(24),
+        itemCount: page.items.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _RecordFilters(
+                  contentIdController: _contentIdController,
+                  userIdController: _userIdController,
+                  onApply: _applyFilters,
+                  onClear: _clearFilters,
                 ),
-              );
-            },
-          ),
+                const SizedBox(height: 12),
+                Text(
+                  '共 ${page.total} 条点赞记录',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                if (page.items.isEmpty) const AdminEmptyPane(message: '暂无点赞记录'),
+              ],
+            );
+          }
+          final like = page.items[index - 1];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _LikeAdminRow(
+              like: like,
+              onDelete: () => _deleteLike(context, like),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -170,54 +160,44 @@ class AdminViewTabState extends ConsumerState<AdminViewTab> {
 
     return views.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, stackTrace) => AdminErrorPane(
-            message: error.toString(),
-            onRetry: () => ref.invalidate(adminViewsProvider(_query)),
-          ),
-      data:
-          (page) => ListView.builder(
-            padding: const EdgeInsets.all(24),
-            itemCount: page.items.length + 1,
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SectionToolbar(
-                      title: '浏览记录',
-                      actionLabel: '刷新',
-                      actionIcon: const HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
-                      onAction: () => ref.invalidate(adminViewsProvider(_query)),
-                    ),
-                    const SizedBox(height: 12),
-                    _RecordFilters(
-                      contentIdController: _contentIdController,
-                      userIdController: _userIdController,
-                      onApply: _applyFilters,
-                      onClear: _clearFilters,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '共 ${page.total} 条浏览记录',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    if (page.items.isEmpty)
-                      const AdminEmptyPane(message: '暂无浏览记录'),
-                  ],
-                );
-              }
-              final view = page.items[index - 1];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ViewAdminRow(
-                  view: view,
-                  onDelete: () => _deleteView(context, view),
+      error: (error, stackTrace) => AdminErrorPane(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(adminViewsProvider(_query)),
+      ),
+      data: (page) => ListView.builder(
+        padding: const EdgeInsets.all(24),
+        itemCount: page.items.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _RecordFilters(
+                  contentIdController: _contentIdController,
+                  userIdController: _userIdController,
+                  onApply: _applyFilters,
+                  onClear: _clearFilters,
                 ),
-              );
-            },
-          ),
+                const SizedBox(height: 12),
+                Text(
+                  '共 ${page.total} 条浏览记录',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                if (page.items.isEmpty) const AdminEmptyPane(message: '暂无浏览记录'),
+              ],
+            );
+          }
+          final view = page.items[index - 1];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _ViewAdminRow(
+              view: view,
+              onDelete: () => _deleteView(context, view),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -293,35 +273,30 @@ class _RecordFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 300,
+    return AdminFilterBar(
+      items: [
+        AdminFilterItem(
           child: TextField(
             controller: contentIdController,
-            decoration: const InputDecoration(labelText: '内容 ID'),
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(context, hintText: '内容 ID'),
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => onApply(),
           ),
         ),
-        SizedBox(
-          width: 300,
+        AdminFilterItem(
           child: TextField(
             controller: userIdController,
-            decoration: const InputDecoration(labelText: '用户 ID'),
+            style: Theme.of(context).textTheme.bodyMedium,
+            decoration: adminFilterInputDecoration(context, hintText: '用户 ID'),
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => onApply(),
           ),
         ),
-        FilledButton.icon(
-          onPressed: onApply,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedFilter),
-          label: const Text('筛选'),
-        ),
-        OutlinedButton.icon(
-          onPressed: onClear,
-          icon: const HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
-          label: const Text('清空'),
-        ),
+      ],
+      actions: [
+        AdminFilterApplyButton(onPressed: onApply),
+        AdminFilterClearButton(onPressed: onClear),
       ],
     );
   }
@@ -338,8 +313,9 @@ class _LikeAdminRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final createdAt = formatAdminDate(like.createdAt);
-    final userLabel =
-        like.userNickname.isEmpty ? like.userEmail : like.userNickname;
+    final userLabel = like.userNickname.isEmpty
+        ? like.userEmail
+        : like.userNickname;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -367,18 +343,41 @@ class _LikeAdminRow extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18), text: userLabel),
+            AdminRowFooter(
+              metadata: [
+                AdminMetaText(
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedUser,
+                    size: 18,
+                  ),
+                  text: userLabel,
+                ),
                 if (like.userEmail.isNotEmpty)
-                  AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 18), text: like.userEmail),
-                AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18), text: createdAt),
-                OutlinedButton.icon(
+                  AdminMetaText(
+                    icon: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedMail01,
+                      size: 18,
+                    ),
+                    text: like.userEmail,
+                  ),
+                AdminMetaText(
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedClock01,
+                    size: 18,
+                  ),
+                  text: createdAt,
+                ),
+              ],
+              actions: [
+                TextButton.icon(
                   onPressed: onDelete,
-                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01),
+                  style: adminCompactButtonStyle(
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedDelete01,
+                    size: 18,
+                  ),
                   label: const Text('删除'),
                 ),
               ],
@@ -401,10 +400,9 @@ class _ViewAdminRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final createdAt = formatAdminDate(view.createdAt);
-    final userLabel =
-        view.anonymous
-            ? '匿名访客'
-            : (view.userNickname.isEmpty ? view.userEmail : view.userNickname);
+    final userLabel = view.anonymous
+        ? '匿名访客'
+        : (view.userNickname.isEmpty ? view.userEmail : view.userNickname);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -441,20 +439,49 @@ class _ViewAdminRow extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 18), text: userLabel),
+            AdminRowFooter(
+              metadata: [
+                AdminMetaText(
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedUser,
+                    size: 18,
+                  ),
+                  text: userLabel,
+                ),
                 if (view.userEmail.isNotEmpty)
-                  AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 18), text: view.userEmail),
+                  AdminMetaText(
+                    icon: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedMail01,
+                      size: 18,
+                    ),
+                    text: view.userEmail,
+                  ),
                 if (view.anonymousId.isNotEmpty)
-                  AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedFingerPrint, size: 18), text: view.anonymousId),
-                AdminMetaText(icon: const HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18), text: createdAt),
-                OutlinedButton.icon(
+                  AdminMetaText(
+                    icon: const HugeIcon(
+                      icon: HugeIcons.strokeRoundedFingerPrint,
+                      size: 18,
+                    ),
+                    text: view.anonymousId,
+                  ),
+                AdminMetaText(
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedClock01,
+                    size: 18,
+                  ),
+                  text: createdAt,
+                ),
+              ],
+              actions: [
+                TextButton.icon(
                   onPressed: onDelete,
-                  icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01),
+                  style: adminCompactButtonStyle(
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedDelete01,
+                    size: 18,
+                  ),
                   label: const Text('删除'),
                 ),
               ],
