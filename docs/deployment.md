@@ -4,9 +4,9 @@
 
 ### 本地构建环境（macOS）
 
-- Flutter 3.35.4（`fvm use 3.35.4`）
+- FVM 3.2.1（按 `apps/web_flutter/.fvmrc` 安装并使用 Flutter 3.35.4）
 - JDK 21+（脚本会在 macOS 上优先使用 `/usr/libexec/java_home -v 21`）
-- Maven 3.8+
+- Maven 由 `apps/api/mvnw` 固定为 3.9.16（首次执行需要联网下载）
 - Docker Desktop 或 OrbStack
 
 ### 服务器环境
@@ -25,11 +25,12 @@ scripts/package-deploy.sh
 ```
 
 该脚本会自动完成：
-1. 构建 Flutter Web（`fvm flutter build web --release`）
-2. 构建 Spring Boot 可执行 JAR（`mvn clean package -DskipTests -DskipApiDocs=true`）
+1. 检查 Dart 格式并执行 Flutter 静态分析、测试与 Web 构建
+2. 执行 Maven `clean verify`（Spotless 格式、Checkstyle 源码卫生、测试、JaCoCo 覆盖率门禁）并生成 Spring Boot 可执行 JAR
 3. 组装部署目录并打包成 `blog-mimo-1.0.0.tar.gz`
 
 > 部署 JAR 会跳过 `api-docs` Maven profile，不包含 SpringDoc/Swagger UI 依赖；`/v3/api-docs` 和 `/swagger-ui.html` 在生产部署中预期为不可用。开发环境默认启用 `dev` profile，可继续使用 Swagger/OpenAPI 辅助调试。
+> `--skip-build` 会复用现有前后端产物，同时跳过上述自动化验证，仅适合已经通过 CI 或本地完整验证后的产物。
 > 如果本地存在 `deploy/.env`，打包脚本会把它作为生产 `.env` 一起放入压缩包；该文件被 Git 忽略，不会随源码发布。
 
 产出结构：
@@ -108,10 +109,18 @@ vim .env
 | `MAIL_USERNAME` | SMTP 登录账号/发件邮箱 | ✅ |
 | `MAIL_PASSWORD` | SMTP 密码或授权码 | ✅ |
 | `JWT_SECRET` | JWT 密钥（至少32字符） | ✅ |
-| `ADMIN_EMAIL` | 管理员邮箱 | ✅ |
-| `ADMIN_PASSWORD` | 管理员密码 | ✅ |
-| `ADMIN_NICKNAME` | 管理员昵称 | ✅ |
+| `ADMIN_BOOTSTRAP_ENABLED` | 是否在启动时引导创建管理员（默认 `false`） | 可选 |
+| `ADMIN_EMAIL` | 管理员邮箱（仅开启引导时需要） | 条件必填 |
+| `ADMIN_PASSWORD` | 管理员密码（仅开启引导时需要） | 条件必填 |
+| `ADMIN_NICKNAME` | 管理员昵称 | 可选 |
 | `WEB_PORT` | 前端容器端口（默认 8080） | 可选 |
+
+新环境需要创建首个管理员时，仅在首次启动前设置
+`ADMIN_BOOTSTRAP_ENABLED=true` 并填写管理员邮箱、密码。账号创建后立即改回
+`ADMIN_BOOTSTRAP_ENABLED=false`，避免后续启动继续携带引导凭据。
+
+生产 Compose 会把 `host.docker.internal` 映射到 Linux 宿主机网关，供 API 容器访问
+宿主机上的 Ollama。如果 Ollama 运行在其他主机，请显式设置 `OLLAMA_BASE_URL`。
 
 ### 3. 启动服务
 

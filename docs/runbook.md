@@ -26,7 +26,7 @@ docker compose --env-file apps/api/.env -f infra/docker-compose.yml up -d
 
 ## 后端
 
-推荐启动方式。脚本会切换到 Java 21，默认使用 `PATH` 中的 Maven；可通过 `MAVEN_BIN` 覆盖：
+推荐启动方式。脚本会切换到 Java 21，默认使用仓库内的 Maven Wrapper；可通过 `MAVEN_BIN` 覆盖：
 
 ```bash
 scripts/dev-api.sh
@@ -93,6 +93,6 @@ fvm flutter run -d chrome
 ## 常见问题
 
 - Maven 显示 Java 8：优先通过 `scripts/dev-api.sh` 运行，脚本会切换到 Java 21。
-- Maven 不在默认 `PATH`：通过 `MAVEN_BIN=/path/to/mvn scripts/dev-api.sh ...` 指定。
+- Maven Wrapper 首次下载失败：确认能够访问 Maven Central，或通过 `MAVEN_BIN=/path/to/mvn scripts/dev-api.sh ...` 指定已有 Maven。
 - OpenAI 不可用：确认 `OPENAI_API_KEY` 和 `OPENAI_BASE_URL`。
 - GitHub 登录不可用：确认 OAuth App 的 callback URL 指向后端服务。

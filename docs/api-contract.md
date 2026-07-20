@@ -17,9 +17,8 @@
 
 ## 公开与认证
 
-- `/auth`：验证码、注册、登录、刷新令牌、OAuth 登录码交换和登录方式查询。
+- `/auth`：验证码、注册、登录、刷新令牌、浏览器绑定的 OAuth 回调和登录方式查询。
 - `/auth/github`：GitHub 账号绑定。
-- `/oauth2/authorization/github`：Spring Security OAuth 授权入口，不使用 `/api/v1` 前缀。
 - `/contents`：推荐、分页搜索、详情和标签。
 - `/media-assets/{id}/file`：媒体文件。
 - `/friends/random`：随机可见友链。

@@ -54,14 +54,23 @@ fvm flutter run -d chrome
 
 ## 验证
 
+后端入口会执行 Spotless 格式检查、Checkstyle 源码卫生检查、测试、JaCoCo 覆盖率报告和最低阈值；前端需依次通过格式、静态分析、测试与 Web 构建：
+后端完整验证会通过 Testcontainers 启动 PostgreSQL/pgvector，因此需要本机 Docker 守护进程可用。
+
 ```bash
 scripts/dev-api.sh test
 
+# 后端格式检查失败时自动修复 Java 布局和导入顺序
+cd apps/api && ./mvnw spotless:apply
+
 cd apps/web_flutter
+fvm dart format --output=none --set-exit-if-changed lib test
 fvm flutter analyze
 fvm flutter test
 fvm flutter build web --release
 ```
+
+同一组门禁会在 [GitHub Actions](.github/workflows/ci.yml) 中自动执行。项目固定使用 Java 21、Maven 3.9.16、FVM 3.2.1 和 Flutter 3.35.4；后端脚本与 CI 默认使用 `apps/api/mvnw`，前端命令通过 `apps/web_flutter/.fvmrc` 解析 Flutter 版本，本地仍可通过 `MAVEN_BIN` 或 `FVM_BIN` 覆盖。JaCoCo HTML 报告生成在 `apps/api/target/site/jacoco/index.html`。
 
 ## 生产部署
 

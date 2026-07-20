@@ -146,7 +146,7 @@
 | AI 对话 | ✅ | 与 AI 助手聊天，支持上下文记忆 |
 | 流式响应 | ✅ | 通过 SSE 逐步返回模型输出 |
 | 会话管理 | ✅ | 创建新会话、查看历史会话 |
-| 消息持久化 | ✅ | JDBC 存储对话历史（Spring AI ChatMemory） |
+| 消息持久化 | ✅ | 业务消息表统一存储并提供最近 20 条模型上下文 |
 | 会话消息限制 | ✅ | 每个会话最多 40 条消息，超限需新建会话 |
 | 自动加载最新会话 | ✅ | 打开页面自动加载最近一次会话 |
 
@@ -399,8 +399,8 @@
 | 脚本 | 说明 |
 |------|------|
 | scripts/infra.sh | 本地依赖服务脚本（读取 apps/api/.env，管理 PostgreSQL、Redis、MinIO） |
-| scripts/dev-api.sh | 后端开发脚本（切换 Java 21、按需启动依赖、运行应用或测试） |
-| scripts/package-deploy.sh | 生产部署包脚本（构建 JAR 和 Flutter Web，组装 tar.gz） |
+| scripts/dev-api.sh | 后端开发脚本（切换 Java 21、按需启动依赖、运行应用或完整验证） |
+| scripts/package-deploy.sh | 生产部署包脚本（先验证，再构建 JAR 和 Flutter Web 并组装 tar.gz） |
 
 ### 9.2 文档
 
@@ -418,8 +418,8 @@
 
 | 检查 | 状态 | 说明 |
 |------|------|------|
-| 后端测试 | 保留 | 覆盖核心服务、契约、基础设施和 pgvector 相关流程；发布前按风险补充运行 |
-| 前端测试 | 保留 | 覆盖模型、状态、HTTP 客户端与 Widget；发布前结合人工测试 |
+| 后端 CI | ✅ | Java 21 下执行 Spotless 格式、Checkstyle 源码卫生、测试和 JaCoCo 覆盖率门禁 |
+| 前端 CI | ✅ | Flutter 3.35.4 下执行格式、静态分析、测试和 Web 构建 |
 | 部署检查 | ✅ | `scripts/package-deploy.sh --check` 验证工具、部署文件和 Compose 配置 |
 
 ---
@@ -456,7 +456,7 @@
 | 聊天模型 | GPT-4.1-mini |
 | 嵌入模型 | Ollama nomic-embed-text（768 维） |
 | 向量存储 | pgvector |
-| 聊天记忆 | JDBC ChatMemory（20 条消息窗口） |
+| 聊天记忆 | `ai_chat_messages` 最近 20 条（单一事实来源） |
 | RAG | 内容自动索引 + 向量搜索 |
 | Tool Calling | 8 个 `@Tool` 方法（搜索、详情、知识库、互动和评论管理） |
 
@@ -465,6 +465,8 @@
 ## 十一、配置项
 
 ### 11.1 环境变量
+
+下表的“默认值”是 `dev` 配置或 `apps/api/.env.example` 的本地开发值。基础配置与 `prod` 配置不内置数据库、缓存、邮件、对象存储、跨域或认证凭据；生产部署必须通过环境变量显式提供。
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
@@ -475,7 +477,7 @@
 | POSTGRES_PASSWORD | blog | 数据库密码 |
 | REDIS_HOST | localhost | Redis 主机 |
 | REDIS_PORT | 6379 | Redis 端口 |
-| REDIS_PASSWORD | (空) | Redis 密码 |
+| REDIS_PASSWORD | blog_redis | Redis 密码 |
 | MINIO_ENDPOINT | http://localhost:9000 | MinIO 地址 |
 | MINIO_ACCESS_KEY | blog_minio | MinIO 访问密钥 |
 | MINIO_SECRET_KEY | blog_minio_password | MinIO 秘密密钥 |
@@ -484,14 +486,14 @@
 | OPENAI_BASE_URL | https://api.deepseek.com | OpenAI 兼容 API 地址 |
 | OPENAI_CHAT_MODEL | deepseek-v4-flash | 聊天模型 |
 | OLLAMA_EMBEDDING_MODEL | nomic-embed-text | 嵌入模型 |
-| JWT_SECRET | change-me-to-a-long-random-secret | JWT 密钥 |
+| JWT_SECRET | change-me-to-a-long-random-secret | JWT 密钥；生产必填且至少 32 字符 |
 | JWT_ACCESS_TOKEN_MINUTES | 30 | Access Token 有效期（分钟） |
 | JWT_REFRESH_TOKEN_DAYS | 30 | Refresh Token 有效期（天） |
 | AI_DAILY_QUESTION_LIMIT | 10 | 每日提问次数限制 |
 | MEDIA_MAX_UPLOAD_SIZE | 50MB | 最大上传文件大小 |
 | SERVER_PORT | 8080 | 服务端口 |
 | FRONTEND_BASE_URL | http://localhost:3000 | 前端公开地址 |
-| BLOG_CORS_ALLOWED_ORIGINS | * | 允许的前端域名 |
+| BLOG_CORS_ALLOWED_ORIGINS | 本地前端地址 | 允许的前端域名（逗号分隔）；生产必填 |
 
 ---
 
@@ -511,12 +513,11 @@
 | view_records | 浏览记录表 |
 | friends | 友链表 |
 | ai_chat_sessions | AI 会话表 |
-| ai_chat_messages | AI 消息表 |
+| ai_chat_messages | AI 消息表，也是模型上下文的唯一事实来源 |
 | ai_daily_quotas | AI 每日配额表 |
 | knowledge_docs | 知识文档表 |
 | knowledge_chunks | 知识分块表（含向量） |
 | audit_logs | 审计日志表 |
-| spring_ai_chat_memory | Spring AI 聊天记忆表 |
 
 ---
 

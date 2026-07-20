@@ -15,6 +15,9 @@ RUN_BUILDS=1
 CHECK_ONLY=0
 INCLUDE_DEPLOY_ENV=0
 
+# shellcheck source=scripts/lib/java-toolchain.sh
+source "$ROOT_DIR/scripts/lib/java-toolchain.sh"
+
 usage() {
   cat <<USAGE
 用法：scripts/package-deploy.sh [选项]
@@ -25,11 +28,12 @@ usage() {
   -h, --help    显示帮助。
 
 可覆盖的环境变量：
-  FVM_BIN, DOCKER_BIN, MAVEN_BIN, JAVA_HOME, API_JAR, WEB_BUILD_OUTPUT,
+  FVM_BIN, DOCKER_BIN, MAVEN_BIN, JAVA_HOME, JAVA_HOME_OVERRIDE, API_JAR, WEB_BUILD_OUTPUT,
   APP_VERSION, OUTPUT, PACKAGE_NAME
 
 说明：
   Spring Boot JAR 构建会传入 -DskipApiDocs=true，生产部署包不包含 Swagger/OpenAPI 依赖。
+  默认构建会先执行 Dart 格式检查、Flutter 分析/测试和 Maven verify；--skip-build 仅用于打包已验证的现有产物。
   如果 deploy/.env 存在，脚本会把它一起放入部署包；deploy/.env 被 Git 忽略，不会随源码发布。
 USAGE
 }
@@ -89,56 +93,15 @@ require_dir() {
   fi
 }
 
-# 提取 Java 主版本号，兼容 1.8 和 21.0.x 两类版本输出。
-java_major() {
-  local java_bin="$1"
-  local version_line
-  version_line="$("$java_bin" -version 2>&1 | head -n 1)"
-  if [[ "$version_line" =~ \"1\.([0-9]+)\. ]]; then
-    echo "${BASH_REMATCH[1]}"
-  elif [[ "$version_line" =~ \"([0-9]+)(\.|-|\") ]]; then
-    echo "${BASH_REMATCH[1]}"
-  else
-    echo "0"
-  fi
-}
-
-# 构建后端 JAR 必须使用 Java 21+；macOS 上优先用 /usr/libexec/java_home 自动切换。
+# 构建后端 JAR 必须使用 Java 21+。
 ensure_java_21() {
-  local java_bin="${JAVA_HOME:+$JAVA_HOME/bin/java}"
-  if [[ -n "$java_bin" && -x "$java_bin" ]]; then
-    local configured_major
-    configured_major="$(java_major "$java_bin")"
-    if [[ "$configured_major" -ge 21 ]]; then
-      return
-    fi
-  fi
-
-  if [[ "$(uname -s)" == "Darwin" && -x /usr/libexec/java_home ]]; then
-    local java_home
-    java_home="$(/usr/libexec/java_home -v 21 2>/dev/null || true)"
-    if [[ -n "$java_home" ]]; then
-      export JAVA_HOME="$java_home"
-      export PATH="$JAVA_HOME/bin:$PATH"
-    fi
-  fi
-
-  java_bin="${JAVA_HOME:+$JAVA_HOME/bin/java}"
-  if [[ -z "$java_bin" || ! -x "$java_bin" ]]; then
-    java_bin="$(find_command java || true)"
-  fi
-
-  if [[ -z "$java_bin" || ! -x "$java_bin" ]]; then
-    echo "构建 API JAR 需要 Java 21+，但未找到 java 命令。" >&2
+  local resolved_java_home
+  if ! resolved_java_home="$(resolve_java_21_home "${JAVA_HOME_OVERRIDE:-}" "${JAVA_HOME:-}")"; then
+    echo "构建 API JAR 需要 Java 21+。请设置 JAVA_HOME/JAVA_HOME_OVERRIDE，或把 Java 21 加入 PATH。" >&2
     exit 1
   fi
-
-  local major
-  major="$(java_major "$java_bin")"
-  if [[ "$major" -lt 21 ]]; then
-    echo "构建 API JAR 需要 Java 21+；当前为 Java $major，路径：$java_bin。" >&2
-    exit 1
-  fi
+  export JAVA_HOME="$resolved_java_home"
+  export PATH="$JAVA_HOME/bin:$PATH"
 }
 
 # 允许外部通过 API_JAR 指定已有 JAR；否则从 apps/api/target 中解析唯一可部署 JAR。
@@ -192,7 +155,11 @@ if [[ "$RUN_BUILDS" -eq 1 || "$CHECK_ONLY" -eq 1 ]]; then
   ensure_java_21
 fi
 if [[ ( "$RUN_BUILDS" -eq 1 || "$CHECK_ONLY" -eq 1 ) && -z "$MAVEN_BIN" ]]; then
-  MAVEN_BIN="$(find_command mvn /opt/homebrew/bin/mvn /usr/local/bin/mvn "$HOME/wubihuan/apache-maven-3.8.8/bin/mvn" "$HOME/wubihuan/apache-maven-3.6.3/bin/mvn" || true)"
+  if [[ -x "$API_DIR/mvnw" ]]; then
+    MAVEN_BIN="$API_DIR/mvnw"
+  else
+    MAVEN_BIN="$(find_command mvn /opt/homebrew/bin/mvn /usr/local/bin/mvn "$HOME/wubihuan/apache-maven-3.8.8/bin/mvn" "$HOME/wubihuan/apache-maven-3.6.3/bin/mvn" || true)"
+  fi
 fi
 if [[ ( "$RUN_BUILDS" -eq 1 || "$CHECK_ONLY" -eq 1 ) && -z "$MAVEN_BIN" ]]; then
   echo "构建 API JAR 需要 Maven，但未找到 Maven。" >&2
@@ -248,14 +215,17 @@ if [[ "$CHECK_ONLY" -eq 1 ]]; then
 fi
 
 if [[ "$RUN_BUILDS" -eq 1 ]]; then
-  echo "==> [1/4] 构建 Flutter Web..."
+  echo "==> [1/4] 验证并构建 Flutter Web..."
   cd "$WEB_DIR"
   "$FVM_BIN" flutter pub get
+  "$FVM_BIN" dart format --output=none --set-exit-if-changed lib test
+  "$FVM_BIN" flutter analyze
+  "$FVM_BIN" flutter test
   "$FVM_BIN" flutter build web --release --tree-shake-icons --dart-define=API_BASE_URL=/api/v1
 
-  echo "==> [2/4] 构建 Spring Boot JAR..."
+  echo "==> [2/4] 验证并构建 Spring Boot JAR..."
   cd "$API_DIR"
-  "$MAVEN_BIN" clean package -DskipTests -DskipApiDocs=true -B
+  "$MAVEN_BIN" clean verify -DskipApiDocs=true -B
 else
   echo "==> [1/4] 跳过 Flutter Web 构建..."
   echo "==> [2/4] 跳过 Spring Boot JAR 构建..."

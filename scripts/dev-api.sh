@@ -4,12 +4,15 @@ set -euo pipefail
 # 本地后端启动入口：读取 apps/api/.env，按需启动 infra，再运行 Spring Boot。
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
-MAVEN_BIN="${MAVEN_BIN:-$(command -v mvn || true)}"
+MAVEN_BIN="${MAVEN_BIN:-$API_DIR/mvnw}"
 COMMAND="${1:-run}"
 PROFILES="${2:-dev}"
 LOG_FILE="${LOG_FILE:-$API_DIR/target/dev-api.log}"
 LOCAL_ENV_FILE="$API_DIR/.env"
 RUN_TESTS=0
+
+# shellcheck source=scripts/lib/java-toolchain.sh
+source "$ROOT_DIR/scripts/lib/java-toolchain.sh"
 
 # 支持 `scripts/dev-api.sh dev` 这种快捷写法，等价于 `run dev`。
 if [[ "$COMMAND" == "dev"* || "$COMMAND" == *","* ]]; then
@@ -27,7 +30,7 @@ if [[ "$COMMAND" == "--help" || "$COMMAND" == "-h" ]]; then
   scripts/dev-api.sh run dev         # 使用 dev 配置环境运行后端
   scripts/dev-api.sh dev             # 上一条命令的快捷写法
   scripts/dev-api.sh app-log         # 查看最近的后端运行日志
-  scripts/dev-api.sh test            # 使用 Maven 运行后端测试
+  scripts/dev-api.sh test            # 使用 Maven 运行后端完整验证（需要 Docker/Testcontainers）
   SKIP_INFRA=1 scripts/dev-api.sh run dev
 
 环境变量：
@@ -71,18 +74,25 @@ case "$COMMAND" in
 esac
 
 if [[ ! -x "$MAVEN_BIN" ]]; then
-  echo "未找到 Maven。请安装 Maven，或设置 MAVEN_BIN=/path/to/mvn。" >&2
-  exit 1
+  MAVEN_BIN="$(command -v mvn || true)"
+  if [[ ! -x "$MAVEN_BIN" ]]; then
+    echo "未找到 Maven Wrapper 或 Maven。请确认 apps/api/mvnw 可执行，或设置 MAVEN_BIN=/path/to/mvn。" >&2
+    exit 1
+  fi
 fi
 
-# 统一切到 Java 21，避免本机默认 JDK 版本影响 Spring Boot 启动。
-export JAVA_HOME="${JAVA_HOME_OVERRIDE:-$(/usr/libexec/java_home -v 21)}"
+# 统一使用 Java 21+，避免本机默认 JDK 版本影响 Spring Boot 启动。
+if ! JAVA_HOME="$(resolve_java_21_home "${JAVA_HOME_OVERRIDE:-}" "${JAVA_HOME:-}")"; then
+  echo "需要 Java 21+。请设置 JAVA_HOME/JAVA_HOME_OVERRIDE，或把 Java 21 加入 PATH。" >&2
+  exit 1
+fi
+export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$(dirname "$MAVEN_BIN"):$PATH"
 
-# test 命令只跑 Maven 测试，不启动 Docker 依赖。
+# test 命令不启动常驻基础设施，但完整验证会通过 Testcontainers 使用 Docker。
 if [[ "$RUN_TESTS" == "1" ]]; then
   cd "$API_DIR"
-  exec "$MAVEN_BIN" test
+  exec "$MAVEN_BIN" clean verify -DskipApiDocs=true
 fi
 
 # 默认先拉起本地依赖；依赖已启动时可通过 SKIP_INFRA=1 跳过。
