@@ -27,8 +27,7 @@ public record AdminAiChatMessageResponse(
         Integer completionTokens,
         String auditStatus,
         String auditReason,
-        Instant createdAt
-) {
+        Instant createdAt) {
 
     /**
      * 从消息实体创建响应 DTO
@@ -46,7 +45,6 @@ public record AdminAiChatMessageResponse(
                 message.getCompletionTokens(),
                 message.getAuditStatus(),
                 message.getAuditReason(),
-                message.getCreatedAt()
-        );
+                message.getCreatedAt());
     }
 }

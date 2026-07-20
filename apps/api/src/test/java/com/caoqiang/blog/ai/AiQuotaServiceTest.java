@@ -38,14 +38,8 @@ class AiQuotaServiceTest {
         AiQuotaService service = new AiQuotaService(jdbcTemplate, clock);
         UUID userId = UUID.randomUUID();
 
-        when(jdbcTemplate.query(
-                anyString(),
-                ArgumentMatchers.<RowMapper<Integer>>any(),
-                any(),
-                any(),
-                any(),
-                any()
-        )).thenReturn(List.of(3));
+        when(jdbcTemplate.query(anyString(), ArgumentMatchers.<RowMapper<Integer>>any(), any(), any(), any(), any()))
+                .thenReturn(List.of(3));
 
         AiQuotaService.Reservation reservation = service.reserve(userId, 10);
         service.release(reservation);

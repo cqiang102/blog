@@ -1,12 +1,5 @@
 package com.caoqiang.blog.content.application.dto;
 
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.Tag;
-
 import java.io.Serializable;
 import java.util.List;
 
@@ -27,6 +20,5 @@ public record RecommendationResponse(
         /** 最新内容列表 */
         List<ContentSummaryResponse> latest,
         /** 最热内容列表（按点赞数排序） */
-        List<ContentSummaryResponse> mostLiked
-) implements Serializable {
-}
+        List<ContentSummaryResponse> mostLiked)
+        implements Serializable {}

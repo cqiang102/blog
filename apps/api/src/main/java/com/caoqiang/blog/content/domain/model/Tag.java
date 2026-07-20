@@ -10,7 +10,6 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.UUID;
 
 /**
  * 标签实体。
@@ -51,8 +50,7 @@ public class Tag extends AggregateRoot {
     private Set<Content> contents = new LinkedHashSet<>();
 
     /** JPA 受保护的无参构造函数 */
-    protected Tag() {
-    }
+    protected Tag() {}
 
     /**
      * 创建标签的构造函数。

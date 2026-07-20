@@ -1,10 +1,9 @@
 package com.caoqiang.blog.friend.application.service;
 
+import com.caoqiang.blog.content.application.api.ContentMediaService;
+import com.caoqiang.blog.friend.application.dto.FriendResponse;
 import com.caoqiang.blog.friend.domain.model.Friend;
 import com.caoqiang.blog.friend.domain.repository.FriendRepository;
-import com.caoqiang.blog.friend.application.dto.FriendResponse;
-import com.caoqiang.blog.content.application.api.ContentMediaService;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -28,6 +27,7 @@ public class FriendQueryService {
 
     /** 友链数据访问层 */
     private final FriendRepository friendRepository;
+
     private final ContentMediaService contentMediaService;
 
     public FriendQueryService(FriendRepository friendRepository, ContentMediaService contentMediaService) {

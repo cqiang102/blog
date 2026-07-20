@@ -26,8 +26,7 @@ public class AdminDashboardService {
             FriendOverviewService friendOverviewService,
             UserOverviewService userOverviewService,
             InteractionOverviewService interactionOverviewService,
-            AiOverviewService aiOverviewService
-    ) {
+            AiOverviewService aiOverviewService) {
         this.contentOverviewService = contentOverviewService;
         this.friendOverviewService = friendOverviewService;
         this.userOverviewService = userOverviewService;
@@ -48,7 +47,6 @@ public class AdminDashboardService {
                 interaction.likeCount(),
                 interaction.viewCount(),
                 ai.chatSessionCount(),
-                ai.knowledgeDocCount()
-        );
+                ai.knowledgeDocCount());
     }
 }

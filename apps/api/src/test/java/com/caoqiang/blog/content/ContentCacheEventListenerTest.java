@@ -1,5 +1,9 @@
 package com.caoqiang.blog.content;
 
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.caoqiang.blog.config.CacheNames;
 import com.caoqiang.blog.content.application.event.ContentCacheEventListener;
 import com.caoqiang.blog.content.event.ContentArchivedEvent;
@@ -13,10 +17,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ContentCacheEventListenerTest {

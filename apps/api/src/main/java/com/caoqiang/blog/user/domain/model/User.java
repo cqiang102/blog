@@ -10,7 +10,6 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import java.util.UUID;
 
 /**
  * 用户实体
@@ -74,8 +73,7 @@ public class User extends AggregateRoot {
     private Instant updatedAt;
 
     /** JPA 保护构造函数 */
-    protected User() {
-    }
+    protected User() {}
 
     /**
      * 注册普通用户
@@ -160,14 +158,7 @@ public class User extends AggregateRoot {
      * @param status    新状态
      */
     public void applyAdminUpdate(
-            String email,
-            String nickname,
-            String avatarUrl,
-            String bio,
-            String blogUrl,
-            Role role,
-            UserStatus status
-    ) {
+            String email, String nickname, String avatarUrl, String bio, String blogUrl, Role role, UserStatus status) {
         updateProfile(email, nickname, avatarUrl, bio, blogUrl);
         this.role = role;
         this.status = status;

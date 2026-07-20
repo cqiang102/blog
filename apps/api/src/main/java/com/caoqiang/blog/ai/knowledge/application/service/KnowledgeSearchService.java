@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 知识库搜索服务
@@ -59,8 +58,7 @@ public class KnowledgeSearchService {
             ContentKnowledgeService contentKnowledgeService,
             KnowledgeChunkRepository knowledgeChunkRepository,
             KnowledgeDocRepository knowledgeDocRepository,
-            EmbeddingService embeddingService
-    ) {
+            EmbeddingService embeddingService) {
         this.blogProperties = blogProperties;
         this.contentKnowledgeService = contentKnowledgeService;
         this.knowledgeChunkRepository = knowledgeChunkRepository;
@@ -74,7 +72,6 @@ public class KnowledgeSearchService {
      * 精确关键词命中优先于向量结果，避免短标题或专有名词被语义模型错排。
      * 空查询用于浏览当前可用知识来源。关键词未命中时才执行向量搜索。
      */
-    @Transactional(readOnly = true)
     public List<KnowledgeSearchResult> search(String query) {
         String normalizedQuery = query == null ? "" : query.trim();
         if (normalizedQuery.isEmpty()) {
@@ -89,73 +86,73 @@ public class KnowledgeSearchService {
         try {
             float[] queryEmbedding = embeddingService.embed(normalizedQuery);
             String embeddingStr = VectorUtils.toPgVectorString(queryEmbedding);
-            List<Object[]> similarChunks = knowledgeChunkRepository.findSimilarChunks(
-                    embeddingStr,
-                    VECTOR_CANDIDATE_LIMIT
-            );
+            List<Object[]> similarChunks =
+                    knowledgeChunkRepository.findSimilarChunks(embeddingStr, VECTOR_CANDIDATE_LIMIT);
             return mapVectorResults(similarChunks);
         } catch (Exception e) {
-            log.warn("Knowledge vector search failed after retries: queryLength={}, error={}",
-                    normalizedQuery.length(), e.getMessage());
+            log.warn(
+                    "Knowledge vector search failed after retries: queryLength={}, error={}",
+                    normalizedQuery.length(),
+                    e.getMessage());
             return List.of();
         }
     }
 
     private List<KnowledgeSearchResult> keywordSearch(String query) {
         LinkedHashMap<String, KnowledgeSearchResult> results = new LinkedHashMap<>();
-        List<KnowledgeDoc> docs = knowledgeDocRepository.searchEnabled(
-                query,
-                PageRequest.of(0, MAX_RESULTS)
-        );
+        List<KnowledgeDoc> docs = knowledgeDocRepository.searchEnabled(query, PageRequest.of(0, MAX_RESULTS));
         for (KnowledgeDoc doc : docs) {
-            addResult(results, new KnowledgeSearchResult(
-                    excerpt(doc.getBody(), doc.getTitle(), query),
-                    1.0,
-                    doc.getId().toString(),
-                    KnowledgeSearchSourceType.KNOWLEDGE_DOC,
-                    doc.getTitle()
-            ));
+            addResult(
+                    results,
+                    new KnowledgeSearchResult(
+                            excerpt(doc.getBody(), doc.getTitle(), query),
+                            1.0,
+                            doc.getId().toString(),
+                            KnowledgeSearchSourceType.KNOWLEDGE_DOC,
+                            doc.getTitle()));
         }
 
         List<ContentKnowledgeSource> searchResults = contentKnowledgeService.searchPublished(query, MAX_RESULTS);
         for (ContentKnowledgeSource item : searchResults) {
-            addResult(results, new KnowledgeSearchResult(
-                    excerpt(item.summary(), item.title(), query),
-                    1.0,
-                    item.id().toString(),
-                    KnowledgeSearchSourceType.CONTENT,
-                    item.title()
-            ));
+            addResult(
+                    results,
+                    new KnowledgeSearchResult(
+                            excerpt(item.summary(), item.title(), query),
+                            1.0,
+                            item.id().toString(),
+                            KnowledgeSearchSourceType.CONTENT,
+                            item.title()));
         }
         return results.values().stream().limit(MAX_RESULTS).toList();
     }
 
     private List<KnowledgeSearchResult> browse() {
         LinkedHashMap<String, KnowledgeSearchResult> results = new LinkedHashMap<>();
-        List<KnowledgeDoc> docs = knowledgeDocRepository.findByEnabledTrueOrderByUpdatedAtDesc(
-                PageRequest.of(0, MAX_RESULTS)
-        );
+        List<KnowledgeDoc> docs =
+                knowledgeDocRepository.findByEnabledTrueOrderByUpdatedAtDesc(PageRequest.of(0, MAX_RESULTS));
         for (KnowledgeDoc doc : docs) {
-            addResult(results, new KnowledgeSearchResult(
-                    excerpt(doc.getBody(), doc.getTitle(), null),
-                    1.0,
-                    doc.getId().toString(),
-                    KnowledgeSearchSourceType.KNOWLEDGE_DOC,
-                    doc.getTitle()
-            ));
+            addResult(
+                    results,
+                    new KnowledgeSearchResult(
+                            excerpt(doc.getBody(), doc.getTitle(), null),
+                            1.0,
+                            doc.getId().toString(),
+                            KnowledgeSearchSourceType.KNOWLEDGE_DOC,
+                            doc.getTitle()));
         }
 
         int remaining = MAX_RESULTS - results.size();
         if (remaining > 0) {
             List<ContentKnowledgeSource> contents = contentKnowledgeService.searchPublished(null, remaining);
             for (ContentKnowledgeSource item : contents) {
-                addResult(results, new KnowledgeSearchResult(
-                        excerpt(item.summary(), item.title(), null),
-                        1.0,
-                        item.id().toString(),
-                        KnowledgeSearchSourceType.CONTENT,
-                        item.title()
-                ));
+                addResult(
+                        results,
+                        new KnowledgeSearchResult(
+                                excerpt(item.summary(), item.title(), null),
+                                1.0,
+                                item.id().toString(),
+                                KnowledgeSearchSourceType.CONTENT,
+                                item.title()));
             }
         }
         return results.values().stream().limit(MAX_RESULTS).toList();
@@ -181,12 +178,8 @@ public class KnowledgeSearchService {
                 .distinct()
                 .toList();
 
-        Map<UUID, ContentKnowledgeSource> contentMap = contentKnowledgeService
-                .findPublishedByIds(contentIds).stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        ContentKnowledgeSource::id,
-                        content -> content
-                ));
+        Map<UUID, ContentKnowledgeSource> contentMap = contentKnowledgeService.findPublishedByIds(contentIds).stream()
+                .collect(java.util.stream.Collectors.toMap(ContentKnowledgeSource::id, content -> content));
         Map<UUID, KnowledgeDoc> docMap = knowledgeDocRepository.findAllById(docIds).stream()
                 .filter(KnowledgeDoc::isEnabled)
                 .collect(java.util.stream.Collectors.toMap(KnowledgeDoc::getId, doc -> doc));
@@ -210,21 +203,20 @@ public class KnowledgeSearchService {
             if (sourceId == null) {
                 continue;
             }
-            addResult(results, new KnowledgeSearchResult(
-                    chunk[4] instanceof String content ? content : "",
-                    score(chunk),
-                    sourceId,
-                    sourceType,
-                    title
-            ));
+            addResult(
+                    results,
+                    new KnowledgeSearchResult(
+                            chunk[4] instanceof String content ? content : "",
+                            score(chunk),
+                            sourceId,
+                            sourceType,
+                            title));
         }
         return results.values().stream().limit(MAX_RESULTS).toList();
     }
 
     private double score(Object[] chunk) {
-        return chunk.length > 6 && chunk[6] instanceof Number number
-                ? number.doubleValue()
-                : 0.0;
+        return chunk.length > 6 && chunk[6] instanceof Number number ? number.doubleValue() : 0.0;
     }
 
     private String excerpt(String value, String fallback, String query) {
@@ -237,8 +229,7 @@ public class KnowledgeSearchService {
         }
         int start = 0;
         if (query != null && !query.isBlank()) {
-            int match = text.toLowerCase(java.util.Locale.ROOT)
-                    .indexOf(query.toLowerCase(java.util.Locale.ROOT));
+            int match = text.toLowerCase(java.util.Locale.ROOT).indexOf(query.toLowerCase(java.util.Locale.ROOT));
             if (match >= 0) {
                 start = Math.max(0, match - MAX_EXCERPT_LENGTH / 3);
             }
@@ -247,10 +238,7 @@ public class KnowledgeSearchService {
         return text.substring(start, start + MAX_EXCERPT_LENGTH);
     }
 
-    private void addResult(
-            LinkedHashMap<String, KnowledgeSearchResult> results,
-            KnowledgeSearchResult result
-    ) {
+    private void addResult(LinkedHashMap<String, KnowledgeSearchResult> results, KnowledgeSearchResult result) {
         if (result.sourceId() != null && result.sourceType() != null) {
             results.putIfAbsent(result.sourceType() + ":" + result.sourceId(), result);
         }

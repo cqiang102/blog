@@ -1,7 +1,6 @@
 package com.caoqiang.blog.auth.application.dto;
 
 import com.caoqiang.blog.auth.domain.model.OAuthProvider;
-
 import java.util.List;
 
 /**
@@ -15,8 +14,4 @@ import java.util.List;
  * @author caoqiang
  */
 public record OAuthProvidersResponse(
-        List<OAuthProvider> enabled,
-        List<OAuthProvider> reserved,
-        String githubLoginUrl
-) {
-}
+        List<OAuthProvider> enabled, List<OAuthProvider> reserved, String githubLoginUrl) {}

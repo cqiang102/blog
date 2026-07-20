@@ -1,10 +1,5 @@
 package com.caoqiang.blog.interaction.application.dto;
 
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -23,5 +18,4 @@ import jakarta.validation.constraints.Size;
  *
  * @param body 评论内容，不能为空，最大长度 2000 字符
  */
-public record CommentRequest(@NotBlank @Size(max = 2000) String body) {
-}
+public record CommentRequest(@NotBlank @Size(max = 2000) String body) {}

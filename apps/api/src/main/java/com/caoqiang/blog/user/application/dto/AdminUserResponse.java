@@ -1,11 +1,9 @@
 package com.caoqiang.blog.user.application.dto;
 
+import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.user.application.api.UserProfileResponse;
-
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
-
-import com.caoqiang.blog.shared.model.Role;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -38,8 +36,7 @@ public record AdminUserResponse(
         Role role,
         UserStatus status,
         Instant createdAt,
-        Instant updatedAt
-) {
+        Instant updatedAt) {
 
     /**
      * 从用户实体创建管理端响应 DTO
@@ -69,7 +66,6 @@ public record AdminUserResponse(
                 user.getRole(),
                 user.getStatus(),
                 user.getCreatedAt(),
-                user.getUpdatedAt()
-        );
+                user.getUpdatedAt());
     }
 }

@@ -1,11 +1,7 @@
 package com.caoqiang.blog.auth.infrastructure.web;
 
-import com.caoqiang.blog.auth.application.dto.GithubOAuth2User;
 import com.caoqiang.blog.auth.application.dto.JwtClaims;
-import com.caoqiang.blog.auth.application.dto.AuthTokenResponse;
 import com.caoqiang.blog.auth.application.service.JwtService;
-import com.caoqiang.blog.auth.application.service.RefreshTokenService;
-
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.user.application.api.UserAccountService;
 import jakarta.servlet.FilterChain;
@@ -13,6 +9,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,8 +18,6 @@ import org.springframework.security.core.context.SecurityContextHolderStrategy;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -67,8 +63,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final SecurityContextHolderStrategy securityContextHolderStrategy =
             SecurityContextHolder.getContextHolderStrategy();
     /** 安全上下文仓库，用于将安全上下文保存到请求属性，支持异步分派 */
-    private final SecurityContextRepository securityContextRepository =
-            new RequestAttributeSecurityContextRepository();
+    private final SecurityContextRepository securityContextRepository = new RequestAttributeSecurityContextRepository();
 
     /**
      * 构造函数，注入依赖
@@ -92,11 +87,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * @throws IOException      如果 I/O 操作失败
      */
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
         // 从请求头提取 Bearer 令牌
         String token = bearerToken(request);
         // 如果令牌存在且当前无认证信息，尝试认证
@@ -121,16 +113,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 解析 JWT 令牌，提取用户声明
             JwtClaims claims = jwtService.parseAccessToken(token);
             // 查找用户并验证状态和角色
-            userAccountService.findActiveById(claims.userId())
+            userAccountService
+                    .findActiveById(claims.userId())
                     .filter(user -> user.role() == claims.role())
                     .ifPresent(user -> {
                         // 创建已认证用户主体
-                        AuthenticatedUser principal = new AuthenticatedUser(
-                                user.id(),
-                                user.email(),
-                                user.nickname(),
-                                user.role()
-                        );
+                        AuthenticatedUser principal =
+                                new AuthenticatedUser(user.id(), user.email(), user.nickname(), user.role());
                         // 创建认证令牌，设置用户主体和权限
                         UsernamePasswordAuthenticationToken authentication =
                                 new UsernamePasswordAuthenticationToken(principal, null, principal.authorities());
@@ -144,7 +133,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         securityContextRepository.saveContext(context, request, response);
                     });
         } catch (RuntimeException e) {
-            log.debug("JWT authentication failed: {}", e.getMessage());
+            log.debug("JWT认证失败: {}", e.getMessage());
             securityContextHolderStrategy.clearContext();
         }
     }

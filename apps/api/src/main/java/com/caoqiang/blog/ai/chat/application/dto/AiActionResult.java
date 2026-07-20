@@ -16,13 +16,7 @@ import java.util.UUID;
  * @author caoqiang
  */
 public record AiActionResult(
-        Boolean liked,
-        Long likeCount,
-        String commentId,
-        String body,
-        Boolean deleted,
-        String error
-) {
+        Boolean liked, Long likeCount, String commentId, String body, Boolean deleted, String error) {
 
     /**
      * 创建点赞成功结果。

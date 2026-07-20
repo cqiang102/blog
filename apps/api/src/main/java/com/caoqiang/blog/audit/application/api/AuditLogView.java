@@ -11,6 +11,4 @@ public record AuditLogView(
         String resourceType,
         UUID resourceId,
         String detail,
-        Instant createdAt
-) {
-}
+        Instant createdAt) {}

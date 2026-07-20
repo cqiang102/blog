@@ -1,20 +1,16 @@
 package com.caoqiang.blog.ai.knowledge.application.service;
 
-import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeChunk;
 import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
-import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeSourceType;
-import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
-import com.caoqiang.blog.shared.util.VectorUtils;
 import com.caoqiang.blog.content.application.api.ContentKnowledgeService;
 import com.caoqiang.blog.content.application.api.ContentKnowledgeSource;
+import com.caoqiang.blog.shared.util.VectorUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 知识库索引服务。
@@ -25,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 关键特性：
  * <ul>
  *   <li>文本分块：按段落边界切分，支持长段落按句子二次切分，块间有 {@value #CHUNK_OVERLAP} 字符重叠</li>
- *   <li>向量嵌入：使用 Spring AI {@link EmbeddingModel} 生成 768 维向量</li>
+ *   <li>向量嵌入：通过应用层嵌入服务生成 768 维向量</li>
  *   <li>双重索引源：支持知识文档和博客内容两种来源</li>
  * </ul>
  */
@@ -42,20 +38,19 @@ public class KnowledgeIndexService {
     private static final int EMBEDDING_DIMENSIONS = 768;
 
     private final KnowledgeDocRepository knowledgeDocRepository;
-    private final KnowledgeChunkRepository knowledgeChunkRepository;
     private final EmbeddingService embeddingService;
     private final ContentKnowledgeService contentKnowledgeService;
+    private final KnowledgeChunkWriter knowledgeChunkWriter;
 
     public KnowledgeIndexService(
             KnowledgeDocRepository knowledgeDocRepository,
-            KnowledgeChunkRepository knowledgeChunkRepository,
             EmbeddingService embeddingService,
-            ContentKnowledgeService contentKnowledgeService
-    ) {
+            ContentKnowledgeService contentKnowledgeService,
+            KnowledgeChunkWriter knowledgeChunkWriter) {
         this.knowledgeDocRepository = knowledgeDocRepository;
-        this.knowledgeChunkRepository = knowledgeChunkRepository;
         this.embeddingService = embeddingService;
         this.contentKnowledgeService = contentKnowledgeService;
+        this.knowledgeChunkWriter = knowledgeChunkWriter;
     }
 
     /**
@@ -66,26 +61,18 @@ public class KnowledgeIndexService {
      *
      * @param docId 知识文档 ID
      */
-    @Transactional
     public void indexDocument(UUID docId) {
-        KnowledgeDoc doc = knowledgeDocRepository.findById(docId)
-                .orElseThrow(() -> new IllegalArgumentException("知识库文档不存在: " + docId));
-
-        knowledgeChunkRepository.deleteByDocId(docId);
-
-        if (!doc.isEnabled() || doc.getBody() == null || doc.getBody().isBlank()) {
-            return;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            KnowledgeDoc doc = knowledgeDocRepository
+                    .findById(docId)
+                    .orElseThrow(() -> new IllegalArgumentException("知识库文档不存在: " + docId));
+            String body = doc.getBody();
+            List<PreparedChunk> chunks = prepareChunks(body, "knowledgeDoc", docId);
+            if (knowledgeChunkWriter.replaceDocumentChunks(docId, body, chunks)) {
+                return;
+            }
         }
-
-        List<String> chunks = splitText(doc.getBody());
-        for (int i = 0; i < chunks.size(); i++) {
-            String chunkContent = chunks.get(i);
-            KnowledgeChunk chunk = new KnowledgeChunk(doc, i, chunkContent);
-
-            applyEmbedding(chunk, chunkContent, "knowledgeDoc", docId);
-
-            knowledgeChunkRepository.save(chunk);
-        }
+        log.info("Skipped stale knowledge-document index result after retry: documentId={}", docId);
     }
 
     /**
@@ -96,41 +83,17 @@ public class KnowledgeIndexService {
      *
      * @param contentId 博客内容 ID
      */
-    @Transactional
     public void indexContent(UUID contentId) {
-        // 先删除该内容的旧索引
-        knowledgeChunkRepository.deleteByContentId(contentId);
-        ContentKnowledgeSource content = contentKnowledgeService.findIndexable(contentId).orElse(null);
-        if (content == null) {
-            return;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            ContentKnowledgeSource content =
+                    contentKnowledgeService.findIndexable(contentId).orElse(null);
+            String fullText = content == null ? null : contentText(content);
+            List<PreparedChunk> chunks = prepareChunks(fullText, "content", contentId);
+            if (knowledgeChunkWriter.replaceContentChunks(contentId, fullText, chunks)) {
+                return;
+            }
         }
-
-        // 构建要索引的文本：标题 + 摘要 + 正文
-        StringBuilder textBuilder = new StringBuilder();
-        if (content.title() != null && !content.title().isBlank()) {
-            textBuilder.append(content.title()).append("\n\n");
-        }
-        if (content.summary() != null && !content.summary().isBlank()) {
-            textBuilder.append(content.summary()).append("\n\n");
-        }
-        if (content.bodyMarkdown() != null && !content.bodyMarkdown().isBlank()) {
-            textBuilder.append(content.bodyMarkdown());
-        }
-
-        String fullText = textBuilder.toString().trim();
-        if (fullText.isEmpty()) {
-            return;
-        }
-
-        List<String> chunks = splitText(fullText);
-        for (int i = 0; i < chunks.size(); i++) {
-            String chunkContent = chunks.get(i);
-            KnowledgeChunk chunk = new KnowledgeChunk(contentId, i, chunkContent);
-
-            applyEmbedding(chunk, chunkContent, "content", contentId);
-
-            knowledgeChunkRepository.save(chunk);
-        }
+        log.info("Skipped stale content index result after retry: contentId={}", contentId);
     }
 
     /**
@@ -138,28 +101,8 @@ public class KnowledgeIndexService {
      *
      * @param contentId 博客内容 ID
      */
-    @Transactional
     public void deleteContentIndex(UUID contentId) {
-        knowledgeChunkRepository.deleteByContentId(contentId);
-    }
-
-    /**
-     * 重新索引所有已启用的知识文档。
-     * 单个文档索引失败不影响其他文档的处理。
-     */
-    @Transactional
-    public void indexAllDocuments() {
-        List<UUID> docIds = knowledgeDocRepository.findAll().stream()
-                .filter(KnowledgeDoc::isEnabled)
-                .map(KnowledgeDoc::getId)
-                .toList();
-        for (UUID docId : docIds) {
-            try {
-                indexDocument(docId);
-            } catch (Exception e) {
-                log.error("Failed to index document {}: {}", docId, e.getMessage(), e);
-            }
-        }
+        knowledgeChunkWriter.deleteContentChunks(contentId);
     }
 
     /**
@@ -260,30 +203,54 @@ public class KnowledgeIndexService {
         }
     }
 
-    private void applyEmbedding(
-            KnowledgeChunk chunk,
-            String chunkContent,
-            String sourceType,
-            UUID sourceId
-    ) {
+    private PreparedChunk prepareChunk(int index, String chunkContent, String sourceType, UUID sourceId) {
         try {
             float[] embedding = embeddingService.embed(chunkContent);
-            chunk.setEmbedding(VectorUtils.toPgVectorString(embedding));
-            // 清除之前的错误标记
-            if (chunk.getMetadata() != null && chunk.getMetadata().contains("embedding_generation_failed")) {
-                chunk.setMetadata(null);
-            }
+            return new PreparedChunk(index, chunkContent, VectorUtils.toPgVectorString(embedding), null);
         } catch (Exception e) {
             log.warn(
                     "Embedding generation failed after retries: sourceType={}, sourceId={}, error={}",
                     sourceType,
                     sourceId,
-                    e.getMessage()
-            );
+                    e.getMessage());
             // 文本仍可通过关键词检索命中，后续重新保存即可补齐向量。
-            chunk.setMetadata("{\"error\":\"embedding_generation_failed\",\"timestamp\":\"" + java.time.Instant.now() + "\"}");
+            String metadata =
+                    "{\"error\":\"embedding_generation_failed\",\"timestamp\":\"" + java.time.Instant.now() + "\"}";
+            return new PreparedChunk(index, chunkContent, null, metadata);
         }
     }
+
+    private List<PreparedChunk> prepareChunks(String text, String sourceType, UUID sourceId) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        List<String> chunks = splitText(text);
+        List<PreparedChunk> prepared = new ArrayList<>(chunks.size());
+        for (int index = 0; index < chunks.size(); index++) {
+            prepared.add(prepareChunk(index, chunks.get(index), sourceType, sourceId));
+        }
+        return List.copyOf(prepared);
+    }
+
+    static String contentText(ContentKnowledgeSource content) {
+        StringBuilder text = new StringBuilder();
+        appendSection(text, content.title());
+        appendSection(text, content.summary());
+        appendSection(text, content.bodyMarkdown());
+        return text.toString().trim();
+    }
+
+    private static void appendSection(StringBuilder target, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        if (!target.isEmpty()) {
+            target.append("\n\n");
+        }
+        target.append(value);
+    }
+
+    public record PreparedChunk(int index, String content, String embedding, String metadata) {}
 
     /** 获取文本末尾的重叠部分，用于相邻分块的上下文衔接。 */
     private String getOverlap(String text) {
@@ -292,5 +259,4 @@ public class KnowledgeIndexService {
         }
         return text.substring(text.length() - CHUNK_OVERLAP);
     }
-
 }

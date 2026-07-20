@@ -3,18 +3,12 @@ package com.caoqiang.blog.content.infrastructure.web;
 import com.caoqiang.blog.content.application.dto.AdminContentResponse;
 import com.caoqiang.blog.content.application.dto.AdminMediaRequest;
 import com.caoqiang.blog.content.application.dto.AdminMediaResponse;
-import com.caoqiang.blog.content.application.dto.MediaAssetResponse;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
 import com.caoqiang.blog.content.application.service.MediaAdminService;
-
+import com.caoqiang.blog.content.domain.model.MediaAssetType;
+import com.caoqiang.blog.shared.infrastructure.web.MultipartFileUploads;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.content.application.dto.AdminContentResponse;
-import com.caoqiang.blog.content.application.dto.AdminMediaRequest;
-import com.caoqiang.blog.content.application.dto.AdminMediaResponse;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.application.service.MediaAdminService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.MediaType;
@@ -68,8 +62,7 @@ public class AdminMediaController {
     public ApiResponse<PageResponse<AdminMediaResponse>> list(
             @RequestParam(required = false) UUID contentId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size
-    ) {
+            @RequestParam(defaultValue = "50") int size) {
         return ApiResponse.ok(mediaAdminService.list(contentId, page, size));
     }
 
@@ -98,9 +91,8 @@ public class AdminMediaController {
     public ApiResponse<AdminMediaResponse> upload(
             @RequestParam(required = false) UUID contentId,
             @RequestParam(required = false) MediaAssetType type,
-            @RequestParam("file") MultipartFile file
-    ) {
-        return ApiResponse.ok(mediaAdminService.upload(contentId, type, file));
+            @RequestParam("file") MultipartFile file) {
+        return ApiResponse.ok(mediaAdminService.upload(contentId, type, MultipartFileUploads.from(file)));
     }
 
     /**
@@ -111,7 +103,8 @@ public class AdminMediaController {
      * @return 更新后的媒体资源响应 DTO
      */
     @PutMapping("/media-assets/{id}")
-    public ApiResponse<AdminMediaResponse> update(@PathVariable UUID id, @Valid @RequestBody AdminMediaRequest request) {
+    public ApiResponse<AdminMediaResponse> update(
+            @PathVariable UUID id, @Valid @RequestBody AdminMediaRequest request) {
         return ApiResponse.ok(mediaAdminService.update(id, request));
     }
 

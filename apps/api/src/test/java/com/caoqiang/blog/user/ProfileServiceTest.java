@@ -1,42 +1,44 @@
 package com.caoqiang.blog.user;
 
-import com.caoqiang.blog.user.application.dto.ChangePasswordRequest;
-import com.caoqiang.blog.user.application.dto.SetPasswordRequest;
-import com.caoqiang.blog.user.application.dto.UpdateProfileRequest;
-import com.caoqiang.blog.user.application.api.UserProfileResponse;
-import com.caoqiang.blog.user.application.port.OAuthAccountPort;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.model.UserStatus;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
-import com.caoqiang.blog.user.application.service.ProfileService;
-import com.caoqiang.blog.content.application.api.ContentMediaService;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.caoqiang.blog.content.application.api.ContentMediaService;
+import com.caoqiang.blog.content.application.api.ContentMediaUpload;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.model.UploadedFile;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
+import com.caoqiang.blog.user.application.dto.ChangePasswordRequest;
+import com.caoqiang.blog.user.application.dto.UpdateProfileRequest;
+import com.caoqiang.blog.user.application.port.OAuthAccountPort;
+import com.caoqiang.blog.user.application.service.ProfileAvatarWriter;
+import com.caoqiang.blog.user.application.service.ProfileService;
+import com.caoqiang.blog.user.domain.model.User;
+import com.caoqiang.blog.user.domain.repository.UserRepository;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
-import java.nio.charset.StandardCharsets;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
-import org.dromara.x.file.storage.core.FileStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class ProfileServiceTest {
+
+    private static final Instant NOW = Instant.parse("2026-07-12T08:00:00Z");
 
     @Mock
     private UserRepository userRepository;
@@ -45,13 +47,13 @@ class ProfileServiceTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private FileStorageService fileStorageService;
-
-    @Mock
     private OAuthAccountPort oauthAccountPort;
 
     @Mock
     private ContentMediaService contentMediaService;
+
+    @Mock
+    private ProfileAvatarWriter profileAvatarWriter;
 
     private ProfileService profileService;
 
@@ -60,9 +62,13 @@ class ProfileServiceTest {
 
     @BeforeEach
     void setUp() {
-        profileService = new ProfileService(userRepository, passwordEncoder,
-                fileStorageService, oauthAccountPort, Clock.systemUTC(), "minio-1",
-                contentMediaService);
+        profileService = new ProfileService(
+                userRepository,
+                passwordEncoder,
+                oauthAccountPort,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                contentMediaService,
+                profileAvatarWriter);
         testUser = User.register("test@example.com", "hashedPassword", "测试用户");
         currentUser = new AuthenticatedUser(testUser.getId(), "test@example.com", "测试用户", Role.USER);
     }
@@ -96,7 +102,8 @@ class ProfileServiceTest {
     @Test
     void rejectPasswordChangeForOAuthUser() {
         User oauthUser = User.register("oauth@example.com", null, "OAuth用户");
-        AuthenticatedUser oauthCurrentUser = new AuthenticatedUser(oauthUser.getId(), "oauth@example.com", "OAuth用户", Role.USER);
+        AuthenticatedUser oauthCurrentUser =
+                new AuthenticatedUser(oauthUser.getId(), "oauth@example.com", "OAuth用户", Role.USER);
 
         when(userRepository.findById(oauthUser.getId())).thenReturn(Optional.of(oauthUser));
 
@@ -110,13 +117,7 @@ class ProfileServiceTest {
     @Test
     void rejectEmailChangeWithoutVerification() {
         when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
-        UpdateProfileRequest request = new UpdateProfileRequest(
-                "测试用户",
-                null,
-                null,
-                null,
-                "other@example.com"
-        );
+        UpdateProfileRequest request = new UpdateProfileRequest("测试用户", null, null, null, "other@example.com");
 
         assertThatThrownBy(() -> profileService.update(currentUser, request))
                 .isInstanceOf(BusinessException.class)
@@ -127,24 +128,71 @@ class ProfileServiceTest {
 
     @Test
     void rejectSvgAvatarEvenWhenDeclaredAsImage() {
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "avatar.svg",
-                "image/svg+xml",
-                "<svg><script>alert(1)</script></svg>".getBytes(StandardCharsets.UTF_8)
-        );
+        UploadedFile file = uploadedFile(
+                "avatar.svg", "image/svg+xml", "<svg><script>alert(1)</script></svg>".getBytes(StandardCharsets.UTF_8));
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
 
-        assertThatThrownBy(() -> profileService.uploadAvatar(file))
+        assertThatThrownBy(() -> profileService.uploadAndUpdateAvatar(currentUser, file))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("仅支持 JPEG、PNG、GIF 或 WebP 图片");
     }
 
     @Test
+    void validatesUserBeforeUploadingAvatar() {
+        UploadedFile file = pngAvatar();
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> profileService.uploadAndUpdateAvatar(currentUser, file))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("登录状态无效");
+
+        verify(contentMediaService, never()).upload(any(), any(), any(), any());
+    }
+
+    @Test
+    void updatesAvatarAfterStorageOperationsComplete() {
+        UploadedFile file = pngAvatar();
+        ContentMediaUpload upload = new ContentMediaUpload("minio-1", "uploads/avatars/2026/07/12/avatar.png");
+        String portableUrl = "/minio/blog-media/uploads/avatars/2026/07/12/avatar.png";
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        when(contentMediaService.upload(file, "avatars/2026/07/12/", "avatar_1783843200000.png", "image/png"))
+                .thenReturn(upload);
+        when(contentMediaService.portableStoragePath(upload.objectKey())).thenReturn(portableUrl);
+        when(contentMediaService.resolveUrl(portableUrl)).thenReturn(portableUrl + "?signed");
+        when(profileAvatarWriter.updateAvatar(testUser.getId(), portableUrl)).thenReturn(testUser);
+
+        UserProfileResponse response = profileService.uploadAndUpdateAvatar(currentUser, file);
+
+        assertThat(response.avatarUrl()).isEqualTo(portableUrl + "?signed");
+        verify(profileAvatarWriter).updateAvatar(testUser.getId(), portableUrl);
+        verify(contentMediaService, never()).delete(upload);
+    }
+
+    @Test
+    void compensatesAvatarUploadWhenProfileUpdateFails() {
+        UploadedFile file = pngAvatar();
+        ContentMediaUpload upload = new ContentMediaUpload("minio-1", "uploads/avatars/2026/07/12/avatar.png");
+        String portableUrl = "/minio/blog-media/uploads/avatars/2026/07/12/avatar.png";
+        when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
+        when(contentMediaService.upload(file, "avatars/2026/07/12/", "avatar_1783843200000.png", "image/png"))
+                .thenReturn(upload);
+        when(contentMediaService.portableStoragePath(upload.objectKey())).thenReturn(portableUrl);
+        when(contentMediaService.resolveUrl(portableUrl)).thenReturn(portableUrl + "?signed");
+        when(profileAvatarWriter.updateAvatar(testUser.getId(), portableUrl))
+                .thenThrow(new IllegalStateException("database unavailable"));
+
+        assertThatThrownBy(() -> profileService.uploadAndUpdateAvatar(currentUser, file))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("database unavailable");
+
+        verify(contentMediaService).delete(upload);
+    }
+
+    @Test
     void listsOAuthAccountsThroughUserApplicationPort() {
         Instant linkedAt = Instant.parse("2026-07-12T08:00:00Z");
-        when(oauthAccountPort.findByUserId(testUser.getId())).thenReturn(List.of(
-                new OAuthAccountPort.LinkedOAuthAccount("GITHUB", "octocat", linkedAt)
-        ));
+        when(oauthAccountPort.findByUserId(testUser.getId()))
+                .thenReturn(List.of(new OAuthAccountPort.LinkedOAuthAccount("GITHUB", "octocat", linkedAt)));
 
         var accounts = profileService.getOAuthAccounts(currentUser);
 
@@ -163,5 +211,14 @@ class ProfileServiceTest {
         profileService.unbindOAuthAccount(currentUser, "github");
 
         verify(oauthAccountPort).remove(testUser.getId(), "github");
+    }
+
+    private UploadedFile pngAvatar() {
+        return uploadedFile(
+                "avatar.png", "image/png", new byte[] {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A});
+    }
+
+    private UploadedFile uploadedFile(String filename, String contentType, byte[] bytes) {
+        return new UploadedFile(filename, contentType, bytes.length, () -> new ByteArrayInputStream(bytes));
     }
 }

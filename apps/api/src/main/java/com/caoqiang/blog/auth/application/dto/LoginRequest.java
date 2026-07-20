@@ -30,6 +30,4 @@ public record LoginRequest(
         /** 用户邮箱地址，必填，必须是有效的邮箱格式 */
         @NotBlank @Email String email,
         /** 用户密码，必填，不为空 */
-        @NotBlank String password
-) {
-}
+        @NotBlank String password) {}

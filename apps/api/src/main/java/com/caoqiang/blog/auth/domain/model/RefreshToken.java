@@ -65,8 +65,7 @@ public class RefreshToken {
     /**
      * 默认构造函数，供 JPA 使用
      */
-    protected RefreshToken() {
-    }
+    protected RefreshToken() {}
 
     /**
      * 构造函数，创建新的刷新令牌

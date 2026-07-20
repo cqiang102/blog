@@ -79,27 +79,22 @@ public class RedisConfig {
                 .computePrefixWith(cacheName -> CACHE_KEY_PREFIX + cacheName + "::")
                 .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(cacheValueSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(cacheValueSerializer()))
                 .disableCachingNullValues();
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
                 // 推荐内容缓存
-                .withCacheConfiguration(CacheNames.RECOMMENDATIONS,
-                        defaultConfig.entryTtl(
-                                Duration.ofMinutes(cacheConfig.getRecommendationsTtlMinutes())
-                        ))
+                .withCacheConfiguration(
+                        CacheNames.RECOMMENDATIONS,
+                        defaultConfig.entryTtl(Duration.ofMinutes(cacheConfig.getRecommendationsTtlMinutes())))
                 // AI 每日配额缓存
-                .withCacheConfiguration(CacheNames.AI_QUOTA,
-                        defaultConfig.entryTtl(
-                                Duration.ofHours(cacheConfig.getAiQuotaTtlHours())
-                        ))
+                .withCacheConfiguration(
+                        CacheNames.AI_QUOTA, defaultConfig.entryTtl(Duration.ofHours(cacheConfig.getAiQuotaTtlHours())))
                 // 知识库文档缓存
-                .withCacheConfiguration(CacheNames.KNOWLEDGE_DOCS,
-                        defaultConfig.entryTtl(
-                                Duration.ofMinutes(cacheConfig.getKnowledgeDocsTtlMinutes())
-                        ))
+                .withCacheConfiguration(
+                        CacheNames.KNOWLEDGE_DOCS,
+                        defaultConfig.entryTtl(Duration.ofMinutes(cacheConfig.getKnowledgeDocsTtlMinutes())))
                 .build();
     }
 

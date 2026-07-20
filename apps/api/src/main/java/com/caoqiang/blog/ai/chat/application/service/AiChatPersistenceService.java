@@ -5,8 +5,8 @@ import com.caoqiang.blog.ai.chat.domain.model.AiChatSession;
 import com.caoqiang.blog.ai.chat.domain.model.AiMessageRole;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatMessageRepository;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
-import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.ai.chat.event.AiChatMessagesCreatedEvent;
+import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.util.List;
 import java.util.UUID;
@@ -24,8 +24,7 @@ public class AiChatPersistenceService {
     public AiChatPersistenceService(
             AiChatSessionRepository sessionRepository,
             AiChatMessageRepository messageRepository,
-            DomainEventPublisher domainEventPublisher
-    ) {
+            DomainEventPublisher domainEventPublisher) {
         this.sessionRepository = sessionRepository;
         this.messageRepository = messageRepository;
         this.domainEventPublisher = domainEventPublisher;
@@ -33,12 +32,7 @@ public class AiChatPersistenceService {
 
     @Transactional
     public long persistExchange(
-            UUID userId,
-            UUID sessionId,
-            String userMessage,
-            String assistantMessage,
-            int maxMessages
-    ) {
+            UUID userId, UUID sessionId, String userMessage, String assistantMessage, int maxMessages) {
         AiChatSession session = sessionRepository
                 .findForUpdate(sessionId, userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "AI 会话不存在"));
@@ -48,16 +42,12 @@ public class AiChatPersistenceService {
             throw new BusinessException(HttpStatus.CONFLICT, "该会话消息数已达上限，请创建新会话");
         }
 
-        AiChatMessage userMsg = messageRepository.save(
-                new AiChatMessage(session, AiMessageRole.USER, userMessage)
-        );
-        AiChatMessage assistantMsg = messageRepository.save(
-                new AiChatMessage(session, AiMessageRole.ASSISTANT, assistantMessage)
-        );
+        AiChatMessage userMsg = messageRepository.save(new AiChatMessage(session, AiMessageRole.USER, userMessage));
+        AiChatMessage assistantMsg =
+                messageRepository.save(new AiChatMessage(session, AiMessageRole.ASSISTANT, assistantMessage));
         session.touch();
-        domainEventPublisher.publishEvent(new AiChatMessagesCreatedEvent(
-                List.of(userMsg.getId(), assistantMsg.getId())
-        ));
+        domainEventPublisher.publishEvent(
+                new AiChatMessagesCreatedEvent(List.of(userMsg.getId(), assistantMsg.getId())));
         return messageCount + 2;
     }
 }

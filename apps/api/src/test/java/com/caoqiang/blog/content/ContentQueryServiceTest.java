@@ -1,24 +1,34 @@
 package com.caoqiang.blog.content;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
 import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.content.application.dto.RecommendationResponse;
+import com.caoqiang.blog.content.application.dto.TagResponse;
+import com.caoqiang.blog.content.application.service.ContentQueryService;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
+import com.caoqiang.blog.content.domain.model.Tag;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
-import com.caoqiang.blog.content.application.service.ContentQueryService;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
+import com.caoqiang.blog.content.domain.repository.TagRepository;
+import com.caoqiang.blog.interaction.application.api.InteractionStateService;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.interaction.application.api.InteractionStateService;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +56,9 @@ class ContentQueryServiceTest {
     @Mock
     private MediaAssetRepository mediaAssetRepository;
 
+    @Mock
+    private TagRepository tagRepository;
+
     @InjectMocks
     private ContentQueryService contentQueryService;
 
@@ -64,17 +77,20 @@ class ContentQueryServiceTest {
                 "# Test Body",
                 false,
                 Instant.now(),
-                Set.of()
-        );
+                Set.of());
     }
 
     @Test
     void recommendations_returnsThreeLists() {
-        when(contentRepository.findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(any()))
+        when(contentRepository
+                        .findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(
+                                any()))
                 .thenReturn(List.of(publishedContent));
         when(contentRepository.findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(any()))
                 .thenReturn(List.of(publishedContent));
-        when(contentRepository.findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(any()))
+        when(contentRepository
+                        .findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(
+                                any()))
                 .thenReturn(List.of(publishedContent));
 
         RecommendationResponse response = contentQueryService.recommendations();
@@ -89,17 +105,12 @@ class ContentQueryServiceTest {
     void list_returnsPaginatedResults() {
         Page<Content> page = new PageImpl<>(List.of(publishedContent));
         when(contentRepository.findAll(
-                org.mockito.ArgumentMatchers
-                        .<org.springframework.data.jpa.domain.Specification<Content>>any(),
-                any(Pageable.class)
-        ))
+                        org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Content>>any(),
+                        any(Pageable.class)))
                 .thenReturn(page);
-        when(contentRepository.findAllWithSummaryRelationsByIdIn(anyList()))
-                .thenReturn(List.of(publishedContent));
+        when(contentRepository.findAllWithSummaryRelationsByIdIn(anyList())).thenReturn(List.of(publishedContent));
 
-        PageResponse<ContentSummaryResponse> result = contentQueryService.list(
-                "test", null, null, null, null, 0, 10
-        );
+        PageResponse<ContentSummaryResponse> result = contentQueryService.list("test", null, null, null, null, 0, 10);
 
         assertNotNull(result);
         assertEquals(1, result.items().size());
@@ -109,14 +120,21 @@ class ContentQueryServiceTest {
     }
 
     @Test
+    void tags_areMappedThroughTheApplicationService() {
+        Tag java = new Tag("Java", "java", null);
+        when(tagRepository.findAll(any(org.springframework.data.domain.Sort.class)))
+                .thenReturn(List.of(java));
+
+        List<TagResponse> result = contentQueryService.tags();
+
+        assertEquals(List.of("Java"), result.stream().map(TagResponse::name).toList());
+    }
+
+    @Test
     void detail_returnsContentWithLikeStatus() {
-        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                eq(contentId),
-                eq(ContentStatus.PUBLISHED)
-        ))
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(eq(contentId), eq(ContentStatus.PUBLISHED)))
                 .thenReturn(Optional.of(publishedContent));
-        when(interactionStateService.isLiked(eq(contentId), any(UUID.class)))
-                .thenReturn(true);
+        when(interactionStateService.isLiked(eq(contentId), any(UUID.class))).thenReturn(true);
 
         AuthenticatedUser user = new AuthenticatedUser(UUID.randomUUID(), "test@example.com", "Test", Role.USER);
         ContentDetailResponse detail = contentQueryService.detail(contentId, user);
@@ -128,10 +146,7 @@ class ContentQueryServiceTest {
 
     @Test
     void detail_returnsContentWithoutLikeForAnonymous() {
-        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(
-                eq(contentId),
-                eq(ContentStatus.PUBLISHED)
-        ))
+        when(contentRepository.findByIdAndStatusAndDeletedAtIsNull(eq(contentId), eq(ContentStatus.PUBLISHED)))
                 .thenReturn(Optional.of(publishedContent));
 
         ContentDetailResponse detail = contentQueryService.detail(contentId, null);
@@ -142,19 +157,10 @@ class ContentQueryServiceTest {
 
     @Test
     void detail_doesNotExposeLogicallyDeletedContentToAdmin() {
-        AuthenticatedUser admin = new AuthenticatedUser(
-                UUID.randomUUID(),
-                "admin@example.com",
-                "Admin",
-                Role.ADMIN
-        );
-        when(contentRepository.findByIdAndDeletedAtIsNull(contentId))
-                .thenReturn(Optional.empty());
+        AuthenticatedUser admin = new AuthenticatedUser(UUID.randomUUID(), "admin@example.com", "Admin", Role.ADMIN);
+        when(contentRepository.findByIdAndDeletedAtIsNull(contentId)).thenReturn(Optional.empty());
 
-        assertThrows(
-                BusinessException.class,
-                () -> contentQueryService.detail(contentId, admin)
-        );
+        assertThrows(BusinessException.class, () -> contentQueryService.detail(contentId, admin));
         verify(contentRepository, never()).findById(contentId);
     }
 }

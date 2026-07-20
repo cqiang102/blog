@@ -1,17 +1,16 @@
 package com.caoqiang.blog.interaction.domain.repository;
 
 import com.caoqiang.blog.interaction.domain.model.Like;
-
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.jpa.domain.Specification;
 
 /**
  * 点赞 Repository
@@ -72,21 +71,14 @@ public interface LikeRepository extends JpaRepository<Like, UUID>, JpaSpecificat
             values (:id, :contentId, :userId, now())
             on conflict do nothing
             """, nativeQuery = true)
-    int insertIfAbsent(
-            @Param("id") UUID id,
-            @Param("contentId") UUID contentId,
-            @Param("userId") UUID userId
-    );
+    int insertIfAbsent(@Param("id") UUID id, @Param("contentId") UUID contentId, @Param("userId") UUID userId);
 
     /**
      * 原子删除点赞记录，返回实际删除行数。
      */
     @Modifying
     @Query("delete from Like l where l.contentId = :contentId and l.userId = :userId")
-    int deleteByContentIdAndUserId(
-            @Param("contentId") UUID contentId,
-            @Param("userId") UUID userId
-    );
+    int deleteByContentIdAndUserId(@Param("contentId") UUID contentId, @Param("userId") UUID userId);
 
     /**
      * 根据内容 ID 和用户 ID 查询点赞记录

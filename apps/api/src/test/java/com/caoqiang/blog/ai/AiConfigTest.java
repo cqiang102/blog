@@ -13,11 +13,7 @@ class AiConfigTest {
     @Test
     void systemPromptSeparatesBloggerAndCurrentUserRoles() {
         AuthenticatedUser currentUser = new AuthenticatedUser(
-                UUID.fromString("11111111-1111-1111-1111-111111111111"),
-                "reader@example.com",
-                "读者",
-                Role.USER
-        );
+                UUID.fromString("11111111-1111-1111-1111-111111111111"), "reader@example.com", "读者", Role.USER);
 
         String prompt = AiConfig.systemPrompt(currentUser);
 

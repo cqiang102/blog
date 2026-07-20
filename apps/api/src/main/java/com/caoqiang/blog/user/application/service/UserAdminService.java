@@ -1,21 +1,16 @@
 package com.caoqiang.blog.user.application.service;
 
+import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.shared.response.PageResponse;
+import com.caoqiang.blog.shared.util.EmailNormalizer;
+import com.caoqiang.blog.shared.util.PageUtils;
 import com.caoqiang.blog.user.application.dto.AdminUserRequest;
 import com.caoqiang.blog.user.application.dto.AdminUserResponse;
-import com.caoqiang.blog.user.application.dto.ChangePasswordRequest;
-import com.caoqiang.blog.user.application.dto.OAuthAccountResponse;
-import com.caoqiang.blog.user.application.dto.SetPasswordRequest;
-import com.caoqiang.blog.user.application.dto.UpdateProfileRequest;
-import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
-
-import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.shared.util.EmailNormalizer;
-import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.shared.exception.BusinessException;
-import com.caoqiang.blog.shared.response.PageResponse;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,18 +65,15 @@ public class UserAdminService {
      */
     @Transactional(readOnly = true)
     public PageResponse<AdminUserResponse> list(int page, int size, String query, Role role, UserStatus status) {
-        Page<User> result = userRepository.findAll(
-                filters(query, role, status),
-                pageRequest(page, size)
-        );
+        Page<User> result = userRepository.findAll(filters(query, role, status), pageRequest(page, size));
         return new PageResponse<>(
                 result.getContent().stream()
-                        .map(u -> AdminUserResponse.from(u, profileService.generatePresignedAvatarUrl(u.getAvatarUrl())))
+                        .map(u ->
+                                AdminUserResponse.from(u, profileService.generatePresignedAvatarUrl(u.getAvatarUrl())))
                         .toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     /**
@@ -131,8 +123,7 @@ public class UserAdminService {
                 clean(request.bio()),
                 clean(request.blogUrl()),
                 role,
-                status
-        );
+                status);
         return AdminUserResponse.from(user, profileService.generatePresignedAvatarUrl(user.getAvatarUrl()));
     }
 
@@ -157,8 +148,7 @@ public class UserAdminService {
                 user.getBio(),
                 user.getBlogUrl(),
                 user.getRole(),
-                UserStatus.DISABLED
-        );
+                UserStatus.DISABLED);
     }
 
     /**
@@ -169,8 +159,7 @@ public class UserAdminService {
      * @throws BusinessException 如果用户不存在
      */
     private User findUser(UUID id) {
-        return userRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
+        return userRepository.findById(id).orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "用户不存在"));
     }
 
     /**
@@ -213,8 +202,7 @@ public class UserAdminService {
                 String pattern = "%" + query.trim().toLowerCase() + "%";
                 predicates.add(criteriaBuilder.or(
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), pattern),
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("nickname")), pattern)
-                ));
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("nickname")), pattern)));
             }
             // 角色筛选
             if (role != null) {
@@ -238,11 +226,7 @@ public class UserAdminService {
      * @return JPA PageRequest
      */
     private PageRequest pageRequest(int page, int size) {
-        return PageRequest.of(
-                Math.max(0, page),
-                Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
-                Sort.by(Sort.Direction.DESC, "createdAt")
-        );
+        return PageUtils.of(page, size, MAX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
     /**

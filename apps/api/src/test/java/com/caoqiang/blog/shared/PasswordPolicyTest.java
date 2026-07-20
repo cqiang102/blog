@@ -11,15 +11,15 @@ class PasswordPolicyTest {
 
     @Test
     void acceptsPasswordWithinBcryptByteLimit() {
-        assertThatCode(() -> PasswordPolicy.validate("12345678"))
-                .doesNotThrowAnyException();
+        assertThatCode(() -> PasswordPolicy.validate("12345678")).doesNotThrowAnyException();
     }
 
     @Test
     void rejectsMultibytePasswordOverBcryptByteLimit() {
         assertThatThrownBy(() -> PasswordPolicy.validate("中".repeat(25)))
-                .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        org.assertj.core.api.Assertions.assertThat(exception.getMessage())
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> org.assertj.core.api.Assertions.assertThat(exception.getMessage())
                                 .isEqualTo("密码不能超过 72 个 UTF-8 字节"));
     }
 }

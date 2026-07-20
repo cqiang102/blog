@@ -1,25 +1,9 @@
 package com.caoqiang.blog.content.application.service;
 
-import com.caoqiang.blog.content.application.dto.AdminContentRequest;
-import com.caoqiang.blog.content.application.dto.AdminContentResponse;
-import com.caoqiang.blog.content.application.dto.AdminMediaRequest;
-import com.caoqiang.blog.content.application.dto.AdminMediaResponse;
-import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
-import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
-import com.caoqiang.blog.content.application.dto.MediaAssetResponse;
-import com.caoqiang.blog.content.application.dto.RecommendationResponse;
 import com.caoqiang.blog.content.application.dto.TagRequest;
 import com.caoqiang.blog.content.application.dto.TagResponse;
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
 import com.caoqiang.blog.content.domain.model.Tag;
-import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 import com.caoqiang.blog.content.domain.repository.TagRepository;
-
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.util.SlugUtils;
 import java.util.Comparator;
@@ -92,11 +76,11 @@ public class TagAdminService {
      */
     @Transactional
     public TagResponse update(UUID id, TagRequest request) {
-        Tag tag = tagRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "标签不存在"));
+        Tag tag = tagRepository.findById(id).orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "标签不存在"));
         String slug = slugFor(request);
         // 检查 slug 是否被其他标签占用（排除自身）
-        tagRepository.findBySlug(slug)
+        tagRepository
+                .findBySlug(slug)
                 .filter(existing -> !existing.getId().equals(id))
                 .ifPresent(existing -> {
                     throw new BusinessException(HttpStatus.CONFLICT, "标签 slug 已存在");

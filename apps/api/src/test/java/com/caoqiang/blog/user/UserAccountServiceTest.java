@@ -1,15 +1,15 @@
 package com.caoqiang.blog.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.user.application.api.IdentityUser;
 import com.caoqiang.blog.user.application.api.UserAccountService;
 import com.caoqiang.blog.user.domain.model.User;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
-import java.util.Optional;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,11 +46,8 @@ class UserAccountServiceTest {
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         UserAccountService service = new UserAccountService(userRepository);
 
-        IdentityUser snapshot = service.updateOAuthProfile(
-                user.getId(),
-                "GitHub name",
-                "https://example.com/new.png"
-        ).orElseThrow();
+        IdentityUser snapshot = service.updateOAuthProfile(user.getId(), "GitHub name", "https://example.com/new.png")
+                .orElseThrow();
 
         assertThat(user.getNickname()).isEqualTo("GitHub name");
         assertThat(user.getAvatarUrl()).isEqualTo("https://example.com/new.png");

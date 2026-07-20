@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
  * <pre>
  * // 方式1：从聚合根发布
  * domainEventPublisher.publishEvents(order);
- * 
+ *
  * // 方式2：直接发布
  * domainEventPublisher.publishEvent(new OrderCreatedEvent(orderId));
  * </pre>

@@ -6,9 +6,10 @@ import com.caoqiang.blog.ai.chat.application.dto.AiCommentListResult;
 import com.caoqiang.blog.ai.chat.application.dto.AiContentDetailResult;
 import com.caoqiang.blog.ai.chat.application.dto.AiContentItem;
 import com.caoqiang.blog.ai.chat.application.dto.AiSearchContentResult;
-import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.content.application.api.ContentAccessService;
 import com.caoqiang.blog.interaction.application.api.InteractionAccessService;
+import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -25,10 +26,7 @@ public class AiToolService {
     private final ContentAccessService contentAccessService;
     private final InteractionAccessService interactionAccessService;
 
-    public AiToolService(
-            ContentAccessService contentAccessService,
-            InteractionAccessService interactionAccessService
-    ) {
+    public AiToolService(ContentAccessService contentAccessService, InteractionAccessService interactionAccessService) {
         this.contentAccessService = contentAccessService;
         this.interactionAccessService = interactionAccessService;
     }
@@ -48,11 +46,9 @@ public class AiToolService {
                                 item.id().toString(),
                                 item.title(),
                                 item.summary() != null ? item.summary() : "",
-                                item.type()
-                        ))
+                                item.type()))
                         .toList(),
-                results.total()
-        );
+                results.total());
     }
 
     /**
@@ -72,8 +68,7 @@ public class AiToolService {
                     detail.type(),
                     detail.likeCount(),
                     detail.viewCount(),
-                    detail.commentCount()
-            );
+                    detail.commentCount());
         } catch (Exception e) {
             return AiContentDetailResult.error("内容不存在或已归档");
         }
@@ -91,7 +86,7 @@ public class AiToolService {
             var result = interactionAccessService.like(currentUser, contentId);
             return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
-            return AiActionResult.error(e.getMessage());
+            return AiActionResult.error(toolError(e, "点赞失败，请稍后重试"));
         }
     }
 
@@ -107,7 +102,7 @@ public class AiToolService {
             var result = interactionAccessService.unlike(currentUser, contentId);
             return AiActionResult.likeSuccess(result.liked(), result.likeCount());
         } catch (Exception e) {
-            return AiActionResult.error(e.getMessage());
+            return AiActionResult.error(toolError(e, "取消点赞失败，请稍后重试"));
         }
     }
 
@@ -124,7 +119,7 @@ public class AiToolService {
             var result = interactionAccessService.comment(currentUser, contentId, body);
             return AiActionResult.commentSuccess(result.id(), result.body());
         } catch (Exception e) {
-            return AiActionResult.error(e.getMessage());
+            return AiActionResult.error(toolError(e, "发表评论失败，请稍后重试"));
         }
     }
 
@@ -141,15 +136,11 @@ public class AiToolService {
             var result = interactionAccessService.comments(contentId, Math.clamp(limit, 1, 20), currentUserId);
             List<AiCommentItem> items = result.items().stream()
                     .map(c -> new AiCommentItem(
-                            c.id(),
-                            c.body(),
-                            c.authorNickname() != null ? c.authorNickname() : "匿名",
-                            c.createdAt()
-                    ))
+                            c.id(), c.body(), c.authorNickname() != null ? c.authorNickname() : "匿名", c.createdAt()))
                     .toList();
             return AiCommentListResult.success(items, result.total());
         } catch (Exception e) {
-            return AiCommentListResult.error(e.getMessage());
+            return AiCommentListResult.error(toolError(e, "读取评论失败，请稍后重试"));
         }
     }
 
@@ -165,7 +156,11 @@ public class AiToolService {
             interactionAccessService.deleteComment(currentUser, commentId);
             return AiActionResult.deleteSuccess();
         } catch (Exception e) {
-            return AiActionResult.error(e.getMessage());
+            return AiActionResult.error(toolError(e, "删除评论失败，请稍后重试"));
         }
+    }
+
+    private String toolError(Exception exception, String fallback) {
+        return exception instanceof BusinessException businessException ? businessException.getMessage() : fallback;
     }
 }

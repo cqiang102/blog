@@ -36,8 +36,7 @@ public record AdminViewRecordResponse(
         String anonymousId,
         String ipHash,
         String userAgent,
-        Instant createdAt
-) {
+        Instant createdAt) {
 
     /**
      * 从浏览记录实体创建管理端响应 DTO
@@ -46,10 +45,7 @@ public record AdminViewRecordResponse(
      * @return 管理端浏览记录响应 DTO
      */
     public static AdminViewRecordResponse from(
-            ViewRecord viewRecord,
-            ContentInteractionSnapshot content,
-            IdentityUser user
-    ) {
+            ViewRecord viewRecord, ContentInteractionSnapshot content, IdentityUser user) {
         return new AdminViewRecordResponse(
                 viewRecord.getId(),
                 viewRecord.getContentId(),
@@ -60,7 +56,6 @@ public record AdminViewRecordResponse(
                 viewRecord.getAnonymousId(),
                 viewRecord.getIpHash(),
                 viewRecord.getUserAgent(),
-                viewRecord.getCreatedAt()
-        );
+                viewRecord.getCreatedAt());
     }
 }

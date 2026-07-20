@@ -16,7 +16,4 @@ import jakarta.validation.constraints.NotBlank;
  * @param email 邮箱地址
  * @author blog-mimo
  */
-public record SendCodeRequest(
-        @NotBlank @Email String email
-) {
-}
+public record SendCodeRequest(@NotBlank @Email String email) {}

@@ -1,4 +1,3 @@
 package com.caoqiang.blog.content.application.api;
 
-public record ContentOverview(long contentCount, long mediaCount) {
-}
+public record ContentOverview(long contentCount, long mediaCount) {}

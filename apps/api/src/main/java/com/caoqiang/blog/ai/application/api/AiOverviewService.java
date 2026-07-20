@@ -12,9 +12,7 @@ public class AiOverviewService {
     private final KnowledgeDocRepository knowledgeDocRepository;
 
     public AiOverviewService(
-            AiChatSessionRepository aiChatSessionRepository,
-            KnowledgeDocRepository knowledgeDocRepository
-    ) {
+            AiChatSessionRepository aiChatSessionRepository, KnowledgeDocRepository knowledgeDocRepository) {
         this.aiChatSessionRepository = aiChatSessionRepository;
         this.knowledgeDocRepository = knowledgeDocRepository;
     }

@@ -30,22 +30,31 @@ public enum AuditAction {
      * <p>
      * 根据方法名前缀自动识别操作类型：
      * <ul>
-     *   <li>create/add -> CREATE</li>
+     *   <li>create/add/upload -> CREATE</li>
      *   <li>update/edit/set/change -> UPDATE</li>
-     *   <li>delete/remove -> DELETE</li>
-     *   <li>get/list/detail -> READ</li>
-     *   <li>其他 -> 方法名大写</li>
+     *   <li>delete/remove/softDelete -> DELETE</li>
+     *   <li>get/list/detail/likes/views -> READ</li>
+     *   <li>其他管理操作 -> UPDATE，保证新增方法不会因枚举转换失败而漏记审计日志</li>
      * </ul>
      *
      * @param methodName 方法名
      * @return 操作类型枚举值
      */
     public static AuditAction fromMethodName(String methodName) {
-        if (methodName.startsWith("create") || methodName.startsWith("add")) return CREATE;
-        if (methodName.startsWith("update") || methodName.startsWith("edit")) return UPDATE;
-        if (methodName.startsWith("delete") || methodName.startsWith("remove")) return DELETE;
-        if (methodName.startsWith("get") || methodName.startsWith("list") || methodName.startsWith("detail")) return READ;
-        if (methodName.startsWith("set") || methodName.startsWith("change")) return UPDATE;
-        return valueOf(methodName.toUpperCase());
+        if (methodName.startsWith("create") || methodName.startsWith("add") || methodName.startsWith("upload")) {
+            return CREATE;
+        }
+        if (methodName.startsWith("delete") || methodName.startsWith("remove") || methodName.startsWith("softDelete")) {
+            return DELETE;
+        }
+        if (methodName.startsWith("get")
+                || methodName.startsWith("list")
+                || methodName.startsWith("detail")
+                || methodName.endsWith("Status")
+                || methodName.equals("likes")
+                || methodName.equals("views")) {
+            return READ;
+        }
+        return UPDATE;
     }
 }

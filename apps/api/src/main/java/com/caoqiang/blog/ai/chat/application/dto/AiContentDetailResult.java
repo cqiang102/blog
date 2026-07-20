@@ -25,16 +25,20 @@ public record AiContentDetailResult(
         long likeCount,
         long viewCount,
         long commentCount,
-        String error
-) {
+        String error) {
 
     /**
      * 创建成功的内容详情结果。
      */
     public static AiContentDetailResult success(
-            String id, String title, String summary, String markdown,
-            String type, long likeCount, long viewCount, long commentCount
-    ) {
+            String id,
+            String title,
+            String summary,
+            String markdown,
+            String type,
+            long likeCount,
+            long viewCount,
+            long commentCount) {
         return new AiContentDetailResult(id, title, summary, markdown, type, likeCount, viewCount, commentCount, null);
     }
 

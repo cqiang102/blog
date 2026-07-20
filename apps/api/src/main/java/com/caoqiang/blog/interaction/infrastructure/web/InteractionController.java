@@ -1,23 +1,14 @@
 package com.caoqiang.blog.interaction.infrastructure.web;
 
+import com.caoqiang.blog.config.ClientIpResolver;
 import com.caoqiang.blog.interaction.application.dto.CommentRequest;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
 import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
-import com.caoqiang.blog.interaction.application.dto.UserActivityResponse;
 import com.caoqiang.blog.interaction.application.dto.ViewStateResponse;
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
-import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
-import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
-import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
-import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
 import com.caoqiang.blog.interaction.application.service.InteractionCommandService;
-
+import com.caoqiang.blog.interaction.application.service.InteractionQueryService;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.ApiResponse;
-import com.caoqiang.blog.shared.util.IpUtils;
 import com.caoqiang.blog.shared.response.OperationResult;
 import com.caoqiang.blog.shared.response.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -57,15 +48,21 @@ public class InteractionController {
     /** 互动命令服务，处理评论、点赞、浏览记录等写操作 */
     private final InteractionCommandService interactionCommandService;
 
+    private final ClientIpResolver clientIpResolver;
+
     /**
      * 构造函数，注入互动服务
      *
      * @param interactionQueryService   互动查询服务
      * @param interactionCommandService 互动命令服务
      */
-    public InteractionController(InteractionQueryService interactionQueryService, InteractionCommandService interactionCommandService) {
+    public InteractionController(
+            InteractionQueryService interactionQueryService,
+            InteractionCommandService interactionCommandService,
+            ClientIpResolver clientIpResolver) {
         this.interactionQueryService = interactionQueryService;
         this.interactionCommandService = interactionCommandService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     /**
@@ -85,8 +82,7 @@ public class InteractionController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID contentId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
+            @RequestParam(defaultValue = "20") int size) {
         UUID userId = currentUser != null ? currentUser.id() : null;
         return ApiResponse.ok(interactionQueryService.comments(contentId, page, size, userId));
     }
@@ -106,8 +102,7 @@ public class InteractionController {
     public ApiResponse<CommentResponse> comment(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID contentId,
-            @Valid @RequestBody CommentRequest request
-    ) {
+            @Valid @RequestBody CommentRequest request) {
         return ApiResponse.ok(interactionCommandService.comment(currentUser, contentId, request));
     }
 
@@ -123,9 +118,7 @@ public class InteractionController {
      */
     @DeleteMapping("/comments/{commentId}")
     public ApiResponse<OperationResult> deleteComment(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @PathVariable UUID commentId
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @PathVariable UUID commentId) {
         interactionCommandService.deleteComment(currentUser, commentId);
         return ApiResponse.ok(OperationResult.deleted(commentId));
     }
@@ -142,9 +135,7 @@ public class InteractionController {
      */
     @PostMapping("/contents/{contentId}/likes")
     public ApiResponse<LikeStateResponse> like(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @PathVariable UUID contentId
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @PathVariable UUID contentId) {
         return ApiResponse.ok(interactionCommandService.like(currentUser, contentId));
     }
 
@@ -160,9 +151,7 @@ public class InteractionController {
      */
     @DeleteMapping("/contents/{contentId}/likes")
     public ApiResponse<LikeStateResponse> unlike(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @PathVariable UUID contentId
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @PathVariable UUID contentId) {
         return ApiResponse.ok(interactionCommandService.unlike(currentUser, contentId));
     }
 
@@ -182,9 +171,8 @@ public class InteractionController {
     public ApiResponse<ViewStateResponse> recordView(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID contentId,
-            HttpServletRequest request
-    ) {
-        String clientIp = IpUtils.getClientIp(request);
+            HttpServletRequest request) {
+        String clientIp = clientIpResolver.resolve(request);
         String userAgent = request.getHeader("User-Agent");
         return ApiResponse.ok(interactionCommandService.recordView(currentUser, contentId, clientIp, userAgent));
     }

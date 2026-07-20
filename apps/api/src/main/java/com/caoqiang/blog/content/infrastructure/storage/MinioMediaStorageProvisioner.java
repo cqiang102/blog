@@ -28,8 +28,7 @@ public class MinioMediaStorageProvisioner implements MediaStorageProvisioner {
             @Value("${dromara.x-file-storage.minio[0].end-point:http://localhost:9000}") String endpoint,
             @Value("${dromara.x-file-storage.minio[0].access-key:blog_minio}") String accessKey,
             @Value("${dromara.x-file-storage.minio[0].secret-key:blog_minio_password}") String secretKey,
-            @Value("${dromara.x-file-storage.minio[0].bucket-name:blog-media}") String bucketName
-    ) {
+            @Value("${dromara.x-file-storage.minio[0].bucket-name:blog-media}") String bucketName) {
         this.bucketName = bucketName;
         this.minioClient = MinioClient.builder()
                 .endpoint(endpoint)
@@ -44,17 +43,14 @@ public class MinioMediaStorageProvisioner implements MediaStorageProvisioner {
         }
 
         try {
-            boolean exists = minioClient.bucketExists(BucketExistsArgs.builder()
-                    .bucket(bucketName)
-                    .build());
+            boolean exists = minioClient.bucketExists(
+                    BucketExistsArgs.builder().bucket(bucketName).build());
             if (exists) {
                 return;
             }
 
-            minioClient.makeBucket(MakeBucketArgs.builder()
-                    .bucket(bucketName)
-                    .build());
-            log.info("Created MinIO bucket: {}", bucketName);
+            minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
+            log.info("已创建 MinIO 桶: {}", bucketName);
         } catch (ErrorResponseException exception) {
             if ("BucketAlreadyOwnedByYou".equals(exception.errorResponse().code())) {
                 return;
@@ -66,7 +62,7 @@ public class MinioMediaStorageProvisioner implements MediaStorageProvisioner {
     }
 
     private BusinessException unavailable(Exception exception) {
-        log.warn("MinIO bucket is not available: {}", bucketName, exception);
+        log.warn("MinIO 存储桶不可用: {}", bucketName, exception);
         return new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "文件存储暂时不可用，请稍后重试");
     }
 }

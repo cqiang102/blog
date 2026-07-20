@@ -1,20 +1,18 @@
 package com.caoqiang.blog.interaction;
 
-import com.caoqiang.blog.content.application.api.ContentInteractionService;
-import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
-import com.caoqiang.blog.interaction.application.service.InteractionReferenceData;
-import com.caoqiang.blog.interaction.application.dto.AdminCommentResponse;
-import com.caoqiang.blog.interaction.application.dto.AdminCommentStatusRequest;
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
-import com.caoqiang.blog.interaction.application.service.CommentAdminService;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.caoqiang.blog.content.application.api.ContentInteractionService;
+import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
+import com.caoqiang.blog.interaction.application.dto.AdminCommentResponse;
+import com.caoqiang.blog.interaction.application.service.CommentAdminService;
+import com.caoqiang.blog.interaction.application.service.InteractionReferenceData;
+import com.caoqiang.blog.interaction.domain.model.Comment;
+import com.caoqiang.blog.interaction.domain.model.CommentStatus;
+import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.user.application.api.IdentityUser;
 import com.caoqiang.blog.user.application.api.UserAccountService;
@@ -84,18 +82,13 @@ class CommentAdminServiceTest {
 
     private CommentAdminService service(Comment comment) {
         when(contentInteractionService.findByIds(org.mockito.ArgumentMatchers.anyCollection()))
-                .thenReturn(List.of(new ContentInteractionSnapshot(
-                        comment.getContentId(), "评论测试内容", 0, 0, 1
-                )));
+                .thenReturn(List.of(new ContentInteractionSnapshot(comment.getContentId(), "评论测试内容", 0, 0, 1)));
         when(userAccountService.findByIds(org.mockito.ArgumentMatchers.anyCollection()))
                 .thenReturn(List.of(new IdentityUser(
-                        comment.getUserId(), "reader@example.com", "读者", null,
-                        null, null, "hash", Role.USER, true
-                )));
+                        comment.getUserId(), "reader@example.com", "读者", null, null, null, "hash", Role.USER, true)));
         return new CommentAdminService(
                 commentRepository,
                 contentInteractionService,
-                new InteractionReferenceData(contentInteractionService, userAccountService)
-        );
+                new InteractionReferenceData(contentInteractionService, userAccountService));
     }
 }

@@ -13,9 +13,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * 全局异常处理器。
@@ -92,10 +92,9 @@ public class GlobalExceptionHandler {
      * 处理数据库唯一约束等并发数据冲突。
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(
-            DataIntegrityViolationException exception
-    ) {
-        log.warn("Data integrity violation: {}", exception.getMostSpecificCause().getMessage());
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
+        log.warn("Data integrity violation");
+        log.debug("Data integrity violation details", exception);
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.fail("数据已存在或发生冲突"));
     }
 
@@ -104,7 +103,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnexpectedException(Exception exception) {
-        log.error("Unexpected exception: {}", exception.getMessage(), exception);
+        log.error("Unexpected exception: type={}", exception.getClass().getSimpleName(), exception);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("服务暂时不可用"));
     }
 }

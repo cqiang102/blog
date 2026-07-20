@@ -9,11 +9,7 @@ import java.util.List;
  * @param total    总评论数
  * @param error    错误信息（可选，成功时为 null）
  */
-public record AiCommentListResult(
-        List<AiCommentItem> comments,
-        long total,
-        String error
-) {
+public record AiCommentListResult(List<AiCommentItem> comments, long total, String error) {
 
     public static AiCommentListResult success(List<AiCommentItem> comments, long total) {
         return new AiCommentListResult(comments, total, null);

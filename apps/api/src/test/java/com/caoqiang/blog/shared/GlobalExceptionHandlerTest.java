@@ -9,8 +9,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 class GlobalExceptionHandlerTest {
 
@@ -19,8 +19,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void preservesResponseStatusExceptionStatusAndMessage() {
         ResponseEntity<ApiResponse<Void>> response = handler.handleResponseStatusException(
-                new ResponseStatusException(HttpStatus.BAD_REQUEST, "OAuth state 无效或已过期")
-        );
+                new ResponseStatusException(HttpStatus.BAD_REQUEST, "OAuth state 无效或已过期"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
@@ -29,9 +28,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void mapsMissingStaticResourceToNotFound() {
-        ResponseEntity<ApiResponse<Void>> response = handler.handleNotFound(
-                new NoResourceFoundException(HttpMethod.GET, "/api/v1/auth/missing", "")
-        );
+        ResponseEntity<ApiResponse<Void>> response =
+                handler.handleNotFound(new NoResourceFoundException(HttpMethod.GET, "/api/v1/auth/missing", ""));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody()).isNotNull();
@@ -40,9 +38,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void mapsDatabaseConstraintConflictToConflict() {
-        ResponseEntity<ApiResponse<Void>> response = handler.handleDataIntegrityViolation(
-                new DataIntegrityViolationException("duplicate key")
-        );
+        ResponseEntity<ApiResponse<Void>> response =
+                handler.handleDataIntegrityViolation(new DataIntegrityViolationException("duplicate key"));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(response.getBody()).isNotNull();

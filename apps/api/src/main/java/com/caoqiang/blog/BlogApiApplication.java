@@ -1,12 +1,12 @@
 package com.caoqiang.blog;
 
+import org.dromara.x.file.storage.spring.EnableFileStorage;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.retry.annotation.EnableRetry;
-import org.dromara.x.file.storage.spring.EnableFileStorage;
 
 /**
  * 博客 API 应用入口类。

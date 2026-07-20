@@ -9,8 +9,7 @@ public final class PasswordPolicy {
     public static final int MIN_CHARACTERS = 8;
     public static final int MAX_BCRYPT_BYTES = 72;
 
-    private PasswordPolicy() {
-    }
+    private PasswordPolicy() {}
 
     public static void validate(String password) {
         if (password == null || password.length() < MIN_CHARACTERS) {

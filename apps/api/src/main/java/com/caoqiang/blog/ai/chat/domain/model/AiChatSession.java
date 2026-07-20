@@ -42,8 +42,7 @@ public class AiChatSession {
     @Column(nullable = false)
     private boolean deleted = false;
 
-    protected AiChatSession() {
-    }
+    protected AiChatSession() {}
 
     public AiChatSession(UUID userId, String title) {
         this.userId = userId;

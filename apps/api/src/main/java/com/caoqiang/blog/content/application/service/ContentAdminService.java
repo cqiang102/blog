@@ -1,25 +1,24 @@
 package com.caoqiang.blog.content.application.service;
 
+import com.caoqiang.blog.config.CacheNames;
+import com.caoqiang.blog.content.application.dto.AdminContentOptionResponse;
 import com.caoqiang.blog.content.application.dto.AdminContentRequest;
 import com.caoqiang.blog.content.application.dto.AdminContentResponse;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.MediaReference;
 import com.caoqiang.blog.content.domain.model.Tag;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
 import com.caoqiang.blog.content.domain.repository.TagRepository;
-
-import com.caoqiang.blog.config.CacheNames;
-import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
-import com.caoqiang.blog.content.event.ContentPublishedEvent;
 import com.caoqiang.blog.content.event.ContentArchivedEvent;
+import com.caoqiang.blog.content.event.ContentPublishedEvent;
+import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
+import com.caoqiang.blog.shared.util.PageUtils;
 import com.caoqiang.blog.shared.util.SlugUtils;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -64,25 +63,23 @@ public class ContentAdminService {
 
     private final ContentRepository contentRepository;
     private final TagRepository tagRepository;
-    private final MediaAssetRepository mediaAssetRepository;
+    private final ContentMediaSynchronizer mediaSynchronizer;
+    private final Clock clock;
 
     /** 领域事件发布器 */
     private final DomainEventPublisher domainEventPublisher;
-    /** 媒体服务，用于生成预签名 URL */
-    private final MediaAdminService mediaAdminService;
 
     public ContentAdminService(
             ContentRepository contentRepository,
             TagRepository tagRepository,
-            MediaAssetRepository mediaAssetRepository,
-            DomainEventPublisher domainEventPublisher,
-            MediaAdminService mediaAdminService
-    ) {
+            ContentMediaSynchronizer mediaSynchronizer,
+            Clock clock,
+            DomainEventPublisher domainEventPublisher) {
         this.contentRepository = contentRepository;
         this.tagRepository = tagRepository;
-        this.mediaAssetRepository = mediaAssetRepository;
+        this.mediaSynchronizer = mediaSynchronizer;
+        this.clock = clock;
         this.domainEventPublisher = domainEventPublisher;
-        this.mediaAdminService = mediaAdminService;
     }
 
     /**
@@ -98,19 +95,12 @@ public class ContentAdminService {
      */
     @Transactional(readOnly = true)
     public PageResponse<AdminContentResponse> list(
-            int page, int size, boolean includeDeleted,
-            String query, ContentStatus status, ContentType type
-    ) {
-        log.info("Admin content list: includeDeleted={}, query={}, status={}, type={}",
-                includeDeleted, query, status, type);
-        PageRequest pageRequest = PageRequest.of(
-                Math.max(0, page),
-                Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
-                Sort.by(Sort.Direction.DESC, "createdAt")
-        );
+            int page, int size, boolean includeDeleted, String query, ContentStatus status, ContentType type) {
+        log.debug("查询管理员内容列表：包含已删除项={}, query={}, status={}, type={}", includeDeleted, query, status, type);
+        PageRequest pageRequest = PageUtils.of(page, size, MAX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
         Specification<Content> spec = adminContentSpec(includeDeleted, query, status, type);
         Page<Content> result = contentRepository.findAll(spec, pageRequest);
-        log.info("Admin content list result: {} items, {} total", result.getContent().size(), result.getTotalElements());
+        log.debug("管理员内容列表结果：当前页 {} 项，共 {} 项", result.getContent().size(), result.getTotalElements());
         List<Content> hydratedContents;
         if (result.getContent().isEmpty()) {
             hydratedContents = List.of();
@@ -125,22 +115,39 @@ public class ContentAdminService {
                     .toList();
         }
         return new PageResponse<>(
-                hydratedContents.stream()
-                        .map(c -> AdminContentResponse.from(c, mediaAdminService))
+                hydratedContents.stream().map(AdminContentResponse::from).toList(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements());
+    }
+
+    /**
+     * Returns a lightweight, searchable content page for management selectors.
+     *
+     * <p>Unlike {@link #list}, this query only projects {@code id} and {@code title}; it does not
+     * hydrate media, tags, Markdown bodies, or presigned URLs.</p>
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<AdminContentOptionResponse> options(String query, int page, int size) {
+        String keyword = StringUtils.hasText(query) ? query.trim() : "";
+        PageRequest pageRequest = PageUtils.of(
+                page, size, MAX_PAGE_SIZE, Sort.by(Sort.Direction.ASC, "title").and(Sort.by(Sort.Direction.ASC, "id")));
+        Page<ContentRepository.ContentOptionProjection> result =
+                contentRepository.findContentOptionsByDeletedAtIsNullAndTitleContainingIgnoreCase(keyword, pageRequest);
+        return new PageResponse<>(
+                result.getContent().stream()
+                        .map(option -> new AdminContentOptionResponse(option.getId(), option.getTitle()))
                         .toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     /**
      * 构建管理端内容列表的动态查询条件。
      */
     private Specification<Content> adminContentSpec(
-            boolean includeDeleted, String query,
-            ContentStatus status, ContentType type
-    ) {
+            boolean includeDeleted, String query, ContentStatus status, ContentType type) {
         return (root, criteriaQuery, criteriaBuilder) -> {
             List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
 
@@ -164,8 +171,7 @@ public class ContentAdminService {
                 String keyword = "%" + query.trim().toLowerCase(Locale.ROOT) + "%";
                 predicates.add(criteriaBuilder.or(
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), keyword),
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("summary")), keyword)
-                ));
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("summary")), keyword)));
             }
 
             if (predicates.isEmpty()) {
@@ -184,8 +190,9 @@ public class ContentAdminService {
      */
     @Transactional(readOnly = true)
     public AdminContentResponse detail(UUID id) {
-        return contentRepository.findById(id)
-                .map(c -> AdminContentResponse.from(c, mediaAdminService))
+        return contentRepository
+                .findById(id)
+                .map(AdminContentResponse::from)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
     }
 
@@ -207,43 +214,29 @@ public class ContentAdminService {
             throw new BusinessException(HttpStatus.CONFLICT, "内容 slug 已存在");
         }
 
+        ContentStatus status = request.status() == null ? ContentStatus.DRAFT : request.status();
+
         Content content = new Content(
                 request.title().trim(),
                 slug,
                 request.type() == null ? ContentType.ARTICLE : request.type(),
-                request.status() == null ? ContentStatus.DRAFT : request.status(),
+                status,
                 request.summary(),
                 request.bodyMarkdown(),
                 request.pinned(),
-                publishedAt(request),
-                tags(request.tagSlugs())
-        );
+                resolvePublishedAt(status, request.publishedAt(), null),
+                tags(request.tagSlugs()));
         Content saved = contentRepository.save(content);
 
-        List<MediaAsset> mediaAssets = synchronizeMedia(
-                saved,
-                request.mediaUrls(),
-                request.type()
-        );
-        MediaAsset firstMediaAsset = mediaAssets.isEmpty() ? null : mediaAssets.getFirst();
-
-        // 设置封面
-        if (StringUtils.hasText(request.coverUrl()) && firstMediaAsset != null) {
-            MediaAsset coverMedia = mediaAssets.stream()
-                    .filter(media -> matchesReference(media, request.coverUrl()))
-                    .findFirst()
-                    .orElse(firstMediaAsset);
-            saved.setCoverMedia(coverMedia);
-        } else if (firstMediaAsset != null) {
-            // 默认使用第一个媒体作为封面
-            saved.setCoverMedia(firstMediaAsset);
-        }
+        List<MediaAsset> mediaAssets = mediaSynchronizer.synchronize(saved, request.mediaUrls(), saved.getType());
+        saved.setCoverMedia(mediaSynchronizer.selectCover(mediaAssets, request.coverUrl()));
 
         if (saved.getStatus() == ContentStatus.PUBLISHED) {
-            domainEventPublisher.publishEvent(new ContentPublishedEvent(saved.getId(), saved.getTitle(), saved.getSlug()));
+            domainEventPublisher.publishEvent(
+                    new ContentPublishedEvent(saved.getId(), saved.getTitle(), saved.getSlug()));
         }
 
-        return AdminContentResponse.from(saved, mediaAdminService);
+        return AdminContentResponse.from(saved);
     }
 
     /**
@@ -264,55 +257,42 @@ public class ContentAdminService {
     @Transactional
     @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
     public AdminContentResponse update(UUID id, AdminContentRequest request) {
-        Content content = contentRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
+        Content content =
+                contentRepository.findById(id).orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
         String slug = slugFor(request);
         if (contentRepository.existsBySlugAndIdNot(slug, id)) {
             throw new BusinessException(HttpStatus.CONFLICT, "内容 slug 已存在");
         }
 
+        ContentStatus status = request.status() == null ? content.getStatus() : request.status();
+
         content.apply(
                 request.title().trim(),
                 slug,
                 request.type() == null ? content.getType() : request.type(),
-                request.status() == null ? content.getStatus() : request.status(),
+                status,
                 request.summary(),
                 request.bodyMarkdown(),
                 request.pinned(),
-                publishedAt(request),
-                tags(request.tagSlugs())
-        );
+                resolvePublishedAt(status, request.publishedAt(), content.getPublishedAt()),
+                tags(request.tagSlugs()));
 
         // 同步已上传媒体和外链媒体，Markdown 中保存稳定的媒体 ID 引用。
         if (request.mediaUrls() != null) {
             content.setCoverMedia(null);
-            List<MediaAsset> mediaAssets = synchronizeMedia(
-                    content,
-                    request.mediaUrls(),
-                    content.getType()
-            );
-            MediaAsset firstMediaAsset = mediaAssets.isEmpty() ? null : mediaAssets.getFirst();
-
-            if (StringUtils.hasText(request.coverUrl())) {
-                MediaAsset coverMedia = mediaAssets.stream()
-                        .filter(media -> matchesReference(media, request.coverUrl()))
-                        .findFirst()
-                        .orElse(firstMediaAsset);
-                content.setCoverMedia(coverMedia);
-            } else if (firstMediaAsset != null) {
-                content.setCoverMedia(firstMediaAsset);
-            } else {
-                content.setCoverMedia(null);
-            }
+            List<MediaAsset> mediaAssets =
+                    mediaSynchronizer.synchronize(content, request.mediaUrls(), content.getType());
+            content.setCoverMedia(mediaSynchronizer.selectCover(mediaAssets, request.coverUrl()));
         }
 
         if (content.getStatus() == ContentStatus.PUBLISHED) {
-            domainEventPublisher.publishEvent(new ContentPublishedEvent(content.getId(), content.getTitle(), content.getSlug()));
+            domainEventPublisher.publishEvent(
+                    new ContentPublishedEvent(content.getId(), content.getTitle(), content.getSlug()));
         } else {
             domainEventPublisher.publishEvent(new ContentArchivedEvent(content.getId()));
         }
 
-        return AdminContentResponse.from(content, mediaAdminService);
+        return AdminContentResponse.from(content);
     }
 
     /**
@@ -327,8 +307,8 @@ public class ContentAdminService {
     @Transactional
     @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
     public void archive(UUID id) {
-        Content content = contentRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
+        Content content =
+                contentRepository.findById(id).orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
         content.archive();
 
         domainEventPublisher.publishEvent(new ContentArchivedEvent(content.getId()));
@@ -345,8 +325,8 @@ public class ContentAdminService {
     @Transactional
     @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
     public void softDelete(UUID id) {
-        Content content = contentRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
+        Content content =
+                contentRepository.findById(id).orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
         content.softDelete();
 
         domainEventPublisher.publishEvent(new ContentArchivedEvent(content.getId()));
@@ -361,118 +341,35 @@ public class ContentAdminService {
     @Transactional
     @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
     public void restore(UUID id) {
-        Content content = contentRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
+        Content content =
+                contentRepository.findById(id).orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
         content.restore();
 
         if (content.getStatus() == ContentStatus.PUBLISHED) {
-            domainEventPublisher.publishEvent(new ContentPublishedEvent(
-                    content.getId(),
-                    content.getTitle(),
-                    content.getSlug()
-            ));
+            domainEventPublisher.publishEvent(
+                    new ContentPublishedEvent(content.getId(), content.getTitle(), content.getSlug()));
         }
-    }
-
-    private List<MediaAsset> synchronizeMedia(
-            Content content,
-            List<String> references,
-            ContentType contentType
-    ) {
-        if (references == null) {
-            return new ArrayList<>(content.getMediaAssets());
-        }
-
-        List<MediaAsset> existing = new ArrayList<>(content.getMediaAssets());
-        List<MediaAsset> desired = new ArrayList<>();
-        Set<UUID> desiredIds = new LinkedHashSet<>();
-        Set<String> desiredReferences = new LinkedHashSet<>();
-        MediaAssetType fallbackType = contentType == ContentType.VIDEO
-                ? MediaAssetType.VIDEO
-                : MediaAssetType.IMAGE;
-
-        for (String value : references) {
-            if (!StringUtils.hasText(value)) {
-                continue;
-            }
-            String reference = value.trim();
-            if (!desiredReferences.add(reference)) {
-                continue;
-            }
-            MediaAsset mediaAsset = MediaReference.mediaId(reference)
-                    .map(id -> mediaAssetRepository.findById(id)
-                            .orElseThrow(() -> new BusinessException(
-                                    HttpStatus.BAD_REQUEST,
-                                    "引用的媒体资源不存在"
-                            )))
-                    .orElseGet(() -> existing.stream()
-                            .filter(media -> reference.equals(media.getPublicUrl()))
-                            .findFirst()
-                            .orElseGet(() -> mediaAssetRepository.save(
-                                    new MediaAsset(
-                                            content,
-                                            fallbackType,
-                                            MediaAsset.EXTERNAL_BUCKET,
-                                            MediaAsset.EXTERNAL_BUCKET + "/" + UUID.randomUUID(),
-                                            reference,
-                                            null,
-                                            null,
-                                            null,
-                                            null,
-                                            null,
-                                            null
-                                    )
-                            )));
-
-            Content owner = mediaAsset.getContent();
-            if (owner != null && !owner.getId().equals(content.getId())) {
-                throw new BusinessException(
-                        HttpStatus.CONFLICT,
-                        "媒体资源已关联到其他内容"
-                );
-            }
-            if (desiredIds.add(mediaAsset.getId())) {
-                mediaAsset.assignTo(content);
-                desired.add(mediaAssetRepository.save(mediaAsset));
-            }
-        }
-
-        for (MediaAsset mediaAsset : existing) {
-            if (desiredIds.contains(mediaAsset.getId())) {
-                continue;
-            }
-            if (MediaAsset.EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
-                mediaAssetRepository.delete(mediaAsset);
-            } else {
-                mediaAsset.assignTo(null);
-                mediaAssetRepository.save(mediaAsset);
-            }
-        }
-
-        content.getMediaAssets().clear();
-        content.getMediaAssets().addAll(desired);
-        return desired;
-    }
-
-    private boolean matchesReference(MediaAsset mediaAsset, String reference) {
-        return MediaReference.mediaId(reference)
-                .map(id -> id.equals(mediaAsset.getId()))
-                .orElseGet(() -> reference.equals(mediaAsset.getPublicUrl()));
     }
 
     /**
      * 确定发布时间。
      * <p>
-     * 非发布状态直接使用请求中的值；发布状态若未指定则默认为当前时间。
+     * 非发布状态直接使用请求中的值；发布状态优先使用请求值，其次保留已有发布时间，
+     * 仅首次发布且未指定时间时使用当前时间。
      *
-     * @param request 管理端内容请求
+     * @param status      更新后的内容状态
+     * @param requestedAt 请求指定的发布时间
+     * @param currentAt   当前已保存的发布时间
      * @return 发布时间
      */
-    private Instant publishedAt(AdminContentRequest request) {
-        if (request.status() != ContentStatus.PUBLISHED) {
-            return request.publishedAt();
+    private Instant resolvePublishedAt(ContentStatus status, Instant requestedAt, Instant currentAt) {
+        if (status != ContentStatus.PUBLISHED) {
+            return requestedAt;
         }
-        return request.publishedAt() == null ? Instant.now() : request.publishedAt();
+        if (requestedAt != null) {
+            return requestedAt;
+        }
+        return currentAt == null ? clock.instant() : currentAt;
     }
 
     /**
@@ -496,11 +393,13 @@ public class ContentAdminService {
      * @throws BusinessException 存在未创建的标签时抛出 400
      */
     private Set<Tag> tags(List<String> tagSlugs) {
-        List<String> normalized = tagSlugs == null ? List.of() : tagSlugs.stream()
-                .filter(StringUtils::hasText)
-                .map(slug -> SlugUtils.from(slug).toLowerCase(Locale.ROOT))
-                .distinct()
-                .toList();
+        List<String> normalized = tagSlugs == null
+                ? List.of()
+                : tagSlugs.stream()
+                        .filter(StringUtils::hasText)
+                        .map(slug -> SlugUtils.from(slug).toLowerCase(Locale.ROOT))
+                        .distinct()
+                        .toList();
         if (normalized.isEmpty()) {
             return Set.of();
         }

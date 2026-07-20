@@ -36,6 +36,6 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true) // 允许携带 Cookie/Authorization 头
-                .maxAge(3600);          // 预检请求缓存 1 小时
+                .maxAge(3600); // 预检请求缓存 1 小时
     }
 }

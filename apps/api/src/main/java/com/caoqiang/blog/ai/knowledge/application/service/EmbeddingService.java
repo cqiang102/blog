@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 public class EmbeddingService {
 
     private static final Logger log = LoggerFactory.getLogger(EmbeddingService.class);
-    
+
     /** 嵌入向量维度 */
     private static final int EMBEDDING_DIMENSIONS = 768;
 
@@ -38,19 +38,16 @@ public class EmbeddingService {
     @Retryable(
             retryFor = {Exception.class},
             maxAttempts = 3,
-            backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2)
-    )
+            backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
     public float[] embed(String text) {
         log.debug("Calling embedding model for text length: {}", text.length());
         float[] embedding = embeddingModel.embed(text);
-        
+
         if (embedding == null || embedding.length != EMBEDDING_DIMENSIONS) {
-            throw new IllegalStateException(
-                    "Expected " + EMBEDDING_DIMENSIONS + " dimensions but got "
-                            + (embedding == null ? "null" : embedding.length)
-            );
+            throw new IllegalStateException("Expected " + EMBEDDING_DIMENSIONS + " dimensions but got "
+                    + (embedding == null ? "null" : embedding.length));
         }
-        
+
         return embedding;
     }
 }

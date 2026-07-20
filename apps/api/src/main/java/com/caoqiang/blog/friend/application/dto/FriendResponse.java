@@ -1,7 +1,6 @@
 package com.caoqiang.blog.friend.application.dto;
 
 import com.caoqiang.blog.friend.domain.model.Friend;
-
 import java.time.Instant;
 import java.util.UUID;
 import java.util.function.Function;
@@ -33,8 +32,7 @@ public record FriendResponse(
         boolean visible,
         int sortOrder,
         Instant createdAt,
-        Instant updatedAt
-) {
+        Instant updatedAt) {
 
     /**
      * 从友链实体创建响应 DTO
@@ -56,7 +54,6 @@ public record FriendResponse(
                 friend.isVisible(),
                 friend.getSortOrder(),
                 friend.getCreatedAt(),
-                friend.getUpdatedAt()
-        );
+                friend.getUpdatedAt());
     }
 }

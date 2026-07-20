@@ -1,13 +1,5 @@
 package com.caoqiang.blog.user.infrastructure.web;
 
-import com.caoqiang.blog.user.application.dto.AdminUserRequest;
-import com.caoqiang.blog.user.application.dto.AdminUserResponse;
-import com.caoqiang.blog.user.application.api.UserProfileResponse;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.model.UserStatus;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
-import com.caoqiang.blog.user.application.service.UserAdminService;
-
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.shared.response.ApiResponse;
@@ -70,8 +62,7 @@ public class AdminUserController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String query,
             @RequestParam(required = false) Role role,
-            @RequestParam(required = false) UserStatus status
-    ) {
+            @RequestParam(required = false) UserStatus status) {
         return ApiResponse.ok(userAdminService.list(page, size, query, role, status));
     }
 
@@ -101,8 +92,7 @@ public class AdminUserController {
     public ApiResponse<AdminUserResponse> update(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID id,
-            @Valid @RequestBody AdminUserRequest request
-    ) {
+            @Valid @RequestBody AdminUserRequest request) {
         return ApiResponse.ok(userAdminService.update(currentUser, id, request));
     }
 
@@ -118,9 +108,7 @@ public class AdminUserController {
      */
     @DeleteMapping("/{id}")
     public ApiResponse<OperationResult> disable(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @PathVariable UUID id
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @PathVariable UUID id) {
         userAdminService.disable(currentUser, id);
         return ApiResponse.ok(OperationResult.success("禁用成功", id));
     }

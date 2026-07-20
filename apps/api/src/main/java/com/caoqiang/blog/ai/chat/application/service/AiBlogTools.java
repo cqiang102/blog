@@ -1,10 +1,9 @@
 package com.caoqiang.blog.ai.chat.application.service;
 
+import com.caoqiang.blog.ai.chat.application.dto.AiActionResult;
 import com.caoqiang.blog.ai.chat.application.dto.AiCommentListResult;
 import com.caoqiang.blog.ai.chat.application.dto.AiContentDetailResult;
 import com.caoqiang.blog.ai.chat.application.dto.AiSearchContentResult;
-
-import com.caoqiang.blog.ai.chat.application.dto.AiActionResult;
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeSearchResult;
 import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeSearchService;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
@@ -35,10 +34,7 @@ public class AiBlogTools {
     private final AiToolService aiToolService;
     private final KnowledgeSearchService knowledgeSearchService;
 
-    public AiBlogTools(
-            AiToolService aiToolService,
-            KnowledgeSearchService knowledgeSearchService
-    ) {
+    public AiBlogTools(AiToolService aiToolService, KnowledgeSearchService knowledgeSearchService) {
         this.aiToolService = aiToolService;
         this.knowledgeSearchService = knowledgeSearchService;
     }
@@ -53,8 +49,7 @@ public class AiBlogTools {
     @Tool(description = "搜索或浏览已发布的博客内容。用户询问全部、最新、有哪些内容时，query 必须传空字符串；询问特定主题时传关键词。")
     public AiSearchContentResult searchContent(
             @ToolParam(description = "搜索关键词；浏览全部或最新内容时传空字符串", required = false) String query,
-            @ToolParam(description = "返回结果数量上限，最大10") int limit
-    ) {
+            @ToolParam(description = "返回结果数量上限，最大10") int limit) {
         return aiToolService.searchContent(query, limit);
     }
 
@@ -65,9 +60,7 @@ public class AiBlogTools {
      * @return 内容详情结果
      */
     @Tool(description = "获取博客文章详情。根据文章ID获取完整内容，包括正文、点赞数、浏览数、评论数等。当用户想了解某篇文章的具体内容时调用。")
-    public AiContentDetailResult getContentDetail(
-            @ToolParam(description = "文章的UUID") UUID contentId
-    ) {
+    public AiContentDetailResult getContentDetail(@ToolParam(description = "文章的UUID") UUID contentId) {
         return aiToolService.getContentDetail(contentId);
     }
 
@@ -77,10 +70,11 @@ public class AiBlogTools {
      * @param query 搜索关键词
      * @return 搜索结果列表
      */
-    @Tool(description = "搜索或浏览个人知识库和已发布内容。用户询问知识库有什么、全部来源时，query 必须传空字符串；询问博主、站长、管理员、AI助手、你或具体主题时传简洁关键词。结果的 sourceType=CONTENT 时 sourceId 才能用于 getContentDetail。")
+    @Tool(
+            description =
+                    "搜索或浏览个人知识库和已发布内容。用户询问知识库有什么、全部来源时，query 必须传空字符串；询问博主、站长、管理员、AI助手、你或具体主题时传简洁关键词。结果的 sourceType=CONTENT 时 sourceId 才能用于 getContentDetail。")
     public List<KnowledgeSearchResult> searchKnowledge(
-            @ToolParam(description = "知识关键词；浏览知识库全部来源时传空字符串", required = false) String query
-    ) {
+            @ToolParam(description = "知识关键词；浏览知识库全部来源时传空字符串", required = false) String query) {
         return knowledgeSearchService.search(query);
     }
 
@@ -91,10 +85,7 @@ public class AiBlogTools {
      * @return 操作结果
      */
     @Tool(description = "以当前登录用户身份对博客文章点赞。当用户表示喜欢某篇文章或想给文章点赞时调用。")
-    public AiActionResult likeContent(
-            @ToolParam(description = "文章的UUID") UUID contentId,
-            ToolContext toolContext
-    ) {
+    public AiActionResult likeContent(@ToolParam(description = "文章的UUID") UUID contentId, ToolContext toolContext) {
         AuthenticatedUser currentUser = currentUser(toolContext);
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
@@ -109,10 +100,7 @@ public class AiBlogTools {
      * @return 操作结果
      */
     @Tool(description = "以当前登录用户身份取消对博客文章的点赞。当用户想取消之前的点赞时调用。")
-    public AiActionResult unlikeContent(
-            @ToolParam(description = "文章的UUID") UUID contentId,
-            ToolContext toolContext
-    ) {
+    public AiActionResult unlikeContent(@ToolParam(description = "文章的UUID") UUID contentId, ToolContext toolContext) {
         AuthenticatedUser currentUser = currentUser(toolContext);
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
@@ -131,8 +119,7 @@ public class AiBlogTools {
     public AiActionResult commentContent(
             @ToolParam(description = "文章的UUID") UUID contentId,
             @ToolParam(description = "评论内容") String body,
-            ToolContext toolContext
-    ) {
+            ToolContext toolContext) {
         AuthenticatedUser currentUser = currentUser(toolContext);
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
@@ -151,14 +138,9 @@ public class AiBlogTools {
     public AiCommentListResult listComments(
             @ToolParam(description = "文章的UUID") UUID contentId,
             @ToolParam(description = "返回结果数量上限，最大20") int limit,
-            ToolContext toolContext
-    ) {
+            ToolContext toolContext) {
         AuthenticatedUser currentUser = currentUser(toolContext);
-        return aiToolService.listComments(
-                contentId,
-                limit,
-                currentUser != null ? currentUser.id() : null
-        );
+        return aiToolService.listComments(contentId, limit, currentUser != null ? currentUser.id() : null);
     }
 
     /**
@@ -168,10 +150,7 @@ public class AiBlogTools {
      * @return 操作结果
      */
     @Tool(description = "删除当前登录用户自己的评论。当用户想删除之前发表的评论时调用。只能删除当前登录用户发布的评论。")
-    public AiActionResult deleteComment(
-            @ToolParam(description = "评论的UUID") UUID commentId,
-            ToolContext toolContext
-    ) {
+    public AiActionResult deleteComment(@ToolParam(description = "评论的UUID") UUID commentId, ToolContext toolContext) {
         AuthenticatedUser currentUser = currentUser(toolContext);
         if (currentUser == null) {
             return AiActionResult.error("请先登录");
@@ -183,5 +162,4 @@ public class AiBlogTools {
         Object value = toolContext.getContext().get(AUTHENTICATED_USER_CONTEXT_KEY);
         return value instanceof AuthenticatedUser user ? user : null;
     }
-
 }

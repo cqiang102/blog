@@ -16,8 +16,7 @@ public class InteractionOverviewService {
     public InteractionOverviewService(
             CommentRepository commentRepository,
             LikeRepository likeRepository,
-            ViewRecordRepository viewRecordRepository
-    ) {
+            ViewRecordRepository viewRecordRepository) {
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
@@ -25,10 +24,6 @@ public class InteractionOverviewService {
 
     @Transactional(readOnly = true)
     public InteractionOverview overview() {
-        return new InteractionOverview(
-                commentRepository.count(),
-                likeRepository.count(),
-                viewRecordRepository.count()
-        );
+        return new InteractionOverview(commentRepository.count(), likeRepository.count(), viewRecordRepository.count());
     }
 }

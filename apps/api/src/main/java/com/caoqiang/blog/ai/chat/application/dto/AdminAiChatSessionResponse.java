@@ -30,8 +30,7 @@ public record AdminAiChatSessionResponse(
         long messageCount,
         String lastMessage,
         Instant createdAt,
-        Instant updatedAt
-) {
+        Instant updatedAt) {
 
     /**
      * 从会话实体创建响应 DTO
@@ -42,11 +41,7 @@ public record AdminAiChatSessionResponse(
      * @return 管理端会话响应 DTO
      */
     public static AdminAiChatSessionResponse from(
-            AiChatSession session,
-            IdentityUser user,
-            long messageCount,
-            AiChatMessage lastMessage
-    ) {
+            AiChatSession session, IdentityUser user, long messageCount, AiChatMessage lastMessage) {
         return new AdminAiChatSessionResponse(
                 session.getId(),
                 session.getUserId(),
@@ -56,7 +51,6 @@ public record AdminAiChatSessionResponse(
                 messageCount,
                 lastMessage == null ? null : lastMessage.getContent(),
                 session.getCreatedAt(),
-                session.getUpdatedAt()
-        );
+                session.getUpdatedAt());
     }
 }

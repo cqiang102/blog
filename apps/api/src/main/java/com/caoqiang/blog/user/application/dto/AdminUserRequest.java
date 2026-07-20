@@ -1,9 +1,7 @@
 package com.caoqiang.blog.user.application.dto;
 
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.model.UserStatus;
-
 import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.user.domain.model.UserStatus;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -32,6 +30,4 @@ public record AdminUserRequest(
         @Size(max = 2000) String bio,
         String blogUrl,
         @NotNull Role role,
-        @NotNull UserStatus status
-) {
-}
+        @NotNull UserStatus status) {}

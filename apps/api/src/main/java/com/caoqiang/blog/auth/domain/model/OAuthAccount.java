@@ -75,8 +75,7 @@ public class OAuthAccount {
     /**
      * 默认构造函数，供 JPA 使用
      */
-    protected OAuthAccount() {
-    }
+    protected OAuthAccount() {}
 
     /**
      * 构造函数，创建新的 OAuth 账户关联

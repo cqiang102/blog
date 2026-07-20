@@ -16,10 +16,5 @@ public interface OAuthAccountPort {
 
     boolean remove(UUID userId, String provider);
 
-    record LinkedOAuthAccount(
-            String provider,
-            String providerUsername,
-            Instant createdAt
-    ) {
-    }
+    record LinkedOAuthAccount(String provider, String providerUsername, Instant createdAt) {}
 }

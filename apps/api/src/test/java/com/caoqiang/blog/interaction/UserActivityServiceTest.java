@@ -24,23 +24,23 @@ class UserActivityServiceTest {
 
     @Mock
     private InteractionQueryService queryService;
+
     @Mock
     private InteractionCommandService commandService;
 
     @Test
     void mapsActivityPagesAndDelegatesDeletesThroughThePublicContract() {
-        AuthenticatedUser user = new AuthenticatedUser(
-                UUID.randomUUID(), "reader@example.com", "reader", Role.USER
-        );
+        AuthenticatedUser user = new AuthenticatedUser(UUID.randomUUID(), "reader@example.com", "reader", Role.USER);
         UUID commentId = UUID.randomUUID();
         UUID contentId = UUID.randomUUID();
         UUID viewId = UUID.randomUUID();
         Instant createdAt = Instant.parse("2026-07-13T10:00:00Z");
-        when(queryService.myComments(user, 0, 20)).thenReturn(
-                new PageResponse<>(List.of(
-                        UserActivityResponse.comment(commentId, contentId, "Architecture", createdAt)
-                ), 0, 20, 1)
-        );
+        when(queryService.myComments(user, 0, 20))
+                .thenReturn(new PageResponse<>(
+                        List.of(UserActivityResponse.comment(commentId, contentId, "Architecture", createdAt)),
+                        0,
+                        20,
+                        1));
         UserActivityService service = new UserActivityService(queryService, commandService);
 
         var result = service.comments(user, 0, 20);

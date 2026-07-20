@@ -1,12 +1,7 @@
 package com.caoqiang.blog.content.application.dto;
 
-import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.Tag;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
@@ -49,6 +44,4 @@ public record AdminContentRequest(
         /** 媒体资源 URL 列表 */
         List<String> mediaUrls,
         /** 封面图 URL */
-        String coverUrl
-) {
-}
+        String coverUrl) {}

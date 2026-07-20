@@ -1,8 +1,5 @@
 package com.caoqiang.blog.user.application.dto;
 
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.model.UserStatus;
-
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 
@@ -25,6 +22,4 @@ public record UpdateProfileRequest(
         String avatarUrl,
         @Size(max = 500) String bio,
         String blogUrl,
-        @Email String email
-) {
-}
+        @Email String email) {}

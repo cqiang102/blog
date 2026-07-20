@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 知识文档 Repository。
@@ -15,9 +16,10 @@ import org.springframework.data.repository.query.Param;
  * 提供知识文档实体的 CRUD 操作，同时实现 {@link JpaSpecificationExecutor}
  * 以支持动态条件查询（管理端按关键词、启用状态筛选）。
  */
-public interface KnowledgeDocRepository extends JpaRepository<KnowledgeDoc, UUID>,
-        JpaSpecificationExecutor<KnowledgeDoc> {
+public interface KnowledgeDocRepository
+        extends JpaRepository<KnowledgeDoc, UUID>, JpaSpecificationExecutor<KnowledgeDoc> {
 
+    @Transactional(readOnly = true)
     List<KnowledgeDoc> findByEnabledTrueOrderByUpdatedAtDesc(Pageable pageable);
 
     @Query("""
@@ -31,8 +33,6 @@ public interface KnowledgeDocRepository extends JpaRepository<KnowledgeDoc, UUID
               )
             ORDER BY d.updatedAt DESC
             """)
-    List<KnowledgeDoc> searchEnabled(
-            @Param("query") String query,
-            Pageable pageable
-    );
+    @Transactional(readOnly = true)
+    List<KnowledgeDoc> searchEnabled(@Param("query") String query, Pageable pageable);
 }

@@ -69,8 +69,7 @@ public class AiChatMessage {
     @Column(nullable = false)
     private boolean deleted = false;
 
-    protected AiChatMessage() {
-    }
+    protected AiChatMessage() {}
 
     public AiChatMessage(AiChatSession session, AiMessageRole role, String content) {
         this.session = session;

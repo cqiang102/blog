@@ -12,11 +12,4 @@ import java.util.UUID;
  * @param createdAt    创建时间
  * @param updatedAt    最后更新时间
  */
-public record AiChatSessionResponse(
-        UUID id,
-        String title,
-        int messageCount,
-        Instant createdAt,
-        Instant updatedAt
-) {
-}
+public record AiChatSessionResponse(UUID id, String title, int messageCount, Instant createdAt, Instant updatedAt) {}

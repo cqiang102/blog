@@ -45,9 +45,7 @@ public class AdminKnowledgeController {
     private final KnowledgeReindexService knowledgeReindexService;
 
     public AdminKnowledgeController(
-            KnowledgeAdminService knowledgeAdminService,
-            KnowledgeReindexService knowledgeReindexService
-    ) {
+            KnowledgeAdminService knowledgeAdminService, KnowledgeReindexService knowledgeReindexService) {
         this.knowledgeAdminService = knowledgeAdminService;
         this.knowledgeReindexService = knowledgeReindexService;
     }
@@ -66,8 +64,7 @@ public class AdminKnowledgeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String query,
-            @RequestParam(required = false) Boolean enabled
-    ) {
+            @RequestParam(required = false) Boolean enabled) {
         return ApiResponse.ok(knowledgeAdminService.list(page, size, query, enabled));
     }
 
@@ -102,9 +99,7 @@ public class AdminKnowledgeController {
      */
     @PutMapping("/{id}")
     public ApiResponse<KnowledgeDocResponse> update(
-            @PathVariable UUID id,
-            @Valid @RequestBody KnowledgeDocRequest request
-    ) {
+            @PathVariable UUID id, @Valid @RequestBody KnowledgeDocRequest request) {
         return ApiResponse.ok(knowledgeAdminService.update(id, request));
     }
 

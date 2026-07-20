@@ -13,10 +13,4 @@ package com.caoqiang.blog.ai.knowledge.application.dto;
  * @author caoqiang
  */
 public record KnowledgeSearchResult(
-        String content,
-        double score,
-        String sourceId,
-        KnowledgeSearchSourceType sourceType,
-        String title
-) {
-}
+        String content, double score, String sourceId, KnowledgeSearchSourceType sourceType, String title) {}

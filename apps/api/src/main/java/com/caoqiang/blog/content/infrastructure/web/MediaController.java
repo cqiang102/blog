@@ -1,7 +1,6 @@
 package com.caoqiang.blog.content.infrastructure.web;
 
 import com.caoqiang.blog.content.application.service.MediaAdminService;
-
 import java.net.URI;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -15,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 媒体资源下载控制器。
  * <p>
  * 位于博客系统的公开 API 层，提供媒体文件的重定向访问。
- * 前端通常直接使用预签名 URL 访问 MinIO，此端点仅作兼容保留。
+ * 前端使用稳定的同源媒体路径，此端点按请求动态生成短期可用的存储地址。
  */
 @RestController
 @RequestMapping("/api/v1/media-assets")

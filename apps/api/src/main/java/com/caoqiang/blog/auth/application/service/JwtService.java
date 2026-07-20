@@ -1,13 +1,9 @@
 package com.caoqiang.blog.auth.application.service;
 
 import com.caoqiang.blog.auth.application.dto.JwtClaims;
-
 import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.user.application.api.IdentityUser;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -20,6 +16,9 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * JWT 服务
@@ -48,10 +47,9 @@ public class JwtService {
 
     /** HMAC-SHA256 算法标识 */
     private static final String HMAC_ALGORITHM = "HmacSHA256";
-    /** OAuth 绑定令牌有效期（秒），5 分钟。足够完成 OAuth 回调流程，过短会导致绑定失败 */
-    private static final int BINDING_TOKEN_EXPIRE_SECONDS = 300;
     /** Base64URL 编码器（无填充） */
-    private static final Base64.Encoder BASE64_URL_ENCODER = Base64.getUrlEncoder().withoutPadding();
+    private static final Base64.Encoder BASE64_URL_ENCODER =
+            Base64.getUrlEncoder().withoutPadding();
     /** Base64URL 解码器 */
     private static final Base64.Decoder BASE64_URL_DECODER = Base64.getUrlDecoder();
 
@@ -93,13 +91,13 @@ public class JwtService {
 
         // 构建 JWT 载荷，包含标准声明和自定义声明
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("iss", "personal-blog-api");  // 签发者
-        payload.put("sub", user.id().toString());  // 主题（用户 ID）
-        payload.put("email", user.email());  // 用户邮箱
-        payload.put("nickname", user.nickname());  // 用户昵称
-        payload.put("role", user.role().name());  // 用户角色
-        payload.put("iat", issuedAt.getEpochSecond());  // 签发时间
-        payload.put("exp", expiresAt.getEpochSecond());  // 过期时间
+        payload.put("iss", "personal-blog-api"); // 签发者
+        payload.put("sub", user.id().toString()); // 主题（用户 ID）
+        payload.put("email", user.email()); // 用户邮箱
+        payload.put("nickname", user.nickname()); // 用户昵称
+        payload.put("role", user.role().name()); // 用户角色
+        payload.put("iat", issuedAt.getEpochSecond()); // 签发时间
+        payload.put("exp", expiresAt.getEpochSecond()); // 过期时间
 
         // 构建签名输入：Base64URL(Header) + "." + Base64URL(Payload)
         String signingInput = encodeJson(header) + "." + encodeJson(payload);
@@ -156,105 +154,9 @@ public class JwtService {
                     payload.path("email").asString(),
                     payload.path("nickname").asString(),
                     Role.valueOf(payload.path("role").asString()),
-                    expiresAt
-            );
+                    expiresAt);
         } catch (JacksonException exception) {
             throw new IllegalArgumentException("JWT payload is invalid", exception);
-        }
-    }
-
-    /**
-     * 创建 OAuth 绑定令牌
-     * 生成包含用户 ID 的短期签名令牌，用于 OAuth2 绑定流程的 state 参数。
-     *
-     * @param userId 用户 ID
-     * @return 绑定令牌字符串
-     */
-    public String createBindingToken(UUID userId) {
-        Instant issuedAt = clock.instant();
-        Instant expiresAt = issuedAt.plusSeconds(BINDING_TOKEN_EXPIRE_SECONDS);
-
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("sub", userId.toString());
-        payload.put("typ", "oauth-bind");
-        payload.put("iat", issuedAt.getEpochSecond());
-        payload.put("exp", expiresAt.getEpochSecond());
-
-        String signingInput = BASE64_URL_ENCODER.encodeToString(
-                "{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8)
-        ) + "." + encodeJson(payload);
-        return signingInput + "." + sign(signingInput);
-    }
-
-    /**
-     * 创建 OAuth 登录 state，防止攻击者把自己的授权结果注入受害者会话。
-     */
-    public String createOAuthLoginState() {
-        Instant issuedAt = clock.instant();
-        Instant expiresAt = issuedAt.plusSeconds(BINDING_TOKEN_EXPIRE_SECONDS);
-
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("nonce", UUID.randomUUID().toString());
-        payload.put("typ", "oauth-login");
-        payload.put("iat", issuedAt.getEpochSecond());
-        payload.put("exp", expiresAt.getEpochSecond());
-
-        String signingInput = BASE64_URL_ENCODER.encodeToString(
-                "{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8)
-        ) + "." + encodeJson(payload);
-        return signingInput + "." + sign(signingInput);
-    }
-
-    /**
-     * 校验 OAuth 登录 state 的签名、类型和有效期。
-     */
-    public boolean isValidOAuthLoginState(String token) {
-        try {
-            String[] parts = token.split("\\.");
-            if (parts.length != 3) return false;
-
-            String signingInput = parts[0] + "." + parts[1];
-            byte[] expectedSignature = signBytes(signingInput);
-            byte[] actualSignature = BASE64_URL_DECODER.decode(parts[2]);
-            if (!MessageDigest.isEqual(expectedSignature, actualSignature)) return false;
-
-            JsonNode payload = objectMapper.readTree(BASE64_URL_DECODER.decode(parts[1]));
-            if (!"oauth-login".equals(payload.path("typ").asString())) return false;
-
-            Instant expiresAt = Instant.ofEpochSecond(payload.path("exp").asLong());
-            return expiresAt.isAfter(clock.instant())
-                    && StringUtils.hasText(payload.path("nonce").asString());
-        } catch (Exception exception) {
-            return false;
-        }
-    }
-
-    /**
-     * 解析 OAuth 绑定令牌
-     * 验证签名和有效期，提取用户 ID。
-     *
-     * @param token 绑定令牌字符串
-     * @return 用户 ID，如果令牌无效则返回 null
-     */
-    public UUID parseBindingToken(String token) {
-        try {
-            String[] parts = token.split("\\.");
-            if (parts.length != 3) return null;
-
-            String signingInput = parts[0] + "." + parts[1];
-            byte[] expectedSignature = signBytes(signingInput);
-            byte[] actualSignature = BASE64_URL_DECODER.decode(parts[2]);
-            if (!MessageDigest.isEqual(expectedSignature, actualSignature)) return null;
-
-            JsonNode payload = objectMapper.readTree(BASE64_URL_DECODER.decode(parts[1]));
-            if (!"oauth-bind".equals(payload.path("typ").asString())) return null;
-
-            Instant expiresAt = Instant.ofEpochSecond(payload.path("exp").asLong());
-            if (!expiresAt.isAfter(clock.instant())) return null;
-
-            return UUID.fromString(payload.path("sub").asString());
-        } catch (Exception e) {
-            return null;
         }
     }
 
@@ -269,7 +171,7 @@ public class JwtService {
         try {
             return BASE64_URL_ENCODER.encodeToString(objectMapper.writeValueAsBytes(value));
         } catch (JacksonException exception) {
-            throw new IllegalStateException("Unable to serialize JWT", exception);
+            throw new IllegalStateException("无法序列化JWT", exception);
         }
     }
 
@@ -296,7 +198,7 @@ public class JwtService {
             mac.init(new SecretKeySpec(jwtSecret().getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
             return mac.doFinal(signingInput.getBytes(StandardCharsets.UTF_8));
         } catch (Exception exception) {
-            throw new IllegalStateException("Unable to sign JWT", exception);
+            throw new IllegalStateException("无法签名JWT", exception);
         }
     }
 
@@ -309,10 +211,10 @@ public class JwtService {
     private String jwtSecret() {
         String secret = blogProperties.getSecurity().getJwtSecret();
         if (!StringUtils.hasText(secret)) {
-            throw new IllegalStateException("blog.security.jwt-secret must not be blank");
+            throw new IllegalStateException("blog.security.jwt-secret 不能为空");
         }
         if (secret.length() < 32) {
-            throw new IllegalStateException("blog.security.jwt-secret must contain at least 32 characters");
+            throw new IllegalStateException("blog.security.jwt-secret 必须包含至少32个字符");
         }
         return secret;
     }
@@ -324,6 +226,5 @@ public class JwtService {
      * @param value      JWT 令牌字符串
      * @param expiresAt  过期时间
      */
-    public record JwtToken(String value, Instant expiresAt) {
-    }
+    public record JwtToken(String value, Instant expiresAt) {}
 }

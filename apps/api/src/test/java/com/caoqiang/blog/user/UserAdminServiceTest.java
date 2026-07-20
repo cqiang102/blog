@@ -1,21 +1,18 @@
 package com.caoqiang.blog.user;
 
-import com.caoqiang.blog.user.application.dto.AdminUserRequest;
-import com.caoqiang.blog.user.application.dto.AdminUserResponse;
-import com.caoqiang.blog.user.application.api.UserProfileResponse;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.model.UserStatus;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
-import com.caoqiang.blog.user.application.service.UserAdminService;
-import com.caoqiang.blog.user.application.service.ProfileService;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
+import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.user.application.dto.AdminUserRequest;
+import com.caoqiang.blog.user.application.service.ProfileService;
+import com.caoqiang.blog.user.application.service.UserAdminService;
+import com.caoqiang.blog.user.domain.model.User;
+import com.caoqiang.blog.user.domain.model.UserStatus;
+import com.caoqiang.blog.user.domain.repository.UserRepository;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -37,17 +34,11 @@ class UserAdminServiceTest {
     void updateRejectsDuplicateEmail() {
         User user = User.register("reader@example.com", "hash", "读者");
         UserAdminService service = new UserAdminService(userRepository, profileService);
-        AdminUserRequest request = new AdminUserRequest(
-                "other@example.com",
-                "读者",
-                null,
-                null,
-                null,
-                Role.USER,
-                UserStatus.ACTIVE
-        );
+        AdminUserRequest request =
+                new AdminUserRequest("other@example.com", "读者", null, null, null, Role.USER, UserStatus.ACTIVE);
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
-        when(userRepository.existsByEmailAndIdNot("other@example.com", user.getId())).thenReturn(true);
+        when(userRepository.existsByEmailAndIdNot("other@example.com", user.getId()))
+                .thenReturn(true);
 
         assertThatThrownBy(() -> service.update(adminPrincipal(), user.getId(), request))
                 .isInstanceOfSatisfying(BusinessException.class, error -> {
@@ -62,12 +53,8 @@ class UserAdminServiceTest {
         UserAdminService service = new UserAdminService(userRepository, profileService);
         when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
 
-        AuthenticatedUser currentAdmin = new AuthenticatedUser(
-                admin.getId(),
-                admin.getEmail(),
-                admin.getNickname(),
-                admin.getRole()
-        );
+        AuthenticatedUser currentAdmin =
+                new AuthenticatedUser(admin.getId(), admin.getEmail(), admin.getNickname(), admin.getRole());
 
         assertThatThrownBy(() -> service.disable(currentAdmin, admin.getId()))
                 .isInstanceOfSatisfying(BusinessException.class, error -> {
@@ -78,10 +65,6 @@ class UserAdminServiceTest {
 
     private AuthenticatedUser adminPrincipal() {
         return new AuthenticatedUser(
-                UUID.fromString("00000000-0000-0000-0000-000000000001"),
-                "admin@example.com",
-                "站长",
-                Role.ADMIN
-        );
+                UUID.fromString("00000000-0000-0000-0000-000000000001"), "admin@example.com", "站长", Role.ADMIN);
     }
 }

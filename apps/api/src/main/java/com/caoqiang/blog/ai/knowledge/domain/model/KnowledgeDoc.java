@@ -54,16 +54,9 @@ public class KnowledgeDoc {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    protected KnowledgeDoc() {
-    }
+    protected KnowledgeDoc() {}
 
-    public KnowledgeDoc(
-            String title,
-            KnowledgeSourceType sourceType,
-            String sourceRef,
-            String body,
-            boolean enabled
-    ) {
+    public KnowledgeDoc(String title, KnowledgeSourceType sourceType, String sourceRef, String body, boolean enabled) {
         apply(title, sourceType, sourceRef, body, enabled);
     }
 
@@ -92,13 +85,7 @@ public class KnowledgeDoc {
      * @param body       文档正文
      * @param enabled    是否启用
      */
-    public void apply(
-            String title,
-            KnowledgeSourceType sourceType,
-            String sourceRef,
-            String body,
-            boolean enabled
-    ) {
+    public void apply(String title, KnowledgeSourceType sourceType, String sourceRef, String body, boolean enabled) {
         this.title = title.trim();
         this.sourceType = sourceType;
         this.sourceRef = sourceRef;

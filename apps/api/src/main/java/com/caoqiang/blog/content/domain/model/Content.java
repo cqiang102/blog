@@ -15,13 +15,12 @@ import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.BatchSize;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
+import org.hibernate.annotations.BatchSize;
 
 /**
  * 内容实体。
@@ -113,8 +112,7 @@ public class Content extends AggregateRoot {
     @JoinTable(
             name = "content_tags",
             joinColumns = @JoinColumn(name = "content_id"),
-            inverseJoinColumns = @JoinColumn(name = "tag_id")
-    )
+            inverseJoinColumns = @JoinColumn(name = "tag_id"))
     private Set<Tag> tags = new LinkedHashSet<>();
 
     /** 关联的媒体资源列表，按创建时间升序排列 */
@@ -124,8 +122,7 @@ public class Content extends AggregateRoot {
     private List<MediaAsset> mediaAssets = new ArrayList<>();
 
     /** JPA 受保护的无参构造函数 */
-    protected Content() {
-    }
+    protected Content() {}
 
     /**
      * 创建内容的构造函数。
@@ -149,8 +146,7 @@ public class Content extends AggregateRoot {
             String bodyMarkdown,
             boolean pinned,
             Instant publishedAt,
-            Set<Tag> tags
-    ) {
+            Set<Tag> tags) {
         apply(title, slug, type, status, summary, bodyMarkdown, pinned, publishedAt, tags);
     }
 
@@ -175,7 +171,8 @@ public class Content extends AggregateRoot {
     /**
      * 应用内容属性变更。
      * <p>
-     * 发布状态时若未指定发布时间则自动设为当前时间。
+     * 发布时间由应用层统一解析；发布状态必须提供确定的发布时间，避免实体更新时
+     * 隐式读取系统时钟并覆盖原始发布时间。
      * 标签集合采用先清空再添加的方式更新。
      *
      * @param title        标题
@@ -197,8 +194,7 @@ public class Content extends AggregateRoot {
             String bodyMarkdown,
             boolean pinned,
             Instant publishedAt,
-            Set<Tag> tags
-    ) {
+            Set<Tag> tags) {
         this.title = title;
         this.slug = slug;
         this.type = type;
@@ -206,9 +202,10 @@ public class Content extends AggregateRoot {
         this.summary = summary;
         this.bodyMarkdown = bodyMarkdown;
         this.pinned = pinned;
-        this.publishedAt = status == ContentStatus.PUBLISHED
-                ? (publishedAt == null ? Instant.now() : publishedAt)
-                : publishedAt;
+        if (status == ContentStatus.PUBLISHED && publishedAt == null) {
+            throw new IllegalArgumentException("publishedAt is required for published content");
+        }
+        this.publishedAt = publishedAt;
         this.tags.clear();
         this.tags.addAll(tags);
     }

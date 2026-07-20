@@ -16,10 +16,7 @@ public class InteractionAccessService {
     private final InteractionCommandService commandService;
     private final InteractionQueryService queryService;
 
-    public InteractionAccessService(
-            InteractionCommandService commandService,
-            InteractionQueryService queryService
-    ) {
+    public InteractionAccessService(InteractionCommandService commandService, InteractionQueryService queryService) {
         this.commandService = commandService;
         this.queryService = queryService;
     }
@@ -41,12 +38,13 @@ public class InteractionAccessService {
 
     public Comments comments(UUID contentId, int limit, UUID currentUserId) {
         var result = queryService.comments(contentId, 0, limit, currentUserId);
-        List<CommentItem> items = result.items().stream().map(comment -> new CommentItem(
-                comment.id(),
-                comment.body(),
-                comment.author() == null ? null : comment.author().nickname(),
-                comment.createdAt()
-        )).toList();
+        List<CommentItem> items = result.items().stream()
+                .map(comment -> new CommentItem(
+                        comment.id(),
+                        comment.body(),
+                        comment.author() == null ? null : comment.author().nickname(),
+                        comment.createdAt()))
+                .toList();
         return new Comments(items, result.total());
     }
 
@@ -54,15 +52,11 @@ public class InteractionAccessService {
         commandService.deleteComment(user, commentId);
     }
 
-    public record LikeResult(boolean liked, long likeCount) {
-    }
+    public record LikeResult(boolean liked, long likeCount) {}
 
-    public record CommentResult(UUID id, String body) {
-    }
+    public record CommentResult(UUID id, String body) {}
 
-    public record CommentItem(UUID id, String body, String authorNickname, Instant createdAt) {
-    }
+    public record CommentItem(UUID id, String body, String authorNickname, Instant createdAt) {}
 
-    public record Comments(List<CommentItem> items, long total) {
-    }
+    public record Comments(List<CommentItem> items, long total) {}
 }

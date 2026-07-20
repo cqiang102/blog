@@ -37,7 +37,8 @@ public class JpaOAuthAccountAdapter implements OAuthAccountPort {
             return false;
         }
 
-        return oauthAccountRepository.findByUserIdAndProvider(userId, oauthProvider)
+        return oauthAccountRepository
+                .findByUserIdAndProvider(userId, oauthProvider)
                 .map(account -> {
                     oauthAccountRepository.delete(account);
                     return true;
@@ -47,9 +48,6 @@ public class JpaOAuthAccountAdapter implements OAuthAccountPort {
 
     private LinkedOAuthAccount toLinkedAccount(OAuthAccount account) {
         return new LinkedOAuthAccount(
-                account.getProvider().name(),
-                account.getProviderUsername(),
-                account.getCreatedAt()
-        );
+                account.getProvider().name(), account.getProviderUsername(), account.getCreatedAt());
     }
 }

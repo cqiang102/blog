@@ -29,8 +29,7 @@ import java.util.UUID;
 public final class SlugUtils {
 
     /** 工具类，禁止实例化 */
-    private SlugUtils() {
-    }
+    private SlugUtils() {}
 
     /**
      * 将输入文本转换为 URL 友好的 slug。
@@ -39,9 +38,12 @@ public final class SlugUtils {
      * @return 生成的 slug 字符串，保证非空且长度不超过 80
      */
     public static String from(String value) {
-        String slug = value == null ? "" : value.trim().toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9\\u4e00-\\u9fa5]+", "-") // 非字母数字中文替换为连字符
-                .replaceAll("(^-+|-+$)", "");                  // 去除首尾连字符
+        String slug = value == null
+                ? ""
+                : value.trim()
+                        .toLowerCase(Locale.ROOT)
+                        .replaceAll("[^a-z0-9\\u4e00-\\u9fa5]+", "-") // 非字母数字中文替换为连字符
+                        .replaceAll("(^-+|-+$)", ""); // 去除首尾连字符
         if (slug.isBlank()) {
             return UUID.randomUUID().toString(); // 空内容回退为 UUID
         }

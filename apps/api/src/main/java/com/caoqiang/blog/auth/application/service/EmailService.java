@@ -65,9 +65,9 @@ public class EmailService {
             helper.setSubject("【博客系统】邮箱验证码");
             helper.setText(buildEmailContent(code), true);
             mailSender.send(message);
-            log.info("验证码邮件已发送至 {}", to);
+            log.info("验证码邮件发送成功");
         } catch (Exception e) {
-            log.warn("验证码邮件发送失败，邮箱: {}", to);
+            log.warn("验证码邮件发送失败");
             log.debug("邮件发送异常详情: {}", e.getMessage(), e);
         }
     }

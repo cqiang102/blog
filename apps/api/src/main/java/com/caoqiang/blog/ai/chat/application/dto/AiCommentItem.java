@@ -11,10 +11,4 @@ import java.util.UUID;
  * @param author    作者昵称
  * @param createdAt 创建时间
  */
-public record AiCommentItem(
-        UUID id,
-        String body,
-        String author,
-        Instant createdAt
-) {
-}
+public record AiCommentItem(UUID id, String body, String author, Instant createdAt) {}

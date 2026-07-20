@@ -18,17 +18,15 @@ public class ContentKnowledgeService {
     private final ContentRepository contentRepository;
     private final ContentQueryService contentQueryService;
 
-    public ContentKnowledgeService(
-            ContentRepository contentRepository,
-            ContentQueryService contentQueryService
-    ) {
+    public ContentKnowledgeService(ContentRepository contentRepository, ContentQueryService contentQueryService) {
         this.contentRepository = contentRepository;
         this.contentQueryService = contentQueryService;
     }
 
     @Transactional(readOnly = true)
     public Optional<ContentKnowledgeSource> findIndexable(UUID contentId) {
-        return contentRepository.findByIdAndStatusAndDeletedAtIsNull(contentId, ContentStatus.PUBLISHED)
+        return contentRepository
+                .findByIdAndStatusAndDeletedAtIsNull(contentId, ContentStatus.PUBLISHED)
                 .map(this::source);
     }
 
@@ -37,31 +35,22 @@ public class ContentKnowledgeService {
         if (contentIds.isEmpty()) {
             return List.of();
         }
-        return contentRepository.findByIdInAndStatusAndDeletedAtIsNull(
-                List.copyOf(contentIds),
-                ContentStatus.PUBLISHED
-        ).stream().map(this::source).toList();
+        return contentRepository
+                .findByIdInAndStatusAndDeletedAtIsNull(List.copyOf(contentIds), ContentStatus.PUBLISHED)
+                .stream()
+                .map(this::source)
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<ContentKnowledgeSource> searchPublished(String query, int limit) {
-        return contentQueryService.list(query, null, null, null, null, 0, limit)
-                .items().stream()
-                .map(item -> new ContentKnowledgeSource(
-                        item.id(),
-                        item.title(),
-                        item.summary(),
-                        null
-                ))
+        return contentQueryService.list(query, null, null, null, null, 0, limit).items().stream()
+                .map(item -> new ContentKnowledgeSource(item.id(), item.title(), item.summary(), null))
                 .toList();
     }
 
     private ContentKnowledgeSource source(Content content) {
         return new ContentKnowledgeSource(
-                content.getId(),
-                content.getTitle(),
-                content.getSummary(),
-                content.getBodyMarkdown()
-        );
+                content.getId(), content.getTitle(), content.getSummary(), content.getBodyMarkdown());
     }
 }

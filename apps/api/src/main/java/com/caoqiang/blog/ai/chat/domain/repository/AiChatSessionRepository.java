@@ -1,11 +1,10 @@
 package com.caoqiang.blog.ai.chat.domain.repository;
 
 import com.caoqiang.blog.ai.chat.domain.model.AiChatSession;
-
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
@@ -18,8 +17,8 @@ import org.springframework.data.repository.query.Param;
  * 提供会话实体的 CRUD 操作，支持按用户 ID 进行各种查询。
  * 同时实现 {@link JpaSpecificationExecutor} 以支持动态条件查询（管理端筛选）。
  */
-public interface AiChatSessionRepository extends JpaRepository<AiChatSession, UUID>,
-        JpaSpecificationExecutor<AiChatSession> {
+public interface AiChatSessionRepository
+        extends JpaRepository<AiChatSession, UUID>, JpaSpecificationExecutor<AiChatSession> {
 
     /**
      * 根据会话 ID 和用户 ID 查找会话（确保用户只能访问自己的会话）。
@@ -44,10 +43,7 @@ public interface AiChatSessionRepository extends JpaRepository<AiChatSession, UU
             SELECT s FROM AiChatSession s
             WHERE s.id = :id AND s.userId = :userId AND s.deleted = false
             """)
-    Optional<AiChatSession> findForUpdate(
-            @Param("id") UUID id,
-            @Param("userId") UUID userId
-    );
+    Optional<AiChatSession> findForUpdate(@Param("id") UUID id, @Param("userId") UUID userId);
 
     /**
      * 获取指定用户最近更新的 20 个会话。
@@ -65,12 +61,12 @@ public interface AiChatSessionRepository extends JpaRepository<AiChatSession, UU
      * @return 包含会话和消息数的 Object 数组列表，每个数组 [0]=AiChatSession, [1]=Long(messageCount)
      */
     @Query("""
-            SELECT s, COUNT(m) 
-            FROM AiChatSession s 
+            SELECT s, COUNT(m)
+            FROM AiChatSession s
             LEFT JOIN AiChatMessage m ON m.session.id = s.id AND m.deleted = false
             WHERE s.userId = :userId AND s.deleted = false
-            GROUP BY s 
-            ORDER BY s.updatedAt DESC 
+            GROUP BY s
+            ORDER BY s.updatedAt DESC
             LIMIT 20
             """)
     List<Object[]> findTop20WithMessageCount(@Param("userId") UUID userId);

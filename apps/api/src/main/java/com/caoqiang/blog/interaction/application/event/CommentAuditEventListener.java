@@ -27,7 +27,10 @@ public class CommentAuditEventListener {
     @Async("commentAuditExecutor")
     public void onCommentCreated(CommentCreatedEvent event) {
         commentAuditService.audit(event.getCommentId());
-        log.info("Comment created: commentId={}, contentId={}, userId={}",
-                event.getCommentId(), event.getContentId(), event.getUserId());
+        log.info(
+                "Comment created: commentId={}, contentId={}, userId={}",
+                event.getCommentId(),
+                event.getContentId(),
+                event.getUserId());
     }
 }

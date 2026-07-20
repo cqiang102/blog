@@ -36,10 +36,7 @@ public class AdminOverviewController {
     /** 审计日志服务 */
     private final AuditAccessService auditAccessService;
 
-    public AdminOverviewController(
-            AdminDashboardService adminDashboardService,
-            AuditAccessService auditAccessService
-    ) {
+    public AdminOverviewController(AdminDashboardService adminDashboardService, AuditAccessService auditAccessService) {
         this.adminDashboardService = adminDashboardService;
         this.auditAccessService = auditAccessService;
     }
@@ -72,8 +69,7 @@ public class AdminOverviewController {
             @RequestParam(defaultValue = "50") int size,
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String resourceType,
-            @RequestParam(required = false) UUID actorUserId
-    ) {
+            @RequestParam(required = false) UUID actorUserId) {
         return ApiResponse.ok(auditAccessService.list(page, size, action, resourceType, actorUserId));
     }
 
@@ -97,7 +93,6 @@ public class AdminOverviewController {
                 "users",
                 "ai-chats",
                 "knowledge",
-                "logs"
-        ));
+                "logs"));
     }
 }

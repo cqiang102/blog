@@ -1,6 +1,5 @@
 package com.caoqiang.blog.ai.chat.application.service;
 
-import com.caoqiang.blog.ai.chat.domain.model.AiChatMessage;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatMessageRepository;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -21,10 +20,7 @@ public class AiChatAuditService {
     private final AiChatMessageRepository messageRepository;
     private final SensitiveWordService sensitiveWordService;
 
-    public AiChatAuditService(
-            AiChatMessageRepository messageRepository,
-            SensitiveWordService sensitiveWordService
-    ) {
+    public AiChatAuditService(AiChatMessageRepository messageRepository, SensitiveWordService sensitiveWordService) {
         this.messageRepository = messageRepository;
         this.sensitiveWordService = sensitiveWordService;
     }
@@ -47,7 +43,7 @@ public class AiChatAuditService {
                 String matchedWord = sensitiveWordService.findMatchedWord(content);
                 if (matchedWord != null) {
                     message.markBlocked("命中敏感词: " + matchedWord);
-                    log.info("AI chat message {} blocked by sensitive word: {}", messageId, matchedWord);
+                    log.info("AI chat message blocked by content policy: messageId={}", messageId);
                 } else {
                     message.markVisible();
                 }
@@ -55,7 +51,8 @@ public class AiChatAuditService {
                 messageRepository.save(message);
             });
         } catch (Exception e) {
-            log.error("AI chat message audit failed for {}: {}", messageId, e.getMessage());
+            log.error("AI chat message audit failed: messageId={}", messageId);
+            log.debug("AI chat message audit failure details: messageId={}", messageId, e);
         }
     }
 }

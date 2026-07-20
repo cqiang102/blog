@@ -1,9 +1,8 @@
 package com.caoqiang.blog.auth.application.init;
 
+import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.shared.util.EmailNormalizer;
 import com.caoqiang.blog.shared.util.PasswordPolicy;
-
-import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.user.application.api.UserAccountService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,10 +69,7 @@ public class AdminAccountInitializer implements ApplicationRunner {
      * @param passwordEncoder 密码编码器
      */
     public AdminAccountInitializer(
-            BlogProperties blogProperties,
-            UserAccountService userAccountService,
-            PasswordEncoder passwordEncoder
-    ) {
+            BlogProperties blogProperties, UserAccountService userAccountService, PasswordEncoder passwordEncoder) {
         this.blogProperties = blogProperties;
         this.userAccountService = userAccountService;
         this.passwordEncoder = passwordEncoder;
@@ -102,15 +98,17 @@ public class AdminAccountInitializer implements ApplicationRunner {
         // 规范化邮箱地址
         String email = EmailNormalizer.normalize(bootstrap.getEmail());
         if (userAccountService.findByEmail(email).isPresent()) {
-            log.info("Admin bootstrap skipped because account already exists: {}", email);
+            log.info("由于账户已存在，管理员引导程序被跳过");
             return;
         }
 
-        String nickname = StringUtils.hasText(bootstrap.getNickname()) ? bootstrap.getNickname().trim() : "站长";
+        String nickname = StringUtils.hasText(bootstrap.getNickname())
+                ? bootstrap.getNickname().trim()
+                : "站长";
         try {
             PasswordPolicy.validate(bootstrap.getPassword());
         } catch (RuntimeException exception) {
-            throw new IllegalStateException("Admin bootstrap password does not satisfy the password policy", exception);
+            throw new IllegalStateException("管理员引导密码不符合密码策略", exception);
         }
         String passwordHash = passwordEncoder.encode(bootstrap.getPassword());
         userAccountService.createAdmin(email, passwordHash, nickname);

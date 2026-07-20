@@ -1,29 +1,11 @@
 package com.caoqiang.blog.interaction.infrastructure.web;
 
-import com.caoqiang.blog.interaction.application.dto.AdminCommentResponse;
-import com.caoqiang.blog.interaction.application.dto.AdminCommentStatusRequest;
 import com.caoqiang.blog.interaction.application.dto.AdminLikeResponse;
 import com.caoqiang.blog.interaction.application.dto.AdminViewRecordResponse;
-import com.caoqiang.blog.interaction.application.dto.CommentResponse;
-import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
-import com.caoqiang.blog.interaction.application.dto.UserActivityResponse;
-import com.caoqiang.blog.interaction.application.dto.ViewStateResponse;
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
-import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
-import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
-import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
-import com.caoqiang.blog.interaction.application.service.CommentAdminService;
 import com.caoqiang.blog.interaction.application.service.InteractionAdminService;
-
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.interaction.application.dto.AdminLikeResponse;
-import com.caoqiang.blog.interaction.application.dto.AdminViewRecordResponse;
-import com.caoqiang.blog.interaction.application.service.InteractionAdminService;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -71,8 +53,7 @@ public class AdminInteractionRecordController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) UUID contentId,
-            @RequestParam(required = false) UUID userId
-    ) {
+            @RequestParam(required = false) UUID userId) {
         return ApiResponse.ok(interactionAdminService.likes(page, size, contentId, userId));
     }
 
@@ -102,8 +83,7 @@ public class AdminInteractionRecordController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) UUID contentId,
-            @RequestParam(required = false) UUID userId
-    ) {
+            @RequestParam(required = false) UUID userId) {
         return ApiResponse.ok(interactionAdminService.views(page, size, contentId, userId));
     }
 

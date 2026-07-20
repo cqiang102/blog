@@ -1,12 +1,7 @@
 package com.caoqiang.blog.content.application.dto;
 
-import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.Tag;
-
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.List;
@@ -40,6 +35,5 @@ public record ContentSummaryResponse(
         /** 发布时间 */
         Instant publishedAt,
         /** 关联标签名称列表 */
-        List<String> tags
-) implements Serializable {
-}
+        List<String> tags)
+        implements Serializable {}

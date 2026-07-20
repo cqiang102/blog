@@ -1,12 +1,8 @@
 package com.caoqiang.blog.content.application.dto;
 
 import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.content.domain.model.MediaAsset;
 import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.Tag;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -48,8 +44,7 @@ public record AdminMediaResponse(
         /** 是否为所属内容的封面 */
         boolean cover,
         /** 创建时间 */
-        Instant createdAt
-) {
+        Instant createdAt) {
 
     /**
      * 从 MediaAsset 实体转换为管理端响应 DTO。
@@ -80,7 +75,6 @@ public record AdminMediaResponse(
                 mediaAsset.getHeight(),
                 mediaAsset.getDurationSeconds(),
                 cover,
-                mediaAsset.getCreatedAt()
-        );
+                mediaAsset.getCreatedAt());
     }
 }

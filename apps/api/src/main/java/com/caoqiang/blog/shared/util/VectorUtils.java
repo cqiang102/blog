@@ -9,8 +9,7 @@ package com.caoqiang.blog.shared.util;
  */
 public final class VectorUtils {
 
-    private VectorUtils() {
-    }
+    private VectorUtils() {}
 
     /**
      * 将 float 数组转换为 PostgreSQL vector 类型的字符串格式。

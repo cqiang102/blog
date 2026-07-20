@@ -2,8 +2,8 @@ package com.caoqiang.blog.auth.application.service;
 
 import com.caoqiang.blog.auth.domain.model.VerificationCode;
 import com.caoqiang.blog.auth.domain.repository.VerificationCodeRepository;
-
 import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.util.TransactionCallbacks;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
@@ -94,8 +94,8 @@ public class VerificationService {
         VerificationCode verificationCode = new VerificationCode(email, code, expiresAt);
         repository.save(verificationCode);
 
-        // 发送邮件
-        emailService.sendVerificationCode(email, code);
+        // 只有验证码记录成功提交后才发送，避免用户收到一个数据库中不存在的验证码。
+        TransactionCallbacks.afterCommit(() -> emailService.sendVerificationCode(email, code));
     }
 
     /**
@@ -110,7 +110,8 @@ public class VerificationService {
     public void verify(String email, String code) {
         Instant now = clock.instant();
 
-        VerificationCode vc = repository.findFirstByEmailAndUsedOrderByCreatedAtDesc(email, false)
+        VerificationCode vc = repository
+                .findFirstByEmailAndUsedOrderByCreatedAtDesc(email, false)
                 .orElseThrow(() -> new BusinessException(HttpStatus.BAD_REQUEST, "请先获取验证码"));
 
         if (vc.isExpired(now)) {

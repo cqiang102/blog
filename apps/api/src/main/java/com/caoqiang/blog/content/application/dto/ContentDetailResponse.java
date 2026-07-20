@@ -1,12 +1,7 @@
 package com.caoqiang.blog.content.application.dto;
 
-import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.Tag;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -47,6 +42,4 @@ public record ContentDetailResponse(
         /** 评论数 */
         long commentCount,
         /** 发布时间 */
-        Instant publishedAt
-) {
-}
+        Instant publishedAt) {}

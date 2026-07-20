@@ -8,7 +8,6 @@ import com.caoqiang.blog.interaction.event.LikeRemovedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -29,28 +28,25 @@ public class ContentCacheEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onContentPublished(ContentPublishedEvent event) {
-        log.info("Content published: id={}, title={}, slug={}",
-                event.getContentId(), event.getTitle(), event.getSlug());
+        log.debug("Content published; evicting recommendations: contentId={}", event.getContentId());
         evictRecommendationsCache();
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onContentArchived(ContentArchivedEvent event) {
-        log.info("Content archived: id={}", event.getContentId());
+        log.debug("Content archived; evicting recommendations: contentId={}", event.getContentId());
         evictRecommendationsCache();
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onLikeAdded(LikeAddedEvent event) {
-        log.info("Like added: contentId={}, userId={}",
-                event.getContentId(), event.getUserId());
+        log.debug("Like added; evicting recommendations: contentId={}", event.getContentId());
         evictRecommendationsCache();
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onLikeRemoved(LikeRemovedEvent event) {
-        log.info("Like removed: contentId={}, userId={}",
-                event.getContentId(), event.getUserId());
+        log.debug("Like removed; evicting recommendations: contentId={}", event.getContentId());
         evictRecommendationsCache();
     }
 

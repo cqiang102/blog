@@ -1,12 +1,5 @@
 package com.caoqiang.blog.content.application.dto;
 
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.Tag;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -28,6 +21,4 @@ public record TagRequest(
         /** URL 标识符（可选，未提供时从 name 生成） */
         @Size(max = 80) String slug,
         /** 标签描述（可选） */
-        @Size(max = 1000) String description
-) {
-}
+        @Size(max = 1000) String description) {}

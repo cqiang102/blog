@@ -1,5 +1,6 @@
 package com.caoqiang.blog.interaction.application.service;
 
+import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.application.dto.CommentResponse;
 import com.caoqiang.blog.interaction.application.dto.UserActivityResponse;
 import com.caoqiang.blog.interaction.domain.model.Comment;
@@ -9,11 +10,9 @@ import com.caoqiang.blog.interaction.domain.model.ViewRecord;
 import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
 import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
 import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
-
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.shared.util.PageUtils;
-import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.user.application.api.IdentityUser;
 import java.util.Map;
 import java.util.UUID;
@@ -54,8 +53,7 @@ public class InteractionQueryService {
             CommentRepository commentRepository,
             LikeRepository likeRepository,
             ViewRecordRepository viewRecordRepository,
-            InteractionReferenceData referenceData
-    ) {
+            InteractionReferenceData referenceData) {
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
@@ -67,28 +65,21 @@ public class InteractionQueryService {
         Page<Comment> result;
         if (currentUserId == null) {
             result = commentRepository.findByContentIdAndStatusOrderByCreatedAtDesc(
-                    contentId,
-                    CommentStatus.VISIBLE,
-                    pageRequest(page, size)
-            );
+                    contentId, CommentStatus.VISIBLE, pageRequest(page, size));
         } else {
-            Specification<Comment> spec = Specification
-                    .<Comment>where((root, query, cb) -> cb.equal(root.get("contentId"), contentId))
+            Specification<Comment> spec = Specification.<Comment>where(
+                            (root, query, cb) -> cb.equal(root.get("contentId"), contentId))
                     .and((root, query, cb) -> cb.or(
                             cb.equal(root.get("status"), CommentStatus.VISIBLE),
                             cb.and(
                                     cb.equal(root.get("status"), CommentStatus.BLOCKED),
-                                    cb.equal(root.get("userId"), currentUserId)
-                            )
-                    ));
+                                    cb.equal(root.get("userId"), currentUserId))));
             result = commentRepository.findAll(spec, pageRequest(page, size));
         }
         Map<UUID, ContentInteractionSnapshot> contents = referenceData.contents(
-                result.getContent().stream().map(Comment::getContentId).toList()
-        );
+                result.getContent().stream().map(Comment::getContentId).toList());
         Map<UUID, IdentityUser> users = referenceData.users(
-                result.getContent().stream().map(Comment::getUserId).toList()
-        );
+                result.getContent().stream().map(Comment::getUserId).toList());
         return new PageResponse<>(
                 result.getContent().stream()
                         .map(comment -> {
@@ -97,70 +88,73 @@ public class InteractionQueryService {
                                     comment,
                                     referenceData.content(contents, comment.getContentId()),
                                     user,
-                                    referenceData.avatarUrl(user)
-                            );
+                                    referenceData.avatarUrl(user));
                         })
                         .toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     @Transactional(readOnly = true)
     public PageResponse<UserActivityResponse> myComments(AuthenticatedUser currentUser, int page, int size) {
-        Page<Comment> result = commentRepository.findByUserIdOrderByCreatedAtDesc(currentUser.id(), pageRequest(page, size));
-        Map<UUID, ContentInteractionSnapshot> contents = contents(result.getContent().stream().map(Comment::getContentId).toList());
+        Page<Comment> result =
+                commentRepository.findByUserIdOrderByCreatedAtDesc(currentUser.id(), pageRequest(page, size));
+        Map<UUID, ContentInteractionSnapshot> contents =
+                contents(result.getContent().stream().map(Comment::getContentId).toList());
         return new PageResponse<>(
                 result.getContent().stream()
                         .map(comment -> UserActivityResponse.comment(
                                 comment.getId(),
                                 comment.getContentId(),
-                                referenceData.content(contents, comment.getContentId()).title(),
-                                comment.getCreatedAt()
-                        ))
+                                referenceData
+                                        .content(contents, comment.getContentId())
+                                        .title(),
+                                comment.getCreatedAt()))
                         .toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     @Transactional(readOnly = true)
     public PageResponse<UserActivityResponse> myLikes(AuthenticatedUser currentUser, int page, int size) {
         Page<Like> result = likeRepository.findByUserIdOrderByCreatedAtDesc(currentUser.id(), pageRequest(page, size));
-        Map<UUID, ContentInteractionSnapshot> contents = contents(result.getContent().stream().map(Like::getContentId).toList());
+        Map<UUID, ContentInteractionSnapshot> contents =
+                contents(result.getContent().stream().map(Like::getContentId).toList());
         return new PageResponse<>(
                 result.getContent().stream()
                         .map(like -> UserActivityResponse.like(
                                 like.getContentId(),
-                                referenceData.content(contents, like.getContentId()).title(),
-                                like.getCreatedAt()
-                        ))
+                                referenceData
+                                        .content(contents, like.getContentId())
+                                        .title(),
+                                like.getCreatedAt()))
                         .toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     @Transactional(readOnly = true)
     public PageResponse<UserActivityResponse> myViews(AuthenticatedUser currentUser, int page, int size) {
-        Page<ViewRecord> result = viewRecordRepository.findByUserIdOrderByCreatedAtDesc(currentUser.id(), pageRequest(page, size));
-        Map<UUID, ContentInteractionSnapshot> contents = contents(result.getContent().stream().map(ViewRecord::getContentId).toList());
+        Page<ViewRecord> result =
+                viewRecordRepository.findByUserIdOrderByCreatedAtDesc(currentUser.id(), pageRequest(page, size));
+        Map<UUID, ContentInteractionSnapshot> contents = contents(
+                result.getContent().stream().map(ViewRecord::getContentId).toList());
         return new PageResponse<>(
                 result.getContent().stream()
                         .map(view -> UserActivityResponse.view(
                                 view.getId(),
                                 view.getContentId(),
-                                referenceData.content(contents, view.getContentId()).title(),
-                                view.getCreatedAt()
-                        ))
+                                referenceData
+                                        .content(contents, view.getContentId())
+                                        .title(),
+                                view.getCreatedAt()))
                         .toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     private PageRequest pageRequest(int page, int size) {

@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/blog_test
+    username: blog_test
+    password: blog_test
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: blog_test
+  mail:
+    host: localhost
+    port: 2525
+    username: test@example.invalid
+    password: test-mail-password
+  ai:
+    openai:
+      api-key: test-openai-api-key
+
+blog:
+  frontend:
+    base-url: http://localhost:3000
+  cors:
+    allowed-origins: http://localhost:3000
+  security:
+    jwt-secret: test-only-jwt-secret-with-at-least-32-characters
+    refresh-cookie-secure: false
+
+dromara:
+  x-file-storage:
+    minio:
+      - platform: minio-1
+        enable-storage: true
+        access-key: test-minio
+        secret-key: test-minio-secret
+        end-point: http://localhost:9000
+        bucket-name: blog-test
+        domain: http://localhost:9000/blog-test/
+        base-path: uploads/

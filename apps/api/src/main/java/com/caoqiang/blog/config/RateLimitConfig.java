@@ -1,10 +1,10 @@
 package com.caoqiang.blog.config;
 
-import tools.jackson.databind.ObjectMapper;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 限流过滤器注册配置类。
@@ -29,9 +29,9 @@ public class RateLimitConfig {
     public FilterRegistrationBean<RateLimitFilter> rateLimitFilter(
             StringRedisTemplate redisTemplate,
             ObjectMapper objectMapper,
-            BlogProperties blogProperties
-    ) {
-        RateLimitFilter filter = new RateLimitFilter(redisTemplate, objectMapper, blogProperties);
+            BlogProperties blogProperties,
+            ClientIpResolver clientIpResolver) {
+        RateLimitFilter filter = new RateLimitFilter(redisTemplate, objectMapper, blogProperties, clientIpResolver);
         FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(filter);
         registration.addUrlPatterns("/api/*");

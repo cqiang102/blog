@@ -22,12 +22,16 @@ class AdminDashboardServiceTest {
 
     @Mock
     private ContentOverviewService contentOverviewService;
+
     @Mock
     private FriendOverviewService friendOverviewService;
+
     @Mock
     private UserOverviewService userOverviewService;
+
     @Mock
     private InteractionOverviewService interactionOverviewService;
+
     @Mock
     private AiOverviewService aiOverviewService;
 
@@ -43,8 +47,7 @@ class AdminDashboardServiceTest {
                 friendOverviewService,
                 userOverviewService,
                 interactionOverviewService,
-                aiOverviewService
-        );
+                aiOverviewService);
 
         var result = service.dashboard();
 

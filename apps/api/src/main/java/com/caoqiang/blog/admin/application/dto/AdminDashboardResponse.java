@@ -25,6 +25,4 @@ public record AdminDashboardResponse(
         long likes,
         long views,
         long aiChats,
-        long knowledgeDocs
-) {
-}
+        long knowledgeDocs) {}

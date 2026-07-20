@@ -11,10 +11,7 @@ public class ContentOverviewService {
     private final ContentRepository contentRepository;
     private final MediaAssetRepository mediaAssetRepository;
 
-    public ContentOverviewService(
-            ContentRepository contentRepository,
-            MediaAssetRepository mediaAssetRepository
-    ) {
+    public ContentOverviewService(ContentRepository contentRepository, MediaAssetRepository mediaAssetRepository) {
         this.contentRepository = contentRepository;
         this.mediaAssetRepository = mediaAssetRepository;
     }

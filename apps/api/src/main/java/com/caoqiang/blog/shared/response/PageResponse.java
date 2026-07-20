@@ -14,10 +14,4 @@ import java.util.List;
  * @param total  符合条件的总记录数
  * @param <T>    列表元素类型
  */
-public record PageResponse<T>(
-        List<T> items,
-        int page,
-        int size,
-        long total
-) {
-}
+public record PageResponse<T>(List<T> items, int page, int size, long total) {}

@@ -1,10 +1,5 @@
 package com.caoqiang.blog.interaction.application.dto;
 
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
-
 import java.util.UUID;
 
 /**
@@ -20,5 +15,4 @@ import java.util.UUID;
  * @param liked      当前用户是否已点赞
  * @param likeCount  内容的总点赞数
  */
-public record LikeStateResponse(UUID contentId, boolean liked, long likeCount) {
-}
+public record LikeStateResponse(UUID contentId, boolean liked, long likeCount) {}

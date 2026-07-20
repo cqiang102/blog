@@ -11,10 +11,4 @@ package com.caoqiang.blog.ai.chat.application.dto;
  * @param type    内容类型
  * @author caoqiang
  */
-public record AiContentItem(
-        String id,
-        String title,
-        String summary,
-        String type
-) {
-}
+public record AiContentItem(String id, String title, String summary, String type) {}

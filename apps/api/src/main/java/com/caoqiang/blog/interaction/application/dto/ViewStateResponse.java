@@ -1,10 +1,5 @@
 package com.caoqiang.blog.interaction.application.dto;
 
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
-
 import java.util.UUID;
 
 /**
@@ -20,5 +15,4 @@ import java.util.UUID;
  * @param recorded  是否成功记录浏览（新浏览为 true，重复浏览为 false）
  * @param viewCount 内容的总浏览数
  */
-public record ViewStateResponse(UUID contentId, boolean recorded, long viewCount) {
-}
+public record ViewStateResponse(UUID contentId, boolean recorded, long viewCount) {}

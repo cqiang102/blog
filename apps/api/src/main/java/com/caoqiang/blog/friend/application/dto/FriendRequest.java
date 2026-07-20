@@ -24,6 +24,4 @@ public record FriendRequest(
         @Size(max = 1000) String intro,
         @NotBlank String siteUrl,
         boolean visible,
-        int sortOrder
-) {
-}
+        int sortOrder) {}

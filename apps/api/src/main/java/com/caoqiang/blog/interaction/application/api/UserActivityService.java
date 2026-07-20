@@ -15,10 +15,7 @@ public class UserActivityService {
     private final InteractionQueryService queryService;
     private final InteractionCommandService commandService;
 
-    public UserActivityService(
-            InteractionQueryService queryService,
-            InteractionCommandService commandService
-    ) {
+    public UserActivityService(InteractionQueryService queryService, InteractionCommandService commandService) {
         this.queryService = queryService;
         this.commandService = commandService;
     }
@@ -49,16 +46,12 @@ public class UserActivityService {
 
     private PageResponse<UserActivityItem> map(PageResponse<UserActivityResponse> source) {
         return new PageResponse<>(
-                source.items().stream().map(item -> new UserActivityItem(
-                        item.id(),
-                        item.type(),
-                        item.contentId(),
-                        item.title(),
-                        item.createdAt()
-                )).toList(),
+                source.items().stream()
+                        .map(item -> new UserActivityItem(
+                                item.id(), item.type(), item.contentId(), item.title(), item.createdAt()))
+                        .toList(),
                 source.page(),
                 source.size(),
-                source.total()
-        );
+                source.total());
     }
 }

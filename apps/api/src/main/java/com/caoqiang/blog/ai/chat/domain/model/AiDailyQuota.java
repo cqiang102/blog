@@ -15,7 +15,7 @@ import java.util.UUID;
  * <p>
  * 对应数据库表 {@code ai_daily_quotas}，记录用户每天的 AI 提问次数。
  * 每个用户每天一条记录，通过 {@link #increase()} 递增提问计数。
- * 配额限制逻辑在 {@link com.caoqiang.blog.ai.chat.application.service.AiChatService} 中结合 Redis 缓存实现。
+ * 配额由应用层通过数据库原子预留和释放，避免并发请求突破每日上限。
  */
 @Entity
 @Table(name = "ai_daily_quotas")
@@ -29,7 +29,7 @@ public class AiDailyQuota {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
-    /** 配额日期（UTC） */
+    /** 配额日期（UTC+8） */
     @Column(name = "quota_date", nullable = false)
     private LocalDate quotaDate;
 
@@ -43,8 +43,7 @@ public class AiDailyQuota {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    protected AiDailyQuota() {
-    }
+    protected AiDailyQuota() {}
 
     public AiDailyQuota(UUID userId, LocalDate quotaDate) {
         this.userId = userId;

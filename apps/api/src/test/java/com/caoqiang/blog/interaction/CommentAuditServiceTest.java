@@ -38,12 +38,7 @@ class CommentAuditServiceTest {
     @BeforeEach
     void setUp() {
         chatClient = mock(ChatClient.class, RETURNS_DEEP_STUBS);
-        service = new CommentAuditService(
-                commentRepository,
-                resultService,
-                chatClient,
-                new ObjectMapper()
-        );
+        service = new CommentAuditService(commentRepository, resultService, chatClient, new ObjectMapper());
         comment = mock(Comment.class);
         commentId = UUID.randomUUID();
         when(comment.getBody()).thenReturn("测试评论");

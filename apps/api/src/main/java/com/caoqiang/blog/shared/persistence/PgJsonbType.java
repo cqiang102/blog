@@ -1,12 +1,12 @@
 package com.caoqiang.blog.shared.persistence;
 
-import org.hibernate.type.descriptor.WrapperOptions;
-import org.hibernate.usertype.UserType;
 import java.io.Serializable;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import org.hibernate.type.descriptor.WrapperOptions;
+import org.hibernate.usertype.UserType;
 
 /**
  * PostgreSQL jsonb 类型的 Hibernate 自定义类型。
@@ -36,14 +36,12 @@ public class PgJsonbType implements UserType<String> {
     }
 
     @Override
-    public String nullSafeGet(ResultSet rs, int position, WrapperOptions options)
-            throws SQLException {
+    public String nullSafeGet(ResultSet rs, int position, WrapperOptions options) throws SQLException {
         return rs.getString(position);
     }
 
     @Override
-    public void nullSafeSet(PreparedStatement st, String value, int index, WrapperOptions options)
-            throws SQLException {
+    public void nullSafeSet(PreparedStatement st, String value, int index, WrapperOptions options) throws SQLException {
         if (value == null) {
             st.setNull(index, Types.OTHER);
         } else {

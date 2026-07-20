@@ -14,10 +14,8 @@ class MediaReferenceTest {
         String path = MediaReference.filePath(id);
 
         assertThat(MediaReference.mediaId(path)).contains(id);
-        assertThat(MediaReference.mediaId("https://blog.example.com" + path))
-                .contains(id);
-        assertThat(MediaReference.mediaId("https://cdn.example.com/a.png"))
-                .isEmpty();
+        assertThat(MediaReference.mediaId("https://blog.example.com" + path)).contains(id);
+        assertThat(MediaReference.mediaId("https://cdn.example.com/a.png")).isEmpty();
     }
 
     @Test
@@ -33,8 +31,7 @@ class MediaReferenceTest {
                 10L,
                 100,
                 80,
-                null
-        );
+                null);
         UUID id = media.getId();
 
         String markdown = "![图片](http://localhost:9000/uploads/2026/06/photo.png)";
@@ -56,8 +53,7 @@ class MediaReferenceTest {
                 10L,
                 100,
                 80,
-                null
-        );
+                null);
 
         String markdown = "![图片](/minio/blog-media/uploads/2026/06/photo.png)";
 

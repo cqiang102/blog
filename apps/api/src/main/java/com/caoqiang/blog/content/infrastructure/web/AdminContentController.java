@@ -1,25 +1,14 @@
 package com.caoqiang.blog.content.infrastructure.web;
 
+import com.caoqiang.blog.content.application.dto.AdminContentOptionResponse;
 import com.caoqiang.blog.content.application.dto.AdminContentRequest;
 import com.caoqiang.blog.content.application.dto.AdminContentResponse;
-import com.caoqiang.blog.content.application.dto.AdminMediaRequest;
-import com.caoqiang.blog.content.application.dto.AdminMediaResponse;
-import com.caoqiang.blog.content.application.dto.MediaAssetResponse;
-import com.caoqiang.blog.content.application.dto.TagRequest;
-import com.caoqiang.blog.content.application.dto.TagResponse;
+import com.caoqiang.blog.content.application.service.ContentAdminService;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.application.service.ContentAdminService;
-import com.caoqiang.blog.content.application.service.MediaAdminService;
-import com.caoqiang.blog.content.application.service.TagAdminService;
-
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.content.application.dto.AdminContentRequest;
-import com.caoqiang.blog.content.application.dto.AdminContentResponse;
-import com.caoqiang.blog.content.application.service.ContentAdminService;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -76,9 +65,17 @@ public class AdminContentController {
             @RequestParam(defaultValue = "false") boolean includeDeleted,
             @RequestParam(required = false) String query,
             @RequestParam(required = false) ContentStatus status,
-            @RequestParam(required = false) ContentType type
-    ) {
+            @RequestParam(required = false) ContentType type) {
         return ApiResponse.ok(contentAdminService.list(page, size, includeDeleted, query, status, type));
+    }
+
+    /** Returns lightweight content choices for remote-search management controls. */
+    @GetMapping("/options")
+    public ApiResponse<PageResponse<AdminContentOptionResponse>> listOptions(
+            @RequestParam(defaultValue = "") String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.ok(contentAdminService.options(query, page, size));
     }
 
     /**
@@ -112,9 +109,7 @@ public class AdminContentController {
      */
     @PutMapping("/{id}")
     public ApiResponse<AdminContentResponse> update(
-            @PathVariable UUID id,
-            @Valid @RequestBody AdminContentRequest request
-    ) {
+            @PathVariable UUID id, @Valid @RequestBody AdminContentRequest request) {
         return ApiResponse.ok(contentAdminService.update(id, request));
     }
 

@@ -1,18 +1,18 @@
 package com.caoqiang.blog.architecture;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
-import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
-
 class ArchitectureBoundaryTest {
 
     private static final String[] BUSINESS_MODULES = {
-            "admin", "ai", "audit", "auth", "content", "friend", "interaction", "user"
+        "admin", "ai", "audit", "auth", "content", "friend", "interaction", "user"
     };
 
     private static JavaClasses applicationClasses;
@@ -27,8 +27,11 @@ class ArchitectureBoundaryTest {
     @Test
     void sharedKernelMustNotDependOnBusinessModules() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.shared..")
-                .should().dependOnClassesThat().resideInAnyPackage(
+                .that()
+                .resideInAPackage("com.caoqiang.blog.shared..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
                         "com.caoqiang.blog.admin..",
                         "com.caoqiang.blog.ai..",
                         "com.caoqiang.blog.audit..",
@@ -36,8 +39,7 @@ class ArchitectureBoundaryTest {
                         "com.caoqiang.blog.content..",
                         "com.caoqiang.blog.friend..",
                         "com.caoqiang.blog.interaction..",
-                        "com.caoqiang.blog.user.."
-                )
+                        "com.caoqiang.blog.user..")
                 .because("shared is a technical kernel and must not coordinate business modules")
                 .check(applicationClasses);
     }
@@ -45,11 +47,11 @@ class ArchitectureBoundaryTest {
     @Test
     void domainMustNotDependOnApplicationOrInfrastructure() {
         noClasses()
-                .that().resideInAPackage("..domain..")
-                .should().dependOnClassesThat().resideInAnyPackage(
-                        "..application..",
-                        "..infrastructure.."
-                )
+                .that()
+                .resideInAPackage("..domain..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("..application..", "..infrastructure..")
                 .because("domain code must remain independent from orchestration and adapters")
                 .check(applicationClasses);
     }
@@ -57,9 +59,60 @@ class ArchitectureBoundaryTest {
     @Test
     void applicationMustNotDependOnInfrastructure() {
         noClasses()
-                .that().resideInAPackage("..application..")
-                .should().dependOnClassesThat().resideInAPackage("..infrastructure..")
+                .that()
+                .resideInAPackage("..application..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("..infrastructure..")
                 .because("adapter dependencies point toward application code, not the reverse")
+                .check(applicationClasses);
+    }
+
+    @Test
+    void applicationMustNotDependOnStorageVendorTypes() {
+        noClasses()
+                .that()
+                .resideInAPackage("..application..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("org.dromara.x.file.storage..", "io.minio..")
+                .because("object storage vendors are hidden behind content/application/port")
+                .check(applicationClasses);
+    }
+
+    @Test
+    void applicationMustNotDependOnWebTransportTypes() {
+        noClasses()
+                .that()
+                .resideInAPackage("..application..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("org.springframework.web..")
+                .because("HTTP uploads and streaming transports are mapped at the web boundary")
+                .check(applicationClasses);
+    }
+
+    @Test
+    void applicationMustNotImplementOAuthFrameworkAdapters() {
+        noClasses()
+                .that()
+                .resideInAPackage("..application..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("org.springframework.security.oauth2..")
+                .because("Spring Security OAuth principals and user services are infrastructure adapters")
+                .check(applicationClasses);
+    }
+
+    @Test
+    void webAdaptersMustNotAccessDomainRepositoriesDirectly() {
+        noClasses()
+                .that()
+                .resideInAPackage("..infrastructure.web..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("..domain.repository..")
+                .because("web adapters delegate persistence decisions to application services")
                 .check(applicationClasses);
     }
 
@@ -71,13 +124,15 @@ class ArchitectureBoundaryTest {
                     continue;
                 }
                 noClasses()
-                        .that().resideInAPackage("com.caoqiang.blog." + consumer + "..")
-                        .should().dependOnClassesThat().resideInAnyPackage(
+                        .that()
+                        .resideInAPackage("com.caoqiang.blog." + consumer + "..")
+                        .should()
+                        .dependOnClassesThat()
+                        .resideInAnyPackage(
                                 "com.caoqiang.blog." + provider + ".domain..",
                                 "com.caoqiang.blog." + provider + ".application.service..",
                                 "com.caoqiang.blog." + provider + ".application.dto..",
-                                "com.caoqiang.blog." + provider + ".infrastructure.."
-                        )
+                                "com.caoqiang.blog." + provider + ".infrastructure..")
                         .because(consumer + " must consume " + provider
                                 + " through application/api, public events, or an explicit reverse port")
                         .check(applicationClasses);
@@ -88,8 +143,10 @@ class ArchitectureBoundaryTest {
     @Test
     void eventListenersMustBeOwnedByBusinessModules() {
         classes()
-                .that().haveSimpleNameEndingWith("EventListener")
-                .should().resideOutsideOfPackage("com.caoqiang.blog.shared..")
+                .that()
+                .haveSimpleNameEndingWith("EventListener")
+                .should()
+                .resideOutsideOfPackage("com.caoqiang.blog.shared..")
                 .because("event reactions belong to the consuming module")
                 .check(applicationClasses);
     }
@@ -97,8 +154,11 @@ class ArchitectureBoundaryTest {
     @Test
     void userModuleMustNotDependOnAuthInternals() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.user..")
-                .should().dependOnClassesThat().resideInAPackage("com.caoqiang.blog.auth..")
+                .that()
+                .resideInAPackage("com.caoqiang.blog.user..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.caoqiang.blog.auth..")
                 .because("auth may depend on the user model, but the user module uses an application port")
                 .check(applicationClasses);
     }
@@ -106,8 +166,11 @@ class ArchitectureBoundaryTest {
     @Test
     void authDomainMustNotDependOnUserDomain() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.auth.domain..")
-                .should().dependOnClassesThat().resideInAPackage("com.caoqiang.blog.user..")
+                .that()
+                .resideInAPackage("com.caoqiang.blog.auth.domain..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.caoqiang.blog.user..")
                 .because("auth persistence stores user IDs instead of cross-module JPA entities")
                 .check(applicationClasses);
     }
@@ -115,10 +178,11 @@ class ArchitectureBoundaryTest {
     @Test
     void authModuleMustNotAccessUserRepository() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.auth..")
-                .should().dependOnClassesThat().resideInAPackage(
-                        "com.caoqiang.blog.user.domain.repository.."
-                )
+                .that()
+                .resideInAPackage("com.caoqiang.blog.auth..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.caoqiang.blog.user.domain.repository..")
                 .because("authentication accesses users through the public user application API")
                 .check(applicationClasses);
     }
@@ -126,10 +190,11 @@ class ArchitectureBoundaryTest {
     @Test
     void authModuleMustNotDependOnUserDomainModel() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.auth..")
-                .should().dependOnClassesThat().resideInAPackage(
-                        "com.caoqiang.blog.user.domain.model.."
-                )
+                .that()
+                .resideInAPackage("com.caoqiang.blog.auth..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.caoqiang.blog.user.domain.model..")
                 .because("authentication uses immutable user-module snapshots")
                 .check(applicationClasses);
     }
@@ -137,11 +202,11 @@ class ArchitectureBoundaryTest {
     @Test
     void interactionDomainMustStoreExternalAggregateIdsOnly() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.interaction.domain..")
-                .should().dependOnClassesThat().resideInAnyPackage(
-                        "com.caoqiang.blog.content..",
-                        "com.caoqiang.blog.user.."
-                )
+                .that()
+                .resideInAPackage("com.caoqiang.blog.interaction.domain..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("com.caoqiang.blog.content..", "com.caoqiang.blog.user..")
                 .because("interaction entities store contentId and userId instead of cross-module entities")
                 .check(applicationClasses);
     }
@@ -149,11 +214,11 @@ class ArchitectureBoundaryTest {
     @Test
     void interactionModuleMustUsePublicContentAndUserApis() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.interaction..")
-                .should().dependOnClassesThat().resideInAnyPackage(
-                        "com.caoqiang.blog.content.domain..",
-                        "com.caoqiang.blog.user.domain.."
-                )
+                .that()
+                .resideInAPackage("com.caoqiang.blog.interaction..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("com.caoqiang.blog.content.domain..", "com.caoqiang.blog.user.domain..")
                 .because("interaction workflows use public module snapshots and services")
                 .check(applicationClasses);
     }
@@ -161,8 +226,11 @@ class ArchitectureBoundaryTest {
     @Test
     void aiChatDomainMustStoreUserIdsOnly() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.ai.chat.domain..")
-                .should().dependOnClassesThat().resideInAPackage("com.caoqiang.blog.user..")
+                .that()
+                .resideInAPackage("com.caoqiang.blog.ai.chat.domain..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.caoqiang.blog.user..")
                 .because("AI chat sessions and quotas store scalar user IDs")
                 .check(applicationClasses);
     }
@@ -170,8 +238,11 @@ class ArchitectureBoundaryTest {
     @Test
     void aiChatModuleMustUseThePublicUserApi() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.ai.chat..")
-                .should().dependOnClassesThat().resideInAPackage("com.caoqiang.blog.user.domain..")
+                .that()
+                .resideInAPackage("com.caoqiang.blog.ai.chat..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.caoqiang.blog.user.domain..")
                 .because("AI chat resolves users through immutable user-module snapshots")
                 .check(applicationClasses);
     }
@@ -179,8 +250,11 @@ class ArchitectureBoundaryTest {
     @Test
     void auditModuleMustStoreActorIdsAndUseThePublicUserApi() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.audit..")
-                .should().dependOnClassesThat().resideInAPackage("com.caoqiang.blog.user.domain..")
+                .that()
+                .resideInAPackage("com.caoqiang.blog.audit..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.caoqiang.blog.user.domain..")
                 .because("audit records store actorUserId and hydrate public user snapshots")
                 .check(applicationClasses);
     }
@@ -188,8 +262,11 @@ class ArchitectureBoundaryTest {
     @Test
     void contentModuleMustNotCoordinateAiKnowledgeInternals() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.content..")
-                .should().dependOnClassesThat().resideInAPackage("com.caoqiang.blog.ai..")
+                .that()
+                .resideInAPackage("com.caoqiang.blog.content..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.caoqiang.blog.ai..")
                 .because("content publishes lifecycle events and AI owns indexing reactions")
                 .check(applicationClasses);
     }
@@ -197,12 +274,14 @@ class ArchitectureBoundaryTest {
     @Test
     void aiKnowledgeMustUseThePublicContentApi() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.ai.knowledge..")
-                .should().dependOnClassesThat().resideInAnyPackage(
+                .that()
+                .resideInAPackage("com.caoqiang.blog.ai.knowledge..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
                         "com.caoqiang.blog.content.domain..",
                         "com.caoqiang.blog.content.application.service..",
-                        "com.caoqiang.blog.content.application.dto.."
-                )
+                        "com.caoqiang.blog.content.application.dto..")
                 .because("knowledge workflows consume content snapshots through application/api")
                 .check(applicationClasses);
     }
@@ -210,8 +289,11 @@ class ArchitectureBoundaryTest {
     @Test
     void adminModuleMustNotAccessBusinessDomainRepositories() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.admin..")
-                .should().dependOnClassesThat().resideInAPackage("..domain.repository..")
+                .that()
+                .resideInAPackage("com.caoqiang.blog.admin..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("..domain.repository..")
                 .because("the dashboard composes module-owned overview APIs")
                 .check(applicationClasses);
     }
@@ -219,8 +301,11 @@ class ArchitectureBoundaryTest {
     @Test
     void contentModuleMustUseThePublicInteractionApi() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.content..")
-                .should().dependOnClassesThat().resideInAPackage("com.caoqiang.blog.interaction.domain..")
+                .that()
+                .resideInAPackage("com.caoqiang.blog.content..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAPackage("com.caoqiang.blog.interaction.domain..")
                 .because("content reads like state through interaction/application/api")
                 .check(applicationClasses);
     }
@@ -228,15 +313,17 @@ class ArchitectureBoundaryTest {
     @Test
     void aiChatToolsMustUsePublicContentAndInteractionApis() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.ai.chat..")
-                .should().dependOnClassesThat().resideInAnyPackage(
+                .that()
+                .resideInAPackage("com.caoqiang.blog.ai.chat..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
                         "com.caoqiang.blog.content.domain..",
                         "com.caoqiang.blog.content.application.service..",
                         "com.caoqiang.blog.content.application.dto..",
                         "com.caoqiang.blog.interaction.domain..",
                         "com.caoqiang.blog.interaction.application.service..",
-                        "com.caoqiang.blog.interaction.application.dto.."
-                )
+                        "com.caoqiang.blog.interaction.application.dto..")
                 .because("AI tools consume module capabilities through application/api")
                 .check(applicationClasses);
     }
@@ -244,16 +331,15 @@ class ArchitectureBoundaryTest {
     @Test
     void mediaConsumersMustUseThePublicContentApi() {
         noClasses()
-                .that().resideInAnyPackage(
-                        "com.caoqiang.blog.auth..",
-                        "com.caoqiang.blog.friend..",
-                        "com.caoqiang.blog.user.."
-                )
-                .should().dependOnClassesThat().resideInAnyPackage(
+                .that()
+                .resideInAnyPackage(
+                        "com.caoqiang.blog.auth..", "com.caoqiang.blog.friend..", "com.caoqiang.blog.user..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
                         "com.caoqiang.blog.content.domain..",
                         "com.caoqiang.blog.content.application.service..",
-                        "com.caoqiang.blog.content.application.dto.."
-                )
+                        "com.caoqiang.blog.content.application.dto..")
                 .because("media consumers call content/application/api")
                 .check(applicationClasses);
     }
@@ -261,12 +347,14 @@ class ArchitectureBoundaryTest {
     @Test
     void userWebMustUseThePublicInteractionApi() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.user..")
-                .should().dependOnClassesThat().resideInAnyPackage(
+                .that()
+                .resideInAPackage("com.caoqiang.blog.user..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
                         "com.caoqiang.blog.interaction.domain..",
                         "com.caoqiang.blog.interaction.application.service..",
-                        "com.caoqiang.blog.interaction.application.dto.."
-                )
+                        "com.caoqiang.blog.interaction.application.dto..")
                 .because("the user activity surface consumes interaction/application/api")
                 .check(applicationClasses);
     }
@@ -274,12 +362,14 @@ class ArchitectureBoundaryTest {
     @Test
     void adminModuleMustUseThePublicAuditApi() {
         noClasses()
-                .that().resideInAPackage("com.caoqiang.blog.admin..")
-                .should().dependOnClassesThat().resideInAnyPackage(
+                .that()
+                .resideInAPackage("com.caoqiang.blog.admin..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
                         "com.caoqiang.blog.audit.domain..",
                         "com.caoqiang.blog.audit.application.service..",
-                        "com.caoqiang.blog.audit.application.dto.."
-                )
+                        "com.caoqiang.blog.audit.application.dto..")
                 .because("administration consumes audit/application/api")
                 .check(applicationClasses);
     }

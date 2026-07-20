@@ -28,9 +28,7 @@ public class RefreshTokenCookieService {
     }
 
     public void clear(HttpServletResponse response) {
-        ResponseCookie cookie = baseCookie("")
-                .maxAge(Duration.ZERO)
-                .build();
+        ResponseCookie cookie = baseCookie("").maxAge(Duration.ZERO).build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 

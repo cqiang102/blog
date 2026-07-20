@@ -6,13 +6,14 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 /**
  * 博客系统全局配置属性类。
  * <p>
- * 映射以 {@code blog.} 为前缀的配置项，采用嵌套结构组织为四大模块：
+ * 映射以 {@code blog.} 为前缀的配置项，集中管理 AI、管理员、安全、限流和缓存配置。
  * <ul>
  *     <li>{@link Ai} — AI 助手相关配置（每日提问限额等）</li>
  *     <li>{@link Admin} — 管理员初始化配置（首次启动引导创建管理员账户）</li>
@@ -30,10 +31,16 @@ public class BlogProperties {
 
     @Valid
     private final Ai ai = new Ai();
+
     private final Admin admin = new Admin();
+
     @Valid
     private final Security security = new Security();
+
+    @Valid
     private final RateLimit rateLimit = new RateLimit();
+
+    @Valid
     private final Cache cache = new Cache();
 
     public Ai getAi() {
@@ -61,6 +68,7 @@ public class BlogProperties {
      */
     public static class Ai {
         /** 每用户每日 AI 提问次数上限，默认 10 次 */
+        @Min(1)
         private int dailyQuestionLimit = 10;
         /** 知识库向量结果的最低余弦相似度，低于该值的片段不交给模型 */
         @DecimalMin("0.0")
@@ -101,8 +109,8 @@ public class BlogProperties {
          */
         public static class Bootstrap {
             private boolean enabled = false; // 是否启用管理员引导创建
-            private String email;            // 管理员邮箱
-            private String password;         // 管理员密码（明文，启动后会被 BCrypt 加密存储）
+            private String email; // 管理员邮箱
+            private String password; // 管理员密码（明文，启动后会被 BCrypt 加密存储）
             private String nickname = "站长"; // 管理员昵称，默认"站长"
 
             public boolean isEnabled() {
@@ -145,12 +153,16 @@ public class BlogProperties {
     public static class Security {
         @NotBlank
         @Size(min = 32)
-        private String jwtSecret;                    // JWT 签名密钥（HMAC），必须配置为高强度随机字符串
+        private String jwtSecret; // JWT 签名密钥（HMAC），必须配置为高强度随机字符串
+
         @Min(1)
-        private int accessTokenMinutes = 30;         // 访问令牌有效期，默认 30 分钟
+        private int accessTokenMinutes = 30; // 访问令牌有效期，默认 30 分钟
+
         @Min(1)
-        private int refreshTokenDays = 30;           // 刷新令牌有效期，默认 30 天
+        private int refreshTokenDays = 30; // 刷新令牌有效期，默认 30 天
+
         private boolean refreshCookieSecure = false; // HTTPS 部署必须开启
+        private List<String> trustedProxies = List.of(); // 允许提供转发 IP 头的代理 CIDR
 
         public String getJwtSecret() {
             return jwtSecret;
@@ -183,6 +195,14 @@ public class BlogProperties {
         public void setRefreshCookieSecure(boolean refreshCookieSecure) {
             this.refreshCookieSecure = refreshCookieSecure;
         }
+
+        public List<String> getTrustedProxies() {
+            return trustedProxies;
+        }
+
+        public void setTrustedProxies(List<String> trustedProxies) {
+            this.trustedProxies = trustedProxies == null ? List.of() : List.copyOf(trustedProxies);
+        }
     }
 
     /**
@@ -193,30 +213,82 @@ public class BlogProperties {
      */
     public static class RateLimit {
         /** 登录接口每分钟最大请求数 */
+        @Min(1)
         private int loginMaxRequests = 5;
         /** 注册接口每分钟最大请求数 */
+        @Min(1)
         private int registerMaxRequests = 3;
+        /** 发送邮箱验证码接口每分钟最大请求数 */
+        @Min(1)
+        private int verificationCodeMaxRequests = 3;
         /** 文章浏览量统计接口每分钟最大请求数 */
+        @Min(1)
         private int viewsMaxRequests = 10;
         /** AI 对话接口每分钟最大请求数 */
+        @Min(1)
         private int aiChatMaxRequests = 10;
         /** 其他接口每分钟最大请求数 */
+        @Min(1)
         private int defaultMaxRequests = 60;
         /** 限流窗口时长（秒） */
+        @Min(1)
         private int windowSeconds = 60;
 
-        public int getLoginMaxRequests() { return loginMaxRequests; }
-        public void setLoginMaxRequests(int loginMaxRequests) { this.loginMaxRequests = loginMaxRequests; }
-        public int getRegisterMaxRequests() { return registerMaxRequests; }
-        public void setRegisterMaxRequests(int registerMaxRequests) { this.registerMaxRequests = registerMaxRequests; }
-        public int getViewsMaxRequests() { return viewsMaxRequests; }
-        public void setViewsMaxRequests(int viewsMaxRequests) { this.viewsMaxRequests = viewsMaxRequests; }
-        public int getAiChatMaxRequests() { return aiChatMaxRequests; }
-        public void setAiChatMaxRequests(int aiChatMaxRequests) { this.aiChatMaxRequests = aiChatMaxRequests; }
-        public int getDefaultMaxRequests() { return defaultMaxRequests; }
-        public void setDefaultMaxRequests(int defaultMaxRequests) { this.defaultMaxRequests = defaultMaxRequests; }
-        public int getWindowSeconds() { return windowSeconds; }
-        public void setWindowSeconds(int windowSeconds) { this.windowSeconds = windowSeconds; }
+        public int getLoginMaxRequests() {
+            return loginMaxRequests;
+        }
+
+        public void setLoginMaxRequests(int loginMaxRequests) {
+            this.loginMaxRequests = loginMaxRequests;
+        }
+
+        public int getRegisterMaxRequests() {
+            return registerMaxRequests;
+        }
+
+        public void setRegisterMaxRequests(int registerMaxRequests) {
+            this.registerMaxRequests = registerMaxRequests;
+        }
+
+        public int getVerificationCodeMaxRequests() {
+            return verificationCodeMaxRequests;
+        }
+
+        public void setVerificationCodeMaxRequests(int verificationCodeMaxRequests) {
+            this.verificationCodeMaxRequests = verificationCodeMaxRequests;
+        }
+
+        public int getViewsMaxRequests() {
+            return viewsMaxRequests;
+        }
+
+        public void setViewsMaxRequests(int viewsMaxRequests) {
+            this.viewsMaxRequests = viewsMaxRequests;
+        }
+
+        public int getAiChatMaxRequests() {
+            return aiChatMaxRequests;
+        }
+
+        public void setAiChatMaxRequests(int aiChatMaxRequests) {
+            this.aiChatMaxRequests = aiChatMaxRequests;
+        }
+
+        public int getDefaultMaxRequests() {
+            return defaultMaxRequests;
+        }
+
+        public void setDefaultMaxRequests(int defaultMaxRequests) {
+            this.defaultMaxRequests = defaultMaxRequests;
+        }
+
+        public int getWindowSeconds() {
+            return windowSeconds;
+        }
+
+        public void setWindowSeconds(int windowSeconds) {
+            this.windowSeconds = windowSeconds;
+        }
     }
 
     /**
@@ -227,21 +299,48 @@ public class BlogProperties {
      */
     public static class Cache {
         /** 默认缓存 TTL（分钟） */
+        @Min(1)
         private int defaultTtlMinutes = 5;
         /** 推荐内容缓存 TTL（分钟） */
+        @Min(1)
         private int recommendationsTtlMinutes = 5;
         /** AI 配额缓存 TTL（小时） */
+        @Min(1)
         private int aiQuotaTtlHours = 24;
         /** 知识库文档缓存 TTL（分钟） */
+        @Min(1)
         private int knowledgeDocsTtlMinutes = 30;
 
-        public int getDefaultTtlMinutes() { return defaultTtlMinutes; }
-        public void setDefaultTtlMinutes(int defaultTtlMinutes) { this.defaultTtlMinutes = defaultTtlMinutes; }
-        public int getRecommendationsTtlMinutes() { return recommendationsTtlMinutes; }
-        public void setRecommendationsTtlMinutes(int recommendationsTtlMinutes) { this.recommendationsTtlMinutes = recommendationsTtlMinutes; }
-        public int getAiQuotaTtlHours() { return aiQuotaTtlHours; }
-        public void setAiQuotaTtlHours(int aiQuotaTtlHours) { this.aiQuotaTtlHours = aiQuotaTtlHours; }
-        public int getKnowledgeDocsTtlMinutes() { return knowledgeDocsTtlMinutes; }
-        public void setKnowledgeDocsTtlMinutes(int knowledgeDocsTtlMinutes) { this.knowledgeDocsTtlMinutes = knowledgeDocsTtlMinutes; }
+        public int getDefaultTtlMinutes() {
+            return defaultTtlMinutes;
+        }
+
+        public void setDefaultTtlMinutes(int defaultTtlMinutes) {
+            this.defaultTtlMinutes = defaultTtlMinutes;
+        }
+
+        public int getRecommendationsTtlMinutes() {
+            return recommendationsTtlMinutes;
+        }
+
+        public void setRecommendationsTtlMinutes(int recommendationsTtlMinutes) {
+            this.recommendationsTtlMinutes = recommendationsTtlMinutes;
+        }
+
+        public int getAiQuotaTtlHours() {
+            return aiQuotaTtlHours;
+        }
+
+        public void setAiQuotaTtlHours(int aiQuotaTtlHours) {
+            this.aiQuotaTtlHours = aiQuotaTtlHours;
+        }
+
+        public int getKnowledgeDocsTtlMinutes() {
+            return knowledgeDocsTtlMinutes;
+        }
+
+        public void setKnowledgeDocsTtlMinutes(int knowledgeDocsTtlMinutes) {
+            this.knowledgeDocsTtlMinutes = knowledgeDocsTtlMinutes;
+        }
     }
 }

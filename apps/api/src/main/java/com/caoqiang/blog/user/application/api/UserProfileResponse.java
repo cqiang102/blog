@@ -13,8 +13,7 @@ public record UserProfileResponse(
         String bio,
         String blogUrl,
         Role role,
-        boolean hasPassword
-) {
+        boolean hasPassword) {
 
     public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
@@ -25,8 +24,7 @@ public record UserProfileResponse(
                 user.getBio(),
                 user.getBlogUrl(),
                 user.getRole(),
-                user.getPasswordHash() != null
-        );
+                user.getPasswordHash() != null);
     }
 
     public static UserProfileResponse from(User user, String presignedAvatarUrl) {
@@ -38,8 +36,7 @@ public record UserProfileResponse(
                 user.getBio(),
                 user.getBlogUrl(),
                 user.getRole(),
-                user.getPasswordHash() != null
-        );
+                user.getPasswordHash() != null);
     }
 
     public static UserProfileResponse from(IdentityUser user, String presignedAvatarUrl) {
@@ -51,7 +48,6 @@ public record UserProfileResponse(
                 user.bio(),
                 user.blogUrl(),
                 user.role(),
-                user.hasPassword()
-        );
+                user.hasPassword());
     }
 }

@@ -46,8 +46,7 @@ public class Like {
     /**
      * JPA 受保护的无参构造函数
      */
-    protected Like() {
-    }
+    protected Like() {}
 
     /**
      * 创建点赞记录

@@ -1,9 +1,11 @@
 package com.caoqiang.blog.content.application.service;
 
+import com.caoqiang.blog.config.CacheNames;
 import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
 import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
 import com.caoqiang.blog.content.application.dto.MediaAssetResponse;
 import com.caoqiang.blog.content.application.dto.RecommendationResponse;
+import com.caoqiang.blog.content.application.dto.TagResponse;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
@@ -12,26 +14,24 @@ import com.caoqiang.blog.content.domain.model.MediaReference;
 import com.caoqiang.blog.content.domain.model.Tag;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
-
-import com.caoqiang.blog.config.CacheNames;
-import com.caoqiang.blog.content.infrastructure.web.ContentController;
+import com.caoqiang.blog.content.domain.repository.TagRepository;
+import com.caoqiang.blog.interaction.application.api.InteractionStateService;
+import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.interaction.application.api.InteractionStateService;
+import com.caoqiang.blog.shared.util.PageUtils;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -45,7 +45,7 @@ import org.springframework.util.StringUtils;
 /**
  * 内容公开查询服务。
  * <p>
- * 位于博客系统的业务服务层，为 {@link ContentController} 提供只读查询能力。
+ * 位于博客系统的业务服务层，为公开内容接口提供只读查询能力。
  * 核心职责：
  * <ul>
  *   <li>推荐内容查询（置顶、最新、最热），结果通过 Redis 缓存</li>
@@ -62,49 +62,51 @@ public class ContentQueryService {
 
     private final ContentRepository contentRepository;
     private final MediaAssetRepository mediaAssetRepository;
+    private final TagRepository tagRepository;
     private final InteractionStateService interactionStateService;
-    private final MediaAdminService mediaAdminService;
-    private final CacheManager cacheManager;
 
     public ContentQueryService(
             ContentRepository contentRepository,
             MediaAssetRepository mediaAssetRepository,
-            InteractionStateService interactionStateService,
-            MediaAdminService mediaAdminService,
-            CacheManager cacheManager
-    ) {
+            TagRepository tagRepository,
+            InteractionStateService interactionStateService) {
         this.contentRepository = contentRepository;
         this.mediaAssetRepository = mediaAssetRepository;
+        this.tagRepository = tagRepository;
         this.interactionStateService = interactionStateService;
-        this.mediaAdminService = mediaAdminService;
-        this.cacheManager = cacheManager;
+    }
+
+    /** Returns the public tag catalogue in stable display order. */
+    @Transactional(readOnly = true)
+    public List<TagResponse> tags() {
+        return tagRepository.findAll(Sort.by(Sort.Direction.ASC, "name")).stream()
+                .map(TagResponse::from)
+                .toList();
     }
 
     /**
      * 获取推荐内容，结果缓存在 Redis 中（key = "all"）。
      * <p>
      * 返回三组推荐列表：置顶内容、最新内容、最热内容（按点赞数排序），每组最多 10 条。
-     * 注意：预签名 URL 有效期（7 天）大于缓存 TTL（5 分钟），不会出现缓存过期 URL 问题。
+     * 媒体字段使用稳定同源代理路径，因此缓存中不包含会过期的预签名 URL。
      *
      * @return 推荐内容响应
      */
     @Transactional(readOnly = true)
     @Cacheable(value = CacheNames.RECOMMENDATIONS, key = "'all'")
     public RecommendationResponse recommendations() {
-        List<Content> pinned = contentRepository
-                .findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(
+        List<Content> pinned =
+                contentRepository
+                        .findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(
+                                ContentStatus.PUBLISHED);
+        List<Content> latest =
+                contentRepository.findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(
                         ContentStatus.PUBLISHED);
-        List<Content> latest = contentRepository
-                .findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(
-                        ContentStatus.PUBLISHED);
-        List<Content> mostLiked = contentRepository
-                .findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(
-                        ContentStatus.PUBLISHED);
-        return new RecommendationResponse(
-                toSummaries(pinned),
-                toSummaries(latest),
-                toSummaries(mostLiked)
-        );
+        List<Content> mostLiked =
+                contentRepository
+                        .findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(
+                                ContentStatus.PUBLISHED);
+        return new RecommendationResponse(toSummaries(pinned), toSummaries(latest), toSummaries(mostLiked));
     }
 
     /**
@@ -121,39 +123,23 @@ public class ContentQueryService {
      */
     @Transactional(readOnly = true)
     public PageResponse<ContentSummaryResponse> list(
-            String query,
-            List<String> tags,
-            ContentType type,
-            Instant from,
-            Instant to,
-            int page,
-            int size
-    ) {
-        // 参数安全化：page 不小于 0，size 限制在 [1, MAX_PAGE_SIZE]
-        int safePage = Math.max(page, 0);
-        int safeSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
-        PageRequest pageRequest = PageRequest.of(
-                safePage,
-                safeSize,
-                Sort.by(Sort.Direction.DESC, "publishedAt").and(Sort.by(Sort.Direction.DESC, "createdAt"))
-        );
+            String query, List<String> tags, ContentType type, Instant from, Instant to, int page, int size) {
+        PageRequest pageRequest = PageUtils.of(
+                page,
+                size,
+                MAX_PAGE_SIZE,
+                Sort.by(Sort.Direction.DESC, "publishedAt").and(Sort.by(Sort.Direction.DESC, "createdAt")));
 
-        Page<Content> result = contentRepository.findAll(
-                publishedContentSpec(query, tags, type, from, to),
-                pageRequest
-        );
+        Page<Content> result =
+                contentRepository.findAll(publishedContentSpec(query, tags, type, from, to), pageRequest);
         List<Content> hydratedContents = hydrateSummaryRelations(result.getContent());
         return new PageResponse<>(
-                toSummaries(hydratedContents),
-                safePage,
-                safeSize,
-                result.getTotalElements()
-        );
+                toSummaries(hydratedContents), result.getNumber(), result.getSize(), result.getTotalElements());
     }
 
     /**
      * 获取单篇已发布内容的详情，包含正文、媒体资源、点赞状态等。
-     * 媒体资源 URL 使用预签名 URL，确保安全性。
+     * 媒体资源 URL 使用稳定同源代理路径，访问文件时再按需生成预签名 URL。
      *
      * @param id          内容 UUID
      * @param currentUser 当前登录用户（可为 null，未登录时 likedByCurrentUser 为 false）
@@ -164,34 +150,31 @@ public class ContentQueryService {
     public ContentDetailResponse detail(UUID id, AuthenticatedUser currentUser) {
         boolean isAdmin = currentUser != null && currentUser.role() == Role.ADMIN;
         Content content = isAdmin
-                ? contentRepository.findByIdAndDeletedAtIsNull(id)
+                ? contentRepository
+                        .findByIdAndDeletedAtIsNull(id)
                         .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"))
-                : contentRepository.findByIdAndStatusAndDeletedAtIsNull(id, ContentStatus.PUBLISHED)
+                : contentRepository
+                        .findByIdAndStatusAndDeletedAtIsNull(id, ContentStatus.PUBLISHED)
                         .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
         // 查询当前用户是否已点赞该内容
         boolean liked = currentUser != null && interactionStateService.isLiked(id, currentUser.id());
 
-        // 获取预签名 URL 列表
+        // 返回稳定路径，避免内容查询事务内发生对象存储 I/O。
         List<MediaAssetResponse> mediaAssets = content.getMediaAssets().stream()
                 .sorted(Comparator.comparing(MediaAsset::getCreatedAt))
-                .map(media -> {
-                    String presignedUrl = mediaAdminService.getPresignedUrl(media.getId());
-                    return new MediaAssetResponse(
-                            media.getId(),
-                            media.getType(),
-                            presignedUrl,
-                            media.getFilename(),
-                            media.getContentType(),
-                            media.getByteSize(),
-                            media.getWidth(),
-                            media.getHeight(),
-                            media.getDurationSeconds()
-                    );
-                })
+                .map(media -> new MediaAssetResponse(
+                        media.getId(),
+                        media.getType(),
+                        MediaReference.filePath(media.getId()),
+                        media.getFilename(),
+                        media.getContentType(),
+                        media.getByteSize(),
+                        media.getWidth(),
+                        media.getHeight(),
+                        media.getDurationSeconds()))
                 .toList();
 
-        // 封面 URL 也使用预签名
-        String coverUrl = presignedCoverUrl(content);
+        String coverUrl = stableCoverUrl(content);
 
         return new ContentDetailResponse(
                 content.getId(),
@@ -200,10 +183,7 @@ public class ContentQueryService {
                 content.getType(),
                 content.getStatus(),
                 content.getSummary(),
-                MediaReference.normalizeMarkdown(
-                        content.getBodyMarkdown(),
-                        content.getMediaAssets()
-                ),
+                MediaReference.normalizeMarkdown(content.getBodyMarkdown(), content.getMediaAssets()),
                 coverUrl,
                 tagNames(content),
                 mediaAssets,
@@ -211,8 +191,7 @@ public class ContentQueryService {
                 content.getLikeCount(),
                 content.getViewCount(),
                 content.getCommentCount(),
-                content.getPublishedAt()
-        );
+                content.getPublishedAt());
     }
 
     /**
@@ -234,12 +213,7 @@ public class ContentQueryService {
      * @return 动态查询条件
      */
     private Specification<Content> publishedContentSpec(
-            String query,
-            List<String> tags,
-            ContentType type,
-            Instant from,
-            Instant to
-    ) {
+            String query, List<String> tags, ContentType type, Instant from, Instant to) {
         return (root, criteriaQuery, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
             // 基础条件：已发布、有发布时间、未被逻辑删除
@@ -265,22 +239,20 @@ public class ContentQueryService {
                 predicates.add(criteriaBuilder.or(
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), keyword),
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("summary")), keyword),
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("bodyMarkdown")), keyword)
-                ));
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("bodyMarkdown")), keyword)));
             }
 
             // 每个标签使用独立 JOIN，确保内容同时拥有全部选中标签。
-            List<String> normalizedTags = tags == null ? List.of() : tags.stream()
-                    .filter(StringUtils::hasText)
-                    .map(tag -> tag.trim().toLowerCase(Locale.ROOT))
-                    .distinct()
-                    .toList();
+            List<String> normalizedTags = tags == null
+                    ? List.of()
+                    : tags.stream()
+                            .filter(StringUtils::hasText)
+                            .map(tag -> tag.trim().toLowerCase(Locale.ROOT))
+                            .distinct()
+                            .toList();
             for (String normalizedTag : normalizedTags) {
                 Join<Content, Tag> tagJoin = root.join("tags", JoinType.INNER);
-                predicates.add(criteriaBuilder.equal(
-                        criteriaBuilder.lower(tagJoin.get("slug")),
-                        normalizedTag
-                ));
+                predicates.add(criteriaBuilder.equal(criteriaBuilder.lower(tagJoin.get("slug")), normalizedTag));
                 criteriaQuery.distinct(true);
             }
 
@@ -302,12 +274,11 @@ public class ContentQueryService {
                 content.getType(),
                 content.getStatus(),
                 content.getSummary(),
-                presignedCoverUrl(content, fallbackCover),
+                stableCoverUrl(content, fallbackCover),
                 content.isPinned(),
                 content.getLikeCount(),
                 content.getPublishedAt(),
-                tagNames(content)
-        );
+                tagNames(content));
     }
 
     /**
@@ -318,9 +289,7 @@ public class ContentQueryService {
             return List.of();
         }
         List<UUID> ids = contents.stream().map(Content::getId).toList();
-        Map<UUID, Content> hydratedById = contentRepository
-                .findAllWithSummaryRelationsByIdIn(ids)
-                .stream()
+        Map<UUID, Content> hydratedById = contentRepository.findAllWithSummaryRelationsByIdIn(ids).stream()
                 .collect(java.util.stream.Collectors.toMap(Content::getId, content -> content));
         return contents.stream()
                 .map(content -> hydratedById.getOrDefault(content.getId(), content))
@@ -360,14 +329,14 @@ public class ContentQueryService {
     }
 
     /**
-     * 获取内容封面的预签名 URL。
+     * 获取内容封面的稳定同源代理路径。
      * <p>
      * 优先使用显式设置的 coverMedia，若未设置则使用第一条媒体资源。
      *
      * @param content 内容实体
-     * @return 封面预签名 URL 或 null
+     * @return 封面代理路径或 null
      */
-    private String presignedCoverUrl(Content content) {
+    private String stableCoverUrl(Content content) {
         MediaAsset coverMedia = content.getCoverMedia();
         if (coverMedia == null) {
             // 回退到第一条媒体资源
@@ -378,13 +347,11 @@ public class ContentQueryService {
         if (coverMedia == null) {
             return null;
         }
-        return mediaAdminService.getPresignedUrl(coverMedia.getId());
+        return MediaReference.filePath(coverMedia.getId());
     }
 
-    private String presignedCoverUrl(Content content, MediaAsset fallbackCover) {
-        MediaAsset coverMedia = content.getCoverMedia() == null
-                ? fallbackCover
-                : content.getCoverMedia();
-        return coverMedia == null ? null : mediaAdminService.getPresignedUrl(coverMedia.getId());
+    private String stableCoverUrl(Content content, MediaAsset fallbackCover) {
+        MediaAsset coverMedia = content.getCoverMedia() == null ? fallbackCover : content.getCoverMedia();
+        return coverMedia == null ? null : MediaReference.filePath(coverMedia.getId());
     }
 }

@@ -60,8 +60,7 @@ public class ViewRecord {
     /**
      * JPA 受保护的无参构造函数
      */
-    protected ViewRecord() {
-    }
+    protected ViewRecord() {}
 
     /**
      * 创建浏览记录

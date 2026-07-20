@@ -44,8 +44,7 @@ public abstract class AggregateRoot {
     private final List<DomainEvent> domainEvents = new ArrayList<>();
 
     /** JPA 受保护的无参构造函数 */
-    protected AggregateRoot() {
-    }
+    protected AggregateRoot() {}
 
     /**
      * 使用指定 ID 创建聚合根

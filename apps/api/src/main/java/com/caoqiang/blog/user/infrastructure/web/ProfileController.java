@@ -1,21 +1,18 @@
 package com.caoqiang.blog.user.infrastructure.web;
 
-import com.caoqiang.blog.user.application.dto.ChangePasswordRequest;
-import com.caoqiang.blog.user.application.dto.OAuthAccountResponse;
-import com.caoqiang.blog.user.application.dto.SetPasswordRequest;
-import com.caoqiang.blog.user.application.dto.UpdateProfileRequest;
-import com.caoqiang.blog.user.application.api.UserProfileResponse;
-import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.model.UserStatus;
-import com.caoqiang.blog.user.domain.repository.UserRepository;
-import com.caoqiang.blog.user.application.service.ProfileService;
-
+import com.caoqiang.blog.interaction.application.api.UserActivityItem;
+import com.caoqiang.blog.interaction.application.api.UserActivityService;
+import com.caoqiang.blog.shared.infrastructure.web.MultipartFileUploads;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.interaction.application.api.UserActivityItem;
-import com.caoqiang.blog.interaction.application.api.UserActivityService;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
+import com.caoqiang.blog.user.application.dto.ChangePasswordRequest;
+import com.caoqiang.blog.user.application.dto.OAuthAccountResponse;
+import com.caoqiang.blog.user.application.dto.SetPasswordRequest;
+import com.caoqiang.blog.user.application.dto.UpdateProfileRequest;
+import com.caoqiang.blog.user.application.service.ProfileService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -80,9 +77,7 @@ public class ProfileController {
      */
     @PutMapping
     public ApiResponse<UserProfileResponse> update(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @Valid @RequestBody UpdateProfileRequest request
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @Valid @RequestBody UpdateProfileRequest request) {
         return ApiResponse.ok(profileService.update(currentUser, request));
     }
 
@@ -97,10 +92,8 @@ public class ProfileController {
      */
     @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<UserProfileResponse> uploadAvatar(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @RequestParam("file") MultipartFile file
-    ) {
-        return ApiResponse.ok(profileService.uploadAndUpdateAvatar(currentUser, file));
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @RequestParam("file") MultipartFile file) {
+        return ApiResponse.ok(profileService.uploadAndUpdateAvatar(currentUser, MultipartFileUploads.from(file)));
     }
 
     /**
@@ -111,8 +104,7 @@ public class ProfileController {
      */
     @GetMapping("/oauth-accounts")
     public ApiResponse<List<OAuthAccountResponse>> oauthAccounts(
-            @AuthenticationPrincipal AuthenticatedUser currentUser
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
         return ApiResponse.ok(profileService.getOAuthAccounts(currentUser));
     }
 
@@ -125,9 +117,7 @@ public class ProfileController {
      */
     @DeleteMapping("/oauth-accounts/{provider}")
     public ApiResponse<OperationResult> unbindOAuth(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @PathVariable String provider
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @PathVariable String provider) {
         profileService.unbindOAuthAccount(currentUser, provider);
         return ApiResponse.ok(OperationResult.success("解绑成功"));
     }
@@ -141,9 +131,7 @@ public class ProfileController {
      */
     @PutMapping("/password")
     public ApiResponse<OperationResult> changePassword(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @Valid @RequestBody ChangePasswordRequest request
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @Valid @RequestBody ChangePasswordRequest request) {
         profileService.changePassword(currentUser, request);
         return ApiResponse.ok(OperationResult.success("密码修改成功"));
     }
@@ -157,9 +145,7 @@ public class ProfileController {
      */
     @PostMapping("/password")
     public ApiResponse<OperationResult> setPassword(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @Valid @RequestBody SetPasswordRequest request
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @Valid @RequestBody SetPasswordRequest request) {
         profileService.setPassword(currentUser, request);
         return ApiResponse.ok(OperationResult.success("密码设置成功"));
     }
@@ -176,8 +162,7 @@ public class ProfileController {
     public ApiResponse<PageResponse<UserActivityItem>> comments(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
+            @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.ok(userActivityService.comments(currentUser, page, size));
     }
 
@@ -193,8 +178,7 @@ public class ProfileController {
     public ApiResponse<PageResponse<UserActivityItem>> likes(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
+            @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.ok(userActivityService.likes(currentUser, page, size));
     }
 
@@ -210,8 +194,7 @@ public class ProfileController {
     public ApiResponse<PageResponse<UserActivityItem>> views(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
+            @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.ok(userActivityService.views(currentUser, page, size));
     }
 
@@ -224,9 +207,7 @@ public class ProfileController {
      */
     @DeleteMapping("/comments/{commentId}")
     public ApiResponse<OperationResult> deleteMyComment(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @PathVariable UUID commentId
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @PathVariable UUID commentId) {
         userActivityService.deleteComment(currentUser, commentId);
         return ApiResponse.ok(OperationResult.deleted(commentId));
     }
@@ -240,9 +221,7 @@ public class ProfileController {
      */
     @DeleteMapping("/likes/{contentId}")
     public ApiResponse<OperationResult> deleteMyLike(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @PathVariable UUID contentId
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @PathVariable UUID contentId) {
         userActivityService.deleteLike(currentUser, contentId);
         return ApiResponse.ok(OperationResult.deleted(contentId));
     }
@@ -256,9 +235,7 @@ public class ProfileController {
      */
     @DeleteMapping("/views/{viewRecordId}")
     public ApiResponse<OperationResult> deleteMyView(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @PathVariable UUID viewRecordId
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @PathVariable UUID viewRecordId) {
         userActivityService.deleteView(currentUser, viewRecordId);
         return ApiResponse.ok(OperationResult.deleted(viewRecordId));
     }

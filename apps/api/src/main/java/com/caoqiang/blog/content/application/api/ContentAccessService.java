@@ -18,16 +18,16 @@ public class ContentAccessService {
     public PageResponse<ContentAccessSummary> searchPublished(String query, int limit) {
         var result = contentQueryService.list(query, null, null, null, null, 0, limit);
         return new PageResponse<>(
-                result.items().stream().map(item -> new ContentAccessSummary(
-                        item.id(),
-                        item.title(),
-                        item.summary(),
-                        item.type().name()
-                )).toList(),
+                result.items().stream()
+                        .map(item -> new ContentAccessSummary(
+                                item.id(),
+                                item.title(),
+                                item.summary(),
+                                item.type().name()))
+                        .toList(),
                 result.page(),
                 result.size(),
-                result.total()
-        );
+                result.total());
     }
 
     public ContentAccessDetail publishedDetail(UUID contentId) {
@@ -40,7 +40,6 @@ public class ContentAccessService {
                 detail.type().name(),
                 detail.likeCount(),
                 detail.viewCount(),
-                detail.commentCount()
-        );
+                detail.commentCount());
     }
 }

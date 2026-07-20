@@ -13,12 +13,7 @@ import java.util.UUID;
  * @param id        相关资源 ID（可选）
  * @param resourceId 相关资源 ID 的字符串形式（可选）
  */
-public record OperationResult(
-        boolean success,
-        String message,
-        UUID id,
-        String resourceId
-) {
+public record OperationResult(boolean success, String message, UUID id, String resourceId) {
 
     /**
      * 创建成功的删除操作结果。

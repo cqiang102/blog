@@ -15,8 +15,7 @@ public final class PageUtils {
     /** 默认最大分页大小 */
     public static final int DEFAULT_MAX_SIZE = 50;
 
-    private PageUtils() {
-    }
+    private PageUtils() {}
 
     /**
      * 创建分页请求对象（使用默认最大分页大小）。
@@ -42,10 +41,6 @@ public final class PageUtils {
      * @return 分页请求对象
      */
     public static PageRequest of(int page, int size, int maxSize, Sort sort) {
-        return PageRequest.of(
-                Math.max(0, page),
-                Math.max(1, Math.min(size, maxSize)),
-                sort
-        );
+        return PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, maxSize)), sort);
     }
 }

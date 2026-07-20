@@ -65,8 +65,7 @@ public class VerificationCode {
     /**
      * 默认构造函数，供 JPA 使用
      */
-    protected VerificationCode() {
-    }
+    protected VerificationCode() {}
 
     /**
      * 构造函数，创建新的验证码

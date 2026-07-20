@@ -9,10 +9,11 @@ import com.caoqiang.blog.audit.application.dto.AuditLogResponse;
 import com.caoqiang.blog.audit.application.service.AuditLogService;
 import com.caoqiang.blog.audit.domain.model.AuditLog;
 import com.caoqiang.blog.audit.domain.repository.AuditLogRepository;
-import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.shared.model.Role;
+import com.caoqiang.blog.shared.response.PageResponse;
 import com.caoqiang.blog.user.application.api.IdentityUser;
 import com.caoqiang.blog.user.application.api.UserAccountService;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,8 +26,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-
-import java.util.List;
 
 @ExtendWith(MockitoExtension.class)
 class AuditLogServiceTest {
@@ -45,9 +44,7 @@ class AuditLogServiceTest {
     void setUp() {
         auditLogService = new AuditLogService(auditLogRepository, userAccountService);
         testUser = new IdentityUser(
-                UUID.randomUUID(), "admin@example.com", "管理员", null,
-                null, null, "hash", Role.ADMIN, true
-        );
+                UUID.randomUUID(), "admin@example.com", "管理员", null, null, null, "hash", Role.ADMIN, true);
     }
 
     @Test
@@ -92,9 +89,9 @@ class AuditLogServiceTest {
         AuditLog log2 = new AuditLog(testUser.id(), "UPDATE", "TAG", UUID.randomUUID(), null);
 
         Page<AuditLog> page = new PageImpl<>(List.of(log1, log2));
-        when(auditLogRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
-        when(userAccountService.findByIds(List.of(testUser.id())))
-                .thenReturn(List.of(testUser));
+        when(auditLogRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(page);
+        when(userAccountService.findByIds(List.of(testUser.id()))).thenReturn(List.of(testUser));
 
         PageResponse<AuditLogResponse> result = auditLogService.list(0, 10, null, null, null);
 

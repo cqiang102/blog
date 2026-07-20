@@ -12,11 +12,4 @@ import java.util.UUID;
  * @param auditStatus  审核状态（VISIBLE / BLOCKED / null 表示未审核）
  * @param createdAt    创建时间
  */
-public record AiChatMessageResponse(
-        UUID id,
-        String role,
-        String content,
-        String auditStatus,
-        Instant createdAt
-) {
-}
+public record AiChatMessageResponse(UUID id, String role, String content, String auditStatus, Instant createdAt) {}

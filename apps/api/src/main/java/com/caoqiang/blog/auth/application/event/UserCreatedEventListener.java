@@ -18,7 +18,6 @@ public class UserCreatedEventListener {
     @EventListener
     @Async
     public void onUserCreated(UserCreatedEvent event) {
-        log.info("User created: id={}, email={}, nickname={}",
-                event.getUserId(), event.getEmail(), event.getNickname());
+        log.info("用户已创建: id={}", event.getUserId());
     }
 }

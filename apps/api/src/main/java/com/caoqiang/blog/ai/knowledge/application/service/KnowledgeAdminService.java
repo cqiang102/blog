@@ -3,19 +3,19 @@ package com.caoqiang.blog.ai.knowledge.application.service;
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeDocRequest;
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeDocResponse;
 import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
-import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
+import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
+import com.caoqiang.blog.ai.knowledge.event.KnowledgeDocumentIndexRequestedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
+import com.caoqiang.blog.shared.util.PageUtils;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -26,28 +26,25 @@ import org.springframework.transaction.annotation.Transactional;
  * 知识文档管理服务。
  * <p>
  * 为管理员提供知识文档的 CRUD 操作，支持分页查询、关键词筛选，
- * 文档创建/更新时自动触发 {@link KnowledgeIndexService} 进行向量索引。
+ * 文档事务提交后发布索引请求，避免在数据库事务内调用外部嵌入模型。
  */
 @Service
 public class KnowledgeAdminService {
-
-    private static final Logger log = LoggerFactory.getLogger(KnowledgeAdminService.class);
 
     /** 分页查询最大每页大小 */
     private static final int MAX_PAGE_SIZE = 100;
 
     private final KnowledgeDocRepository knowledgeDocRepository;
     private final KnowledgeChunkRepository knowledgeChunkRepository;
-    private final KnowledgeIndexService knowledgeIndexService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public KnowledgeAdminService(
             KnowledgeDocRepository knowledgeDocRepository,
             KnowledgeChunkRepository knowledgeChunkRepository,
-            KnowledgeIndexService knowledgeIndexService
-    ) {
+            ApplicationEventPublisher eventPublisher) {
         this.knowledgeDocRepository = knowledgeDocRepository;
         this.knowledgeChunkRepository = knowledgeChunkRepository;
-        this.knowledgeIndexService = knowledgeIndexService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -63,18 +60,12 @@ public class KnowledgeAdminService {
     public PageResponse<KnowledgeDocResponse> list(int page, int size, String query, Boolean enabled) {
         Page<KnowledgeDoc> result = knowledgeDocRepository.findAll(
                 filters(query, enabled),
-                PageRequest.of(
-                        Math.max(0, page),
-                        Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
-                        Sort.by(Sort.Direction.DESC, "updatedAt")
-                )
-        );
+                PageUtils.of(page, size, MAX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "updatedAt")));
         return new PageResponse<>(
                 result.getContent().stream().map(KnowledgeDocResponse::from).toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     /**
@@ -101,18 +92,10 @@ public class KnowledgeAdminService {
                 request.sourceType(),
                 normalize(request.sourceRef()),
                 normalize(request.body()),
-                request.enabled()
-        );
+                request.enabled());
         KnowledgeDoc saved = knowledgeDocRepository.save(doc);
 
-        if (saved.isEnabled() && saved.getBody() != null && !saved.getBody().isBlank()) {
-            try {
-                knowledgeIndexService.indexDocument(saved.getId());
-            } catch (Exception e) {
-                // 索引失败不影响文档保存
-                log.error("Failed to index new document: {}", e.getMessage(), e);
-            }
-        }
+        requestIndexAfterCommit(saved);
 
         return KnowledgeDocResponse.from(saved);
     }
@@ -132,15 +115,10 @@ public class KnowledgeAdminService {
                 request.sourceType(),
                 normalize(request.sourceRef()),
                 normalize(request.body()),
-                request.enabled()
-        );
+                request.enabled());
 
-        if (doc.isEnabled() && doc.getBody() != null && !doc.getBody().isBlank()) {
-            try {
-                knowledgeIndexService.indexDocument(id);
-            } catch (Exception e) {
-                log.error("Failed to reindex document: {}", e.getMessage(), e);
-            }
+        if (isIndexable(doc)) {
+            requestIndexAfterCommit(doc);
         } else {
             knowledgeChunkRepository.deleteByDocId(id);
         }
@@ -164,8 +142,19 @@ public class KnowledgeAdminService {
 
     /** 根据 ID 获取知识文档，不存在时抛出异常。 */
     private KnowledgeDoc doc(UUID id) {
-        return knowledgeDocRepository.findById(id)
+        return knowledgeDocRepository
+                .findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "知识库文档不存在"));
+    }
+
+    private void requestIndexAfterCommit(KnowledgeDoc doc) {
+        if (isIndexable(doc)) {
+            eventPublisher.publishEvent(new KnowledgeDocumentIndexRequestedEvent(doc.getId()));
+        }
+    }
+
+    private boolean isIndexable(KnowledgeDoc doc) {
+        return doc.isEnabled() && doc.getBody() != null && !doc.getBody().isBlank();
     }
 
     /** 构建 JPA 动态查询条件：按启用状态和关键词（标题/来源引用/正文）过滤。 */
@@ -181,8 +170,7 @@ public class KnowledgeAdminService {
                 predicates.add(criteriaBuilder.or(
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), like),
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("sourceRef")), like),
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("body")), like)
-                ));
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("body")), like)));
             }
             return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
         };

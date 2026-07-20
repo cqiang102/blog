@@ -47,6 +47,9 @@ public interface AiChatMessageRepository extends JpaRepository<AiChatMessage, UU
      */
     List<AiChatMessage> findBySessionIdAndDeletedFalseOrderByCreatedAtAsc(UUID sessionId);
 
+    /** Returns the bounded recent context used for the next model request. */
+    List<AiChatMessage> findTop20BySessionIdAndDeletedFalseOrderByCreatedAtDesc(UUID sessionId);
+
     /**
      * 分页获取指定会话的消息，按创建时间正序排列。
      *

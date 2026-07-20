@@ -1,5 +1,6 @@
 package com.caoqiang.blog.audit.domain.model;
 
+import com.caoqiang.blog.shared.persistence.PgJsonbType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -9,7 +10,6 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import org.hibernate.annotations.Type;
-import com.caoqiang.blog.shared.persistence.PgJsonbType;
 
 /**
  * 审计日志实体
@@ -63,8 +63,7 @@ public class AuditLog {
     private Instant createdAt;
 
     /** JPA 保护构造函数 */
-    protected AuditLog() {
-    }
+    protected AuditLog() {}
 
     /**
      * 创建审计日志

@@ -12,9 +12,4 @@ import java.time.Instant;
  * @param time    服务器当前时间
  * @author caoqiang
  */
-public record AppMetadata(
-        String name,
-        String version,
-        Instant time
-) {
-}
+public record AppMetadata(String name, String version, Instant time) {}

@@ -1,5 +1,7 @@
 package com.caoqiang.blog.ai;
 
+import static org.mockito.Mockito.verify;
+
 import com.caoqiang.blog.ai.chat.application.event.AiChatAuditEventListener;
 import com.caoqiang.blog.ai.chat.application.service.AiChatAuditService;
 import com.caoqiang.blog.ai.chat.event.AiChatMessagesCreatedEvent;
@@ -9,8 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class AiChatAuditEventListenerTest {
@@ -24,9 +24,7 @@ class AiChatAuditEventListenerTest {
         UUID secondMessageId = UUID.randomUUID();
         AiChatAuditEventListener listener = new AiChatAuditEventListener(aiChatAuditService);
 
-        listener.onAiChatMessagesCreated(
-                new AiChatMessagesCreatedEvent(List.of(firstMessageId, secondMessageId))
-        );
+        listener.onAiChatMessagesCreated(new AiChatMessagesCreatedEvent(List.of(firstMessageId, secondMessageId)));
 
         verify(aiChatAuditService).audit(firstMessageId);
         verify(aiChatAuditService).audit(secondMessageId);

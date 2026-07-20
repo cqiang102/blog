@@ -66,13 +66,7 @@ public class UserAccountService {
     }
 
     @Transactional
-    public IdentityUser registerOAuth(
-            String email,
-            String nickname,
-            String avatarUrl,
-            String bio,
-            String blogUrl
-    ) {
+    public IdentityUser registerOAuth(String email, String nickname, String avatarUrl, String bio, String blogUrl) {
         User user = User.register(email, null, nickname);
         user.setAvatarUrl(avatarUrl);
         user.setBio(bio);
@@ -86,20 +80,14 @@ public class UserAccountService {
     }
 
     @Transactional
-    public Optional<IdentityUser> updateOAuthProfile(
-            UUID userId,
-            String nickname,
-            String avatarUrl
-    ) {
-        return userRepository.findById(userId)
-                .filter(User::isActive)
-                .map(user -> {
-                    if (nickname != null) {
-                        user.setNickname(nickname);
-                    }
-                    user.setAvatarUrl(avatarUrl);
-                    return snapshot(user);
-                });
+    public Optional<IdentityUser> updateOAuthProfile(UUID userId, String nickname, String avatarUrl) {
+        return userRepository.findById(userId).filter(User::isActive).map(user -> {
+            if (nickname != null) {
+                user.setNickname(nickname);
+            }
+            user.setAvatarUrl(avatarUrl);
+            return snapshot(user);
+        });
     }
 
     private IdentityUser snapshot(User user) {
@@ -112,7 +100,6 @@ public class UserAccountService {
                 user.getBlogUrl(),
                 user.getPasswordHash(),
                 user.getRole(),
-                user.isActive()
-        );
+                user.isActive());
     }
 }

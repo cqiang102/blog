@@ -9,6 +9,7 @@ import com.caoqiang.blog.ai.chat.domain.repository.AiChatMessageRepository;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
+import com.caoqiang.blog.shared.util.PageUtils;
 import com.caoqiang.blog.user.application.api.IdentityUser;
 import com.caoqiang.blog.user.application.api.UserAccountService;
 import jakarta.persistence.criteria.Predicate;
@@ -18,7 +19,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -44,8 +44,7 @@ public class AiChatAdminService {
     public AiChatAdminService(
             AiChatSessionRepository sessionRepository,
             AiChatMessageRepository messageRepository,
-            UserAccountService userAccountService
-    ) {
+            UserAccountService userAccountService) {
         this.sessionRepository = sessionRepository;
         this.messageRepository = messageRepository;
         this.userAccountService = userAccountService;
@@ -63,28 +62,20 @@ public class AiChatAdminService {
     @Transactional(readOnly = true)
     public PageResponse<AdminAiChatSessionResponse> sessions(int page, int size, UUID userId, String query) {
         String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
-        List<UUID> matchingUserIds = normalizedQuery.isEmpty()
-                ? List.of()
-                : userAccountService.findIdsMatchingIdentity(normalizedQuery);
+        List<UUID> matchingUserIds =
+                normalizedQuery.isEmpty() ? List.of() : userAccountService.findIdsMatchingIdentity(normalizedQuery);
         Page<AiChatSession> result = sessionRepository.findAll(
                 filters(userId, normalizedQuery, matchingUserIds),
-                PageRequest.of(
-                        Math.max(0, page),
-                        Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
-                        Sort.by(Sort.Direction.DESC, "updatedAt")
-                )
-        );
+                PageUtils.of(page, size, MAX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "updatedAt")));
         Map<UUID, IdentityUser> users = usersById(
-                result.getContent().stream().map(AiChatSession::getUserId).toList()
-        );
+                result.getContent().stream().map(AiChatSession::getUserId).toList());
         return new PageResponse<>(
                 result.getContent().stream()
                         .map(session -> toSessionResponse(session, requireUser(users, session.getUserId())))
                         .toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     /**
@@ -95,17 +86,15 @@ public class AiChatAdminService {
      */
     @Transactional(readOnly = true)
     public AdminAiChatDetailResponse detail(UUID id) {
-        AiChatSession session = sessionRepository.findById(id)
+        AiChatSession session = sessionRepository
+                .findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "AI 会话不存在"));
-        List<AdminAiChatMessageResponse> messages = messageRepository.findBySessionIdOrderByCreatedAtAsc(id)
-                .stream()
+        List<AdminAiChatMessageResponse> messages = messageRepository.findBySessionIdOrderByCreatedAtAsc(id).stream()
                 .map(AdminAiChatMessageResponse::from)
                 .toList();
-        IdentityUser user = userAccountService.findById(session.getUserId())
-                .orElseThrow(() -> new BusinessException(
-                        HttpStatus.INTERNAL_SERVER_ERROR,
-                        "AI 会话关联的用户不存在"
-                ));
+        IdentityUser user = userAccountService
+                .findById(session.getUserId())
+                .orElseThrow(() -> new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "AI 会话关联的用户不存在"));
         return new AdminAiChatDetailResponse(toSessionResponse(session, user), messages);
     }
 
@@ -116,7 +105,8 @@ public class AiChatAdminService {
      */
     @Transactional
     public void delete(UUID id) {
-        AiChatSession session = sessionRepository.findById(id)
+        AiChatSession session = sessionRepository
+                .findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "AI 会话不存在"));
         session.markDeleted();
         sessionRepository.save(session);
@@ -124,22 +114,15 @@ public class AiChatAdminService {
 
     /** 将会话实体转换为管理端响应 DTO，附带消息数和最后一条消息。 */
     private AdminAiChatSessionResponse toSessionResponse(AiChatSession session, IdentityUser user) {
-        AiChatMessage lastMessage = messageRepository.findFirstBySessionIdOrderByCreatedAtDesc(session.getId())
+        AiChatMessage lastMessage = messageRepository
+                .findFirstBySessionIdOrderByCreatedAtDesc(session.getId())
                 .orElse(null);
         return AdminAiChatSessionResponse.from(
-                session,
-                user,
-                messageRepository.countBySessionId(session.getId()),
-                lastMessage
-        );
+                session, user, messageRepository.countBySessionId(session.getId()), lastMessage);
     }
 
     /** 构建 JPA 动态查询条件：按用户 ID 和关键词（标题/邮箱/昵称）过滤，排除已删除记录。 */
-    private Specification<AiChatSession> filters(
-            UUID userId,
-            String normalizedQuery,
-            List<UUID> matchingUserIds
-    ) {
+    private Specification<AiChatSession> filters(UUID userId, String normalizedQuery, List<UUID> matchingUserIds) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
             // 过滤已删除记录
@@ -150,19 +133,19 @@ public class AiChatAdminService {
             if (!normalizedQuery.isEmpty()) {
                 String like = "%" + normalizedQuery + "%";
                 Predicate titleMatches = criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), like);
-                predicates.add(matchingUserIds.isEmpty()
-                        ? titleMatches
-                        : criteriaBuilder.or(titleMatches, root.get("userId").in(matchingUserIds)));
+                predicates.add(
+                        matchingUserIds.isEmpty()
+                                ? titleMatches
+                                : criteriaBuilder.or(
+                                        titleMatches, root.get("userId").in(matchingUserIds)));
             }
             return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
         };
     }
 
     private Map<UUID, IdentityUser> usersById(List<UUID> userIds) {
-        return userAccountService.findByIds(userIds).stream().collect(java.util.stream.Collectors.toMap(
-                IdentityUser::id,
-                java.util.function.Function.identity()
-        ));
+        return userAccountService.findByIds(userIds).stream()
+                .collect(java.util.stream.Collectors.toMap(IdentityUser::id, java.util.function.Function.identity()));
     }
 
     private IdentityUser requireUser(Map<UUID, IdentityUser> users, UUID userId) {

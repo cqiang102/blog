@@ -2,7 +2,6 @@ package com.caoqiang.blog.auth.application.service;
 
 import com.caoqiang.blog.auth.domain.model.RefreshToken;
 import com.caoqiang.blog.auth.domain.repository.RefreshTokenRepository;
-
 import com.caoqiang.blog.config.BlogProperties;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -41,7 +40,8 @@ import org.springframework.stereotype.Service;
 public class RefreshTokenService {
 
     /** Base64URL 编码器（无填充） */
-    private static final Base64.Encoder BASE64_URL_ENCODER = Base64.getUrlEncoder().withoutPadding();
+    private static final Base64.Encoder BASE64_URL_ENCODER =
+            Base64.getUrlEncoder().withoutPadding();
     /** 刷新令牌的随机字节长度，32 字节 = 256 位，提供足够的熵以防止暴力猜测 */
     private static final int TOKEN_BYTE_LENGTH = 32;
 
@@ -62,10 +62,7 @@ public class RefreshTokenService {
      * @param clock                  时钟实例
      */
     public RefreshTokenService(
-            RefreshTokenRepository refreshTokenRepository,
-            BlogProperties blogProperties,
-            Clock clock
-    ) {
+            RefreshTokenRepository refreshTokenRepository, BlogProperties blogProperties, Clock clock) {
         this.refreshTokenRepository = refreshTokenRepository;
         this.blogProperties = blogProperties;
         this.clock = clock;
@@ -113,7 +110,7 @@ public class RefreshTokenService {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return BASE64_URL_ENCODER.encodeToString(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception exception) {
-            throw new IllegalStateException("Unable to hash refresh token", exception);
+            throw new IllegalStateException("无法对刷新令牌进行哈希", exception);
         }
     }
 
@@ -136,6 +133,5 @@ public class RefreshTokenService {
      * @param value     原始令牌字符串
      * @param expiresAt 过期时间
      */
-    public record RawRefreshToken(String value, Instant expiresAt) {
-    }
+    public record RawRefreshToken(String value, Instant expiresAt) {}
 }

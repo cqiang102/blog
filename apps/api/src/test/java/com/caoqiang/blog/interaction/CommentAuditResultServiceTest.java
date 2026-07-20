@@ -36,11 +36,7 @@ class CommentAuditResultServiceTest {
     void setUp() {
         service = new CommentAuditResultService(commentRepository, contentInteractionService);
         contentId = UUID.randomUUID();
-        comment = new Comment(
-                contentId,
-                UUID.randomUUID(),
-                "测试评论"
-        );
+        comment = new Comment(contentId, UUID.randomUUID(), "测试评论");
         when(commentRepository.findByIdForUpdate(comment.getId())).thenReturn(Optional.of(comment));
     }
 

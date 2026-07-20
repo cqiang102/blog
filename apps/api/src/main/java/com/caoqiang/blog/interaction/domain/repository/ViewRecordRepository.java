@@ -1,17 +1,16 @@
 package com.caoqiang.blog.interaction.domain.repository;
 
 import com.caoqiang.blog.interaction.domain.model.ViewRecord;
-
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.jpa.domain.Specification;
 
 /**
  * 浏览记录 Repository
@@ -111,8 +110,7 @@ public interface ViewRecordRepository extends JpaRepository<ViewRecord, UUID>, J
             @Param("userId") UUID userId,
             @Param("anonymousId") String anonymousId,
             @Param("ipHash") String ipHash,
-            @Param("userAgent") String userAgent
-    );
+            @Param("userAgent") String userAgent);
 
     /**
      * 原子删除用户自己的浏览记录，返回实际删除行数。

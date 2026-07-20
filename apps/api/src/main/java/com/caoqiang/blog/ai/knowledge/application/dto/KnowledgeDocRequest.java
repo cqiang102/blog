@@ -10,6 +10,4 @@ public record KnowledgeDocRequest(
         @NotNull KnowledgeSourceType sourceType,
         String sourceRef,
         String body,
-        @NotNull Boolean enabled
-) {
-}
+        @NotNull Boolean enabled) {}

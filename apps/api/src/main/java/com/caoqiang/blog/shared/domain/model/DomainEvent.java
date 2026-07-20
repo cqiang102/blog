@@ -19,7 +19,7 @@ import java.util.UUID;
  * <pre>
  * public class OrderCompletedEvent extends DomainEvent {
  *     private final UUID orderId;
- *     
+ *
  *     public OrderCompletedEvent(UUID orderId) {
  *         this.orderId = orderId;
  *     }

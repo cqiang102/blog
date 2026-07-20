@@ -64,8 +64,7 @@ public class KnowledgeChunk {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected KnowledgeChunk() {
-    }
+    protected KnowledgeChunk() {}
 
     public KnowledgeChunk(KnowledgeDoc doc, int chunkIndex, String content) {
         this.doc = doc;

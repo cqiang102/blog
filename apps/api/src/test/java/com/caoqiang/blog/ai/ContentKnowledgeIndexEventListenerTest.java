@@ -21,9 +21,7 @@ class ContentKnowledgeIndexEventListenerTest {
     @Test
     void indexesPublishedContentAndDeletesArchivedContent() {
         UUID contentId = UUID.randomUUID();
-        ContentKnowledgeIndexEventListener listener = new ContentKnowledgeIndexEventListener(
-                knowledgeIndexService
-        );
+        ContentKnowledgeIndexEventListener listener = new ContentKnowledgeIndexEventListener(knowledgeIndexService);
 
         listener.onContentPublished(new ContentPublishedEvent(contentId, "Title", "title"));
         listener.onContentArchived(new ContentArchivedEvent(contentId));

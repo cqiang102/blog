@@ -1,7 +1,6 @@
 package com.caoqiang.blog.ai.chat.domain.repository;
 
 import com.caoqiang.blog.ai.chat.domain.model.AiDailyQuota;
-
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;

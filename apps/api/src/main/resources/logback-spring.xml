@@ -56,7 +56,9 @@
 
     <!-- Hibernate 日志级别 -->
     <logger name="org.hibernate" level="WARN"/>
-    <logger name="org.hibernate.SQL" level="DEBUG"/>
+    <springProfile name="local,dev">
+        <logger name="org.hibernate.SQL" level="DEBUG"/>
+    </springProfile>
 
     <!-- 应用日志级别 -->
     <logger name="com.caoqiang.blog" level="INFO"/>

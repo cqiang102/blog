@@ -90,8 +90,7 @@ public class MediaAsset {
     private Instant createdAt;
 
     /** JPA 受保护的无参构造函数 */
-    protected MediaAsset() {
-    }
+    protected MediaAsset() {}
 
     /**
      * 创建媒体资源的构造函数。
@@ -119,9 +118,19 @@ public class MediaAsset {
             Long byteSize,
             Integer width,
             Integer height,
-            Integer durationSeconds
-    ) {
-        update(content, type, bucket, objectKey, publicUrl, filename, contentType, byteSize, width, height, durationSeconds);
+            Integer durationSeconds) {
+        update(
+                content,
+                type,
+                bucket,
+                objectKey,
+                publicUrl,
+                filename,
+                contentType,
+                byteSize,
+                width,
+                height,
+                durationSeconds);
     }
 
     /** 持久化前自动设置 createdAt */
@@ -158,8 +167,7 @@ public class MediaAsset {
             Long byteSize,
             Integer width,
             Integer height,
-            Integer durationSeconds
-    ) {
+            Integer durationSeconds) {
         this.content = content;
         this.type = type;
         this.bucket = bucket;

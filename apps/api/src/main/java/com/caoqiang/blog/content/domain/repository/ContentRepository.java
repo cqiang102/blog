@@ -2,23 +2,17 @@ package com.caoqiang.blog.content.domain.repository;
 
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.Tag;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.jpa.domain.Specification;
 
 /**
  * 内容数据访问接口。
@@ -34,6 +28,16 @@ import org.springframework.data.jpa.domain.Specification;
  */
 public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpecificationExecutor<Content> {
 
+    /** Closed projection keeps management selectors from loading full content bodies and relations. */
+    interface ContentOptionProjection {
+        UUID getId();
+
+        String getTitle();
+    }
+
+    Page<ContentOptionProjection> findContentOptionsByDeletedAtIsNullAndTitleContainingIgnoreCase(
+            String title, Pageable pageable);
+
     /**
      * 第二阶段批量加载列表页关联。分页仍由无 fetch join 的查询完成，避免集合
      * fetch join 让 Hibernate 在内存中分页。
@@ -47,19 +51,22 @@ public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpec
      * 预加载 tags 和 coverMedia 以避免 N+1 查询。
      */
     @EntityGraph(attributePaths = {"tags", "coverMedia"})
-    List<Content> findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(ContentStatus status);
+    List<Content> findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(
+            ContentStatus status);
 
     /**
      * 查询最热门的 10 条内容，按点赞数降序、发布时间降序排列（用于"最热"分组）。
      */
     @EntityGraph(attributePaths = {"tags", "coverMedia"})
-    List<Content> findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(ContentStatus status);
+    List<Content> findTop10ByStatusAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByLikeCountDescPublishedAtDesc(
+            ContentStatus status);
 
     /**
      * 查询置顶的 10 条内容，按发布时间降序排列（用于"置顶"分组）。
      */
     @EntityGraph(attributePaths = {"tags", "coverMedia"})
-    List<Content> findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(ContentStatus status);
+    List<Content> findTop10ByStatusAndPinnedTrueAndPublishedAtIsNotNullAndDeletedAtIsNullOrderByPublishedAtDesc(
+            ContentStatus status);
 
     /**
      * 根据 ID、状态和未删除条件查询内容详情，预加载 tags 和 coverMedia。

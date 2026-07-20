@@ -1,9 +1,9 @@
 package com.caoqiang.blog;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.caoqiang.blog.shared.response.ApiResponse;
 import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class ApiResponseTest {
 

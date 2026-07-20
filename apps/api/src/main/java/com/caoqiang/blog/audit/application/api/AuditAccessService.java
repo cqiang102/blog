@@ -15,28 +15,22 @@ public class AuditAccessService {
         this.auditLogService = auditLogService;
     }
 
-    public PageResponse<AuditLogView> list(
-            int page,
-            int size,
-            String action,
-            String resourceType,
-            UUID actorUserId
-    ) {
+    public PageResponse<AuditLogView> list(int page, int size, String action, String resourceType, UUID actorUserId) {
         var result = auditLogService.list(page, size, action, resourceType, actorUserId);
         return new PageResponse<>(
-                result.items().stream().map(item -> new AuditLogView(
-                        item.id(),
-                        item.actorUserId(),
-                        item.actorNickname(),
-                        item.action(),
-                        item.resourceType(),
-                        item.resourceId(),
-                        item.detail(),
-                        item.createdAt()
-                )).toList(),
+                result.items().stream()
+                        .map(item -> new AuditLogView(
+                                item.id(),
+                                item.actorUserId(),
+                                item.actorNickname(),
+                                item.action(),
+                                item.resourceType(),
+                                item.resourceId(),
+                                item.detail(),
+                                item.createdAt()))
+                        .toList(),
                 result.page(),
                 result.size(),
-                result.total()
-        );
+                result.total());
     }
 }

@@ -16,12 +16,9 @@ import java.util.regex.Pattern;
  */
 public final class MediaReference {
 
-    private static final Pattern FILE_PATH = Pattern.compile(
-            "^/api/v1/media-assets/([0-9a-fA-F-]{36})/file/?$"
-    );
+    private static final Pattern FILE_PATH = Pattern.compile("^/api/v1/media-assets/([0-9a-fA-F-]{36})/file/?$");
 
-    private MediaReference() {
-    }
+    private MediaReference() {}
 
     public static String filePath(UUID mediaId) {
         return "/api/v1/media-assets/" + mediaId + "/file";
@@ -43,10 +40,7 @@ public final class MediaReference {
         }
     }
 
-    public static String normalizeMarkdown(
-            String markdown,
-            List<MediaAsset> mediaAssets
-    ) {
+    public static String normalizeMarkdown(String markdown, List<MediaAsset> mediaAssets) {
         if (markdown == null || markdown.isBlank()) {
             return markdown;
         }
@@ -68,10 +62,8 @@ public final class MediaReference {
         if (!MediaAsset.EXTERNAL_BUCKET.equals(mediaAsset.getBucket())
                 && hasText(mediaAsset.getBucket())
                 && hasText(mediaAsset.getObjectKey())) {
-            references.add("/minio/"
-                    + stripSlashes(mediaAsset.getBucket())
-                    + "/"
-                    + stripSlashes(mediaAsset.getObjectKey()));
+            references.add(
+                    "/minio/" + stripSlashes(mediaAsset.getBucket()) + "/" + stripSlashes(mediaAsset.getObjectKey()));
         }
         return references;
     }

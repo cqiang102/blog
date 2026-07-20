@@ -20,25 +20,19 @@ public class InteractionReferenceData {
     private final UserAccountService userAccountService;
 
     public InteractionReferenceData(
-            ContentInteractionService contentInteractionService,
-            UserAccountService userAccountService
-    ) {
+            ContentInteractionService contentInteractionService, UserAccountService userAccountService) {
         this.contentInteractionService = contentInteractionService;
         this.userAccountService = userAccountService;
     }
 
     public Map<UUID, ContentInteractionSnapshot> contents(Collection<UUID> ids) {
-        return contentInteractionService.findByIds(ids).stream().collect(Collectors.toMap(
-                ContentInteractionSnapshot::id,
-                Function.identity()
-        ));
+        return contentInteractionService.findByIds(ids).stream()
+                .collect(Collectors.toMap(ContentInteractionSnapshot::id, Function.identity()));
     }
 
     public Map<UUID, IdentityUser> users(Collection<UUID> ids) {
-        return userAccountService.findByIds(ids).stream().collect(Collectors.toMap(
-                IdentityUser::id,
-                Function.identity()
-        ));
+        return userAccountService.findByIds(ids).stream()
+                .collect(Collectors.toMap(IdentityUser::id, Function.identity()));
     }
 
     public ContentInteractionSnapshot content(Map<UUID, ContentInteractionSnapshot> contents, UUID id) {

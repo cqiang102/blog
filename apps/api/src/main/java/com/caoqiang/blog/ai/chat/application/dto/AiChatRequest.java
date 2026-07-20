@@ -11,7 +11,4 @@ import java.util.UUID;
  * @param message   用户消息内容（必填，最大 2000 字符）
  */
 public record AiChatRequest(
-        UUID sessionId,
-        @NotBlank @Size(max = 2000) String message
-) {
-}
+        UUID sessionId, @NotBlank @Size(max = 2000) String message) {}

@@ -11,8 +11,4 @@ import java.util.List;
  * @param total   符合条件的总数
  * @author caoqiang
  */
-public record AiSearchContentResult(
-        List<AiContentItem> results,
-        long total
-) {
-}
+public record AiSearchContentResult(List<AiContentItem> results, long total) {}

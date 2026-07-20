@@ -43,13 +43,7 @@ public class AiQuotaService {
         }
         LocalDate today = today();
         List<Integer> counts = jdbcTemplate.query(
-                RESERVE_SQL,
-                (resultSet, rowNum) -> resultSet.getInt(1),
-                UUID.randomUUID(),
-                userId,
-                today,
-                dailyLimit
-        );
+                RESERVE_SQL, (resultSet, rowNum) -> resultSet.getInt(1), UUID.randomUUID(), userId, today, dailyLimit);
         if (counts.isEmpty()) {
             throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS, "今日 AI 提问次数已用完");
         }
@@ -58,31 +52,22 @@ public class AiQuotaService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void release(Reservation reservation) {
-        jdbcTemplate.update(
-                """
+        jdbcTemplate.update("""
                 UPDATE ai_daily_quotas
                 SET question_count = greatest(question_count - 1, 0),
                     updated_at = now()
                 WHERE user_id = ? AND quota_date = ?
-                """,
-                reservation.userId(),
-                reservation.quotaDate()
-        );
+                """, reservation.userId(), reservation.quotaDate());
     }
 
     @Transactional(readOnly = true)
     public int used(UUID userId) {
         LocalDate today = today();
-        Integer count = jdbcTemplate.queryForObject(
-                """
+        Integer count = jdbcTemplate.queryForObject("""
                 SELECT coalesce(max(question_count), 0)
                 FROM ai_daily_quotas
                 WHERE user_id = ? AND quota_date = ?
-                """,
-                Integer.class,
-                userId,
-                today
-        );
+                """, Integer.class, userId, today);
         return count != null ? count : 0;
     }
 
@@ -90,6 +75,5 @@ public class AiQuotaService {
         return LocalDate.now(clock.withZone(QUOTA_ZONE));
     }
 
-    public record Reservation(UUID userId, LocalDate quotaDate, int used) {
-    }
+    public record Reservation(UUID userId, LocalDate quotaDate, int used) {}
 }

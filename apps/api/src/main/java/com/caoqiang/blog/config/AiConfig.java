@@ -2,10 +2,6 @@ package com.caoqiang.blog.config;
 
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.memory.ChatMemoryRepository;
-import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,11 +10,10 @@ import org.springframework.context.annotation.Configuration;
  * <p>
  * 负责构建博客 AI 助手的核心组件：
  * <ul>
- *     <li>会话记忆（{@link ChatMemory}）— 基于滑动窗口保留最近 20 条消息，防止上下文过长</li>
- *     <li>对话客户端（{@link ChatClient}）— 配置系统提示词和记忆顾问</li>
+ *     <li>对话客户端（{@link ChatClient}）— 配置系统提示词</li>
  * </ul>
  * <p>
- * 记忆通过 {@link ChatMemoryRepository} 持久化，支持跨请求恢复对话上下文。
+ * 会话历史从业务消息表按请求读取，避免框架记忆和业务记录双写分叉。
  * <p>
  * 工具（{@code @Tool}）在每次请求时通过 {@code .tools()} 注册，避免循环依赖。
  *
@@ -77,13 +72,12 @@ public class AiConfig {
             """;
 
     public static String systemPrompt(AuthenticatedUser currentUser) {
-        return SYSTEM_PROMPT_TEMPLATE
-                .replace("{{currentUserNickname}}", valueOrFallback(currentUser.nickname(), "未设置昵称"));
+        return SYSTEM_PROMPT_TEMPLATE.replace(
+                "{{currentUserNickname}}", valueOrFallback(currentUser.nickname(), "未设置昵称"));
     }
 
     private static String defaultSystemPrompt() {
-        return SYSTEM_PROMPT_TEMPLATE
-                .replace("{{currentUserNickname}}", "未登录");
+        return SYSTEM_PROMPT_TEMPLATE.replace("{{currentUserNickname}}", "未登录");
     }
 
     private static String valueOrFallback(String value, String fallback) {
@@ -91,33 +85,15 @@ public class AiConfig {
     }
 
     /**
-     * 创建基于消息窗口的会话记忆。
-     *
-     * @param chatMemoryRepository 会话记忆持久化仓库
-     * @return 限制为 20 条消息窗口的 ChatMemory 实例
-     */
-    @Bean
-    public ChatMemory chatMemory(ChatMemoryRepository chatMemoryRepository) {
-        return MessageWindowChatMemory.builder()
-                .chatMemoryRepository(chatMemoryRepository)
-                .maxMessages(20)
-                .build();
-    }
-
-    /**
      * 创建 AI 对话客户端。
      * <p>
-     * 仅配置系统提示词和记忆顾问，工具在请求时动态注册。
+     * 仅配置系统提示词，历史和工具均在请求时动态注册。
      *
      * @param builder    Spring AI 自动配置的 ChatClient 构建器
-     * @param chatMemory 会话记忆实例
      * @return 配置完成的 ChatClient
      */
     @Bean
-    public ChatClient chatClient(ChatClient.Builder builder, ChatMemory chatMemory) {
-        return builder
-                .defaultSystem(defaultSystemPrompt())
-                .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
-                .build();
+    public ChatClient chatClient(ChatClient.Builder builder) {
+        return builder.defaultSystem(defaultSystemPrompt()).build();
     }
 }

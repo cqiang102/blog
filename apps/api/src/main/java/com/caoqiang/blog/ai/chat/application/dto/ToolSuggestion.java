@@ -11,5 +11,4 @@ import java.util.Map;
  * @param description 工具描述
  * @param arguments   工具调用参数
  */
-public record ToolSuggestion(String name, String description, Map<String, Object> arguments) {
-}
+public record ToolSuggestion(String name, String description, Map<String, Object> arguments) {}

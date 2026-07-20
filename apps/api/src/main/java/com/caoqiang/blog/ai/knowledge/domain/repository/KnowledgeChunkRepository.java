@@ -1,5 +1,6 @@
 package com.caoqiang.blog.ai.knowledge.domain.repository;
 
+import com.caoqiang.blog.ai.knowledge.domain.model.FailedEmbeddingChunk;
 import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeChunk;
 import java.util.List;
 import java.util.UUID;
@@ -7,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 知识分块 Repository（含向量相似度查询）。
@@ -47,10 +49,8 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
             ORDER BY kc.embedding <=> CAST(:queryEmbedding AS vector)
             LIMIT :limit
             """, nativeQuery = true)
-    List<Object[]> findSimilarChunks(
-            @Param("queryEmbedding") String queryEmbedding,
-            @Param("limit") int limit
-    );
+    @Transactional(readOnly = true)
+    List<Object[]> findSimilarChunks(@Param("queryEmbedding") String queryEmbedding, @Param("limit") int limit);
 
     /**
      * 获取指定文档的所有分块，按分块序号正序排列。
@@ -84,31 +84,123 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
     @Query("DELETE FROM KnowledgeChunk k WHERE k.contentId = :contentId")
     void deleteByContentId(@Param("contentId") UUID contentId);
 
-    /**
-     * 查询所有嵌入失败的分块（metadata 中包含 embedding_generation_failed 标记）。
-     *
-     * @return 嵌入失败的分块列表
-     */
-    @Query(value = "SELECT * FROM knowledge_chunks WHERE metadata::text LIKE '%embedding_generation_failed%'", nativeQuery = true)
-    List<KnowledgeChunk> findChunksWithFailedEmbedding();
+    @Query(value = """
+                    SELECT id AS id, content AS content
+                    FROM knowledge_chunks
+                    WHERE metadata::text LIKE '%embedding_generation_failed%'
+                    ORDER BY id
+                    LIMIT :limit
+                    """, nativeQuery = true)
+    List<FailedEmbeddingChunk> findFailedEmbeddingCandidates(@Param("limit") int limit);
 
     /**
-     * 查询指定文档中嵌入失败的分块。
-     *
-     * @param docId 文档 ID
-     * @return 该文档中嵌入失败的分块列表
+     * Returns the oldest failed embeddings first. Updating the failure timestamp after a retry
+     * moves that chunk behind failures which have not been attempted recently, so a permanently
+     * failing first page cannot starve later chunks.
      */
-    @Query(value = "SELECT * FROM knowledge_chunks WHERE doc_id = :docId AND metadata::text LIKE '%embedding_generation_failed%'", nativeQuery = true)
-    List<KnowledgeChunk> findChunksWithFailedEmbeddingByDocId(@Param("docId") UUID docId);
+    @Query(value = """
+                    SELECT id AS id, content AS content
+                    FROM knowledge_chunks
+                    WHERE metadata::text LIKE '%embedding_generation_failed%'
+                    ORDER BY COALESCE(metadata ->> 'timestamp', ''), id
+                    LIMIT :limit
+                    """, nativeQuery = true)
+    List<FailedEmbeddingChunk> findFailedEmbeddingCandidatesForScheduledRetry(@Param("limit") int limit);
 
-    /**
-     * 查询指定内容中嵌入失败的分块。
-     *
-     * @param contentId 内容 ID
-     * @return 该内容中嵌入失败的分块列表
-     */
-    @Query(value = "SELECT * FROM knowledge_chunks WHERE content_id = :contentId AND metadata::text LIKE '%embedding_generation_failed%'", nativeQuery = true)
-    List<KnowledgeChunk> findChunksWithFailedEmbeddingByContentId(@Param("contentId") UUID contentId);
+    @Query(value = """
+                    SELECT id AS id, content AS content
+                    FROM knowledge_chunks
+                    WHERE metadata::text LIKE '%embedding_generation_failed%'
+                      AND id > :afterId
+                    ORDER BY id
+                    LIMIT :limit
+                    """, nativeQuery = true)
+    List<FailedEmbeddingChunk> findFailedEmbeddingCandidatesAfter(
+            @Param("afterId") UUID afterId, @Param("limit") int limit);
+
+    /** Finds enabled documents whose latest durable source revision has no corresponding chunks. */
+    @Query(value = """
+                    SELECT document.id
+                    FROM knowledge_docs document
+                    WHERE document.enabled = true
+                      AND COALESCE(BTRIM(document.body), '') <> ''
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM knowledge_chunks chunk
+                          WHERE chunk.doc_id = document.id
+                            AND chunk.created_at >= document.updated_at
+                      )
+                    ORDER BY document.updated_at, document.id
+                    LIMIT :limit
+                    """, nativeQuery = true)
+    List<UUID> findDocumentIdsNeedingIndex(@Param("limit") int limit);
+
+    /** Finds documents whose chunks must be removed because the source is disabled or empty. */
+    @Query(value = """
+                    SELECT document.id
+                    FROM knowledge_docs document
+                    WHERE (document.enabled = false OR COALESCE(BTRIM(document.body), '') = '')
+                      AND EXISTS (
+                          SELECT 1 FROM knowledge_chunks chunk WHERE chunk.doc_id = document.id
+                      )
+                    ORDER BY document.updated_at, document.id
+                    LIMIT :limit
+                    """, nativeQuery = true)
+    List<UUID> findDocumentIdsNeedingIndexDeletion(@Param("limit") int limit);
+
+    /** Finds published contents whose latest durable source revision has no corresponding chunks. */
+    @Query(value = """
+                    SELECT content.id
+                    FROM contents content
+                    WHERE content.status = 'PUBLISHED'
+                      AND content.deleted_at IS NULL
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM knowledge_chunks chunk
+                          WHERE chunk.content_id = content.id
+                            AND chunk.created_at >= content.updated_at
+                      )
+                    ORDER BY content.updated_at, content.id
+                    LIMIT :limit
+                    """, nativeQuery = true)
+    List<UUID> findContentIdsNeedingIndex(@Param("limit") int limit);
+
+    /** Finds chunks whose content is no longer published and therefore must be removed. */
+    @Query(value = """
+                    SELECT content.id
+                    FROM contents content
+                    WHERE (content.status <> 'PUBLISHED' OR content.deleted_at IS NOT NULL)
+                      AND EXISTS (
+                          SELECT 1 FROM knowledge_chunks chunk WHERE chunk.content_id = content.id
+                      )
+                    ORDER BY content.updated_at, content.id
+                    LIMIT :limit
+                    """, nativeQuery = true)
+    List<UUID> findContentIdsNeedingIndexDeletion(@Param("limit") int limit);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+                    UPDATE knowledge_chunks
+                    SET embedding = CAST(:embedding AS vector), metadata = NULL
+                    WHERE id = :id
+                      AND content = :expectedContent
+                      AND metadata::text LIKE '%embedding_generation_failed%'
+                    """, nativeQuery = true)
+    int updateEmbeddingIfContentMatches(
+            @Param("id") UUID id,
+            @Param("expectedContent") String expectedContent,
+            @Param("embedding") String embedding);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+                    UPDATE knowledge_chunks
+                    SET metadata = CAST(:metadata AS jsonb)
+                    WHERE id = :id
+                      AND content = :expectedContent
+                      AND metadata::text LIKE '%embedding_generation_failed%'
+                    """, nativeQuery = true)
+    int updateEmbeddingFailureIfContentMatches(
+            @Param("id") UUID id, @Param("expectedContent") String expectedContent, @Param("metadata") String metadata);
 
     /**
      * 统计总分块数。
@@ -131,6 +223,8 @@ public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunk, 
      *
      * @return 嵌入失败的分块数
      */
-    @Query(value = "SELECT COUNT(*) FROM knowledge_chunks WHERE metadata::text LIKE '%embedding_generation_failed%'", nativeQuery = true)
+    @Query(
+            value = "SELECT COUNT(*) FROM knowledge_chunks WHERE metadata::text LIKE '%embedding_generation_failed%'",
+            nativeQuery = true)
     long countWithFailedEmbedding();
 }

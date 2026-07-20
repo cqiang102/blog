@@ -24,8 +24,10 @@ class AdminAccountInitializerTest {
 
     @Mock
     private UserAccountService userAccountService;
+
     @Mock
     private PasswordEncoder passwordEncoder;
+
     @Mock
     private ApplicationArguments applicationArguments;
 
@@ -33,31 +35,19 @@ class AdminAccountInitializerTest {
     void doesNotResetOrElevateAnExistingAccount() {
         BlogProperties properties = enabledProperties();
         IdentityUser existing = new IdentityUser(
-                UUID.randomUUID(),
-                "admin@example.com",
-                "原昵称",
-                null,
-                null,
-                null,
-                "existing-hash",
-                Role.USER,
-                true
-        );
+                UUID.randomUUID(), "admin@example.com", "原昵称", null, null, null, "existing-hash", Role.USER, true);
         when(userAccountService.findByEmail("admin@example.com")).thenReturn(Optional.of(existing));
-        AdminAccountInitializer initializer = new AdminAccountInitializer(
-                properties,
-                userAccountService,
-                passwordEncoder
-        );
+        AdminAccountInitializer initializer =
+                new AdminAccountInitializer(properties, userAccountService, passwordEncoder);
 
         initializer.run(applicationArguments);
 
         verifyNoInteractions(passwordEncoder);
-        verify(userAccountService, never()).createAdmin(
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString()
-        );
+        verify(userAccountService, never())
+                .createAdmin(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
@@ -65,11 +55,8 @@ class AdminAccountInitializerTest {
         BlogProperties properties = enabledProperties();
         when(userAccountService.findByEmail("admin@example.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("strong-password")).thenReturn("encoded");
-        AdminAccountInitializer initializer = new AdminAccountInitializer(
-                properties,
-                userAccountService,
-                passwordEncoder
-        );
+        AdminAccountInitializer initializer =
+                new AdminAccountInitializer(properties, userAccountService, passwordEncoder);
 
         initializer.run(applicationArguments);
 

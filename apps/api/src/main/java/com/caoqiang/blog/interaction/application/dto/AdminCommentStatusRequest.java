@@ -1,10 +1,6 @@
 package com.caoqiang.blog.interaction.application.dto;
 
-import com.caoqiang.blog.interaction.domain.model.Comment;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
-
 import jakarta.validation.constraints.NotNull;
 
 /**
@@ -21,5 +17,4 @@ import jakarta.validation.constraints.NotNull;
  *
  * @param status 目标评论状态，不能为 null
  */
-public record AdminCommentStatusRequest(@NotNull CommentStatus status) {
-}
+public record AdminCommentStatusRequest(@NotNull CommentStatus status) {}

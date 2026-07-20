@@ -1,12 +1,7 @@
 package com.caoqiang.blog.content.application.dto;
 
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.content.domain.model.MediaAsset;
 import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.Tag;
-
 import java.util.UUID;
 
 /**
@@ -35,8 +30,7 @@ public record MediaAssetResponse(
         /** 高度（像素） */
         Integer height,
         /** 视频时长（秒） */
-        Integer durationSeconds
-) {
+        Integer durationSeconds) {
 
     /**
      * 从 MediaAsset 实体转换为公开响应 DTO。
@@ -54,7 +48,6 @@ public record MediaAssetResponse(
                 mediaAsset.getByteSize(),
                 mediaAsset.getWidth(),
                 mediaAsset.getHeight(),
-                mediaAsset.getDurationSeconds()
-        );
+                mediaAsset.getDurationSeconds());
     }
 }

@@ -3,8 +3,8 @@ package com.caoqiang.blog.audit.application.service;
 import com.caoqiang.blog.audit.application.dto.AuditLogResponse;
 import com.caoqiang.blog.audit.domain.model.AuditLog;
 import com.caoqiang.blog.audit.domain.repository.AuditLogRepository;
-
 import com.caoqiang.blog.shared.response.PageResponse;
+import com.caoqiang.blog.shared.util.PageUtils;
 import com.caoqiang.blog.user.application.api.IdentityUser;
 import com.caoqiang.blog.user.application.api.UserAccountService;
 import jakarta.persistence.criteria.Predicate;
@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -38,12 +37,10 @@ public class AuditLogService {
 
     /** 审计日志数据访问层 */
     private final AuditLogRepository auditLogRepository;
+
     private final UserAccountService userAccountService;
 
-    public AuditLogService(
-            AuditLogRepository auditLogRepository,
-            UserAccountService userAccountService
-    ) {
+    public AuditLogService(AuditLogRepository auditLogRepository, UserAccountService userAccountService) {
         this.auditLogRepository = auditLogRepository;
         this.userAccountService = userAccountService;
     }
@@ -51,7 +48,7 @@ public class AuditLogService {
     /**
      * 记录审计日志（带详情）
      *
-     * @param actor        操作者用户实体
+     * @param actorUserId        操作者用户实体
      * @param action       操作类型（CREATE/UPDATE/DELETE/READ）
      * @param resourceType 资源类型（CONTENT/USER/FRIEND 等）
      * @param resourceId   资源 ID
@@ -66,7 +63,7 @@ public class AuditLogService {
     /**
      * 记录审计日志（不带详情）
      *
-     * @param actor        操作者用户实体
+     * @param actorUserId        操作者用户实体
      * @param action       操作类型（CREATE/UPDATE/DELETE/READ）
      * @param resourceType 资源类型（CONTENT/USER/FRIEND 等）
      * @param resourceId   资源 ID
@@ -87,33 +84,26 @@ public class AuditLogService {
      * @return 审计日志分页响应
      */
     @Transactional(readOnly = true)
-    public PageResponse<AuditLogResponse> list(int page, int size, String action, String resourceType, UUID actorUserId) {
+    public PageResponse<AuditLogResponse> list(
+            int page, int size, String action, String resourceType, UUID actorUserId) {
         Page<AuditLog> result = auditLogRepository.findAll(
                 filters(action, resourceType, actorUserId),
-                PageRequest.of(
-                        Math.max(0, page),
-                        Math.clamp(size, 1, MAX_PAGE_SIZE),
-                        Sort.by(Sort.Direction.DESC, "createdAt")
-                )
-        );
-        Map<UUID, IdentityUser> actors = userAccountService.findByIds(
-                result.getContent().stream()
+                PageUtils.of(page, size, MAX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt")));
+        Map<UUID, IdentityUser> actors = userAccountService
+                .findByIds(result.getContent().stream()
                         .map(AuditLog::getActorUserId)
                         .filter(java.util.Objects::nonNull)
                         .distinct()
-                        .toList()
-        ).stream().collect(java.util.stream.Collectors.toMap(
-                IdentityUser::id,
-                java.util.function.Function.identity()
-        ));
+                        .toList())
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(IdentityUser::id, java.util.function.Function.identity()));
         return new PageResponse<>(
                 result.getContent().stream()
                         .map(log -> AuditLogResponse.from(log, actors.get(log.getActorUserId())))
                         .toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     /**
@@ -132,9 +122,7 @@ public class AuditLogService {
             // 操作类型模糊匹配
             if (action != null && !action.isBlank()) {
                 predicates.add(criteriaBuilder.like(
-                        criteriaBuilder.lower(root.get("action")),
-                        "%" + action.toLowerCase() + "%"
-                ));
+                        criteriaBuilder.lower(root.get("action")), "%" + action.toLowerCase() + "%"));
             }
             // 资源类型精确匹配
             if (resourceType != null && !resourceType.isBlank()) {

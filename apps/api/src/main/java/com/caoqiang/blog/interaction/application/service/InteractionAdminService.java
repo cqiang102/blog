@@ -2,27 +2,17 @@ package com.caoqiang.blog.interaction.application.service;
 
 import com.caoqiang.blog.content.application.api.ContentInteractionService;
 import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
-import com.caoqiang.blog.interaction.application.dto.AdminCommentResponse;
-import com.caoqiang.blog.interaction.application.dto.AdminCommentStatusRequest;
 import com.caoqiang.blog.interaction.application.dto.AdminLikeResponse;
 import com.caoqiang.blog.interaction.application.dto.AdminViewRecordResponse;
-import com.caoqiang.blog.interaction.application.dto.CommentRequest;
-import com.caoqiang.blog.interaction.application.dto.CommentResponse;
-import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
-import com.caoqiang.blog.interaction.application.dto.UserActivityResponse;
-import com.caoqiang.blog.interaction.application.dto.ViewStateResponse;
-import com.caoqiang.blog.interaction.domain.model.Comment;
-import com.caoqiang.blog.interaction.domain.model.CommentStatus;
 import com.caoqiang.blog.interaction.domain.model.Like;
 import com.caoqiang.blog.interaction.domain.model.ViewRecord;
-import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
 import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
 import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
-
+import com.caoqiang.blog.interaction.event.LikeRemovedEvent;
+import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
-import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
-import com.caoqiang.blog.interaction.event.LikeRemovedEvent;
+import com.caoqiang.blog.shared.util.PageUtils;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +53,7 @@ public class InteractionAdminService {
     private final ViewRecordRepository viewRecordRepository;
     /** 内容仓储（用于更新计数） */
     private final ContentInteractionService contentInteractionService;
+
     private final DomainEventPublisher domainEventPublisher;
     private final InteractionReferenceData referenceData;
 
@@ -78,8 +69,7 @@ public class InteractionAdminService {
             ViewRecordRepository viewRecordRepository,
             ContentInteractionService contentInteractionService,
             DomainEventPublisher domainEventPublisher,
-            InteractionReferenceData referenceData
-    ) {
+            InteractionReferenceData referenceData) {
         this.likeRepository = likeRepository;
         this.viewRecordRepository = viewRecordRepository;
         this.contentInteractionService = contentInteractionService;
@@ -101,24 +91,21 @@ public class InteractionAdminService {
      */
     @Transactional(readOnly = true)
     public PageResponse<AdminLikeResponse> likes(int page, int size, UUID contentId, UUID userId) {
-        Page<Like> result = likeRepository.findAll(
-                filters(contentId, userId),
-                pageRequest(page, size)
-        );
+        Page<Like> result = likeRepository.findAll(filters(contentId, userId), pageRequest(page, size));
         Map<UUID, ContentInteractionSnapshot> contents = referenceData.contents(
-                result.getContent().stream().map(Like::getContentId).toList()
-        );
-        var users = referenceData.users(result.getContent().stream().map(Like::getUserId).toList());
+                result.getContent().stream().map(Like::getContentId).toList());
+        var users = referenceData.users(
+                result.getContent().stream().map(Like::getUserId).toList());
         return new PageResponse<>(
-                result.getContent().stream().map(like -> AdminLikeResponse.from(
-                        like,
-                        referenceData.content(contents, like.getContentId()),
-                        referenceData.user(users, like.getUserId())
-                )).toList(),
+                result.getContent().stream()
+                        .map(like -> AdminLikeResponse.from(
+                                like,
+                                referenceData.content(contents, like.getContentId()),
+                                referenceData.user(users, like.getUserId())))
+                        .toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     /**
@@ -131,14 +118,11 @@ public class InteractionAdminService {
      */
     @Transactional
     public void deleteLike(UUID id) {
-        Like like = likeRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "点赞记录不存在"));
+        Like like =
+                likeRepository.findById(id).orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "点赞记录不存在"));
         likeRepository.delete(like);
         contentInteractionService.incrementLikeCount(like.getContentId(), -1);
-        domainEventPublisher.publishEvent(new LikeRemovedEvent(
-                like.getContentId(),
-                like.getUserId()
-        ));
+        domainEventPublisher.publishEvent(new LikeRemovedEvent(like.getContentId(), like.getUserId()));
     }
 
     /**
@@ -155,25 +139,23 @@ public class InteractionAdminService {
      */
     @Transactional(readOnly = true)
     public PageResponse<AdminViewRecordResponse> views(int page, int size, UUID contentId, UUID userId) {
-        Page<ViewRecord> result = viewRecordRepository.findAll(
-                filters(contentId, userId),
-                pageRequest(page, size)
-        );
+        Page<ViewRecord> result = viewRecordRepository.findAll(filters(contentId, userId), pageRequest(page, size));
         Map<UUID, ContentInteractionSnapshot> contents = referenceData.contents(
-                result.getContent().stream().map(ViewRecord::getContentId).toList()
-        );
+                result.getContent().stream().map(ViewRecord::getContentId).toList());
         var users = referenceData.users(result.getContent().stream()
-                .map(ViewRecord::getUserId).filter(java.util.Objects::nonNull).toList());
+                .map(ViewRecord::getUserId)
+                .filter(java.util.Objects::nonNull)
+                .toList());
         return new PageResponse<>(
-                result.getContent().stream().map(view -> AdminViewRecordResponse.from(
-                        view,
-                        referenceData.content(contents, view.getContentId()),
-                        view.getUserId() == null ? null : referenceData.user(users, view.getUserId())
-                )).toList(),
+                result.getContent().stream()
+                        .map(view -> AdminViewRecordResponse.from(
+                                view,
+                                referenceData.content(contents, view.getContentId()),
+                                view.getUserId() == null ? null : referenceData.user(users, view.getUserId())))
+                        .toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     /**
@@ -186,7 +168,8 @@ public class InteractionAdminService {
      */
     @Transactional
     public void deleteView(UUID id) {
-        ViewRecord viewRecord = viewRecordRepository.findById(id)
+        ViewRecord viewRecord = viewRecordRepository
+                .findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "浏览记录不存在"));
         viewRecordRepository.delete(viewRecord);
         contentInteractionService.incrementViewCount(viewRecord.getContentId(), -1);
@@ -224,10 +207,6 @@ public class InteractionAdminService {
      * @return 分页请求对象
      */
     private PageRequest pageRequest(int page, int size) {
-        return PageRequest.of(
-                Math.max(0, page),
-                Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
-                Sort.by(Sort.Direction.DESC, "createdAt")
-        );
+        return PageUtils.of(page, size, MAX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 }

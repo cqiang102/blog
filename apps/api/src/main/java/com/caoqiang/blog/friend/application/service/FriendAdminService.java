@@ -1,11 +1,10 @@
 package com.caoqiang.blog.friend.application.service;
 
-import com.caoqiang.blog.friend.domain.model.Friend;
-import com.caoqiang.blog.friend.domain.repository.FriendRepository;
+import com.caoqiang.blog.content.application.api.ContentMediaService;
 import com.caoqiang.blog.friend.application.dto.FriendRequest;
 import com.caoqiang.blog.friend.application.dto.FriendResponse;
-
-import com.caoqiang.blog.content.application.api.ContentMediaService;
+import com.caoqiang.blog.friend.domain.model.Friend;
+import com.caoqiang.blog.friend.domain.repository.FriendRepository;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.util.List;
 import java.util.UUID;
@@ -32,6 +31,7 @@ public class FriendAdminService {
 
     /** 友链数据访问层 */
     private final FriendRepository friendRepository;
+
     private final ContentMediaService contentMediaService;
 
     public FriendAdminService(FriendRepository friendRepository, ContentMediaService contentMediaService) {
@@ -48,8 +48,7 @@ public class FriendAdminService {
      */
     @Transactional(readOnly = true)
     public List<FriendResponse> list() {
-        return friendRepository.findAllByOrderBySortOrderAscCreatedAtDesc()
-                .stream()
+        return friendRepository.findAllByOrderBySortOrderAscCreatedAtDesc().stream()
                 .map(friend -> FriendResponse.from(friend, contentMediaService::resolveUrl))
                 .toList();
     }
@@ -68,8 +67,7 @@ public class FriendAdminService {
                 clean(request.intro()),
                 request.siteUrl().trim(),
                 request.visible(),
-                request.sortOrder()
-        );
+                request.sortOrder());
         return FriendResponse.from(friendRepository.save(friend), contentMediaService::resolveUrl);
     }
 
@@ -83,16 +81,15 @@ public class FriendAdminService {
      */
     @Transactional
     public FriendResponse update(UUID id, FriendRequest request) {
-        Friend friend = friendRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "朋友不存在"));
+        Friend friend =
+                friendRepository.findById(id).orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "朋友不存在"));
         friend.update(
                 request.name().trim(),
                 contentMediaService.normalizeForPersistence(request.avatarUrl()),
                 clean(request.intro()),
                 request.siteUrl().trim(),
                 request.visible(),
-                request.sortOrder()
-        );
+                request.sortOrder());
         return FriendResponse.from(friend, contentMediaService::resolveUrl);
     }
 

@@ -1,52 +1,38 @@
 package com.caoqiang.blog.content.application.service;
 
-import com.caoqiang.blog.content.application.dto.AdminContentRequest;
 import com.caoqiang.blog.content.application.dto.AdminContentResponse;
 import com.caoqiang.blog.content.application.dto.AdminMediaRequest;
 import com.caoqiang.blog.content.application.dto.AdminMediaResponse;
-import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
-import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
-import com.caoqiang.blog.content.application.dto.MediaAssetResponse;
-import com.caoqiang.blog.content.application.dto.RecommendationResponse;
-import com.caoqiang.blog.content.application.dto.TagRequest;
-import com.caoqiang.blog.content.application.dto.TagResponse;
-import com.caoqiang.blog.content.application.port.MediaStorageProvisioner;
+import com.caoqiang.blog.content.application.port.MediaStorage;
+import com.caoqiang.blog.content.application.port.MediaStorage.StoredObject;
 import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.content.domain.model.MediaAsset;
 import com.caoqiang.blog.content.domain.model.MediaAssetType;
 import com.caoqiang.blog.content.domain.model.MediaReference;
-import com.caoqiang.blog.content.domain.model.Tag;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
 import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
-import com.caoqiang.blog.content.domain.repository.TagRepository;
-
 import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.model.UploadedFile;
 import com.caoqiang.blog.shared.response.PageResponse;
-import java.net.URI;
+import com.caoqiang.blog.shared.util.PageUtils;
+import com.caoqiang.blog.shared.util.TransactionCallbacks;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.Date;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.UUID;
-import org.dromara.x.file.storage.core.FileInfo;
-import org.dromara.x.file.storage.core.FileStorageService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 管理端媒体资源服务。
@@ -55,13 +41,13 @@ import org.springframework.web.multipart.MultipartFile;
  * 核心职责：
  * <ul>
  *   <li>媒体资源列表查询（支持按内容 ID 过滤）</li>
- *   <li>文件上传到对象存储（通过 x-file-storage 统一抽象）</li>
+ *   <li>通过应用层存储端口上传文件</li>
  *   <li>外链媒体资源的创建与管理</li>
- *   <li>媒体资源的更新与删除（删除时同步清理存储中的文件）</li>
+ *   <li>媒体资源更新与事务提交后的存储清理</li>
  *   <li>设置内容封面图</li>
  * </ul>
  * 存储策略：本地上传文件存入配置的平台，外链媒体使用 "external" 伪 bucket。
- * 通过 x-file-storage 抽象层支持 MinIO、AWS S3、阿里云 OSS 等多种存储平台。
+ * 具体存储实现和部署地址由基础设施适配器负责。
  */
 @Service
 public class MediaAdminService {
@@ -71,39 +57,23 @@ public class MediaAdminService {
     /** 最大每页条数 */
     private static final int MAX_PAGE_SIZE = 80;
 
-    /** 外链媒体使用的伪 bucket 名称 */
-    private static final String EXTERNAL_BUCKET = "external";
-
     private final MediaAssetRepository mediaAssetRepository;
     private final ContentRepository contentRepository;
-    private final FileStorageService fileStorageService;
-    private final MediaStorageProvisioner mediaStorageProvisioner;
+    private final MediaStorage mediaStorage;
+    private final MediaAssetWriter mediaAssetWriter;
     private final Clock clock;
-    private final String minioEndpoint;
-    private final String minioPublicEndpoint;
-    private final String bucketName;
-    private final String basePath;
 
     public MediaAdminService(
             MediaAssetRepository mediaAssetRepository,
             ContentRepository contentRepository,
-            FileStorageService fileStorageService,
-            MediaStorageProvisioner mediaStorageProvisioner,
-            Clock clock,
-            @Value("${dromara.x-file-storage.minio[0].end-point:http://localhost:9000}") String minioEndpoint,
-            @Value("${MINIO_PUBLIC_ENDPOINT:}") String minioPublicEndpoint,
-            @Value("${dromara.x-file-storage.minio[0].bucket-name:blog-media}") String bucketName,
-            @Value("${dromara.x-file-storage.minio[0].base-path:uploads/}") String basePath
-    ) {
+            MediaStorage mediaStorage,
+            MediaAssetWriter mediaAssetWriter,
+            Clock clock) {
         this.mediaAssetRepository = mediaAssetRepository;
         this.contentRepository = contentRepository;
-        this.fileStorageService = fileStorageService;
-        this.mediaStorageProvisioner = mediaStorageProvisioner;
+        this.mediaStorage = mediaStorage;
+        this.mediaAssetWriter = mediaAssetWriter;
         this.clock = clock;
-        this.minioEndpoint = minioEndpoint;
-        this.minioPublicEndpoint = minioPublicEndpoint;
-        this.bucketName = bucketName;
-        this.basePath = basePath;
     }
 
     /**
@@ -116,19 +86,14 @@ public class MediaAdminService {
      */
     @Transactional(readOnly = true)
     public PageResponse<AdminMediaResponse> list(UUID contentId, int page, int size) {
-        int safePage = Math.max(0, page);
-        int safeSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
-        PageRequest pageRequest = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        PageRequest pageRequest = PageUtils.of(page, size, MAX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
         if (contentId != null) {
             Page<MediaAsset> result = mediaAssetRepository.findByContentId(contentId, pageRequest);
             return new PageResponse<>(
-                    result.getContent().stream()
-                            .map(AdminMediaResponse::from)
-                            .toList(),
+                    result.getContent().stream().map(AdminMediaResponse::from).toList(),
                     result.getNumber(),
                     result.getSize(),
-                    result.getTotalElements()
-            );
+                    result.getTotalElements());
         }
 
         Page<MediaAsset> result = mediaAssetRepository.findAll(pageRequest);
@@ -136,8 +101,7 @@ public class MediaAdminService {
                 result.getContent().stream().map(AdminMediaResponse::from).toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     /**
@@ -151,46 +115,29 @@ public class MediaAdminService {
      * @return 创建后的媒体资源响应
      * @throws BusinessException 文件为空或上传失败时抛出异常
      */
-    @Transactional
-    public AdminMediaResponse upload(UUID contentId, MediaAssetType type, MultipartFile file) {
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public AdminMediaResponse upload(UUID contentId, MediaAssetType type, UploadedFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "请选择要上传的文件");
         }
 
-        Content content = content(contentId);
-        MediaAssetType mediaType = type == null ? inferType(file.getContentType(), file.getOriginalFilename()) : type;
-        String filename = cleanFilename(file.getOriginalFilename());
-        String contentType = StringUtils.hasText(file.getContentType())
-                ? file.getContentType()
-                : defaultContentType(mediaType);
+        if (contentId != null && !contentRepository.existsById(contentId)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "内容不存在");
+        }
+        MediaAssetType mediaType = type == null ? inferType(file.contentType(), file.originalFilename()) : type;
+        String filename = cleanFilename(file.originalFilename());
+        String contentType =
+                StringUtils.hasText(file.contentType()) ? file.contentType() : defaultContentType(mediaType);
         String path = datePath();
 
-        ensureUploadStorageReady();
-        FileInfo fileInfo = fileStorageService.of(file)
-                .setPath(path)
-                .setSaveFilename(filename)
-                .setContentType(contentType)
-                .upload();
-
-        MediaAsset mediaAsset = new MediaAsset(
-                content,
-                mediaType,
-                fileInfo.getPlatform(),
-                fileInfo.getPath() + fileInfo.getFilename(),
-                null,
-                filename,
-                contentType,
-                file.getSize(),
-                null,
-                null,
-                null
-        );
-        mediaAsset.setPublicUrl(MediaReference.filePath(mediaAsset.getId()));
-        return AdminMediaResponse.from(mediaAssetRepository.save(mediaAsset));
-    }
-
-    public void ensureUploadStorageReady() {
-        mediaStorageProvisioner.ensureReady();
+        StoredObject storedObject = mediaStorage.upload(file, path, filename, contentType);
+        try {
+            return mediaAssetWriter.createUploaded(
+                    contentId, mediaType, storedObject, filename, contentType, file.size());
+        } catch (RuntimeException exception) {
+            deleteQuietly(storedObject, "failed media record creation");
+            throw exception;
+        }
     }
 
     /**
@@ -199,27 +146,21 @@ public class MediaAdminService {
      * @param id 媒体资源 UUID
      * @return 预签名 URL
      */
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String getPresignedUrl(UUID id) {
-        MediaAsset mediaAsset = mediaAssetRepository.findById(id)
+        MediaAsset mediaAsset = mediaAssetRepository
+                .findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "媒体资源不存在"));
 
         // 内部存储媒体：直接生成预签名
-        if (!EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
-            // 使用 objectKey 构建正确的 URL（不依赖可能过时的 publicUrl）
-            String correctUrl = buildCorrectUrl(mediaAsset.getObjectKey());
-            FileInfo fileInfo = buildFileInfo(mediaAsset);
-            fileInfo.setUrl(correctUrl);
-            return generatePresignedUrl(fileInfo, correctUrl);
+        if (!MediaAsset.EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
+            return mediaStorage.presignedUrl(storedObject(mediaAsset), presignedUrlExpiry());
         }
 
         // 外链媒体：尝试用默认平台生成预签名（URL 指向本机 MinIO 的场景）
         String publicUrl = mediaAsset.getPublicUrl();
         if (publicUrl != null) {
-            String presigned = tryPresignExternalUrl(publicUrl);
-            if (presigned != null) {
-                return presigned;
-            }
+            return mediaStorage.presignedUrl(publicUrl, presignedUrlExpiry()).orElse(publicUrl);
         }
         return publicUrl;
     }
@@ -237,6 +178,7 @@ public class MediaAdminService {
      * @param url 媒体 URL（代理路径、直连 URL 或外部 URL）
      * @return 可直接访问的预签名 URL
      */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public String resolveUrl(String url) {
         if (url == null || url.isBlank()) {
             return url;
@@ -244,223 +186,27 @@ public class MediaAdminService {
         String trimmed = url.trim();
 
         // 代理路径：/api/v1/media-assets/{id}/file
-        java.util.Optional<UUID> mediaId = com.caoqiang.blog.content.domain.model.MediaReference.mediaId(trimmed);
+        var mediaId = MediaReference.mediaId(trimmed);
         if (mediaId.isPresent()) {
-            try {
-                return getPresignedUrl(mediaId.get());
-            } catch (Exception e) {
-                log.debug("Failed to presign media {}: {}", mediaId.get(), e.getMessage());
-                return trimmed;
-            }
+            return getPresignedUrl(mediaId.get());
         }
 
         // 当前部署的 MinIO 代理路径或内部 URL
-        String presigned = tryPresignExternalUrl(trimmed);
-        if (presigned != null) {
-            return presigned;
-        }
-
-        // 外部 URL 或无法识别的格式
-        return trimmed;
+        return mediaStorage.presignedUrl(trimmed, presignedUrlExpiry()).orElse(trimmed);
     }
 
     /**
      * 将指向当前 MinIO bucket 的 URL 规范化为稳定代理路径，便于跨服务器迁移。
      */
     public String normalizeStorageUrlForPersistence(String url) {
-        if (url == null || url.isBlank()) {
-            return null;
-        }
-        String trimmed = url.trim();
-        return objectKeyFromStorageUrl(trimmed)
-                .map(this::portableStoragePath)
-                .orElse(trimmed);
+        return mediaStorage.normalizeForPersistence(url);
     }
 
     /**
      * 使用同源 MinIO 代理路径构造稳定地址，不绑定域名、端口或 Docker 内部服务名。
      */
     public String portableStoragePath(String objectKey) {
-        return publicStorageBasePath() + "/" + bucketName + "/" + objectKey.replaceAll("^/+", "");
-    }
-
-    /**
-     * 为外链 URL 生成预签名。
-     * 如果 URL 指向本机 MinIO，提取路径后用默认平台生成预签名。
-     */
-    private String tryPresignExternalUrl(String url) {
-        try {
-            Optional<String> objectKey = objectKeyFromStorageUrl(url);
-            if (objectKey.isEmpty()) {
-                return null;
-            }
-
-            String path = objectKey.get();
-            String fileInfoPath = path.startsWith(basePath) ? path.substring(basePath.length()) : path;
-            int lastSlash = fileInfoPath.lastIndexOf('/');
-            if (lastSlash < 0) return null;
-
-            String dir = fileInfoPath.substring(0, lastSlash + 1);
-            String filename = fileInfoPath.substring(lastSlash + 1);
-
-            FileInfo fileInfo = new FileInfo();
-            fileInfo.setPlatform("minio-1");
-            fileInfo.setPath(dir);
-            fileInfo.setFilename(filename);
-            fileInfo.setUrl(buildCorrectUrl(objectKey.get()));
-
-            String presigned = generatePresignedUrl(fileInfo, portableStoragePath(objectKey.get()));
-            log.debug("Presigned external URL: {} -> {}", url, presigned);
-            return presigned;
-        } catch (Exception e) {
-            log.debug("Failed to presign external URL: {}", url, e);
-            return null;
-        }
-    }
-
-    private String generatePresignedUrl(FileInfo fileInfo, String fallbackUrl) {
-        LocalDateTime expiry = LocalDateTime.now(clock).plusDays(7);
-        Date expiryDate = Date.from(expiry.atZone(ZoneId.systemDefault()).toInstant());
-        String url = fileStorageService.generatePresignedUrl(fileInfo, expiryDate);
-        if (url == null) {
-            log.warn("generatePresignedUrl returned null, platform={}, path={}, filename={}",
-                    fileInfo.getPlatform(), fileInfo.getPath(), fileInfo.getFilename());
-        }
-        return url != null ? publicPresignedUrl(url) : fallbackUrl;
-    }
-
-    private String publicPresignedUrl(String signedUrl) {
-        if (!StringUtils.hasText(minioPublicEndpoint)) {
-            return signedUrl;
-        }
-        try {
-            URI signedUri = URI.create(signedUrl);
-            URI endpointUri = URI.create(minioEndpoint);
-            if (!equalsIgnoreCase(signedUri.getHost(), endpointUri.getHost())
-                    || effectivePort(signedUri) != effectivePort(endpointUri)) {
-                return signedUrl;
-            }
-
-            String publicBase = minioPublicEndpoint.replaceAll("/+$", "");
-            String path = signedUri.getRawPath();
-            String query = signedUri.getRawQuery();
-            return publicBase + path + (query == null ? "" : "?" + query);
-        } catch (Exception exception) {
-            log.warn("Unable to rewrite MinIO presigned URL to public endpoint", exception);
-            return signedUrl;
-        }
-    }
-
-    /**
-     * 根据 objectKey 构建正确的 MinIO 公开 URL。
-     * 格式：{endpoint}/{bucketName}/{objectKey}
-     */
-    private String buildCorrectUrl(String objectKey) {
-        return minioEndpoint.replaceAll("/$", "") + "/" + bucketName + "/" + objectKey;
-    }
-
-    private String publicStorageBasePath() {
-        if (!StringUtils.hasText(minioPublicEndpoint)) {
-            return "/minio";
-        }
-        try {
-            String path = URI.create(minioPublicEndpoint).getPath();
-            if (!StringUtils.hasText(path) || "/".equals(path)) {
-                return "";
-            }
-            return "/" + path.replaceAll("^/+", "").replaceAll("/+$", "");
-        } catch (IllegalArgumentException ignored) {
-            return "/minio";
-        }
-    }
-
-    private Optional<String> objectKeyFromStorageUrl(String url) {
-        try {
-            URI uri = URI.create(url);
-            String path = uri.getPath();
-            if (!StringUtils.hasText(path)) {
-                return Optional.empty();
-            }
-            if (path.startsWith("/")) {
-                path = path.substring(1);
-            }
-            if (!isConfiguredStorageUrl(uri, path)) {
-                return Optional.empty();
-            }
-            String bucketPrefix = bucketName + "/";
-            int bucketIndex = path.indexOf(bucketPrefix);
-            if (bucketIndex < 0) {
-                return Optional.empty();
-            }
-            String objectKey = path.substring(bucketIndex + bucketPrefix.length());
-            return StringUtils.hasText(objectKey) ? Optional.of(objectKey) : Optional.empty();
-        } catch (IllegalArgumentException ignored) {
-            return Optional.empty();
-        }
-    }
-
-    private boolean isConfiguredStorageUrl(URI uri, String normalizedPath) {
-        try {
-            URI endpointUri = URI.create(minioEndpoint);
-            if (equalsIgnoreCase(uri.getHost(), endpointUri.getHost())
-                    && effectivePort(uri) == effectivePort(endpointUri)) {
-                return true;
-            }
-        } catch (IllegalArgumentException ignored) {
-            // Continue with public endpoint checks.
-        }
-
-        if (isStablePublicStoragePath(normalizedPath)) {
-            return true;
-        }
-
-        if (!StringUtils.hasText(minioPublicEndpoint)) {
-            return false;
-        }
-
-        try {
-            URI publicUri = URI.create(minioPublicEndpoint);
-            String publicPath = publicUri.getPath();
-            if (publicPath.startsWith("/")) {
-                publicPath = publicPath.substring(1);
-            }
-            publicPath = publicPath.replaceAll("/+$", "");
-            boolean pathMatches = publicPath.isEmpty()
-                    || normalizedPath.equals(publicPath)
-                    || normalizedPath.startsWith(publicPath + "/");
-            if (!pathMatches) {
-                return false;
-            }
-            if (uri.getHost() == null) {
-                return true;
-            }
-            return equalsIgnoreCase(uri.getHost(), publicUri.getHost())
-                    && effectivePort(uri) == effectivePort(publicUri);
-        } catch (IllegalArgumentException ignored) {
-            return false;
-        }
-    }
-
-    private boolean isStablePublicStoragePath(String normalizedPath) {
-        String storageBasePath = publicStorageBasePath();
-        if (!StringUtils.hasText(storageBasePath)) {
-            return false;
-        }
-        String normalizedBasePath = storageBasePath.replaceAll("^/+", "").replaceAll("/+$", "");
-        return StringUtils.hasText(normalizedBasePath)
-                && (normalizedPath.equals(normalizedBasePath)
-                || normalizedPath.startsWith(normalizedBasePath + "/"));
-    }
-
-    private static boolean equalsIgnoreCase(String a, String b) {
-        return a != null && b != null && a.equalsIgnoreCase(b);
-    }
-
-    private static int effectivePort(URI uri) {
-        if (uri.getPort() > 0) {
-            return uri.getPort();
-        }
-        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+        return mediaStorage.portablePath(objectKey);
     }
 
     /**
@@ -475,7 +221,7 @@ public class MediaAdminService {
         MediaAsset mediaAsset = new MediaAsset(
                 content,
                 request.type() == null ? MediaAssetType.IMAGE : request.type(),
-                EXTERNAL_BUCKET,
+                MediaAsset.EXTERNAL_BUCKET,
                 "external/" + UUID.randomUUID(),
                 cleanRequired(request.publicUrl(), "媒体 URL 不能为空"),
                 clean(request.filename()),
@@ -483,8 +229,7 @@ public class MediaAdminService {
                 request.byteSize(),
                 request.width(),
                 request.height(),
-                request.durationSeconds()
-        );
+                request.durationSeconds());
         return AdminMediaResponse.from(mediaAssetRepository.save(mediaAsset));
     }
 
@@ -500,7 +245,8 @@ public class MediaAdminService {
      */
     @Transactional
     public AdminMediaResponse update(UUID id, AdminMediaRequest request) {
-        MediaAsset mediaAsset = mediaAssetRepository.findById(id)
+        MediaAsset mediaAsset = mediaAssetRepository
+                .findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "媒体资源不存在"));
         Content oldContent = mediaAsset.getContent();
         Content content = content(request.contentId());
@@ -521,29 +267,34 @@ public class MediaAdminService {
                 request.byteSize(),
                 request.width(),
                 request.height(),
-                request.durationSeconds()
-        );
+                request.durationSeconds());
         return AdminMediaResponse.from(mediaAsset);
     }
 
     /**
      * 删除媒体资源。
      * <p>
-     * 同步清理：若该媒体是某内容的封面则清除封面引用，从存储中删除实际文件。
+     * 若该媒体是某内容的封面则清除封面引用，并在数据库事务提交后删除实际文件。
      *
      * @param id 媒体资源 UUID
      * @throws BusinessException 媒体不存在时抛出 404
      */
     @Transactional
     public void delete(UUID id) {
-        MediaAsset mediaAsset = mediaAssetRepository.findById(id)
+        MediaAsset mediaAsset = mediaAssetRepository
+                .findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "媒体资源不存在"));
         Content content = mediaAsset.getContent();
-        if (content != null && content.getCoverMedia() != null && content.getCoverMedia().getId().equals(id)) {
+        if (content != null
+                && content.getCoverMedia() != null
+                && content.getCoverMedia().getId().equals(id)) {
             content.setCoverMedia(null);
         }
-        removeFromStorage(mediaAsset);
         mediaAssetRepository.delete(mediaAsset);
+        if (!MediaAsset.EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
+            StoredObject storedObject = storedObject(mediaAsset);
+            TransactionCallbacks.afterCommit(() -> deleteQuietly(storedObject, "committed media deletion"));
+        }
     }
 
     /**
@@ -556,22 +307,25 @@ public class MediaAdminService {
      */
     @Transactional
     public AdminContentResponse setCover(UUID contentId, UUID mediaId) {
-        Content content = contentRepository.findById(contentId)
+        Content content = contentRepository
+                .findById(contentId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
-        MediaAsset mediaAsset = mediaAssetRepository.findById(mediaId)
+        MediaAsset mediaAsset = mediaAssetRepository
+                .findById(mediaId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "媒体资源不存在"));
         if (mediaAsset.getContent() == null || !mediaAsset.getContent().getId().equals(contentId)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "封面媒体必须属于当前内容");
         }
         content.setCoverMedia(mediaAsset);
-        return AdminContentResponse.from(content, this);
+        return AdminContentResponse.from(content);
     }
 
     private Content content(UUID contentId) {
         if (contentId == null) {
             return null;
         }
-        return contentRepository.findById(contentId)
+        return contentRepository
+                .findById(contentId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
     }
 
@@ -586,31 +340,25 @@ public class MediaAdminService {
         return value.trim();
     }
 
-    /**
-     * 从对象存储中删除文件。外链媒体无需删除。
-     */
-    private void removeFromStorage(MediaAsset mediaAsset) {
-        if (EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
-            return;
-        }
+    private void deleteQuietly(StoredObject storedObject, String reason) {
         try {
-            FileInfo fileInfo = buildFileInfo(mediaAsset);
-            fileStorageService.delete(fileInfo);
+            mediaStorage.delete(storedObject);
         } catch (Exception exception) {
-            throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR, "删除媒体文件失败");
+            log.error(
+                    "Failed to clean up stored media after {}: platform={}, objectKey={}",
+                    reason,
+                    storedObject.platform(),
+                    storedObject.objectKey(),
+                    exception);
         }
     }
 
-    /**
-     * 根据 MediaAsset 构建 FileInfo，用于 x-file-storage 操作。
-     */
-    private FileInfo buildFileInfo(MediaAsset mediaAsset) {
-        FileInfo fileInfo = new FileInfo();
-        fileInfo.setPlatform(mediaAsset.getBucket());
-        fileInfo.setPath(mediaAsset.getObjectKey().substring(0, mediaAsset.getObjectKey().lastIndexOf('/') + 1));
-        fileInfo.setFilename(mediaAsset.getObjectKey().substring(mediaAsset.getObjectKey().lastIndexOf('/') + 1));
-        fileInfo.setUrl(mediaAsset.getPublicUrl());
-        return fileInfo;
+    private StoredObject storedObject(MediaAsset mediaAsset) {
+        return new StoredObject(mediaAsset.getBucket(), mediaAsset.getObjectKey());
+    }
+
+    private Instant presignedUrlExpiry() {
+        return clock.instant().plus(Duration.ofDays(7));
     }
 
     /**

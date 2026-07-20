@@ -7,7 +7,6 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import java.util.UUID;
 
 /**
  * 友链实体
@@ -60,8 +59,7 @@ public class Friend extends AggregateRoot {
     private Instant updatedAt;
 
     /** JPA 保护构造函数 */
-    protected Friend() {
-    }
+    protected Friend() {}
 
     /**
      * 创建友链

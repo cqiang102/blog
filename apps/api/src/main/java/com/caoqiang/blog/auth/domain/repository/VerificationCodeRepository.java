@@ -1,7 +1,6 @@
 package com.caoqiang.blog.auth.domain.repository;
 
 import com.caoqiang.blog.auth.domain.model.VerificationCode;
-
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

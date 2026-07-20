@@ -2,33 +2,31 @@ package com.caoqiang.blog.auth.infrastructure.web;
 
 import com.caoqiang.blog.auth.application.dto.AuthTokenResponse;
 import com.caoqiang.blog.auth.application.dto.IssuedAuthSession;
-import com.caoqiang.blog.auth.application.dto.OAuthExchangeRequest;
-import com.caoqiang.blog.auth.application.dto.OAuthProvidersResponse;
 import com.caoqiang.blog.auth.application.dto.LoginRequest;
+import com.caoqiang.blog.auth.application.dto.OAuthProvidersResponse;
 import com.caoqiang.blog.auth.application.dto.RegisterRequest;
 import com.caoqiang.blog.auth.application.dto.SendCodeRequest;
-import com.caoqiang.blog.auth.domain.model.VerificationCode;
-import com.caoqiang.blog.auth.domain.model.OAuthProvider;
+import com.caoqiang.blog.auth.application.port.GithubOAuthClient;
 import com.caoqiang.blog.auth.application.service.AuthService;
-import com.caoqiang.blog.auth.application.service.JwtService;
-import com.caoqiang.blog.auth.application.service.OAuthLoginCodeService;
+import com.caoqiang.blog.auth.application.service.OAuthStateService;
 import com.caoqiang.blog.auth.application.service.VerificationService;
-import com.caoqiang.blog.shared.util.EmailNormalizer;
-
+import com.caoqiang.blog.auth.domain.model.OAuthProvider;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.ApiResponse;
+import com.caoqiang.blog.shared.util.EmailNormalizer;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * 认证 REST 控制器
@@ -53,28 +51,28 @@ public class AuthController {
     private final AuthService authService;
     /** 验证码服务，处理邮箱验证码的发送和校验 */
     private final VerificationService verificationService;
-    private final JwtService jwtService;
-    private final OAuthLoginCodeService oAuthLoginCodeService;
+
+    private final OAuthStateService oAuthStateService;
+    private final OAuthStateCookieService oAuthStateCookieService;
     private final RefreshTokenCookieService refreshTokenCookieService;
-    /** GitHub OAuth 客户端 ID */
-    private final String clientId;
+    private final GithubOAuthClient githubOAuthClient;
     /** 前端基础地址 */
     private final String frontendBaseUrl;
 
     public AuthController(
             AuthService authService,
             VerificationService verificationService,
-            JwtService jwtService,
-            OAuthLoginCodeService oAuthLoginCodeService,
+            OAuthStateService oAuthStateService,
+            OAuthStateCookieService oAuthStateCookieService,
             RefreshTokenCookieService refreshTokenCookieService,
-            @Value("${blog.oauth.github.client-id:}") String clientId,
+            GithubOAuthClient githubOAuthClient,
             @Value("${blog.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
         this.authService = authService;
         this.verificationService = verificationService;
-        this.jwtService = jwtService;
-        this.oAuthLoginCodeService = oAuthLoginCodeService;
+        this.oAuthStateService = oAuthStateService;
+        this.oAuthStateCookieService = oAuthStateCookieService;
         this.refreshTokenCookieService = refreshTokenCookieService;
-        this.clientId = clientId;
+        this.githubOAuthClient = githubOAuthClient;
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
@@ -100,8 +98,7 @@ public class AuthController {
      */
     @PostMapping("/register")
     public ApiResponse<AuthTokenResponse> register(
-            @Valid @RequestBody RegisterRequest request,
-            HttpServletResponse response) {
+            @Valid @RequestBody RegisterRequest request, HttpServletResponse response) {
         return sessionResponse(authService.register(request), response);
     }
 
@@ -114,8 +111,7 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ApiResponse<AuthTokenResponse> login(
-            @Valid @RequestBody LoginRequest request,
-            HttpServletResponse response) {
+            @Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         return sessionResponse(authService.login(request), response);
     }
 
@@ -148,17 +144,7 @@ public class AuthController {
         return ApiResponse.ok(null);
     }
 
-    @PostMapping("/oauth/exchange")
-    public ApiResponse<AuthTokenResponse> exchangeOAuthLogin(
-            @Valid @RequestBody OAuthExchangeRequest request,
-            HttpServletResponse response
-    ) {
-        return sessionResponse(oAuthLoginCodeService.consume(request.code()), response);
-    }
-
-    private ApiResponse<AuthTokenResponse> sessionResponse(
-            IssuedAuthSession session,
-            HttpServletResponse response) {
+    private ApiResponse<AuthTokenResponse> sessionResponse(IssuedAuthSession session, HttpServletResponse response) {
         refreshTokenCookieService.write(response, session.refreshToken());
         return ApiResponse.ok(session.toResponse());
     }
@@ -170,21 +156,13 @@ public class AuthController {
      * @return OAuth 提供者信息
      */
     @GetMapping("/providers")
-    public ApiResponse<OAuthProvidersResponse> providers() {
+    public ApiResponse<OAuthProvidersResponse> providers(HttpServletRequest request, HttpServletResponse response) {
+        String browserId = oAuthStateCookieService.resolveOrCreate(request, response);
+        String state = oAuthStateService.createLoginState(browserId);
         String callbackUrl = frontendBaseUrl + "/login/oauth2/code/github";
-        String githubLoginUrl = UriComponentsBuilder
-                .fromUriString("https://github.com/login/oauth/authorize")
-                .queryParam("client_id", clientId)
-                .queryParam("redirect_uri", callbackUrl)
-                .queryParam("scope", "read:user,user:email")
-                .queryParam("state", jwtService.createOAuthLoginState())
-                .build()
-                .encode()
-                .toUriString();
-        return ApiResponse.ok(new OAuthProvidersResponse(
-                List.of(OAuthProvider.GITHUB),
-                List.of(OAuthProvider.QQ),
-                githubLoginUrl
-        ));
+        String githubLoginUrl = githubOAuthClient.authorizationUrl(callbackUrl, state);
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+        return ApiResponse.ok(
+                new OAuthProvidersResponse(List.of(OAuthProvider.GITHUB), List.of(OAuthProvider.QQ), githubLoginUrl));
     }
 }

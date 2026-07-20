@@ -2,17 +2,17 @@ package com.caoqiang.blog.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.any;
 
 import com.caoqiang.blog.ai.chat.application.dto.AdminAiChatDetailResponse;
+import com.caoqiang.blog.ai.chat.application.service.AiChatAdminService;
 import com.caoqiang.blog.ai.chat.domain.model.AiChatMessage;
 import com.caoqiang.blog.ai.chat.domain.model.AiChatSession;
 import com.caoqiang.blog.ai.chat.domain.model.AiMessageRole;
-import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
 import com.caoqiang.blog.ai.chat.domain.repository.AiChatMessageRepository;
-import com.caoqiang.blog.ai.chat.application.service.AiChatAdminService;
+import com.caoqiang.blog.ai.chat.domain.repository.AiChatSessionRepository;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.user.application.api.IdentityUser;
@@ -22,12 +22,13 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
 class AiChatAdminServiceTest {
@@ -72,10 +73,8 @@ class AiChatAdminServiceTest {
         AiChatSession session = new AiChatSession(user.id(), "身份查询");
         AiChatAdminService service = service();
         when(userAccountService.findIdsMatchingIdentity("reader")).thenReturn(List.of(user.id()));
-        when(sessionRepository.findAll(
-                any(Specification.class),
-                any(Pageable.class)
-        )).thenReturn(new PageImpl<>(List.of(session)));
+        when(sessionRepository.findAll(ArgumentMatchers.<Specification<AiChatSession>>any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(session)));
         when(userAccountService.findByIds(List.of(user.id()))).thenReturn(List.of(user));
         when(messageRepository.findFirstBySessionIdOrderByCreatedAtDesc(session.getId()))
                 .thenReturn(Optional.empty());
@@ -97,11 +96,10 @@ class AiChatAdminServiceTest {
         AiChatAdminService service = service();
         when(sessionRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.delete(id))
-                .isInstanceOfSatisfying(BusinessException.class, error -> {
-                    assertThat(error.status()).isEqualTo(HttpStatus.NOT_FOUND);
-                    assertThat(error.getMessage()).isEqualTo("AI 会话不存在");
-                });
+        assertThatThrownBy(() -> service.delete(id)).isInstanceOfSatisfying(BusinessException.class, error -> {
+            assertThat(error.status()).isEqualTo(HttpStatus.NOT_FOUND);
+            assertThat(error.getMessage()).isEqualTo("AI 会话不存在");
+        });
     }
 
     @Test
@@ -123,15 +121,6 @@ class AiChatAdminServiceTest {
 
     private IdentityUser user() {
         return new IdentityUser(
-                UUID.randomUUID(),
-                "reader@example.com",
-                "读者",
-                null,
-                null,
-                null,
-                "hash",
-                Role.USER,
-                true
-        );
+                UUID.randomUUID(), "reader@example.com", "读者", null, null, null, "hash", Role.USER, true);
     }
 }

@@ -67,8 +67,7 @@ public class Comment extends AggregateRoot {
     /**
      * JPA 受保护的无参构造函数
      */
-    protected Comment() {
-    }
+    protected Comment() {}
 
     /**
      * 创建评论

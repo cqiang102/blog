@@ -3,7 +3,6 @@ package com.caoqiang.blog.interaction.application.dto;
 import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.domain.model.Like;
 import com.caoqiang.blog.user.application.api.IdentityUser;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -31,8 +30,7 @@ public record AdminLikeResponse(
         UUID userId,
         String userNickname,
         String userEmail,
-        Instant createdAt
-) {
+        Instant createdAt) {
 
     /**
      * 从点赞实体创建管理端响应 DTO
@@ -40,11 +38,7 @@ public record AdminLikeResponse(
      * @param like 点赞实体
      * @return 管理端点赞响应 DTO
      */
-    public static AdminLikeResponse from(
-            Like like,
-            ContentInteractionSnapshot content,
-            IdentityUser user
-    ) {
+    public static AdminLikeResponse from(Like like, ContentInteractionSnapshot content, IdentityUser user) {
         return new AdminLikeResponse(
                 like.getId(),
                 like.getContentId(),
@@ -52,7 +46,6 @@ public record AdminLikeResponse(
                 like.getUserId(),
                 user.nickname(),
                 user.email(),
-                like.getCreatedAt()
-        );
+                like.getCreatedAt());
     }
 }

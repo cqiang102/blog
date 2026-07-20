@@ -4,7 +4,6 @@ import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.domain.model.Comment;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
 import com.caoqiang.blog.user.application.api.IdentityUser;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -32,8 +31,7 @@ public record CommentResponse(
         String body,
         CommentAuthor author,
         CommentStatus auditStatus,
-        Instant createdAt
-) {
+        Instant createdAt) {
 
     /**
      * 从评论实体创建响应 DTO
@@ -42,24 +40,15 @@ public record CommentResponse(
      * @return 评论响应 DTO
      */
     public static CommentResponse from(
-            Comment comment,
-            ContentInteractionSnapshot content,
-            IdentityUser author,
-            String presignedAvatarUrl
-    ) {
+            Comment comment, ContentInteractionSnapshot content, IdentityUser author, String presignedAvatarUrl) {
         return new CommentResponse(
                 comment.getId(),
                 comment.getContentId(),
                 content.title(),
                 comment.getBody(),
-                new CommentAuthor(
-                        comment.getUserId(),
-                        author.nickname(),
-                        presignedAvatarUrl
-                ),
+                new CommentAuthor(comment.getUserId(), author.nickname(), presignedAvatarUrl),
                 comment.getAuditStatus(),
-                comment.getCreatedAt()
-        );
+                comment.getCreatedAt());
     }
 
     /**
@@ -69,6 +58,5 @@ public record CommentResponse(
      * @param nickname  用户昵称
      * @param avatarUrl 用户头像 URL
      */
-    public record CommentAuthor(UUID id, String nickname, String avatarUrl) {
-    }
+    public record CommentAuthor(UUID id, String nickname, String avatarUrl) {}
 }

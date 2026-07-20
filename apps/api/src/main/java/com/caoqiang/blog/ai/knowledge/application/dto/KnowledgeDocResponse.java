@@ -27,8 +27,7 @@ public record KnowledgeDocResponse(
         String body,
         boolean enabled,
         Instant createdAt,
-        Instant updatedAt
-) {
+        Instant updatedAt) {
 
     /**
      * 从文档实体创建响应 DTO
@@ -45,7 +44,6 @@ public record KnowledgeDocResponse(
                 doc.getBody(),
                 doc.isEnabled(),
                 doc.getCreatedAt(),
-                doc.getUpdatedAt()
-        );
+                doc.getUpdatedAt());
     }
 }

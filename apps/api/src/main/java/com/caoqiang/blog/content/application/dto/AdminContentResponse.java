@@ -1,16 +1,12 @@
 package com.caoqiang.blog.content.application.dto;
 
-import com.caoqiang.blog.content.application.service.MediaAdminService;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAsset;
 import com.caoqiang.blog.content.domain.model.MediaReference;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Function;
 
 /**
  * 管理端内容响应 DTO。
@@ -18,7 +14,7 @@ import java.util.function.Function;
  * 用于管理端内容列表和详情的响应封装，包含完整的管理所需字段。
  * 相比公开接口的 {@link ContentSummaryResponse}，额外包含 bodyMarkdown、status、计数详情等。
  * <p>
- * 通过静态工厂方法从实体转换，支持直接返回预签名 URL。
+ * 通过静态工厂方法从实体转换，媒体字段使用稳定的同源代理路径。
  */
 public record AdminContentResponse(
         /** 内容 UUID */
@@ -39,11 +35,11 @@ public record AdminContentResponse(
         boolean pinned,
         /** 封面媒体 UUID（可为 null） */
         UUID coverMediaId,
-        /** 封面图 URL（预签名） */
+        /** 封面图稳定代理路径 */
         String coverUrl,
         /** 关联媒体资源数量 */
         int mediaCount,
-        /** 媒体资源 URL 列表（预签名） */
+        /** 媒体资源稳定代理路径列表 */
         List<String> mediaUrls,
         /** 点赞数 */
         long likeCount,
@@ -56,54 +52,9 @@ public record AdminContentResponse(
         /** 逻辑删除时间，null 表示未删除 */
         Instant deletedAt,
         /** 关联标签列表 */
-        List<TagResponse> tags
-) {
+        List<TagResponse> tags) {
 
-    /**
-     * 从 Content 实体转换为管理端响应 DTO（返回预签名 URL）。
-     *
-     * @param content           内容实体
-     * @param mediaAdminService 媒体服务，用于生成预签名 URL
-     * @return 管理端内容响应
-     */
-    public static AdminContentResponse from(Content content, MediaAdminService mediaAdminService) {
-        Function<UUID, String> presignUrl = mediaId -> {
-            try {
-                return mediaAdminService.getPresignedUrl(mediaId);
-            } catch (Exception e) {
-                return MediaReference.filePath(mediaId);
-            }
-        };
-        return new AdminContentResponse(
-                content.getId(),
-                content.getTitle(),
-                content.getSlug(),
-                content.getType(),
-                content.getStatus(),
-                content.getSummary(),
-                MediaReference.normalizeMarkdown(
-                        content.getBodyMarkdown(),
-                        content.getMediaAssets()
-                ),
-                content.isPinned(),
-                content.getCoverMedia() == null ? null : content.getCoverMedia().getId(),
-                coverUrl(content, presignUrl),
-                content.getMediaAssets().size(),
-                content.getMediaAssets().stream()
-                        .map(media -> presignUrl.apply(media.getId()))
-                        .toList(),
-                content.getLikeCount(),
-                content.getViewCount(),
-                content.getCommentCount(),
-                content.getPublishedAt(),
-                content.getDeletedAt(),
-                content.getTags().stream().map(TagResponse::from).toList()
-        );
-    }
-
-    /**
-     * 从 Content 实体转换为管理端响应 DTO（返回代理路径，兼容旧调用）。
-     */
+    /** 从 Content 实体转换为管理端响应 DTO。 */
     public static AdminContentResponse from(Content content) {
         return new AdminContentResponse(
                 content.getId(),
@@ -112,13 +63,12 @@ public record AdminContentResponse(
                 content.getType(),
                 content.getStatus(),
                 content.getSummary(),
-                MediaReference.normalizeMarkdown(
-                        content.getBodyMarkdown(),
-                        content.getMediaAssets()
-                ),
+                MediaReference.normalizeMarkdown(content.getBodyMarkdown(), content.getMediaAssets()),
                 content.isPinned(),
                 content.getCoverMedia() == null ? null : content.getCoverMedia().getId(),
-                coverUrl(content, MediaReference::filePath),
+                content.getCoverMedia() == null
+                        ? null
+                        : MediaReference.filePath(content.getCoverMedia().getId()),
                 content.getMediaAssets().size(),
                 content.getMediaAssets().stream()
                         .map(media -> MediaReference.filePath(media.getId()))
@@ -128,14 +78,6 @@ public record AdminContentResponse(
                 content.getCommentCount(),
                 content.getPublishedAt(),
                 content.getDeletedAt(),
-                content.getTags().stream().map(TagResponse::from).toList()
-        );
-    }
-
-    private static String coverUrl(Content content, Function<UUID, String> urlResolver) {
-        if (content.getCoverMedia() != null) {
-            return urlResolver.apply(content.getCoverMedia().getId());
-        }
-        return null;
+                content.getTags().stream().map(TagResponse::from).toList());
     }
 }

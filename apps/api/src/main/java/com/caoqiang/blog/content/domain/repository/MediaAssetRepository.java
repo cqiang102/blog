@@ -1,12 +1,6 @@
 package com.caoqiang.blog.content.domain.repository;
 
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.Tag;
-
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;

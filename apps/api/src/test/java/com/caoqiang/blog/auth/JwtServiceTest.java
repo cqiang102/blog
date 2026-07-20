@@ -1,11 +1,10 @@
 package com.caoqiang.blog.auth;
 
-import com.caoqiang.blog.auth.application.service.JwtService;
-import com.caoqiang.blog.auth.application.dto.JwtClaims;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.caoqiang.blog.auth.application.dto.JwtClaims;
+import com.caoqiang.blog.auth.application.service.JwtService;
 import com.caoqiang.blog.config.BlogProperties;
 import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.user.application.api.IdentityUser;
@@ -39,23 +38,13 @@ class JwtServiceTest {
         JwtService jwtService = jwtService(Clock.fixed(NOW, ZoneOffset.UTC), 30);
         IdentityUser user = identityUser();
         String token = jwtService.createAccessToken(user).value();
+        int signatureStart = token.lastIndexOf('.') + 1;
+        char original = token.charAt(signatureStart);
+        StringBuilder tamperedToken = new StringBuilder(token);
+        tamperedToken.setCharAt(signatureStart, original == 'A' ? 'B' : 'A');
 
-        assertThatThrownBy(() -> jwtService.parseAccessToken(token.substring(0, token.length() - 2) + "xx"))
+        assertThatThrownBy(() -> jwtService.parseAccessToken(tamperedToken.toString()))
                 .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void validatesOnlyUnexpiredOAuthLoginState() {
-        JwtService issuer = jwtService(Clock.fixed(NOW, ZoneOffset.UTC), 30);
-        String state = issuer.createOAuthLoginState();
-
-        assertThat(issuer.isValidOAuthLoginState(state)).isTrue();
-
-        JwtService expiredValidator = jwtService(
-                Clock.fixed(NOW.plusSeconds(301), ZoneOffset.UTC),
-                30
-        );
-        assertThat(expiredValidator.isValidOAuthLoginState(state)).isFalse();
     }
 
     private JwtService jwtService(Clock clock, int accessTokenMinutes) {
@@ -66,16 +55,6 @@ class JwtServiceTest {
     }
 
     private IdentityUser identityUser() {
-        return new IdentityUser(
-                UUID.randomUUID(),
-                "me@example.com",
-                "站长",
-                null,
-                null,
-                null,
-                "hash",
-                Role.USER,
-                true
-        );
+        return new IdentityUser(UUID.randomUUID(), "me@example.com", "站长", null, null, null, "hash", Role.USER, true);
     }
 }

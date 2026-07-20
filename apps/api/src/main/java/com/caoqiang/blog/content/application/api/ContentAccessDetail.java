@@ -10,6 +10,4 @@ public record ContentAccessDetail(
         String type,
         long likeCount,
         long viewCount,
-        long commentCount
-) {
-}
+        long commentCount) {}

@@ -1,7 +1,6 @@
 package com.caoqiang.blog.friend.domain.repository;
 
 import com.caoqiang.blog.friend.domain.model.Friend;
-
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

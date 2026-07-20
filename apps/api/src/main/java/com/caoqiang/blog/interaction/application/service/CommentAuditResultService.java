@@ -15,9 +15,7 @@ public class CommentAuditResultService {
     private final ContentInteractionService contentInteractionService;
 
     public CommentAuditResultService(
-            CommentRepository commentRepository,
-            ContentInteractionService contentInteractionService
-    ) {
+            CommentRepository commentRepository, ContentInteractionService contentInteractionService) {
         this.commentRepository = commentRepository;
         this.contentInteractionService = contentInteractionService;
     }

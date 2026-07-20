@@ -1,12 +1,6 @@
 package com.caoqiang.blog.content.application.dto;
 
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
 import com.caoqiang.blog.content.domain.model.Tag;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -29,8 +23,7 @@ public record TagResponse(
         /** 创建时间 */
         Instant createdAt,
         /** 最后更新时间 */
-        Instant updatedAt
-) {
+        Instant updatedAt) {
 
     /**
      * 从 Tag 实体转换为响应 DTO。
@@ -45,7 +38,6 @@ public record TagResponse(
                 tag.getSlug(),
                 tag.getDescription(),
                 tag.getCreatedAt(),
-                tag.getUpdatedAt()
-        );
+                tag.getUpdatedAt());
     }
 }

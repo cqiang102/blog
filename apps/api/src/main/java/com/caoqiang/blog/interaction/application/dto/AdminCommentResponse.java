@@ -4,7 +4,6 @@ import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.domain.model.Comment;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
 import com.caoqiang.blog.user.application.api.IdentityUser;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -43,8 +42,7 @@ public record AdminCommentResponse(
         CommentStatus status,
         String body,
         Instant createdAt,
-        Instant updatedAt
-) {
+        Instant updatedAt) {
 
     /**
      * 从评论实体创建管理端响应 DTO
@@ -52,11 +50,7 @@ public record AdminCommentResponse(
      * @param comment 评论实体
      * @return 管理端评论响应 DTO
      */
-    public static AdminCommentResponse from(
-            Comment comment,
-            ContentInteractionSnapshot content,
-            IdentityUser user
-    ) {
+    public static AdminCommentResponse from(Comment comment, ContentInteractionSnapshot content, IdentityUser user) {
         return new AdminCommentResponse(
                 comment.getId(),
                 comment.getContentId(),
@@ -67,7 +61,6 @@ public record AdminCommentResponse(
                 comment.getStatus(),
                 comment.getBody(),
                 comment.getCreatedAt(),
-                comment.getUpdatedAt()
-        );
+                comment.getUpdatedAt());
     }
 }

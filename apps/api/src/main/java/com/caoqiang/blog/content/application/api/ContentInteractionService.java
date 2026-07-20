@@ -1,9 +1,9 @@
 package com.caoqiang.blog.content.application.api;
 
+import com.caoqiang.blog.content.application.service.MediaAdminService;
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
 import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.content.application.service.MediaAdminService;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -18,17 +18,15 @@ public class ContentInteractionService {
     private final ContentRepository contentRepository;
     private final MediaAdminService mediaAdminService;
 
-    public ContentInteractionService(
-            ContentRepository contentRepository,
-            MediaAdminService mediaAdminService
-    ) {
+    public ContentInteractionService(ContentRepository contentRepository, MediaAdminService mediaAdminService) {
         this.contentRepository = contentRepository;
         this.mediaAdminService = mediaAdminService;
     }
 
     @Transactional(readOnly = true)
     public Optional<ContentInteractionSnapshot> findPublished(UUID contentId) {
-        return contentRepository.findByIdAndStatusAndDeletedAtIsNull(contentId, ContentStatus.PUBLISHED)
+        return contentRepository
+                .findByIdAndStatusAndDeletedAtIsNull(contentId, ContentStatus.PUBLISHED)
                 .map(this::snapshot);
     }
 
@@ -37,7 +35,9 @@ public class ContentInteractionService {
         if (contentIds.isEmpty()) {
             return List.of();
         }
-        return contentRepository.findAllById(contentIds).stream().map(this::snapshot).toList();
+        return contentRepository.findAllById(contentIds).stream()
+                .map(this::snapshot)
+                .toList();
     }
 
     @Transactional
@@ -65,7 +65,6 @@ public class ContentInteractionService {
                 content.getTitle(),
                 content.getLikeCount(),
                 content.getViewCount(),
-                content.getCommentCount()
-        );
+                content.getCommentCount());
     }
 }

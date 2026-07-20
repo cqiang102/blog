@@ -28,18 +28,13 @@ class AuditAccessServiceTest {
         UUID actorId = UUID.randomUUID();
         UUID resourceId = UUID.randomUUID();
         Instant createdAt = Instant.parse("2026-07-13T10:00:00Z");
-        when(auditLogService.list(1, 20, "UPDATE", "CONTENT", actorId)).thenReturn(
-                new PageResponse<>(List.of(new AuditLogResponse(
-                        id,
-                        actorId,
-                        "admin",
-                        "UPDATE",
-                        "CONTENT",
-                        resourceId,
-                        "{}",
-                        createdAt
-                )), 1, 20, 21)
-        );
+        when(auditLogService.list(1, 20, "UPDATE", "CONTENT", actorId))
+                .thenReturn(new PageResponse<>(
+                        List.of(new AuditLogResponse(
+                                id, actorId, "admin", "UPDATE", "CONTENT", resourceId, "{}", createdAt)),
+                        1,
+                        20,
+                        21));
         AuditAccessService service = new AuditAccessService(auditLogService);
 
         var result = service.list(1, 20, "UPDATE", "CONTENT", actorId);

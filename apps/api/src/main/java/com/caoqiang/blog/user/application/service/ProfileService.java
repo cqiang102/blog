@@ -1,42 +1,33 @@
 package com.caoqiang.blog.user.application.service;
 
-import com.caoqiang.blog.user.application.dto.AdminUserRequest;
-import com.caoqiang.blog.user.application.dto.AdminUserResponse;
+import com.caoqiang.blog.content.application.api.ContentMediaService;
+import com.caoqiang.blog.content.application.api.ContentMediaUpload;
+import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.UploadedFile;
+import com.caoqiang.blog.shared.util.PasswordPolicy;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import com.caoqiang.blog.user.application.dto.ChangePasswordRequest;
 import com.caoqiang.blog.user.application.dto.OAuthAccountResponse;
 import com.caoqiang.blog.user.application.dto.SetPasswordRequest;
 import com.caoqiang.blog.user.application.dto.UpdateProfileRequest;
-import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import com.caoqiang.blog.user.application.port.OAuthAccountPort;
 import com.caoqiang.blog.user.domain.model.User;
-import com.caoqiang.blog.user.domain.model.UserStatus;
 import com.caoqiang.blog.user.domain.repository.UserRepository;
-import com.caoqiang.blog.content.application.api.ContentMediaService;
-
-import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.shared.util.PasswordPolicy;
-import com.caoqiang.blog.shared.exception.BusinessException;
-import org.dromara.x.file.storage.core.FileInfo;
-import org.dromara.x.file.storage.core.FileStorageService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Date;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * 个人资料服务
@@ -61,28 +52,28 @@ public class ProfileService {
     private final UserRepository userRepository;
     /** 密码编码器，用于密码加密和验证 */
     private final PasswordEncoder passwordEncoder;
-    /** 文件存储服务 */
-    private final FileStorageService fileStorageService;
     /** OAuth 账户数据访问层 */
     private final OAuthAccountPort oauthAccountPort;
     /** 系统时钟 */
     private final Clock clock;
-    /** MinIO platform 名称 */
-    private final String platform;
     /** 媒体服务，用于统一 URL 解析 */
     private final ContentMediaService contentMediaService;
+    /** 头像引用写入器，用短事务更新用户资料 */
+    private final ProfileAvatarWriter profileAvatarWriter;
 
-    public ProfileService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                          FileStorageService fileStorageService, OAuthAccountPort oauthAccountPort,
-                          Clock clock, @Value("${dromara.x-file-storage.default-platform}") String platform,
-                          ContentMediaService contentMediaService) {
+    public ProfileService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            OAuthAccountPort oauthAccountPort,
+            Clock clock,
+            ContentMediaService contentMediaService,
+            ProfileAvatarWriter profileAvatarWriter) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.fileStorageService = fileStorageService;
         this.oauthAccountPort = oauthAccountPort;
         this.clock = clock;
-        this.platform = platform;
         this.contentMediaService = contentMediaService;
+        this.profileAvatarWriter = profileAvatarWriter;
     }
 
     /**
@@ -122,8 +113,7 @@ public class ProfileService {
                 StringUtils.hasText(request.nickname()) ? request.nickname().trim() : user.getNickname(),
                 contentMediaService.normalizeForPersistence(request.avatarUrl()),
                 request.bio(),
-                request.blogUrl()
-        );
+                request.blogUrl());
         return UserProfileResponse.from(user, generatePresignedAvatarUrl(user.getAvatarUrl()));
     }
 
@@ -180,39 +170,6 @@ public class ProfileService {
     }
 
     /**
-     * 上传用户头像
-     * <p>
-     * 将图片文件上传到对象存储，返回可访问的 URL。
-     * 文件保存路径: avatars/{yyyy/MM/dd}/filename
-     *
-     * @param file 上传的图片文件
-     * @return 头像访问 URL
-     * @throws BusinessException 如果文件为空或上传失败
-     */
-    @Transactional(readOnly = true)
-    public String uploadAvatar(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "请选择要上传的图片");
-        }
-        if (file.getSize() > MAX_AVATAR_BYTES) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "头像文件不能超过 5MB");
-        }
-
-        AvatarFormat format = detectAvatarFormat(file);
-        String path = "avatars/" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd")) + "/";
-        String filename = "avatar_" + System.currentTimeMillis() + format.extension();
-
-        contentMediaService.ensureUploadStorageReady();
-        FileInfo fileInfo = fileStorageService.of(file)
-                .setPath(path)
-                .setSaveFilename(filename)
-                .setContentType(format.contentType())
-                .upload();
-
-        return contentMediaService.portableStoragePath(fileInfo.getPath() + fileInfo.getFilename());
-    }
-
-    /**
      * 上传并更新用户头像
      * <p>
      * 上传图片到对象存储，然后更新用户头像 URL。
@@ -221,12 +178,19 @@ public class ProfileService {
      * @param file        上传的图片文件
      * @return 更新后的用户资料响应
      */
-    @Transactional
-    public UserProfileResponse uploadAndUpdateAvatar(AuthenticatedUser currentUser, MultipartFile file) {
-        String avatarUrl = uploadAvatar(file);
-        User user = findActiveUser(currentUser);
-        user.setAvatarUrl(avatarUrl);
-        return UserProfileResponse.from(user, generatePresignedAvatarUrl(avatarUrl));
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public UserProfileResponse uploadAndUpdateAvatar(AuthenticatedUser currentUser, UploadedFile file) {
+        findActiveUser(currentUser);
+        ContentMediaUpload upload = storeAvatar(file);
+        try {
+            String avatarUrl = contentMediaService.portableStoragePath(upload.objectKey());
+            String resolvedAvatarUrl = generatePresignedAvatarUrl(avatarUrl);
+            User user = profileAvatarWriter.updateAvatar(currentUser.id(), avatarUrl);
+            return UserProfileResponse.from(user, resolvedAvatarUrl);
+        } catch (RuntimeException exception) {
+            deleteUploadedMediaQuietly(upload, "failed profile update");
+            throw exception;
+        }
     }
 
     /**
@@ -265,29 +229,27 @@ public class ProfileService {
         }
     }
 
-    private AvatarFormat detectAvatarFormat(MultipartFile file) {
+    private AvatarFormat detectAvatarFormat(UploadedFile file) {
         byte[] header;
-        try (var input = file.getInputStream()) {
+        try (var input = file.openStream()) {
             header = input.readNBytes(12);
         } catch (IOException exception) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "无法读取头像文件");
         }
 
-        if (startsWith(header, new byte[] {
-                (byte) 0xFF, (byte) 0xD8, (byte) 0xFF
-        })) {
+        if (startsWith(header, new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF})) {
             return new AvatarFormat(".jpg", "image/jpeg");
         }
-        if (startsWith(header, new byte[] {
-                (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
-        })) {
+        if (startsWith(header, new byte[] {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A})) {
             return new AvatarFormat(".png", "image/png");
         }
         String ascii = new String(header, StandardCharsets.US_ASCII);
         if (ascii.startsWith("GIF87a") || ascii.startsWith("GIF89a")) {
             return new AvatarFormat(".gif", "image/gif");
         }
-        if (ascii.startsWith("RIFF") && ascii.length() >= 12 && ascii.substring(8, 12).equals("WEBP")) {
+        if (ascii.startsWith("RIFF")
+                && ascii.length() >= 12
+                && ascii.substring(8, 12).equals("WEBP")) {
             return new AvatarFormat(".webp", "image/webp");
         }
         throw new BusinessException(HttpStatus.BAD_REQUEST, "仅支持 JPEG、PNG、GIF 或 WebP 图片");
@@ -319,6 +281,33 @@ public class ProfileService {
         return contentMediaService.normalizeForPersistence(avatarUrl);
     }
 
+    private ContentMediaUpload storeAvatar(UploadedFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "请选择要上传的图片");
+        }
+        if (file.size() > MAX_AVATAR_BYTES) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "头像文件不能超过 5MB");
+        }
+
+        AvatarFormat format = detectAvatarFormat(file);
+        String path = "avatars/" + LocalDate.now(clock).format(DateTimeFormatter.ofPattern("yyyy/MM/dd")) + "/";
+        String filename = "avatar_" + clock.instant().toEpochMilli() + format.extension();
+        return contentMediaService.upload(file, path, filename, format.contentType());
+    }
+
+    private void deleteUploadedMediaQuietly(ContentMediaUpload upload, String reason) {
+        try {
+            contentMediaService.delete(upload);
+        } catch (Exception exception) {
+            log.error(
+                    "Failed to clean up uploaded avatar after {}: platform={}, objectKey={}",
+                    reason,
+                    upload.platform(),
+                    upload.objectKey(),
+                    exception);
+        }
+    }
+
     /**
      * 查找活跃用户，如果用户不存在或非活跃状态则抛出异常
      *
@@ -327,11 +316,11 @@ public class ProfileService {
      * @throws BusinessException 如果用户不存在或非活跃状态
      */
     private User findActiveUser(AuthenticatedUser currentUser) {
-        return userRepository.findById(currentUser.id())
+        return userRepository
+                .findById(currentUser.id())
                 .filter(User::isActive)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "登录状态无效"));
     }
 
-    private record AvatarFormat(String extension, String contentType) {
-    }
+    private record AvatarFormat(String extension, String contentType) {}
 }

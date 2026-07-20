@@ -20,13 +20,7 @@ import java.util.UUID;
  * @param title     关联内容标题
  * @param createdAt 创建时间
  */
-public record UserActivityResponse(
-        UUID id,
-        ActivityType type,
-        UUID contentId,
-        String title,
-        Instant createdAt
-) {
+public record UserActivityResponse(UUID id, ActivityType type, UUID contentId, String title, Instant createdAt) {
 
     /**
      * 创建评论类型的用户活动响应

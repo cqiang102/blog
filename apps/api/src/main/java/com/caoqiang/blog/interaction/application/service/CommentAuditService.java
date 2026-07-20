@@ -1,22 +1,7 @@
 package com.caoqiang.blog.interaction.application.service;
 
-import com.caoqiang.blog.interaction.application.dto.AdminCommentResponse;
-import com.caoqiang.blog.interaction.application.dto.AdminCommentStatusRequest;
-import com.caoqiang.blog.interaction.application.dto.AdminLikeResponse;
-import com.caoqiang.blog.interaction.application.dto.AdminViewRecordResponse;
-import com.caoqiang.blog.interaction.application.dto.CommentRequest;
-import com.caoqiang.blog.interaction.application.dto.CommentResponse;
-import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
-import com.caoqiang.blog.interaction.application.dto.UserActivityResponse;
-import com.caoqiang.blog.interaction.application.dto.ViewStateResponse;
-import com.caoqiang.blog.interaction.domain.model.Comment;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
 import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
-import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
-import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
-
 import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -52,6 +37,7 @@ public class CommentAuditService {
 
     /** 评论仓储 */
     private final CommentRepository commentRepository;
+
     private final CommentAuditResultService resultService;
     /** Spring AI 聊天客户端，用于调用 AI 模型 */
     private final ChatClient chatClient;
@@ -69,8 +55,7 @@ public class CommentAuditService {
             CommentRepository commentRepository,
             CommentAuditResultService resultService,
             ChatClient chatClient,
-            ObjectMapper objectMapper
-    ) {
+            ObjectMapper objectMapper) {
         this.commentRepository = commentRepository;
         this.resultService = resultService;
         this.chatClient = chatClient;
@@ -90,7 +75,8 @@ public class CommentAuditService {
         try {
             commentRepository.findById(commentId).ifPresent(comment -> {
                 // 调用 AI 模型进行内容审查
-                String result = chatClient.prompt()
+                String result = chatClient
+                        .prompt()
                         .user("请审查以下博客评论是否适合公开展示。评论内容：「" + comment.getBody() + "」\n\n"
                                 + "请严格按以下 JSON 格式返回，不要包含其他内容：\n"
                                 + "{\"status\":\"PASS或BLOCK\",\"reason\":\"原因简述\"}\n\n"
@@ -104,11 +90,7 @@ public class CommentAuditService {
                 if (result != null) {
                     try {
                         String json = extractJson(result.trim());
-                        Map<String, Object> auditResult = objectMapper.readValue(
-                                json,
-                                new TypeReference<>() {
-                                }
-                        );
+                        Map<String, Object> auditResult = objectMapper.readValue(json, new TypeReference<>() {});
                         Object statusObj = auditResult.get("status");
                         Object reasonObj = auditResult.get("reason");
                         if (statusObj != null) {
@@ -123,13 +105,14 @@ public class CommentAuditService {
                             parsedReason = reasonObj.toString();
                         }
                     } catch (Exception parseError) {
-                        log.warn("Failed to parse audit result JSON: {}", result, parseError);
+                        log.warn("Failed to parse audit result JSON");
+                        log.debug("Audit result parsing details", parseError);
                     }
                 }
 
                 // 保存审核结果
                 resultService.apply(commentId, parsedStatus, parsedReason);
-                log.info("Comment {} audit result: {} - {}", commentId, parsedStatus.name(), parsedReason);
+                log.info("Comment {} audit result: {}", commentId, parsedStatus.name());
             });
         } catch (Exception e) {
             // 审核失败不影响评论功能，只记录日志

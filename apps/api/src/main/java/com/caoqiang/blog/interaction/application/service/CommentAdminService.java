@@ -3,24 +3,12 @@ package com.caoqiang.blog.interaction.application.service;
 import com.caoqiang.blog.content.application.api.ContentInteractionService;
 import com.caoqiang.blog.content.application.api.ContentInteractionSnapshot;
 import com.caoqiang.blog.interaction.application.dto.AdminCommentResponse;
-import com.caoqiang.blog.interaction.application.dto.AdminCommentStatusRequest;
-import com.caoqiang.blog.interaction.application.dto.AdminLikeResponse;
-import com.caoqiang.blog.interaction.application.dto.AdminViewRecordResponse;
-import com.caoqiang.blog.interaction.application.dto.CommentRequest;
-import com.caoqiang.blog.interaction.application.dto.CommentResponse;
-import com.caoqiang.blog.interaction.application.dto.LikeStateResponse;
-import com.caoqiang.blog.interaction.application.dto.UserActivityResponse;
-import com.caoqiang.blog.interaction.application.dto.ViewStateResponse;
 import com.caoqiang.blog.interaction.domain.model.Comment;
 import com.caoqiang.blog.interaction.domain.model.CommentStatus;
-import com.caoqiang.blog.interaction.domain.model.Like;
-import com.caoqiang.blog.interaction.domain.model.ViewRecord;
 import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
-import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
-import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
-
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.response.PageResponse;
+import com.caoqiang.blog.shared.util.PageUtils;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +48,7 @@ public class CommentAdminService {
     private final CommentRepository commentRepository;
     /** 内容仓储（用于更新评论计数） */
     private final ContentInteractionService contentInteractionService;
+
     private final InteractionReferenceData referenceData;
 
     /**
@@ -71,8 +60,7 @@ public class CommentAdminService {
     public CommentAdminService(
             CommentRepository commentRepository,
             ContentInteractionService contentInteractionService,
-            InteractionReferenceData referenceData
-    ) {
+            InteractionReferenceData referenceData) {
         this.commentRepository = commentRepository;
         this.contentInteractionService = contentInteractionService;
         this.referenceData = referenceData;
@@ -93,30 +81,22 @@ public class CommentAdminService {
      */
     @Transactional(readOnly = true)
     public PageResponse<AdminCommentResponse> list(
-            int page,
-            int size,
-            CommentStatus status,
-            UUID contentId,
-            UUID userId
-    ) {
-        Page<Comment> result = commentRepository.findAll(
-                filters(status, contentId, userId),
-                pageRequest(page, size)
-        );
+            int page, int size, CommentStatus status, UUID contentId, UUID userId) {
+        Page<Comment> result = commentRepository.findAll(filters(status, contentId, userId), pageRequest(page, size));
         Map<UUID, ContentInteractionSnapshot> contents = referenceData.contents(
-                result.getContent().stream().map(Comment::getContentId).toList()
-        );
-        var users = referenceData.users(result.getContent().stream().map(Comment::getUserId).toList());
+                result.getContent().stream().map(Comment::getContentId).toList());
+        var users = referenceData.users(
+                result.getContent().stream().map(Comment::getUserId).toList());
         return new PageResponse<>(
-                result.getContent().stream().map(comment -> AdminCommentResponse.from(
-                        comment,
-                        referenceData.content(contents, comment.getContentId()),
-                        referenceData.user(users, comment.getUserId())
-                )).toList(),
+                result.getContent().stream()
+                        .map(comment -> AdminCommentResponse.from(
+                                comment,
+                                referenceData.content(contents, comment.getContentId()),
+                                referenceData.user(users, comment.getUserId())))
+                        .toList(),
                 result.getNumber(),
                 result.getSize(),
-                result.getTotalElements()
-        );
+                result.getTotalElements());
     }
 
     /**
@@ -132,7 +112,8 @@ public class CommentAdminService {
      */
     @Transactional
     public AdminCommentResponse setStatus(UUID id, CommentStatus targetStatus) {
-        Comment comment = commentRepository.findByIdForUpdate(id)
+        Comment comment = commentRepository
+                .findByIdForUpdate(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "评论不存在"));
         CommentStatus previousStatus = comment.getStatus();
         // 只有状态发生变化时才更新
@@ -141,14 +122,9 @@ public class CommentAdminService {
             // 同步评论计数
             syncCommentCount(comment, previousStatus, targetStatus);
         }
-        var content = referenceData.content(
-                referenceData.contents(List.of(comment.getContentId())),
-                comment.getContentId()
-        );
-        var user = referenceData.user(
-                referenceData.users(List.of(comment.getUserId())),
-                comment.getUserId()
-        );
+        var content =
+                referenceData.content(referenceData.contents(List.of(comment.getContentId())), comment.getContentId());
+        var user = referenceData.user(referenceData.users(List.of(comment.getUserId())), comment.getUserId());
         return AdminCommentResponse.from(comment, content, user);
     }
 
@@ -220,10 +196,6 @@ public class CommentAdminService {
      * @return 分页请求对象
      */
     private PageRequest pageRequest(int page, int size) {
-        return PageRequest.of(
-                Math.max(0, page),
-                Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
-                Sort.by(Sort.Direction.DESC, "createdAt")
-        );
+        return PageUtils.of(page, size, MAX_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 }

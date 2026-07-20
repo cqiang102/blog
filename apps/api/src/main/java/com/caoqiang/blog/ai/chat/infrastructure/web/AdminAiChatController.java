@@ -52,8 +52,7 @@ public class AdminAiChatController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) UUID userId,
-            @RequestParam(required = false) String query
-    ) {
+            @RequestParam(required = false) String query) {
         return ApiResponse.ok(aiChatAdminService.sessions(page, size, userId, query));
     }
 

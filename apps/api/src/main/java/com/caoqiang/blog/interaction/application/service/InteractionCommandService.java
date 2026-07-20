@@ -12,14 +12,13 @@ import com.caoqiang.blog.interaction.domain.model.ViewRecord;
 import com.caoqiang.blog.interaction.domain.repository.CommentRepository;
 import com.caoqiang.blog.interaction.domain.repository.LikeRepository;
 import com.caoqiang.blog.interaction.domain.repository.ViewRecordRepository;
-
-import com.caoqiang.blog.shared.model.AuthenticatedUser;
-import com.caoqiang.blog.shared.model.Role;
-import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.interaction.event.CommentCreatedEvent;
 import com.caoqiang.blog.interaction.event.LikeAddedEvent;
 import com.caoqiang.blog.interaction.event.LikeRemovedEvent;
+import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.shared.exception.BusinessException;
+import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.user.application.api.IdentityUser;
 import com.caoqiang.blog.user.application.api.UserAccountService;
 import java.nio.charset.StandardCharsets;
@@ -66,8 +65,7 @@ public class InteractionCommandService {
             LikeRepository likeRepository,
             ViewRecordRepository viewRecordRepository,
             DomainEventPublisher domainEventPublisher,
-            InteractionReferenceData referenceData
-    ) {
+            InteractionReferenceData referenceData) {
         this.contentInteractionService = contentInteractionService;
         this.userAccountService = userAccountService;
         this.commentRepository = commentRepository;
@@ -81,11 +79,11 @@ public class InteractionCommandService {
     public CommentResponse comment(AuthenticatedUser currentUser, UUID contentId, CommentRequest request) {
         ContentInteractionSnapshot content = publishedContent(contentId);
         IdentityUser user = activeUser(currentUser.id());
-        String sanitizedBody = sanitizeHtml(request.body().trim());
-        if (sanitizedBody.isBlank()) {
+        String body = request.body().trim();
+        if (body.isBlank()) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "评论内容不能为空");
         }
-        Comment comment = commentRepository.save(new Comment(contentId, user.id(), sanitizedBody));
+        Comment comment = commentRepository.save(new Comment(contentId, user.id(), body));
         contentInteractionService.incrementCommentCount(contentId, 1);
         domainEventPublisher.publishEvent(new CommentCreatedEvent(comment.getId(), contentId, currentUser.id()));
         return CommentResponse.from(comment, content, user, referenceData.avatarUrl(user));
@@ -93,7 +91,8 @@ public class InteractionCommandService {
 
     @Transactional
     public void deleteComment(AuthenticatedUser currentUser, UUID commentId) {
-        Comment comment = commentRepository.findByIdForUpdate(commentId)
+        Comment comment = commentRepository
+                .findByIdForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "评论不存在"));
         if (!comment.getUserId().equals(currentUser.id()) && currentUser.role() != Role.ADMIN) {
             throw new BusinessException(HttpStatus.FORBIDDEN, "只能删除自己的评论");
@@ -133,8 +132,10 @@ public class InteractionCommandService {
     }
 
     @Transactional
-    public ViewStateResponse recordView(AuthenticatedUser currentUser, UUID contentId, String clientIp, String userAgent) {
-        ContentInteractionSnapshot content = contentInteractionService.findPublished(contentId).orElse(null);
+    public ViewStateResponse recordView(
+            AuthenticatedUser currentUser, UUID contentId, String clientIp, String userAgent) {
+        ContentInteractionSnapshot content =
+                contentInteractionService.findPublished(contentId).orElse(null);
         if (content == null) {
             return new ViewStateResponse(contentId, false, 0);
         }
@@ -143,13 +144,7 @@ public class InteractionCommandService {
         String ipHash = hashIp(clientIp);
 
         int inserted = viewRecordRepository.insertIfAbsent(
-                UUID.randomUUID(),
-                contentId,
-                user != null ? user.id() : null,
-                anonymousId,
-                ipHash,
-                userAgent
-        );
+                UUID.randomUUID(), contentId, user != null ? user.id() : null, anonymousId, ipHash, userAgent);
         if (inserted == 0) {
             return new ViewStateResponse(contentId, true, content.viewCount());
         }
@@ -164,7 +159,8 @@ public class InteractionCommandService {
 
     @Transactional
     public void deleteMyView(AuthenticatedUser currentUser, UUID viewRecordId) {
-        ViewRecord viewRecord = viewRecordRepository.findByIdAndUserId(viewRecordId, currentUser.id())
+        ViewRecord viewRecord = viewRecordRepository
+                .findByIdAndUserId(viewRecordId, currentUser.id())
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "浏览记录不存在"));
         if (viewRecordRepository.deleteByIdAndUserId(viewRecordId, currentUser.id()) == 1) {
             contentInteractionService.incrementViewCount(viewRecord.getContentId(), -1);
@@ -172,12 +168,14 @@ public class InteractionCommandService {
     }
 
     private ContentInteractionSnapshot publishedContent(UUID contentId) {
-        return contentInteractionService.findPublished(contentId)
+        return contentInteractionService
+                .findPublished(contentId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
     }
 
     private IdentityUser activeUser(UUID userId) {
-        return userAccountService.findActiveById(userId)
+        return userAccountService
+                .findActiveById(userId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "登录状态无效"));
     }
 
@@ -198,14 +196,5 @@ public class InteractionCommandService {
         } catch (Exception e) {
             throw new IllegalStateException("Unable to hash", e);
         }
-    }
-
-    /**
-     * 清理 HTML 内容，防止 XSS 攻击。
-     * 移除所有 HTML 标签，只保留纯文本。
-     */
-    private String sanitizeHtml(String input) {
-        if (input == null) return null;
-        return input.replaceAll("<[^>]*>", "");
     }
 }

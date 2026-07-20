@@ -5,19 +5,17 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeChunk;
+import com.caoqiang.blog.ai.knowledge.application.service.EmbeddingService;
+import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeChunkWriter;
+import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeIndexService;
 import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
 import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeSourceType;
-import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
-import com.caoqiang.blog.ai.knowledge.application.service.EmbeddingService;
-import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeIndexService;
 import com.caoqiang.blog.content.application.api.ContentKnowledgeService;
 import com.caoqiang.blog.content.application.api.ContentKnowledgeSource;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +29,7 @@ class KnowledgeIndexServiceTest {
     private KnowledgeDocRepository knowledgeDocRepository;
 
     @Mock
-    private KnowledgeChunkRepository knowledgeChunkRepository;
+    private KnowledgeChunkWriter knowledgeChunkWriter;
 
     @Mock
     private EmbeddingService embeddingService;
@@ -44,11 +42,7 @@ class KnowledgeIndexServiceTest {
     @BeforeEach
     void setUp() {
         knowledgeIndexService = new KnowledgeIndexService(
-                knowledgeDocRepository,
-                knowledgeChunkRepository,
-                embeddingService,
-                contentKnowledgeService
-        );
+                knowledgeDocRepository, embeddingService, contentKnowledgeService, knowledgeChunkWriter);
     }
 
     @Test
@@ -106,11 +100,20 @@ class KnowledgeIndexServiceTest {
 
         when(knowledgeDocRepository.findById(docId)).thenReturn(Optional.of(doc));
         when(embeddingService.embed(any(String.class))).thenReturn(new float[768]);
+        when(knowledgeChunkWriter.replaceDocumentChunks(
+                        org.mockito.ArgumentMatchers.eq(docId),
+                        org.mockito.ArgumentMatchers.eq("测试内容"),
+                        org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(true);
 
         knowledgeIndexService.indexDocument(docId);
 
-        verify(knowledgeChunkRepository).deleteByDocId(docId);
-        verify(knowledgeChunkRepository).save(any(KnowledgeChunk.class));
+        verify(knowledgeChunkWriter)
+                .replaceDocumentChunks(
+                        org.mockito.ArgumentMatchers.eq(docId),
+                        org.mockito.ArgumentMatchers.eq("测试内容"),
+                        org.mockito.ArgumentMatchers.argThat(chunks ->
+                                chunks.size() == 1 && chunks.getFirst().embedding() != null));
     }
 
     @Test
@@ -119,30 +122,45 @@ class KnowledgeIndexServiceTest {
         KnowledgeDoc doc = new KnowledgeDoc("测试文档", KnowledgeSourceType.MANUAL, null, "测试内容", true);
         when(knowledgeDocRepository.findById(docId)).thenReturn(Optional.of(doc));
         when(embeddingService.embed(any(String.class))).thenThrow(new IllegalStateException("offline"));
+        when(knowledgeChunkWriter.replaceDocumentChunks(
+                        org.mockito.ArgumentMatchers.eq(docId),
+                        org.mockito.ArgumentMatchers.eq("测试内容"),
+                        org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(true);
 
         knowledgeIndexService.indexDocument(docId);
 
-        ArgumentCaptor<KnowledgeChunk> captor = ArgumentCaptor.forClass(KnowledgeChunk.class);
-        verify(knowledgeChunkRepository).save(captor.capture());
-        assertThat(captor.getValue().getEmbedding()).isNull();
-        assertThat(captor.getValue().getMetadata()).contains("embedding_generation_failed");
-        assertThat(captor.getValue().getContent()).isEqualTo("测试内容");
+        verify(knowledgeChunkWriter)
+                .replaceDocumentChunks(
+                        org.mockito.ArgumentMatchers.eq(docId),
+                        org.mockito.ArgumentMatchers.eq("测试内容"),
+                        org.mockito.ArgumentMatchers.argThat(chunks -> chunks.size() == 1
+                                && chunks.getFirst().embedding() == null
+                                && chunks.getFirst().metadata().contains("embedding_generation_failed")
+                                && chunks.getFirst().content().equals("测试内容")));
     }
 
     @Test
     void indexesContentFromThePublicContentSnapshot() {
         UUID contentId = UUID.randomUUID();
-        when(contentKnowledgeService.findIndexable(contentId)).thenReturn(Optional.of(
-                new ContentKnowledgeSource(contentId, "标题", "摘要", "正文")
-        ));
+        when(contentKnowledgeService.findIndexable(contentId))
+                .thenReturn(Optional.of(new ContentKnowledgeSource(contentId, "标题", "摘要", "正文")));
         when(embeddingService.embed(any(String.class))).thenReturn(new float[768]);
+        when(knowledgeChunkWriter.replaceContentChunks(
+                        org.mockito.ArgumentMatchers.eq(contentId),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(true);
 
         knowledgeIndexService.indexContent(contentId);
 
-        verify(knowledgeChunkRepository).deleteByContentId(contentId);
-        ArgumentCaptor<KnowledgeChunk> captor = ArgumentCaptor.forClass(KnowledgeChunk.class);
-        verify(knowledgeChunkRepository).save(captor.capture());
-        assertThat(captor.getValue().getContentId()).isEqualTo(contentId);
-        assertThat(captor.getValue().getContent()).contains("标题", "摘要", "正文");
+        verify(knowledgeChunkWriter)
+                .replaceContentChunks(
+                        org.mockito.ArgumentMatchers.eq(contentId),
+                        org.mockito.ArgumentMatchers.contains("标题"),
+                        org.mockito.ArgumentMatchers.argThat(chunks -> chunks.size() == 1
+                                && chunks.getFirst().content().contains("标题")
+                                && chunks.getFirst().content().contains("摘要")
+                                && chunks.getFirst().content().contains("正文")));
     }
 }

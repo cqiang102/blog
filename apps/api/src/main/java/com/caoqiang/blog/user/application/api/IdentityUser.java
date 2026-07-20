@@ -15,8 +15,7 @@ public record IdentityUser(
         String blogUrl,
         String passwordHash,
         Role role,
-        boolean active
-) {
+        boolean active) {
 
     public boolean hasPassword() {
         return passwordHash != null;

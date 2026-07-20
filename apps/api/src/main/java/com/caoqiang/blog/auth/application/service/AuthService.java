@@ -1,27 +1,18 @@
 package com.caoqiang.blog.auth.application.service;
 
 import com.caoqiang.blog.auth.application.dto.IssuedAuthSession;
-import com.caoqiang.blog.auth.application.dto.JwtClaims;
 import com.caoqiang.blog.auth.application.dto.LoginRequest;
 import com.caoqiang.blog.auth.application.dto.RegisterRequest;
-import com.caoqiang.blog.auth.application.dto.SendCodeRequest;
-import com.caoqiang.blog.auth.domain.model.OAuthAccount;
 import com.caoqiang.blog.auth.domain.model.RefreshToken;
-import com.caoqiang.blog.auth.domain.model.VerificationCode;
-import com.caoqiang.blog.auth.domain.model.OAuthProvider;
-import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
-import com.caoqiang.blog.auth.domain.repository.RefreshTokenRepository;
-import com.caoqiang.blog.auth.domain.repository.VerificationCodeRepository;
-
-import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.auth.event.UserCreatedEvent;
+import com.caoqiang.blog.content.application.api.ContentMediaService;
+import com.caoqiang.blog.shared.domain.event.DomainEventPublisher;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.util.EmailNormalizer;
 import com.caoqiang.blog.shared.util.PasswordPolicy;
-import com.caoqiang.blog.content.application.api.ContentMediaService;
 import com.caoqiang.blog.user.application.api.IdentityUser;
-import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import com.caoqiang.blog.user.application.api.UserAccountService;
+import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import java.time.Clock;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
@@ -74,7 +65,7 @@ public class AuthService {
      * @param refreshTokenService   刷新令牌服务
      * @param verificationService   验证码服务
      * @param domainEventPublisher  领域事件发布器
-     * @param mediaAdminService     媒体服务
+     * @param contentMediaService     媒体服务
      * @param clock                 时钟实例
      */
     public AuthService(
@@ -85,8 +76,7 @@ public class AuthService {
             VerificationService verificationService,
             DomainEventPublisher domainEventPublisher,
             ContentMediaService contentMediaService,
-            Clock clock
-    ) {
+            Clock clock) {
         this.userAccountService = userAccountService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -123,8 +113,7 @@ public class AuthService {
         IdentityUser user = userAccountService.registerLocal(
                 email,
                 passwordEncoder.encode(request.password()),
-                request.nickname().trim()
-        );
+                request.nickname().trim());
         // 发布领域事件
         domainEventPublisher.publishEvent(new UserCreatedEvent(user.id(), user.email(), user.nickname()));
         // 生成访问令牌和刷新令牌
@@ -144,11 +133,13 @@ public class AuthService {
         // 规范化邮箱地址
         String email = EmailNormalizer.normalize(request.email());
         // 查找用户，不存在则抛出异常
-        IdentityUser user = userAccountService.findByEmail(email)
+        IdentityUser user = userAccountService
+                .findByEmail(email)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "邮箱或密码错误"));
 
         // 验证用户状态和密码：账户必须激活、必须有密码哈希、密码必须匹配
-        if (!user.active() || user.passwordHash() == null
+        if (!user.active()
+                || user.passwordHash() == null
                 || !passwordEncoder.matches(request.password(), user.passwordHash())) {
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "邮箱或密码错误");
         }
@@ -170,12 +161,13 @@ public class AuthService {
         // 计算刷新令牌的哈希值，用于数据库查询
         String tokenHash = refreshTokenService.hash(rawRefreshToken);
         // 查找可用的刷新令牌
-        RefreshToken refreshToken = refreshTokenService.findUsable(tokenHash)
+        RefreshToken refreshToken = refreshTokenService
+                .findUsable(tokenHash)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "刷新令牌无效"));
 
         Instant now = clock.instant();
-        IdentityUser user = userAccountService.findActiveById(refreshToken.getUserId())
-                .orElse(null);
+        IdentityUser user =
+                userAccountService.findActiveById(refreshToken.getUserId()).orElse(null);
         // 检查令牌是否过期或用户是否激活
         if (refreshToken.isExpired(now) || user == null) {
             refreshToken.revoke(now);
@@ -192,8 +184,7 @@ public class AuthService {
     @Transactional
     public void revokeRefreshToken(String rawRefreshToken) {
         String tokenHash = refreshTokenService.hash(rawRefreshToken);
-        refreshTokenService.findUsable(tokenHash)
-                .ifPresent(token -> token.revoke(clock.instant()));
+        refreshTokenService.findUsable(tokenHash).ifPresent(token -> token.revoke(clock.instant()));
     }
 
     /**
@@ -213,7 +204,6 @@ public class AuthService {
                 accessToken.value(),
                 refreshToken.value(),
                 accessToken.expiresAt(),
-                UserProfileResponse.from(user, contentMediaService.resolveUrl(user.avatarUrl()))
-        );
+                UserProfileResponse.from(user, contentMediaService.resolveUrl(user.avatarUrl())));
     }
 }

@@ -42,6 +42,4 @@ public record AuthTokenResponse(
         /** 访问令牌的过期时间 */
         Instant expiresAt,
         /** 用户资料信息 */
-        UserProfileResponse user
-) {
-}
+        UserProfileResponse user) {}

@@ -1,7 +1,7 @@
 package com.caoqiang.blog.friend.infrastructure.web;
 
-import com.caoqiang.blog.friend.application.service.FriendQueryService;
 import com.caoqiang.blog.friend.application.dto.FriendResponse;
+import com.caoqiang.blog.friend.application.service.FriendQueryService;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;

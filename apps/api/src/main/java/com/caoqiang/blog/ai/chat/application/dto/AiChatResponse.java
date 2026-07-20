@@ -10,10 +10,4 @@ import java.util.UUID;
  * @param remainingQuestions 今日剩余提问次数
  * @param remainingMessages  当前会话剩余消息数
  */
-public record AiChatResponse(
-        UUID sessionId,
-        String answer,
-        int remainingQuestions,
-        int remainingMessages
-) {
-}
+public record AiChatResponse(UUID sessionId, String answer, int remainingQuestions, int remainingMessages) {}

@@ -2,7 +2,6 @@ package com.caoqiang.blog.audit.application.dto;
 
 import com.caoqiang.blog.audit.domain.model.AuditLog;
 import com.caoqiang.blog.user.application.api.IdentityUser;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -31,8 +30,7 @@ public record AuditLogResponse(
         String resourceType,
         UUID resourceId,
         String detail,
-        Instant createdAt
-) {
+        Instant createdAt) {
 
     /**
      * 从审计日志实体创建响应 DTO
@@ -51,7 +49,6 @@ public record AuditLogResponse(
                 log.getResourceType(),
                 log.getResourceId(),
                 log.getDetail(),
-                log.getCreatedAt()
-        );
+                log.getCreatedAt());
     }
 }

@@ -1,12 +1,13 @@
 package com.caoqiang.blog.ai.chat.infrastructure.web;
 
+import com.caoqiang.blog.ai.chat.application.dto.AiChatMessageResponse;
 import com.caoqiang.blog.ai.chat.application.dto.AiChatRequest;
 import com.caoqiang.blog.ai.chat.application.dto.AiChatResponse;
+import com.caoqiang.blog.ai.chat.application.dto.AiChatSessionResponse;
 import com.caoqiang.blog.ai.chat.application.dto.AiCreateSessionRequest;
 import com.caoqiang.blog.ai.chat.application.dto.AiQuotaResponse;
-import com.caoqiang.blog.ai.chat.application.dto.AiChatSessionResponse;
-import com.caoqiang.blog.ai.chat.application.dto.AiChatMessageResponse;
 import com.caoqiang.blog.ai.chat.application.service.AiChatService;
+import com.caoqiang.blog.ai.chat.application.service.AiChatSessionService;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.OperationResult;
@@ -37,27 +38,28 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class AiChatController {
 
     private final AiChatService aiChatService;
+    private final AiChatSseService aiChatSseService;
+    private final AiChatSessionService sessionService;
 
-    public AiChatController(AiChatService aiChatService) {
+    public AiChatController(
+            AiChatService aiChatService, AiChatSseService aiChatSseService, AiChatSessionService sessionService) {
         this.aiChatService = aiChatService;
+        this.aiChatSseService = aiChatSseService;
+        this.sessionService = sessionService;
     }
 
     /** 同步 AI 聊天接口，一次性返回完整回答。 */
     @PostMapping("/chat")
     public ApiResponse<AiChatResponse> chat(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @Valid @RequestBody AiChatRequest request
-    ) {
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @Valid @RequestBody AiChatRequest request) {
         return ApiResponse.ok(aiChatService.chat(currentUser, request));
     }
 
     /** 流式 AI 聊天接口，通过 SSE 逐 token 推送回答。 */
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamChat(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @Valid @RequestBody AiChatRequest request
-    ) {
-        return aiChatService.streamChat(currentUser, request);
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @Valid @RequestBody AiChatRequest request) {
+        return aiChatSseService.stream(currentUser, request);
     }
 
     /** 查询当前用户的每日 AI 配额使用情况。 */
@@ -70,27 +72,23 @@ public class AiChatController {
     @PostMapping("/sessions")
     public ApiResponse<AiChatSessionResponse> createSession(
             @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @RequestBody(required = false) AiCreateSessionRequest request
-    ) {
-        return ApiResponse.ok(aiChatService.createSession(currentUser,
-                request != null ? request : new AiCreateSessionRequest(null)));
+            @RequestBody(required = false) AiCreateSessionRequest request) {
+        return ApiResponse.ok(sessionService.createSession(
+                currentUser, request != null ? request : new AiCreateSessionRequest(null)));
     }
 
     /** 获取当前用户的 AI 聊天会话列表。 */
     @GetMapping("/sessions")
     public ApiResponse<List<AiChatSessionResponse>> listSessions(
-            @AuthenticationPrincipal AuthenticatedUser currentUser
-    ) {
-        return ApiResponse.ok(aiChatService.listSessions(currentUser));
+            @AuthenticationPrincipal AuthenticatedUser currentUser) {
+        return ApiResponse.ok(sessionService.listSessions(currentUser));
     }
 
     /** 删除指定的 AI 聊天会话（逻辑删除）。 */
     @DeleteMapping("/sessions/{sessionId}")
     public ApiResponse<OperationResult> deleteSession(
-            @AuthenticationPrincipal AuthenticatedUser currentUser,
-            @PathVariable UUID sessionId
-    ) {
-        aiChatService.deleteSession(currentUser, sessionId);
+            @AuthenticationPrincipal AuthenticatedUser currentUser, @PathVariable UUID sessionId) {
+        sessionService.deleteSession(currentUser, sessionId);
         return ApiResponse.ok(OperationResult.deleted(sessionId));
     }
 
@@ -100,8 +98,7 @@ public class AiChatController {
             @AuthenticationPrincipal AuthenticatedUser currentUser,
             @PathVariable UUID sessionId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        return ApiResponse.ok(aiChatService.sessionMessages(currentUser, sessionId, page, size));
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.ok(sessionService.sessionMessages(currentUser, sessionId, page, size));
     }
 }

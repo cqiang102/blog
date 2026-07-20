@@ -1,23 +1,11 @@
 package com.caoqiang.blog.content.infrastructure.web;
 
-import com.caoqiang.blog.content.application.dto.TagResponse;
-import com.caoqiang.blog.content.application.service.TagAdminService;
-
 import com.caoqiang.blog.content.application.dto.ContentDetailResponse;
 import com.caoqiang.blog.content.application.dto.ContentSummaryResponse;
-import com.caoqiang.blog.content.application.dto.MediaAssetResponse;
 import com.caoqiang.blog.content.application.dto.RecommendationResponse;
-import com.caoqiang.blog.content.domain.model.Content;
-import com.caoqiang.blog.content.domain.model.ContentStatus;
-import com.caoqiang.blog.content.domain.model.ContentType;
-import com.caoqiang.blog.content.domain.model.MediaAsset;
-import com.caoqiang.blog.content.domain.model.MediaAssetType;
-import com.caoqiang.blog.content.domain.model.Tag;
-import com.caoqiang.blog.content.domain.repository.ContentRepository;
-import com.caoqiang.blog.content.domain.repository.MediaAssetRepository;
-import com.caoqiang.blog.content.domain.repository.TagRepository;
+import com.caoqiang.blog.content.application.dto.TagResponse;
 import com.caoqiang.blog.content.application.service.ContentQueryService;
-
+import com.caoqiang.blog.content.domain.model.ContentType;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.shared.response.ApiResponse;
 import com.caoqiang.blog.shared.response.PageResponse;
@@ -52,12 +40,8 @@ public class ContentController {
     /** 内容业务服务，负责搜索、过滤、缓存推荐等核心逻辑 */
     private final ContentQueryService contentQueryService;
 
-    /** 标签数据访问，用于直接查询标签列表 */
-    private final TagRepository tagRepository;
-
-    public ContentController(ContentQueryService contentQueryService, TagRepository tagRepository) {
+    public ContentController(ContentQueryService contentQueryService) {
         this.contentQueryService = contentQueryService;
-        this.tagRepository = tagRepository;
     }
 
     /**
@@ -90,8 +74,7 @@ public class ContentController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
+            @RequestParam(defaultValue = "10") int size) {
         return ApiResponse.ok(contentQueryService.list(query, tag, type, from, to, page, size));
     }
 
@@ -104,9 +87,7 @@ public class ContentController {
      */
     @GetMapping("/{id}")
     public ApiResponse<ContentDetailResponse> detail(
-            @PathVariable UUID id,
-            @AuthenticationPrincipal AuthenticatedUser currentUser
-    ) {
+            @PathVariable UUID id, @AuthenticationPrincipal AuthenticatedUser currentUser) {
         return ApiResponse.ok(contentQueryService.detail(id, currentUser));
     }
 
@@ -117,8 +98,6 @@ public class ContentController {
      */
     @GetMapping("/tags")
     public ApiResponse<List<TagResponse>> tags() {
-        return ApiResponse.ok(tagRepository.findAll().stream()
-                .map(TagResponse::from)
-                .toList());
+        return ApiResponse.ok(contentQueryService.tags());
     }
 }

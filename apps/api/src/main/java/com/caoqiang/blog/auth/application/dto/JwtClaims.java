@@ -33,5 +33,4 @@ import java.util.UUID;
  * @param expiresAt 令牌过期时间
  * @author blog-mimo
  */
-public record JwtClaims(UUID userId, String email, String nickname, Role role, Instant expiresAt) {
-}
+public record JwtClaims(UUID userId, String email, String nickname, Role role, Instant expiresAt) {}

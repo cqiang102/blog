@@ -2,17 +2,18 @@ package com.caoqiang.blog.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeDocRequest;
 import com.caoqiang.blog.ai.knowledge.application.dto.KnowledgeDocResponse;
+import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeAdminService;
 import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeDoc;
 import com.caoqiang.blog.ai.knowledge.domain.model.KnowledgeSourceType;
-import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
 import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeChunkRepository;
-import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeAdminService;
-import com.caoqiang.blog.ai.knowledge.application.service.KnowledgeIndexService;
+import com.caoqiang.blog.ai.knowledge.domain.repository.KnowledgeDocRepository;
+import com.caoqiang.blog.ai.knowledge.event.KnowledgeDocumentIndexRequestedEvent;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,22 +34,14 @@ class KnowledgeAdminServiceTest {
     private KnowledgeChunkRepository knowledgeChunkRepository;
 
     @Mock
-    private KnowledgeIndexService knowledgeIndexService;
+    private ApplicationEventPublisher eventPublisher;
 
     @Test
     void createTrimsTextAndKeepsEnabledFlag() {
-        KnowledgeAdminService service = new KnowledgeAdminService(
-                knowledgeDocRepository,
-                knowledgeChunkRepository,
-                knowledgeIndexService
-        );
-        KnowledgeDocRequest request = new KnowledgeDocRequest(
-                " 关于我 ",
-                KnowledgeSourceType.MANUAL,
-                "  profile  ",
-                "  这是个人介绍  ",
-                true
-        );
+        KnowledgeAdminService service =
+                new KnowledgeAdminService(knowledgeDocRepository, knowledgeChunkRepository, eventPublisher);
+        KnowledgeDocRequest request =
+                new KnowledgeDocRequest(" 关于我 ", KnowledgeSourceType.MANUAL, "  profile  ", "  这是个人介绍  ", true);
         when(knowledgeDocRepository.save(org.mockito.ArgumentMatchers.any(KnowledgeDoc.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -57,40 +51,29 @@ class KnowledgeAdminServiceTest {
         assertThat(response.sourceRef()).isEqualTo("profile");
         assertThat(response.body()).isEqualTo("这是个人介绍");
         assertThat(response.enabled()).isTrue();
+        verify(eventPublisher)
+                .publishEvent(org.mockito.ArgumentMatchers.any(KnowledgeDocumentIndexRequestedEvent.class));
     }
 
     @Test
     void updateRejectsMissingDoc() {
         UUID id = UUID.randomUUID();
-        KnowledgeAdminService service = new KnowledgeAdminService(
-                knowledgeDocRepository,
-                knowledgeChunkRepository,
-                knowledgeIndexService
-        );
-        KnowledgeDocRequest request = new KnowledgeDocRequest(
-                "关于我",
-                KnowledgeSourceType.MANUAL,
-                null,
-                null,
-                true
-        );
+        KnowledgeAdminService service =
+                new KnowledgeAdminService(knowledgeDocRepository, knowledgeChunkRepository, eventPublisher);
+        KnowledgeDocRequest request = new KnowledgeDocRequest("关于我", KnowledgeSourceType.MANUAL, null, null, true);
         when(knowledgeDocRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.update(id, request))
-                .isInstanceOfSatisfying(BusinessException.class, error -> {
-                    assertThat(error.status()).isEqualTo(HttpStatus.NOT_FOUND);
-                    assertThat(error.getMessage()).isEqualTo("知识库文档不存在");
-                });
+        assertThatThrownBy(() -> service.update(id, request)).isInstanceOfSatisfying(BusinessException.class, error -> {
+            assertThat(error.status()).isEqualTo(HttpStatus.NOT_FOUND);
+            assertThat(error.getMessage()).isEqualTo("知识库文档不存在");
+        });
     }
 
     @Test
     void deleteRemovesExistingDoc() {
         UUID id = UUID.randomUUID();
-        KnowledgeAdminService service = new KnowledgeAdminService(
-                knowledgeDocRepository,
-                knowledgeChunkRepository,
-                knowledgeIndexService
-        );
+        KnowledgeAdminService service =
+                new KnowledgeAdminService(knowledgeDocRepository, knowledgeChunkRepository, eventPublisher);
         when(knowledgeDocRepository.existsById(id)).thenReturn(true);
 
         service.delete(id);
@@ -102,29 +85,16 @@ class KnowledgeAdminServiceTest {
     @Test
     void updateRemovesStaleChunksWhenBodyIsCleared() {
         UUID id = UUID.randomUUID();
-        KnowledgeDoc doc = new KnowledgeDoc(
-                "关于我",
-                KnowledgeSourceType.MANUAL,
-                null,
-                "旧正文",
-                true
-        );
-        KnowledgeAdminService service = new KnowledgeAdminService(
-                knowledgeDocRepository,
-                knowledgeChunkRepository,
-                knowledgeIndexService
-        );
-        KnowledgeDocRequest request = new KnowledgeDocRequest(
-                "关于我",
-                KnowledgeSourceType.MANUAL,
-                null,
-                " ",
-                true
-        );
+        KnowledgeDoc doc = new KnowledgeDoc("关于我", KnowledgeSourceType.MANUAL, null, "旧正文", true);
+        KnowledgeAdminService service =
+                new KnowledgeAdminService(knowledgeDocRepository, knowledgeChunkRepository, eventPublisher);
+        KnowledgeDocRequest request = new KnowledgeDocRequest("关于我", KnowledgeSourceType.MANUAL, null, " ", true);
         when(knowledgeDocRepository.findById(id)).thenReturn(Optional.of(doc));
 
         service.update(id, request);
 
         verify(knowledgeChunkRepository).deleteByDocId(id);
+        verify(eventPublisher, never())
+                .publishEvent(org.mockito.ArgumentMatchers.any(KnowledgeDocumentIndexRequestedEvent.class));
     }
 }

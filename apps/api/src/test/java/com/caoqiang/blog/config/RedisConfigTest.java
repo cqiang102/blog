@@ -31,13 +31,8 @@ class RedisConfigTest {
                 false,
                 7,
                 Instant.parse("2026-06-24T00:00:00Z"),
-                List.of("Java", "Flutter")
-        );
-        var response = new RecommendationResponse(
-                List.of(summary),
-                List.of(summary),
-                List.of(summary)
-        );
+                List.of("Java", "Flutter"));
+        var response = new RecommendationResponse(List.of(summary), List.of(summary), List.of(summary));
 
         byte[] serialized = serializer.serialize(response);
         assertNotNull(serialized);

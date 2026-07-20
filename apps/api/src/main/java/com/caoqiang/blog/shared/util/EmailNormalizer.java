@@ -25,8 +25,7 @@ import java.util.Locale;
 public final class EmailNormalizer {
 
     /** 私有构造函数，防止实例化 */
-    private EmailNormalizer() {
-    }
+    private EmailNormalizer() {}
 
     /**
      * 规范化邮箱地址

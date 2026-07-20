@@ -21,37 +21,34 @@ public class NoOpFileRecorder implements FileRecorder {
 
     @Override
     public boolean save(FileInfo fileInfo) {
-        log.info("FileRecorder.save - 文件上传记录: platform={}, path={}, filename={}, size={}",
-                fileInfo.getPlatform(), fileInfo.getPath(), fileInfo.getFilename(), fileInfo.getSize());
+        log.debug("FileRecorder.save - 文件上传记录: platform={}, size={}", fileInfo.getPlatform(), fileInfo.getSize());
         return true;
     }
 
     @Override
     public void update(FileInfo fileInfo) {
-        log.info("FileRecorder.update - 文件更新记录: platform={}, path={}, filename={}",
-                fileInfo.getPlatform(), fileInfo.getPath(), fileInfo.getFilename());
+        log.debug("FileRecorder.update - 文件更新记录: platform={}", fileInfo.getPlatform());
     }
 
     @Override
     public FileInfo getByUrl(String url) {
-        log.info("FileRecorder.getByUrl - 查询文件记录: url={}", url);
+        log.debug("FileRecorder.getByUrl - 查询文件记录");
         return null;
     }
 
     @Override
     public boolean delete(String url) {
-        log.info("FileRecorder.delete - 删除文件记录: url={}", url);
+        log.debug("FileRecorder.delete - 删除文件记录");
         return true;
     }
 
     @Override
     public void saveFilePart(FilePartInfo filePartInfo) {
-        log.info("FileRecorder.saveFilePart - 保存分片信息: uploadId={}, partNumber={}",
-                filePartInfo.getUploadId(), filePartInfo.getPartNumber());
+        log.debug("FileRecorder.saveFilePart - 保存分片信息: partNumber={}", filePartInfo.getPartNumber());
     }
 
     @Override
     public void deleteFilePartByUploadId(String uploadId) {
-        log.info("FileRecorder.deleteFilePartByUploadId - 删除分片信息: uploadId={}", uploadId);
+        log.debug("FileRecorder.deleteFilePartByUploadId - 删除分片信息");
     }
 }

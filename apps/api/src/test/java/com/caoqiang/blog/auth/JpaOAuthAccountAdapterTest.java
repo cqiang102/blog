@@ -1,5 +1,9 @@
 package com.caoqiang.blog.auth;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.caoqiang.blog.auth.domain.model.OAuthAccount;
 import com.caoqiang.blog.auth.domain.model.OAuthProvider;
 import com.caoqiang.blog.auth.domain.repository.OAuthAccountRepository;
@@ -11,10 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class JpaOAuthAccountAdapterTest {
