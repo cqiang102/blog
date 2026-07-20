@@ -137,7 +137,7 @@ class _LikeButtonState extends ConsumerState<_LikeButton> {
       });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      ).showSnackBar(SnackBar(content: Text(userFacingErrorMessage(error))));
     } finally {
       if (mounted) setState(() => _liking = false);
     }

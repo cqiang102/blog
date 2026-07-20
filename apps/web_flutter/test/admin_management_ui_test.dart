@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_blog_web/src/core/models.dart';
 import 'package:personal_blog_web/src/features/admin/admin_page.dart';
+import 'package:personal_blog_web/src/features/admin/admin_tab_registry.dart';
 import 'package:personal_blog_web/src/features/admin/admin_widgets.dart';
 import 'package:personal_blog_web/src/features/admin/tabs/comment_admin_tab.dart';
 import 'package:personal_blog_web/src/features/admin/tabs/content_admin_tab.dart';
@@ -90,6 +91,38 @@ final _commentPage = PageResult<AdminCommentItem>(
   total: 2,
 );
 
+final _moderationCommentPage = PageResult<AdminCommentItem>(
+  items: [
+    AdminCommentItem(
+      id: 'comment-pending',
+      contentId: 'content-1',
+      contentTitle: '待审核内容',
+      userId: 'user-1',
+      userNickname: '沐凉',
+      userEmail: 'author@example.com',
+      status: AdminCommentStatus.pending,
+      body: '等待管理员处理',
+      createdAt: _commentDate,
+      updatedAt: _commentDate,
+    ),
+    AdminCommentItem(
+      id: 'comment-blocked',
+      contentId: 'content-2',
+      contentTitle: '已屏蔽内容',
+      userId: 'user-2',
+      userNickname: '访客',
+      userEmail: 'guest@example.com',
+      status: AdminCommentStatus.blocked,
+      body: '已被屏蔽',
+      createdAt: _commentDate,
+      updatedAt: _commentDate,
+    ),
+  ],
+  page: 0,
+  size: 50,
+  total: 2,
+);
+
 final _contentDate = DateTime.utc(2026, 2, 22, 8, 56);
 final _commentDate = DateTime.utc(2026, 6, 26, 3, 27);
 
@@ -118,13 +151,19 @@ Future<void> _pumpContentTab(WidgetTester tester, Size size) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _pumpCommentTab(WidgetTester tester, Size size) async {
+Future<void> _pumpCommentTab(
+  WidgetTester tester,
+  Size size, {
+  PageResult<AdminCommentItem>? page,
+}) async {
   await _configureView(tester, size);
   await tester.pumpWidget(
     ProviderScope(
       key: UniqueKey(),
       overrides: [
-        adminCommentsProvider.overrideWith((ref, query) async => _commentPage),
+        adminCommentsProvider.overrideWith(
+          (ref, query) async => page ?? _commentPage,
+        ),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -147,6 +186,7 @@ Future<void> _pumpAdminContentShell(WidgetTester tester, Size size) async {
   SharedPreferences.setMockInitialValues({
     'auth.user': jsonEncode(admin.toJson()),
   });
+
   await tester.pumpWidget(
     ProviderScope(
       key: UniqueKey(),
@@ -156,7 +196,7 @@ Future<void> _pumpAdminContentShell(WidgetTester tester, Size size) async {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
-        home: const Scaffold(body: AdminPage(initialTab: 1)),
+        home: const Scaffold(body: AdminPage(initialTab: AdminTabId.content)),
       ),
     ),
   );
@@ -210,7 +250,7 @@ void main() {
     );
   });
 
-  testWidgets('comment rows expose only the action valid for their state', (
+  testWidgets('comment rows and filters expose valid moderation semantics', (
     tester,
   ) async {
     await _pumpCommentTab(tester, const Size(1000, 900));
@@ -218,6 +258,13 @@ void main() {
     expect(find.byType(AdminFilterBar), findsOneWidget);
     expect(find.text('评论管理'), findsNothing);
     expect(find.text('筛选'), findsNothing);
+
+    await tester.tap(find.text('状态 · 全部'));
+    await tester.pumpAndSettle();
+    expect(find.text('状态 · 待审核'), findsOneWidget);
+    expect(find.text('状态 · 已屏蔽'), findsOneWidget);
+    await tester.tap(find.text('状态 · 全部').last);
+    await tester.pumpAndSettle();
 
     final restoreFinder = find.ancestor(
       of: find.text('恢复'),
@@ -227,16 +274,39 @@ void main() {
       of: find.text('删除'),
       matching: find.bySubtype<TextButton>(),
     );
+    final blockFinder = find.ancestor(
+      of: find.text('屏蔽'),
+      matching: find.bySubtype<TextButton>(),
+    );
     expect(restoreFinder, findsOneWidget);
     expect(deleteFinder, findsOneWidget);
+    expect(blockFinder, findsOneWidget);
     expect(tester.widget<FilledButton>(restoreFinder).onPressed, isNotNull);
     expect(tester.widget<TextButton>(deleteFinder).onPressed, isNotNull);
+    expect(tester.widget<TextButton>(blockFinder).onPressed, isNotNull);
     expect(tester.takeException(), isNull);
 
     await expectLater(
       find.byType(AdminCommentTab),
       matchesGoldenFile('goldens/admin_comment_management_1000.png'),
     );
+  });
+
+  testWidgets('pending and blocked comments expose moderation actions', (
+    tester,
+  ) async {
+    await _pumpCommentTab(
+      tester,
+      const Size(1000, 900),
+      page: _moderationCommentPage,
+    );
+
+    expect(find.text('待审核'), findsOneWidget);
+    expect(find.text('已屏蔽'), findsOneWidget);
+    expect(find.text('通过'), findsNWidgets(2));
+    expect(find.text('屏蔽'), findsOneWidget);
+    expect(find.text('删除'), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('management filters do not overflow at narrow widths', (

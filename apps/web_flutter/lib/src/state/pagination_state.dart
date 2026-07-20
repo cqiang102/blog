@@ -49,6 +49,7 @@ class PaginationState<T> {
 /// 管理分页列表的加载、重置等操作
 abstract class PaginationNotifier<T> extends Notifier<PaginationState<T>> {
   static const int _pageSize = kDefaultPageSize;
+  int _requestGeneration = 0;
 
   @override
   PaginationState<T> build() => const PaginationState();
@@ -57,30 +58,35 @@ abstract class PaginationNotifier<T> extends Notifier<PaginationState<T>> {
   Future<void> loadMore() async {
     if (state.isLoading) return;
 
+    final generation = _requestGeneration;
+    final page = state.currentPage;
+    final previousItems = state.items;
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final result = await fetchPage(state.currentPage, _pageSize);
-      if (!ref.mounted) return;
+      final result = await fetchPage(page, _pageSize);
+      if (!ref.mounted || generation != _requestGeneration) return;
+      final items = [...previousItems, ...result.items];
       state = state.copyWith(
-        items: [...state.items, ...result.items],
-        currentPage: state.currentPage + 1,
+        items: items,
+        currentPage: page + 1,
         total: result.total,
-        hasMore: state.items.length + result.items.length < result.total,
+        hasMore: items.length < result.total,
         isLoading: false,
       );
     } catch (e) {
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _requestGeneration) return;
       state = state.copyWith(error: e.toString(), isLoading: false);
     }
   }
 
   /// 重置列表并重新加载
   Future<void> resetAndLoad() async {
+    final generation = ++_requestGeneration;
     state = const PaginationState(isLoading: true);
     try {
       final result = await fetchPage(0, _pageSize);
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _requestGeneration) return;
       state = PaginationState(
         items: result.items,
         currentPage: 1,
@@ -89,7 +95,7 @@ abstract class PaginationNotifier<T> extends Notifier<PaginationState<T>> {
         isLoading: false,
       );
     } catch (e) {
-      if (!ref.mounted) return;
+      if (!ref.mounted || generation != _requestGeneration) return;
       state = PaginationState(error: e.toString(), isLoading: false);
     }
   }

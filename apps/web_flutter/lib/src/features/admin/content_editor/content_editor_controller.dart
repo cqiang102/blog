@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/api/api_exception.dart';
 import '../../../core/constants.dart';
 import '../../../core/media_url.dart';
 import '../../../core/models.dart';
@@ -353,13 +354,15 @@ class ContentEditorController extends Notifier<ContentEditorState> {
   }
 
   String _errorMessage(Object error) {
-    final message = error.toString();
-    if (message.contains('timeout')) return '网络连接超时，请检查网络';
-    if (message.contains('401') || message.contains('403')) {
-      return '登录已过期，请重新登录';
+    if (error is ApiException) {
+      if (error.statusCode == 401 || error.statusCode == 403) {
+        return '登录已过期，请重新登录';
+      }
+      if (error.statusCode == 413) return '文件太大，请压缩后上传';
+      if (error.statusCode == 415) return '不支持的文件格式';
+      if (error.message.contains('超时')) return '网络连接超时，请检查网络';
+      return error.message;
     }
-    if (message.contains('413')) return '文件太大，请压缩后上传';
-    if (message.contains('415')) return '不支持的文件格式';
     return '上传失败，请重试';
   }
 }

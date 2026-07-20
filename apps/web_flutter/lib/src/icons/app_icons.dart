@@ -9,7 +9,9 @@ class AppIcons {
 
   // ── 导航 ──
   static const Widget home = HugeIcon(icon: HugeIcons.strokeRoundedHome01);
-  static const Widget homeSelected = HugeIcon(icon: HugeIcons.strokeRoundedHome01);
+  static const Widget homeSelected = HugeIcon(
+    icon: HugeIcons.strokeRoundedHome01,
+  );
   static const Widget contents = HugeIcon(icon: HugeIcons.strokeRoundedBook01);
   static const Widget friends = HugeIcon(icon: HugeIcons.strokeRoundedLink01);
   static const Widget about = HugeIcon(icon: HugeIcons.strokeRoundedUserCircle);
@@ -30,8 +32,12 @@ class AppIcons {
 
   // ── 社交 ──
   static const Widget heart = HugeIcon(icon: HugeIcons.strokeRoundedFavourite);
-  static const Widget heartFilled = HugeIcon(icon: HugeIcons.strokeRoundedFavourite);
-  static const Widget comment = HugeIcon(icon: HugeIcons.strokeRoundedMessage01);
+  static const Widget heartFilled = HugeIcon(
+    icon: HugeIcons.strokeRoundedFavourite,
+  );
+  static const Widget comment = HugeIcon(
+    icon: HugeIcons.strokeRoundedMessage01,
+  );
   static const Widget visibility = HugeIcon(icon: HugeIcons.strokeRoundedView);
   static const Widget share = HugeIcon(icon: HugeIcons.strokeRoundedShare01);
 
@@ -41,14 +47,20 @@ class AppIcons {
   static const Widget upload = HugeIcon(icon: HugeIcons.strokeRoundedUpload01);
   static const Widget file = HugeIcon(icon: HugeIcons.strokeRoundedFile01);
   static const Widget play = HugeIcon(icon: HugeIcons.strokeRoundedPlay);
-  static const Widget brokenImage = HugeIcon(icon: HugeIcons.strokeRoundedImageNotFound01);
+  static const Widget brokenImage = HugeIcon(
+    icon: HugeIcons.strokeRoundedImageNotFound01,
+  );
 
   // ── 状态/信息 ──
   static const Widget error = HugeIcon(icon: HugeIcons.strokeRoundedAlert01);
-  static const Widget info = HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle);
+  static const Widget info = HugeIcon(
+    icon: HugeIcons.strokeRoundedInformationCircle,
+  );
   static const Widget cloud = HugeIcon(icon: HugeIcons.strokeRoundedCloud);
   static const Widget clock = HugeIcon(icon: HugeIcons.strokeRoundedClock01);
-  static const Widget calendar = HugeIcon(icon: HugeIcons.strokeRoundedCalendar01);
+  static const Widget calendar = HugeIcon(
+    icon: HugeIcons.strokeRoundedCalendar01,
+  );
   static const Widget lightbulb = HugeIcon(icon: HugeIcons.strokeRoundedIdea01);
 
   // ── 用户/认证 ──
@@ -64,10 +76,18 @@ class AppIcons {
   static const Widget link = HugeIcon(icon: HugeIcons.strokeRoundedLink01);
   static const Widget code = HugeIcon(icon: HugeIcons.strokeRoundedCode);
   static const Widget bold = HugeIcon(icon: HugeIcons.strokeRoundedTextBold);
-  static const Widget italic = HugeIcon(icon: HugeIcons.strokeRoundedTextItalic);
-  static const Widget list = HugeIcon(icon: HugeIcons.strokeRoundedLeftToRightListBullet);
-  static const Widget quote = HugeIcon(icon: HugeIcons.strokeRoundedLeftToRightBlockQuote);
-  static const Widget settings = HugeIcon(icon: HugeIcons.strokeRoundedSettings01);
+  static const Widget italic = HugeIcon(
+    icon: HugeIcons.strokeRoundedTextItalic,
+  );
+  static const Widget list = HugeIcon(
+    icon: HugeIcons.strokeRoundedLeftToRightListBullet,
+  );
+  static const Widget quote = HugeIcon(
+    icon: HugeIcons.strokeRoundedLeftToRightBlockQuote,
+  );
+  static const Widget settings = HugeIcon(
+    icon: HugeIcons.strokeRoundedSettings01,
+  );
   static const Widget archive = HugeIcon(icon: HugeIcons.strokeRoundedArchive);
   static const Widget pin = HugeIcon(icon: HugeIcons.strokeRoundedPin);
   static const Widget schedule = HugeIcon(icon: HugeIcons.strokeRoundedClock01);

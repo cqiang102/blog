@@ -51,6 +51,51 @@ BlogApiClient _detailTestApi() {
   return BlogApiClient(dio: dio, baseUrl: 'http://detail.test/api/v1');
 }
 
+BlogApiClient _invalidVideoDetailTestApi() {
+  final dio = Dio();
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) {
+        final Object? data;
+        if (options.method == 'POST' && options.path.endsWith('/views')) {
+          data = <String, Object?>{};
+        } else if (options.path.endsWith('/comments')) {
+          data = {'items': <Object?>[], 'page': 0, 'size': 20, 'total': 0};
+        } else {
+          data = {
+            'id': 'video-1',
+            'title': '无效视频地址',
+            'slug': 'invalid-video',
+            'type': 'VIDEO',
+            'status': 'PUBLISHED',
+            'summary': '',
+            'coverUrl': '',
+            'tags': <String>[],
+            'pinned': false,
+            'likeCount': 0,
+            'viewCount': 0,
+            'commentCount': 0,
+            'likedByCurrentUser': false,
+            'publishedAt': '2026-07-10T08:00:00Z',
+            'bodyMarkdown': '',
+            'mediaAssets': [
+              {'publicUrl': 'relative-video.mp4'},
+            ],
+          };
+        }
+        handler.resolve(
+          Response<Object?>(
+            requestOptions: options,
+            statusCode: 200,
+            data: {'success': true, 'data': data},
+          ),
+        );
+      },
+    ),
+  );
+  return BlogApiClient(dio: dio, baseUrl: 'http://detail.test/api/v1');
+}
+
 Future<void> _pumpDetail(WidgetTester tester, Size size) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -88,6 +133,31 @@ void main() {
 
     expect(find.byType(MarkdownBody), findsOneWidget);
     expect(tester.getSize(find.byType(MarkdownBody)).width, lessThan(390));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('video viewer rejects a relative non-API media URL safely', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          apiClientProvider.overrideWithValue(_invalidVideoDetailTestApi()),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: const Scaffold(body: ContentDetailPage(id: 'video-1')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('视频加载失败'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

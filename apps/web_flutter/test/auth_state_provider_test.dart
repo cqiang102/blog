@@ -38,7 +38,7 @@ void main() {
       var notifications = 0;
       final subscription = container.listen(
         authControllerProvider,
-        (_, __) => notifications++,
+        (_, _) => notifications++,
         fireImmediately: true,
       );
       addTearDown(subscription.close);

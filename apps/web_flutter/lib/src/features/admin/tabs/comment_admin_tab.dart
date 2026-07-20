@@ -7,10 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../core/api_client.dart';
-import '../../../state/state.dart';
 import '../../../core/models.dart';
+import '../../../state/state.dart';
 import '../../../theme/app_spacing.dart';
+import '../admin_mutation.dart';
 import '../admin_widgets.dart';
 
 /// 管理后台 - 评论管理标签页
@@ -21,7 +21,8 @@ class AdminCommentTab extends ConsumerStatefulWidget {
   ConsumerState<AdminCommentTab> createState() => AdminCommentTabState();
 }
 
-class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
+class AdminCommentTabState extends ConsumerState<AdminCommentTab>
+    with AdminPageCorrectionMixin<AdminCommentTab> {
   final _contentIdController = TextEditingController();
   final _userIdController = TextEditingController();
   Timer? _filterDebounce;
@@ -43,22 +44,30 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
     return comments.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => AdminErrorPane(
-        message: error.toString(),
+        message: adminErrorMessage(error),
         onRetry: () => ref.invalidate(adminCommentsProvider(_query)),
       ),
-      data: (page) => _CommentList(
-        page: page,
-        status: _status,
-        contentIdController: _contentIdController,
-        userIdController: _userIdController,
-        onStatusChanged: _changeStatus,
-        onFilterTextChanged: _scheduleFilters,
-        onApply: _applyFilters,
-        onClear: _clearFilters,
-        onDelete: (comment) => _deleteComment(context, comment),
-        onRestore: (comment) =>
-            _setStatus(context, comment, AdminCommentStatus.visible),
-      ),
+      data: (page) {
+        correctAdminPage(
+          page,
+          requestedPage: _query.page,
+          onChanged: _changePage,
+        );
+        return _CommentList(
+          page: page,
+          status: _status,
+          contentIdController: _contentIdController,
+          userIdController: _userIdController,
+          onStatusChanged: _changeStatus,
+          onFilterTextChanged: _scheduleFilters,
+          onApply: _applyFilters,
+          onClear: _clearFilters,
+          onPageChanged: _changePage,
+          onDelete: (comment) => _deleteComment(context, comment),
+          onSetStatus: (comment, status) =>
+              _setStatus(context, comment, status),
+        );
+      },
     );
   }
 
@@ -102,6 +111,11 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
     });
   }
 
+  void _changePage(int page) {
+    if (page < 0 || page == _query.page) return;
+    setState(() => _query = _query.copyWith(page: page));
+  }
+
   Future<void> _deleteComment(
     BuildContext context,
     AdminCommentItem comment,
@@ -115,21 +129,16 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
     );
     if (!confirmed || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .deleteAdminComment(accessToken: token, id: comment.id);
-      _refreshCommentState(comment.contentId);
-      if (!context.mounted) return;
-      showAdminSnack(context, '评论已删除');
-    } on ApiException catch (error) {
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'comment:${comment.id}',
+      request: (api, token) async {
+        await api.deleteAdminComment(accessToken: token, id: comment.id);
+      },
+      invalidate: () => _refreshCommentState(comment.contentId),
+      successMessage: '评论已删除',
+    );
   }
 
   Future<void> _setStatus(
@@ -137,28 +146,20 @@ class AdminCommentTabState extends ConsumerState<AdminCommentTab> {
     AdminCommentItem comment,
     AdminCommentStatus status,
   ) async {
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .updateAdminCommentStatus(
-            accessToken: token,
-            id: comment.id,
-            status: status,
-          );
-      _refreshCommentState(comment.contentId);
-      if (!context.mounted) return;
-      showAdminSnack(
-        context,
-        status == AdminCommentStatus.visible ? '评论已恢复' : '评论已删除',
-      );
-    } on ApiException catch (error) {
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'comment:${comment.id}',
+      request: (api, token) async {
+        await api.updateAdminCommentStatus(
+          accessToken: token,
+          id: comment.id,
+          status: status,
+        );
+      },
+      invalidate: () => _refreshCommentState(comment.contentId),
+      successMessage: '评论已设为${status.label}',
+    );
   }
 
   void _refreshCommentState(String contentId) {
@@ -181,8 +182,9 @@ class _CommentList extends StatelessWidget {
     required this.onFilterTextChanged,
     required this.onApply,
     required this.onClear,
+    required this.onPageChanged,
     required this.onDelete,
-    required this.onRestore,
+    required this.onSetStatus,
   });
 
   final PageResult<AdminCommentItem> page;
@@ -193,24 +195,36 @@ class _CommentList extends StatelessWidget {
   final ValueChanged<String> onFilterTextChanged;
   final VoidCallback onApply;
   final VoidCallback onClear;
+  final ValueChanged<int> onPageChanged;
   final ValueChanged<AdminCommentItem> onDelete;
-  final ValueChanged<AdminCommentItem> onRestore;
+  final void Function(AdminCommentItem, AdminCommentStatus) onSetStatus;
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      itemCount: page.items.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm + 4),
+      itemCount: page.items.length + 1 + (page.total > page.size ? 1 : 0),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm + 4),
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildHeader(context);
+        }
+        if (index > page.items.length) {
+          return Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: AdminPaginationBar(
+              page: page.page,
+              pageSize: page.size,
+              total: page.total,
+              onChanged: onPageChanged,
+            ),
+          );
         }
         final comment = page.items[index - 1];
         return _CommentAdminRow(
           comment: comment,
           onDelete: comment.deleted ? null : () => onDelete(comment),
-          onRestore: comment.deleted ? () => onRestore(comment) : null,
+          onSetStatus: (status) => onSetStatus(comment, status),
         );
       },
     );
@@ -293,6 +307,14 @@ class _CommentFilters extends StatelessWidget {
                 child: Text('状态 · 可见'),
               ),
               DropdownMenuItem(
+                value: AdminCommentStatus.pending,
+                child: Text('状态 · 待审核'),
+              ),
+              DropdownMenuItem(
+                value: AdminCommentStatus.blocked,
+                child: Text('状态 · 已屏蔽'),
+              ),
+              DropdownMenuItem(
                 value: AdminCommentStatus.deleted,
                 child: Text('状态 · 已删除'),
               ),
@@ -336,12 +358,12 @@ class _CommentAdminRow extends StatelessWidget {
   const _CommentAdminRow({
     required this.comment,
     required this.onDelete,
-    required this.onRestore,
+    required this.onSetStatus,
   });
 
   final AdminCommentItem comment;
   final VoidCallback? onDelete;
-  final VoidCallback? onRestore;
+  final ValueChanged<AdminCommentStatus> onSetStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -429,32 +451,59 @@ class _CommentAdminRow extends StatelessWidget {
           text: createdAt,
         ),
       ],
-      actions: [_buildStateAction(context)],
+      actions: _buildStateActions(context),
     );
   }
 
-  Widget _buildStateAction(BuildContext context) {
+  List<Widget> _buildStateActions(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     if (comment.deleted) {
-      return FilledButton.icon(
-        onPressed: onRestore,
-        style: adminCompactButtonStyle(
-          backgroundColor: scheme.primaryContainer,
-          foregroundColor: scheme.onPrimaryContainer,
+      return [
+        FilledButton.icon(
+          onPressed: () => onSetStatus(AdminCommentStatus.visible),
+          style: adminCompactButtonStyle(
+            backgroundColor: scheme.primaryContainer,
+            foregroundColor: scheme.onPrimaryContainer,
+          ),
+          icon: const HugeIcon(
+            icon: HugeIcons.strokeRoundedArchiveRestore,
+            size: 18,
+          ),
+          label: const Text('恢复'),
         ),
-        icon: const HugeIcon(
-          icon: HugeIcons.strokeRoundedArchiveRestore,
-          size: 18,
-        ),
-        label: const Text('恢复'),
-      );
+      ];
     }
 
-    return TextButton.icon(
-      onPressed: onDelete,
-      style: adminCompactButtonStyle(foregroundColor: scheme.error),
-      icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
-      label: const Text('删除'),
-    );
+    return [
+      if (comment.status != AdminCommentStatus.visible)
+        FilledButton.icon(
+          onPressed: () => onSetStatus(AdminCommentStatus.visible),
+          style: adminCompactButtonStyle(
+            backgroundColor: scheme.primaryContainer,
+            foregroundColor: scheme.onPrimaryContainer,
+          ),
+          icon: const HugeIcon(
+            icon: HugeIcons.strokeRoundedCheckmarkCircle02,
+            size: 18,
+          ),
+          label: const Text('通过'),
+        ),
+      if (comment.status != AdminCommentStatus.blocked)
+        TextButton.icon(
+          onPressed: () => onSetStatus(AdminCommentStatus.blocked),
+          style: adminCompactButtonStyle(foregroundColor: scheme.tertiary),
+          icon: const HugeIcon(
+            icon: HugeIcons.strokeRoundedUnavailable,
+            size: 18,
+          ),
+          label: const Text('屏蔽'),
+        ),
+      TextButton.icon(
+        onPressed: onDelete,
+        style: adminCompactButtonStyle(foregroundColor: scheme.error),
+        icon: const HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 18),
+        label: const Text('删除'),
+      ),
+    ];
   }
 }

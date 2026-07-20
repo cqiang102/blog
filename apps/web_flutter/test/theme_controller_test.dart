@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +21,33 @@ void main() {
     expect(container.read(themeControllerProvider), ThemeMode.light);
 
     final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString('app.themeMode'), ThemeMode.light.name);
+  });
+
+  test('a pending initial load cannot overwrite a newer user choice', () async {
+    SharedPreferences.setMockInitialValues({
+      'app.themeMode': ThemeMode.dark.name,
+    });
+    final preferences = await SharedPreferences.getInstance();
+    final loadCompleter = Completer<SharedPreferences>();
+    final container = ProviderContainer.test(
+      overrides: [
+        themePreferencesLoaderProvider.overrideWithValue(
+          () => loadCompleter.future,
+        ),
+      ],
+    );
+    final controller = container.read(themeControllerProvider.notifier);
+
+    await Future<void>.delayed(Duration.zero);
+    final persist = controller.setMode(ThemeMode.light);
+    expect(container.read(themeControllerProvider), ThemeMode.light);
+
+    loadCompleter.complete(preferences);
+    await persist;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(container.read(themeControllerProvider), ThemeMode.light);
     expect(preferences.getString('app.themeMode'), ThemeMode.light.name);
   });
 }

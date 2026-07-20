@@ -34,7 +34,7 @@ mixin AdminInteractionApi on ApiClientBase {
       accessToken: accessToken,
       body: {'status': status.apiValue},
     );
-    return AdminCommentItem.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AdminCommentItem.fromJson);
   }
 
   /// 删除管理后台评论

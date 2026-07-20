@@ -27,7 +27,7 @@ mixin AdminAiApi on ApiClientBase {
     required String id,
   }) async {
     final data = await get('/admin/ai/chats/$id', accessToken: accessToken);
-    return AdminAiChatDetail.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AdminAiChatDetail.fromJson);
   }
 
   /// 删除管理后台 AI 聊天会话

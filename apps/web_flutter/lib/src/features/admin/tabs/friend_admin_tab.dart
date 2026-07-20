@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../core/api_client.dart';
 import '../../../core/media_url.dart';
-import '../../../state/state.dart';
 import '../../../core/models.dart';
+import '../../../state/state.dart';
 import '../../../theme/app_spacing.dart';
+import '../admin_mutation.dart';
 import '../admin_widgets.dart';
 import '../friend_editor_dialog.dart';
 
@@ -23,7 +23,7 @@ class AdminFriendTab extends ConsumerWidget {
     return friends.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => AdminErrorPane(
-        message: error.toString(),
+        message: adminErrorMessage(error),
         onRetry: () => ref.invalidate(adminFriendsProvider),
       ),
       data: (items) => _FriendList(
@@ -46,28 +46,24 @@ class AdminFriendTab extends ConsumerWidget {
     );
     if (draft == null || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      final api = ref.read(apiClientProvider);
-      if (friend == null) {
-        await api.createAdminFriend(accessToken: token, draft: draft);
-      } else {
-        await api.updateAdminFriend(
-          accessToken: token,
-          id: friend.id,
-          draft: draft,
-        );
-      }
-      _refreshFriendState(ref);
-      if (!context.mounted) return;
-      showAdminSnack(context, friend == null ? '朋友已创建' : '朋友已保存');
-    } on ApiException catch (error) {
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'friend:${friend?.id ?? 'create'}',
+      request: (api, token) async {
+        if (friend == null) {
+          await api.createAdminFriend(accessToken: token, draft: draft);
+        } else {
+          await api.updateAdminFriend(
+            accessToken: token,
+            id: friend.id,
+            draft: draft,
+          );
+        }
+      },
+      invalidate: () => _refreshFriendState(ref),
+      successMessage: friend == null ? '朋友已创建' : '朋友已保存',
+    );
   }
 
   Future<void> _deleteFriend(
@@ -84,21 +80,16 @@ class AdminFriendTab extends ConsumerWidget {
     );
     if (!confirmed || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .deleteAdminFriend(accessToken: token, id: friend.id);
-      _refreshFriendState(ref);
-      if (!context.mounted) return;
-      showAdminSnack(context, '朋友已删除');
-    } on ApiException catch (error) {
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'friend:${friend.id}',
+      request: (api, token) async {
+        await api.deleteAdminFriend(accessToken: token, id: friend.id);
+      },
+      invalidate: () => _refreshFriendState(ref),
+      successMessage: '朋友已删除',
+    );
   }
 
   void _refreshFriendState(WidgetRef ref) {
@@ -125,7 +116,7 @@ class _FriendList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: items.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm + 4),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm + 4),
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildHeader(context);

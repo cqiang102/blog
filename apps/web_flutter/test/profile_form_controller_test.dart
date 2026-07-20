@@ -54,7 +54,7 @@ void main() {
       addTearDown(container.dispose);
       final subscription = container.listen(
         profileFormControllerProvider,
-        (_, __) {},
+        (_, _) {},
         fireImmediately: true,
       );
       addTearDown(subscription.close);
@@ -85,7 +85,7 @@ void main() {
     addTearDown(container.dispose);
     final subscription = container.listen(
       profileFormControllerProvider,
-      (_, __) {},
+      (_, _) {},
       fireImmediately: true,
     );
     addTearDown(subscription.close);

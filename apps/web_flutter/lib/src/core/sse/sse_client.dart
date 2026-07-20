@@ -13,7 +13,7 @@ export 'sse_request.dart';
 ///
 /// Web 端使用 XMLHttpRequest 实现增量读取
 /// IO 端使用 Dio 的 ResponseType.stream
-Future<List<SseEvent>> postSse({
+Future<void> postSse({
   required Dio dio,
   required String path,
   required Map<String, dynamic> body,

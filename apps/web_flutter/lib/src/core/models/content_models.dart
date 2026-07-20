@@ -95,8 +95,7 @@ class BlogContent {
 
 /// 从媒体资源列表提取公开 URL 列表
 List<String> _mediaUrls(Object? value) {
-  return (value as List? ?? const [])
-      .whereType<Map>()
+  return jsonObjectList(value)
       .map((item) => jsonString(item['publicUrl']))
       .where((url) => url.isNotEmpty)
       .toList();
@@ -128,10 +127,7 @@ class Recommendations {
 
 /// 从 JSON 列表解析 BlogContent 列表
 List<BlogContent> _contentList(Object? value) {
-  return (value as List? ?? const [])
-      .whereType<Map>()
-      .map((item) => BlogContent.fromSummaryJson(item.cast<String, dynamic>()))
-      .toList();
+  return jsonObjectList(value).map(BlogContent.fromSummaryJson).toList();
 }
 
 /// 内容列表查询参数
@@ -169,6 +165,53 @@ class ContentListQuery {
   @override
   int get hashCode =>
       Object.hash(query, tag, type, startDate, endDate, page, size);
+}
+
+/// 管理后台轻量内容选项
+class AdminContentOption {
+  const AdminContentOption({required this.id, required this.title});
+
+  final String id;
+  final String title;
+
+  factory AdminContentOption.fromJson(Map<String, dynamic> json) {
+    return AdminContentOption(
+      id: jsonString(json['id']),
+      title: jsonString(json['title']),
+    );
+  }
+}
+
+/// 管理后台轻量内容选项查询参数
+class AdminContentOptionsQuery {
+  const AdminContentOptionsQuery({
+    this.query = '',
+    this.page = 0,
+    this.size = 20,
+  });
+
+  final String query;
+  final int page;
+  final int size;
+
+  AdminContentOptionsQuery copyWith({String? query, int? page, int? size}) {
+    return AdminContentOptionsQuery(
+      query: query ?? this.query,
+      page: page ?? this.page,
+      size: size ?? this.size,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is AdminContentOptionsQuery &&
+        other.query == query &&
+        other.page == page &&
+        other.size == size;
+  }
+
+  @override
+  int get hashCode => Object.hash(query, page, size);
 }
 
 /// 管理后台内容列表查询参数

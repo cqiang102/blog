@@ -77,7 +77,8 @@ class KnowledgeSourceTypeJsonConverter
   const KnowledgeSourceTypeJsonConverter();
 
   @override
-  KnowledgeSourceType fromJson(String json) => KnowledgeSourceType.fromApi(json);
+  KnowledgeSourceType fromJson(String json) =>
+      KnowledgeSourceType.fromApi(json);
 
   @override
   String toJson(KnowledgeSourceType object) => object.apiValue;

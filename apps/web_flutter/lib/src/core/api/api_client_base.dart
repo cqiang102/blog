@@ -15,6 +15,10 @@ const apiBaseUrl = String.fromEnvironment(
   defaultValue: 'http://localhost:8080/api/v1',
 );
 
+const _apiConnectTimeout = Duration(seconds: 15);
+const _apiSendTimeout = Duration(seconds: 30);
+const _apiReceiveTimeout = Duration(seconds: 30);
+
 String _normalizeBaseUrl(String url) =>
     url.endsWith('/') ? url.substring(0, url.length - 1) : url;
 
@@ -29,6 +33,9 @@ class ApiClientBase {
     configureDioCredentials(_dio);
     _dio.options.baseUrl = this.baseUrl;
     _dio.options.headers = {'Accept': 'application/json'};
+    _dio.options.connectTimeout ??= _apiConnectTimeout;
+    _dio.options.sendTimeout ??= _apiSendTimeout;
+    _dio.options.receiveTimeout ??= _apiReceiveTimeout;
   }
 
   final Dio _dio;
@@ -43,12 +50,14 @@ class ApiClientBase {
     String path, {
     Map<String, dynamic> queryParameters = const {},
     String? accessToken,
+    CancelToken? cancelToken,
   }) {
     return send(
       'GET',
       path,
       queryParameters: queryParameters,
       accessToken: accessToken,
+      cancelToken: cancelToken,
     );
   }
 
@@ -57,8 +66,15 @@ class ApiClientBase {
     String path, {
     Map<String, Object?>? body,
     String? accessToken,
+    CancelToken? cancelToken,
   }) {
-    return send('POST', path, accessToken: accessToken, body: body);
+    return send(
+      'POST',
+      path,
+      accessToken: accessToken,
+      body: body,
+      cancelToken: cancelToken,
+    );
   }
 
   /// 发送 PUT 请求
@@ -66,13 +82,29 @@ class ApiClientBase {
     String path, {
     required String accessToken,
     required Map<String, Object?> body,
+    CancelToken? cancelToken,
   }) {
-    return send('PUT', path, accessToken: accessToken, body: body);
+    return send(
+      'PUT',
+      path,
+      accessToken: accessToken,
+      body: body,
+      cancelToken: cancelToken,
+    );
   }
 
   /// 发送 DELETE 请求
-  Future<Object?> delete(String path, {required String accessToken}) {
-    return send('DELETE', path, accessToken: accessToken);
+  Future<Object?> delete(
+    String path, {
+    required String accessToken,
+    CancelToken? cancelToken,
+  }) {
+    return send(
+      'DELETE',
+      path,
+      accessToken: accessToken,
+      cancelToken: cancelToken,
+    );
   }
 
   /// 发送 HTTP 请求的核心方法
@@ -84,6 +116,7 @@ class ApiClientBase {
     String? accessToken,
     Map<String, Object?>? body,
     FormData? formData,
+    CancelToken? cancelToken,
   }) async {
     final normalizedPath = _normalizePath(path);
     final headers = <String, String>{
@@ -95,6 +128,7 @@ class ApiClientBase {
         normalizedPath,
         data: _requestData(formData: formData, body: body),
         queryParameters: queryParameters,
+        cancelToken: cancelToken,
         options: Options(
           method: method,
           headers: headers,
@@ -112,12 +146,16 @@ class ApiClientBase {
           onUnauthorized != null) {
         final newToken = await onUnauthorized!();
         if (newToken != null) {
+          if (cancelToken?.isCancelled ?? false) {
+            throw const ApiException('请求已取消');
+          }
           headers['Authorization'] = 'Bearer $newToken';
           try {
             final retryResponse = await _dio.request<Object?>(
               normalizedPath,
               data: _requestData(formData: formData, body: body),
               queryParameters: queryParameters,
+              cancelToken: cancelToken,
               options: Options(
                 method: method,
                 headers: headers,
@@ -164,11 +202,15 @@ class ApiClientBase {
     }
 
     if (response.data is Map) {
-      final envelope = (response.data as Map).cast<String, dynamic>();
-      return ApiException(
-        envelope['message']?.toString() ?? '请求失败',
-        statusCode: response.statusCode,
-      );
+      try {
+        final envelope = _jsonObject(response.data);
+        return ApiException(
+          envelope['message']?.toString() ?? '请求失败',
+          statusCode: response.statusCode,
+        );
+      } on ApiException {
+        return ApiException('请求失败', statusCode: response.statusCode);
+      }
     }
     return ApiException(
       error.message ?? '请求失败',
@@ -183,7 +225,12 @@ class ApiClientBase {
       throw ApiException('后端响应格式不正确', statusCode: response.statusCode);
     }
 
-    final envelope = decoded.cast<String, dynamic>();
+    late final Map<String, dynamic> envelope;
+    try {
+      envelope = _jsonObject(decoded);
+    } on ApiException {
+      throw ApiException('后端响应格式不正确', statusCode: response.statusCode);
+    }
     final success = envelope['success'] == true;
     if (!success) {
       throw ApiException(
@@ -195,20 +242,66 @@ class ApiClientBase {
     return envelope['data'];
   }
 
+  /// 解码单个 JSON 对象，并将所有结构错误统一为 [ApiException]。
+  T decodeObject<T>(
+    Object? data,
+    T Function(Map<String, dynamic> json) mapper,
+  ) {
+    try {
+      return mapper(_jsonObject(data));
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException('后端响应数据格式不正确');
+    }
+  }
+
+  /// 解码 JSON 对象数组；数组中的每一项都必须是对象。
+  List<T> decodeObjectList<T>(
+    Object? data,
+    T Function(Map<String, dynamic> json) mapper,
+  ) {
+    if (data is! List) {
+      throw const ApiException('后端响应数据格式不正确');
+    }
+    try {
+      return data.map((item) => mapper(_jsonObject(item))).toList();
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException('后端响应数据格式不正确');
+    }
+  }
+
   /// 解析分页结果
   PageResult<T> pageResult<T>(
     Object? data,
     T Function(Map<String, dynamic>) mapper,
   ) {
-    final json = (data as Map).cast<String, dynamic>();
-    return PageResult<T>(
-      items: (json['items'] as List? ?? const [])
-          .whereType<Map>()
-          .map((item) => mapper(item.cast<String, dynamic>()))
-          .toList(),
-      page: (json['page'] as num?)?.toInt() ?? 0,
-      size: (json['size'] as num?)?.toInt() ?? 10,
-      total: (json['total'] as num?)?.toInt() ?? 0,
-    );
+    try {
+      final json = _jsonObject(data);
+      final items = json['items'] ?? const <Object?>[];
+      return PageResult<T>(
+        items: decodeObjectList(items, mapper),
+        page: (json['page'] as num?)?.toInt() ?? 0,
+        size: (json['size'] as num?)?.toInt() ?? 10,
+        total: (json['total'] as num?)?.toInt() ?? 0,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const ApiException('后端响应数据格式不正确');
+    }
+  }
+
+  Map<String, dynamic> _jsonObject(Object? data) {
+    if (data is! Map) {
+      throw const ApiException('后端响应数据格式不正确');
+    }
+    try {
+      return data.cast<String, dynamic>();
+    } catch (_) {
+      throw const ApiException('后端响应数据格式不正确');
+    }
   }
 }

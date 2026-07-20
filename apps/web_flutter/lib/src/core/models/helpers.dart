@@ -26,3 +26,26 @@ List<String> jsonStringList(Object? value) {
       .where((item) => item.isNotEmpty)
       .toList();
 }
+
+/// 严格解析 JSON 对象列表。
+///
+/// 缺失或 `null` 的可选字段按空列表处理；字段存在时必须是对象数组，避免
+/// `whereType` 静默丢弃不符合接口契约的元素。
+List<Map<String, dynamic>> jsonObjectList(Object? value) {
+  if (value == null) return const [];
+  if (value is! List) {
+    throw const FormatException('Expected a JSON object list');
+  }
+  return value
+      .map((item) {
+        if (item is! Map) {
+          throw const FormatException('Expected a JSON object list item');
+        }
+        try {
+          return item.cast<String, dynamic>();
+        } catch (_) {
+          throw const FormatException('Expected string JSON object keys');
+        }
+      })
+      .toList(growable: false);
+}

@@ -125,7 +125,7 @@ class ProfileFormController extends Notifier<ProfileFormState> {
       }
       return null;
     } catch (error) {
-      return '获取绑定地址失败: $error';
+      return '获取绑定地址失败：${userFacingErrorMessage(error)}';
     }
   }
 
@@ -141,7 +141,7 @@ class ProfileFormController extends Notifier<ProfileFormState> {
     } on ApiException catch (error) {
       return error.message;
     } catch (error) {
-      return error.toString();
+      return userFacingErrorMessage(error);
     }
   }
 
@@ -163,7 +163,7 @@ class ProfileFormController extends Notifier<ProfileFormState> {
     } on ApiException catch (error) {
       return ProfileActionResult.failure(error.message);
     } catch (error) {
-      return ProfileActionResult.failure(error.toString());
+      return ProfileActionResult.failure(userFacingErrorMessage(error));
     } finally {
       if (!_disposed) state = state.copyWith(isUploadingAvatar: false);
     }
@@ -189,7 +189,7 @@ class ProfileFormController extends Notifier<ProfileFormState> {
     } on ApiException catch (error) {
       return ProfileActionResult.failure(error.message);
     } catch (error) {
-      return ProfileActionResult.failure(error.toString());
+      return ProfileActionResult.failure(userFacingErrorMessage(error));
     }
   }
 
@@ -231,7 +231,7 @@ class ProfileFormController extends Notifier<ProfileFormState> {
     } on ApiException catch (error) {
       return ProfileActionResult.failure(error.message);
     } catch (error) {
-      return ProfileActionResult.failure(error.toString());
+      return ProfileActionResult.failure(userFacingErrorMessage(error));
     } finally {
       if (!_disposed) state = state.copyWith(isChangingPassword: false);
     }

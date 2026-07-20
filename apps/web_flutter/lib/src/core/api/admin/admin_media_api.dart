@@ -36,7 +36,7 @@ mixin AdminMediaApi on ApiClientBase {
       accessToken: accessToken,
       body: draft.toJson(),
     );
-    return AdminMediaItem.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AdminMediaItem.fromJson);
   }
 
   /// 上传管理后台媒体文件
@@ -59,7 +59,7 @@ mixin AdminMediaApi on ApiClientBase {
       accessToken: accessToken,
       formData: formData,
     );
-    return AdminMediaItem.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AdminMediaItem.fromJson);
   }
 
   /// 更新管理后台媒体
@@ -73,7 +73,7 @@ mixin AdminMediaApi on ApiClientBase {
       accessToken: accessToken,
       body: draft.toJson(),
     );
-    return AdminMediaItem.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AdminMediaItem.fromJson);
   }
 
   /// 删除管理后台媒体
@@ -95,6 +95,6 @@ mixin AdminMediaApi on ApiClientBase {
       accessToken: accessToken,
       body: const {},
     );
-    return AdminContentItem.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AdminContentItem.fromJson);
   }
 }

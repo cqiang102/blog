@@ -5,10 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../core/api_client.dart';
 import '../../../core/models.dart';
 import '../../../state/state.dart';
 import '../../../theme/app_spacing.dart';
+import '../admin_mutation.dart';
 import '../admin_widgets.dart';
 
 part 'content_admin/content_admin_list.dart';
@@ -108,7 +108,7 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
     }
     if (page == null && contents.hasError) {
       return AdminErrorPane(
-        message: contents.error.toString(),
+        message: adminErrorMessage(contents.error!),
         onRetry: () => ref.invalidate(adminContentsProvider),
       );
     }
@@ -134,7 +134,9 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
           statusFilter: _statusFilter,
           typeFilter: _typeFilter,
           includeDeleted: _includeDeleted,
-          errorMessage: contents.hasError ? contents.error.toString() : null,
+          errorMessage: contents.hasError
+              ? adminErrorMessage(contents.error!)
+              : null,
           onSearchChanged: _scheduleSearch,
           onStatusFilterChanged: (value) {
             setState(() => _statusFilter = value);
@@ -188,20 +190,16 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
     );
     if (!confirmed || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .archiveAdminContent(accessToken: token, id: content.id);
-      _refreshRelatedData();
-      if (context.mounted) showAdminSnack(context, '内容已删除');
-    } on ApiException catch (error) {
-      if (context.mounted) showAdminSnack(context, error.message);
-    } catch (error) {
-      if (context.mounted) showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'content:${content.id}',
+      request: (api, token) async {
+        await api.archiveAdminContent(accessToken: token, id: content.id);
+      },
+      invalidate: _refreshRelatedData,
+      successMessage: '内容已删除',
+    );
   }
 
   Future<void> _restoreContent(
@@ -216,20 +214,16 @@ class _AdminContentTabState extends ConsumerState<AdminContentTab> {
     );
     if (!confirmed || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .restoreAdminContent(accessToken: token, id: content.id);
-      _refreshRelatedData();
-      if (context.mounted) showAdminSnack(context, '内容已恢复');
-    } on ApiException catch (error) {
-      if (context.mounted) showAdminSnack(context, error.message);
-    } catch (error) {
-      if (context.mounted) showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'content:${content.id}',
+      request: (api, token) async {
+        await api.restoreAdminContent(accessToken: token, id: content.id);
+      },
+      invalidate: _refreshRelatedData,
+      successMessage: '内容已恢复',
+    );
   }
 
   void _refreshRelatedData() {

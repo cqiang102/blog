@@ -125,6 +125,12 @@ enum AdminCommentStatus {
   /// 可见
   visible,
 
+  /// 待审核
+  pending,
+
+  /// 已屏蔽
+  blocked,
+
   /// 已删除
   deleted;
 
@@ -132,6 +138,8 @@ enum AdminCommentStatus {
   String get apiValue {
     return switch (this) {
       AdminCommentStatus.visible => 'VISIBLE',
+      AdminCommentStatus.pending => 'PENDING',
+      AdminCommentStatus.blocked => 'BLOCKED',
       AdminCommentStatus.deleted => 'DELETED',
     };
   }
@@ -140,6 +148,8 @@ enum AdminCommentStatus {
   String get label {
     return switch (this) {
       AdminCommentStatus.visible => '可见',
+      AdminCommentStatus.pending => '待审核',
+      AdminCommentStatus.blocked => '已屏蔽',
       AdminCommentStatus.deleted => '已删除',
     };
   }
@@ -147,6 +157,8 @@ enum AdminCommentStatus {
   /// 从 API 字符串值转换为枚举
   static AdminCommentStatus fromApi(String? value) {
     return switch (value?.toUpperCase()) {
+      'PENDING' => AdminCommentStatus.pending,
+      'BLOCKED' => AdminCommentStatus.blocked,
       'DELETED' => AdminCommentStatus.deleted,
       _ => AdminCommentStatus.visible,
     };

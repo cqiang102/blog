@@ -30,6 +30,9 @@ class AuthController extends ChangeNotifier {
 
   bool _loaded = false; // 是否已加载
   bool _busy = false; // 是否忙碌中
+  bool _disposed = false;
+  int _sessionGeneration = 0;
+  Future<void>? _loadFuture;
   String? _accessToken; // 访问令牌
   DateTime? _expiresAt; // 访问令牌过期时间
   UserProfile? _user; // 用户信息
@@ -51,53 +54,81 @@ class AuthController extends ChangeNotifier {
 
   /// 加载认证状态
   /// 从 SharedPreferences 读取令牌和用户信息
-  Future<void> load() async {
-    if (_loaded) return;
+  Future<void> load() {
+    if (_loaded) return Future<void>.value();
+    return _loadFuture ??= _loadStoredSession();
+  }
 
-    final preferences = await SharedPreferences.getInstance();
-    // 旧版本曾将 refresh token 放入 JavaScript 可读存储；升级后立即清理。
-    await preferences.remove(_legacyRefreshTokenKey);
-    _accessToken = preferences.getString(_accessTokenKey);
-    final expiresAtMs = preferences.getInt(_expiresAtKey);
-    if (expiresAtMs != null) {
-      _expiresAt = DateTime.fromMillisecondsSinceEpoch(
-        expiresAtMs,
-        isUtc: true,
-      );
-    }
-    final rawUser = preferences.getString(_userKey);
-    if (rawUser != null) {
-      _user = UserProfile.fromJson(
-        (jsonDecode(rawUser) as Map).cast<String, dynamic>(),
-      );
-    }
+  Future<void> _loadStoredSession() async {
+    final generation = _sessionGeneration;
+    SharedPreferences? preferences;
+    try {
+      preferences = await SharedPreferences.getInstance();
+      if (generation != _sessionGeneration) return;
 
-    _loaded = true;
-    notifyListeners();
+      // 旧版本曾将 refresh token 放入 JavaScript 可读存储；升级后立即清理。
+      await preferences.remove(_legacyRefreshTokenKey);
+      if (generation != _sessionGeneration) return;
 
-    if (_accessToken != null) {
-      try {
-        _user = await _apiClient.fetchProfile(_accessToken!);
-        await _saveUser(preferences);
-        notifyListeners();
-      } on ApiException catch (e) {
-        if (e.statusCode == 401) {
-          final newToken = await _handleUnauthorized();
-          if (newToken != null) {
-            try {
-              _user = await _apiClient.fetchProfile(newToken);
-              await _saveUser(preferences);
-              notifyListeners();
-            } on ApiException catch (retryError) {
-              if (retryError.statusCode == 401) {
-                await logout();
-              }
-            }
-          }
+      _accessToken = preferences.getString(_accessTokenKey);
+      final expiresAtMs = preferences.getInt(_expiresAtKey);
+      _expiresAt = expiresAtMs == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(expiresAtMs, isUtc: true);
+
+      final rawUser = preferences.getString(_userKey);
+      if (rawUser != null) {
+        try {
+          _user = UserProfile.fromJson(
+            (jsonDecode(rawUser) as Map).cast<String, dynamic>(),
+          );
+        } catch (_) {
+          // 缓存损坏不应阻塞应用启动，用户资料可随后从服务端恢复。
+          _user = null;
+          await preferences.remove(_userKey);
         }
-      } catch (_) {
-        // 网络或服务短暂不可用时保留本地会话，避免误登出。
       }
+    } catch (_) {
+      if (generation != _sessionGeneration) return;
+      // 本地缓存读取异常时安全退回未登录状态，保证路由能完成初始化。
+      _accessToken = null;
+      _expiresAt = null;
+      _user = null;
+    } finally {
+      if (generation == _sessionGeneration && !_loaded) {
+        _loaded = true;
+        _notifyListeners();
+      }
+    }
+
+    final token = _accessToken;
+    if (preferences == null || token == null) return;
+
+    try {
+      final profile = await _apiClient.fetchProfile(token);
+      if (generation != _sessionGeneration || token != _accessToken) return;
+      _user = profile;
+      await _saveUser(preferences);
+      if (generation == _sessionGeneration) _notifyListeners();
+    } on ApiException catch (error) {
+      if (generation != _sessionGeneration || error.statusCode != 401) return;
+      final newToken = await _handleUnauthorized();
+      if (newToken == null || generation != _sessionGeneration) return;
+      try {
+        final profile = await _apiClient.fetchProfile(newToken);
+        if (generation != _sessionGeneration || newToken != _accessToken) {
+          return;
+        }
+        _user = profile;
+        await _saveUser(preferences);
+        if (generation == _sessionGeneration) _notifyListeners();
+      } on ApiException catch (retryError) {
+        if (retryError.statusCode == 401 && generation == _sessionGeneration) {
+          await _clearLocalSession();
+        }
+      }
+    } catch (_) {
+      // 网络或服务短暂不可用时保留本地会话，避免误登出。
     }
   }
 
@@ -164,10 +195,11 @@ class AuthController extends ChangeNotifier {
     if (token == null) {
       throw const ApiException('请先登录');
     }
+    final generation = _sessionGeneration;
 
     _setBusy(true);
     try {
-      _user = await _apiClient.updateProfile(
+      final profile = await _apiClient.updateProfile(
         accessToken: token,
         email: email,
         nickname: nickname,
@@ -175,10 +207,12 @@ class AuthController extends ChangeNotifier {
         bio: bio,
         blogUrl: blogUrl,
       );
+      if (generation != _sessionGeneration || token != _accessToken) return;
+      _user = profile;
       await _saveUser(await SharedPreferences.getInstance());
-      notifyListeners();
+      if (generation == _sessionGeneration) _notifyListeners();
     } finally {
-      _setBusy(false);
+      if (generation == _sessionGeneration) _setBusy(false);
     }
   }
 
@@ -187,11 +221,14 @@ class AuthController extends ChangeNotifier {
   Future<void> loadUser() async {
     final token = _accessToken;
     if (token == null) return;
+    final generation = _sessionGeneration;
 
     try {
-      _user = await _apiClient.fetchProfile(token);
+      final profile = await _apiClient.fetchProfile(token);
+      if (generation != _sessionGeneration || token != _accessToken) return;
+      _user = profile;
       await _saveUser(await SharedPreferences.getInstance());
-      notifyListeners();
+      if (generation == _sessionGeneration) _notifyListeners();
     } catch (_) {
       // 静默失败，不影响当前状态
     }
@@ -200,15 +237,18 @@ class AuthController extends ChangeNotifier {
   /// 用户登出
   /// 尽力撤销服务端刷新令牌，然后清除本地会话。
   Future<void> logout() async {
+    _sessionGeneration += 1;
+    _setBusy(false);
+    await _clearLocalSession(invalidateGeneration: false);
     try {
       await _apiClient.logout();
     } catch (_) {
       // 即使服务暂不可用，也不能阻止用户退出当前设备上的会话。
     }
-    await _clearLocalSession();
   }
 
-  Future<void> _clearLocalSession() async {
+  Future<void> _clearLocalSession({bool invalidateGeneration = true}) async {
+    if (invalidateGeneration) _sessionGeneration += 1;
     final preferences = await SharedPreferences.getInstance();
     _accessToken = null;
     _expiresAt = null;
@@ -218,45 +258,73 @@ class AuthController extends ChangeNotifier {
     await preferences.remove(_expiresAtKey);
     await preferences.remove(_userKey);
     _loaded = true;
-    notifyListeners();
+    _notifyListeners();
   }
 
   /// 使用已有的 AuthSession 登录（用于 OAuth 回调等场景）
   Future<void> loginWithSession(AuthSession session) async {
+    final generation = ++_sessionGeneration;
+    final persisted = await _persistSession(session, generation);
+    if (!persisted) return;
     _accessToken = session.accessToken;
     _expiresAt = session.expiresAt;
     _user = session.user;
-
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_accessTokenKey, session.accessToken);
-    await preferences.setInt(
-      _expiresAtKey,
-      session.expiresAt.millisecondsSinceEpoch,
-    );
-    await _saveUser(preferences);
-    notifyListeners();
+    _loaded = true;
+    _notifyListeners();
   }
 
   /// 执行认证请求（登录/注册）
   Future<void> _authenticate(Future<AuthSession> Function() request) async {
+    final generation = ++_sessionGeneration;
     _setBusy(true);
     try {
       final session = await request();
+      if (generation != _sessionGeneration) return;
+      final persisted = await _persistSession(session, generation);
+      if (!persisted) return;
       _accessToken = session.accessToken;
       _expiresAt = session.expiresAt;
       _user = session.user;
-
-      final preferences = await SharedPreferences.getInstance();
-      await preferences.setString(_accessTokenKey, session.accessToken);
-      await preferences.setInt(
-        _expiresAtKey,
-        session.expiresAt.millisecondsSinceEpoch,
-      );
-      await _saveUser(preferences);
-      notifyListeners();
+      _loaded = true;
+      _notifyListeners();
     } finally {
-      _setBusy(false);
+      if (generation == _sessionGeneration) _setBusy(false);
     }
+  }
+
+  Future<bool> _persistSession(AuthSession session, int generation) async {
+    final preferences = await SharedPreferences.getInstance();
+    if (generation != _sessionGeneration) return false;
+
+    await preferences.setString(_accessTokenKey, session.accessToken);
+    if (generation != _sessionGeneration) {
+      await _discardPersistedSessionIfMatches(preferences, session.accessToken);
+      return false;
+    }
+    await preferences.setInt(
+      _expiresAtKey,
+      session.expiresAt.millisecondsSinceEpoch,
+    );
+    if (generation != _sessionGeneration) {
+      await _discardPersistedSessionIfMatches(preferences, session.accessToken);
+      return false;
+    }
+    await preferences.setString(_userKey, jsonEncode(session.user.toJson()));
+    if (generation != _sessionGeneration) {
+      await _discardPersistedSessionIfMatches(preferences, session.accessToken);
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _discardPersistedSessionIfMatches(
+    SharedPreferences preferences,
+    String accessToken,
+  ) async {
+    if (preferences.getString(_accessTokenKey) != accessToken) return;
+    await preferences.remove(_accessTokenKey);
+    await preferences.remove(_expiresAtKey);
+    await preferences.remove(_userKey);
   }
 
   /// 保存用户信息到 SharedPreferences
@@ -273,7 +341,11 @@ class AuthController extends ChangeNotifier {
   void _setBusy(bool value) {
     if (_busy == value) return;
     _busy = value;
-    notifyListeners();
+    _notifyListeners();
+  }
+
+  void _notifyListeners() {
+    if (!_disposed) notifyListeners();
   }
 
   Completer<String?>? _refreshCompleter;
@@ -287,37 +359,50 @@ class AuthController extends ChangeNotifier {
       return _refreshCompleter!.future;
     }
 
-    _refreshCompleter = Completer<String?>();
+    final completer = Completer<String?>();
+    _refreshCompleter = completer;
+    final generation = _sessionGeneration;
 
     try {
-      final preferences = await SharedPreferences.getInstance();
       final session = await _apiClient.refreshAccessToken();
+      if (generation != _sessionGeneration) {
+        completer.complete(null);
+        return null;
+      }
+      final persisted = await _persistSession(session, generation);
+      if (!persisted) {
+        completer.complete(null);
+        return null;
+      }
       _accessToken = session.accessToken;
       _expiresAt = session.expiresAt;
       _user = session.user;
+      _notifyListeners();
 
-      await preferences.setString(_accessTokenKey, session.accessToken);
-      await preferences.setInt(
-        _expiresAtKey,
-        session.expiresAt.millisecondsSinceEpoch,
-      );
-      await _saveUser(preferences);
-      notifyListeners();
-
-      _refreshCompleter!.complete(session.accessToken);
+      completer.complete(session.accessToken);
       return session.accessToken;
     } on ApiException catch (error) {
-      if (error.statusCode == 400 || error.statusCode == 401) {
+      if (generation == _sessionGeneration &&
+          (error.statusCode == 400 || error.statusCode == 401)) {
         await _clearLocalSession();
       }
-      _refreshCompleter!.complete(null);
+      completer.complete(null);
       return null;
     } catch (_) {
       // 临时网络故障不应销毁仍可恢复的本地会话。
-      _refreshCompleter!.complete(null);
+      completer.complete(null);
       return null;
     } finally {
-      _refreshCompleter = null;
+      if (identical(_refreshCompleter, completer)) {
+        _refreshCompleter = null;
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _apiClient.onUnauthorized = null;
+    super.dispose();
   }
 }

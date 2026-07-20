@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api_client.dart';
@@ -107,6 +108,8 @@ class _ActiveChatRequest {
 
 class AiChatController extends Notifier<AiChatState> {
   _ActiveChatRequest? _activeChat;
+  CancelToken? _historyCancelToken;
+  int _historyGeneration = 0;
   bool _disposed = false;
 
   @override
@@ -114,31 +117,50 @@ class AiChatController extends Notifier<AiChatState> {
     _disposed = false;
     ref.onDispose(() {
       _disposed = true;
+      _historyGeneration += 1;
+      _historyCancelToken?.cancel('AI history controller disposed');
       unawaited(_cancelActiveChat(updateState: false));
     });
     return const AiChatState();
   }
 
+  int _beginHistoryOperation() {
+    _historyCancelToken?.cancel('Superseded by a newer chat operation');
+    _historyCancelToken = null;
+    return ++_historyGeneration;
+  }
+
   Future<void> loadLatestSession() async {
+    final generation = _beginHistoryOperation();
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
 
     try {
       final sessions = await ref.read(apiClientProvider).fetchAiSessions(token);
-      if (_disposed || sessions.isEmpty) return;
-      await loadHistory(sessions.first.id);
+      if (_disposed || generation != _historyGeneration || sessions.isEmpty) {
+        return;
+      }
+      await _loadHistory(sessions.first.id, generation);
     } on ApiException {
       // A user without previous sessions starts with an empty conversation.
     }
   }
 
   Future<void> loadHistory(String sessionId) async {
+    final generation = _beginHistoryOperation();
+    await _loadHistory(sessionId, generation);
+  }
+
+  Future<void> _loadHistory(String sessionId, int generation) async {
     await cancelActiveChat();
-    if (_disposed) return;
+    if (_disposed || generation != _historyGeneration) return;
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
 
     state = state.copyWith(isLoadingHistory: true, clearError: true);
+    _historyCancelToken?.cancel('Superseded by a newer history request');
+    final cancelToken = CancelToken();
+    _historyCancelToken = cancelToken;
     try {
       final page = await ref
           .read(apiClientProvider)
@@ -146,8 +168,9 @@ class AiChatController extends Notifier<AiChatState> {
             accessToken: token,
             sessionId: sessionId,
             size: 50,
+            cancelToken: cancelToken,
           );
-      if (_disposed) return;
+      if (_disposed || generation != _historyGeneration) return;
 
       final messages = page.items
           .map(
@@ -167,15 +190,24 @@ class AiChatController extends Notifier<AiChatState> {
         clearError: true,
       );
     } on ApiException catch (error) {
-      if (!_disposed) _setError(error.message);
+      if (cancelToken.isCancelled) return;
+      if (!_disposed && generation == _historyGeneration) {
+        _setError(error.message);
+      }
     } finally {
-      if (!_disposed) state = state.copyWith(isLoadingHistory: false);
+      if (identical(_historyCancelToken, cancelToken)) {
+        _historyCancelToken = null;
+      }
+      if (!_disposed && generation == _historyGeneration) {
+        state = state.copyWith(isLoadingHistory: false);
+      }
     }
   }
 
   Future<void> createNewSession() async {
+    final generation = _beginHistoryOperation();
     await cancelActiveChat();
-    if (_disposed) return;
+    if (_disposed || generation != _historyGeneration) return;
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
 
@@ -183,10 +215,12 @@ class AiChatController extends Notifier<AiChatState> {
       final session = await ref
           .read(apiClientProvider)
           .createAiSession(accessToken: token);
-      if (_disposed) return;
+      if (_disposed || generation != _historyGeneration) return;
       state = AiChatState(sessionId: session.id);
     } on ApiException catch (error) {
-      if (!_disposed) _setError(error.message);
+      if (!_disposed && generation == _historyGeneration) {
+        _setError(error.message);
+      }
     }
   }
 
@@ -202,17 +236,30 @@ class AiChatController extends Notifier<AiChatState> {
   }
 
   Future<void> deleteSession(String sessionId) async {
+    final deletingCurrentSession = state.sessionId == sessionId;
+    final generation = deletingCurrentSession
+        ? _beginHistoryOperation()
+        : _historyGeneration;
+    if (deletingCurrentSession) {
+      // Stop token/done callbacks before deleting the backing session.
+      await cancelActiveChat();
+      if (_disposed) return;
+    }
     final token = ref.read(authControllerProvider).accessToken;
     if (token == null) return;
     try {
       await ref
           .read(apiClientProvider)
           .deleteAiSession(accessToken: token, sessionId: sessionId);
-      if (!_disposed && state.sessionId == sessionId) {
+      if (!_disposed &&
+          generation == _historyGeneration &&
+          state.sessionId == sessionId) {
         state = const AiChatState();
       }
     } on ApiException catch (error) {
-      if (!_disposed) _setError(error.message);
+      if (!_disposed && generation == _historyGeneration) {
+        _setError(error.message);
+      }
     }
   }
 
@@ -226,12 +273,17 @@ class AiChatController extends Notifier<AiChatState> {
       return AiChatSendOutcome.ignored;
     }
 
+    final generation = _beginHistoryOperation();
     final token = await ref.read(authControllerProvider).getValidAccessToken();
-    if (_disposed) return AiChatSendOutcome.ignored;
+    if (_disposed || generation != _historyGeneration) {
+      return AiChatSendOutcome.ignored;
+    }
     if (token == null) return AiChatSendOutcome.loginRequired;
 
     await cancelActiveChat();
-    if (_disposed) return AiChatSendOutcome.ignored;
+    if (_disposed || generation != _historyGeneration) {
+      return AiChatSendOutcome.ignored;
+    }
 
     addUserMessage(text);
     unawaited(
@@ -289,7 +341,7 @@ class AiChatController extends Notifier<AiChatState> {
     } catch (error) {
       if (_disposed) return;
       removeAiPlaceholder();
-      _setError(error.toString());
+      _setError(userFacingErrorMessage(error));
     } finally {
       if (identical(_activeChat, activeChat)) {
         _activeChat = null;

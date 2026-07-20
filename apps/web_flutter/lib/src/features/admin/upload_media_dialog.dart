@@ -5,6 +5,7 @@ import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/models.dart';
 import '../../theme/app_spacing.dart';
+import 'admin_content_option_picker.dart';
 import 'admin_widgets.dart';
 
 /// 上传媒体草稿数据
@@ -22,12 +23,10 @@ class UploadMediaDialog extends StatefulWidget {
     super.key,
     required this.filename,
     required this.inferredType,
-    required this.contents,
   });
 
   final String filename; // 文件名
   final MediaAssetType inferredType; // 根据文件名推断的媒体类型
-  final List<AdminContentItem> contents; // 可绑定的内容列表
 
   @override
   State<UploadMediaDialog> createState() => UploadMediaDialogState();
@@ -57,10 +56,9 @@ class UploadMediaDialogState extends State<UploadMediaDialog> {
           child: const Text('取消'),
         ),
         FilledButton(
-          onPressed:
-              () => Navigator.of(
-                context,
-              ).pop(UploadMediaDraft(contentId: _contentId, type: _type)),
+          onPressed: () => Navigator.of(
+            context,
+          ).pop(UploadMediaDraft(contentId: _contentId, type: _type)),
           child: const Text('开始上传'),
         ),
       ],
@@ -91,23 +89,9 @@ class UploadMediaDialogState extends State<UploadMediaDialog> {
             child: Column(
               children: [
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _contentId,
-                  decoration: const InputDecoration(labelText: '绑定内容'),
-                  items: [
-                    const DropdownMenuItem(value: '', child: Text('不绑定内容')),
-                    for (final content in widget.contents)
-                      DropdownMenuItem(
-                        value: content.id,
-                        child: Text(
-                          content.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged:
-                      (value) => setState(() => _contentId = value ?? ''),
+                AdminContentOptionPicker(
+                  value: _contentId,
+                  onChanged: (value) => setState(() => _contentId = value),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<MediaAssetType>(
@@ -117,9 +101,8 @@ class UploadMediaDialogState extends State<UploadMediaDialog> {
                     for (final type in MediaAssetType.values)
                       DropdownMenuItem(value: type, child: Text(type.label)),
                   ],
-                  onChanged:
-                      (value) =>
-                          setState(() => _type = value ?? MediaAssetType.file),
+                  onChanged: (value) =>
+                      setState(() => _type = value ?? MediaAssetType.file),
                 ),
               ],
             ),

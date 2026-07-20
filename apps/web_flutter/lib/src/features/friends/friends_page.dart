@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../state/state.dart';
 import '../../widgets/widgets.dart';
+import '../../core/api_client.dart';
 import '../../core/constants.dart';
 import '../../core/media_url.dart';
 import '../../core/models.dart';
@@ -39,7 +40,7 @@ class FriendsPage extends ConsumerWidget {
             ),
             error: (error, stackTrace) => SliverFillRemaining(
               child: _FriendsError(
-                message: error.toString(),
+                message: userFacingErrorMessage(error),
                 onRetry: () => ref.invalidate(friendsProvider),
               ),
             ),

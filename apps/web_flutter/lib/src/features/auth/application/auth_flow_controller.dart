@@ -110,7 +110,7 @@ class AuthFlowController extends Notifier<AuthFlowState> {
     } on ApiException catch (error) {
       _setError(error.message);
     } catch (error) {
-      _setError(error.toString());
+      _setError(userFacingErrorMessage(error));
     }
     return false;
   }
@@ -139,7 +139,7 @@ class AuthFlowController extends Notifier<AuthFlowState> {
     } on ApiException catch (error) {
       _setError(error.message);
     } catch (error) {
-      _setError(error.toString());
+      _setError(userFacingErrorMessage(error));
     }
     return false;
   }
@@ -162,7 +162,7 @@ class AuthFlowController extends Notifier<AuthFlowState> {
       }
       return true;
     } catch (error) {
-      _setError('获取 GitHub 登录地址失败：$error');
+      _setError('获取 GitHub 登录地址失败：${userFacingErrorMessage(error)}');
       return false;
     }
   }

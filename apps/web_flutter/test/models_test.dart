@@ -46,6 +46,27 @@ void main() {
     });
   });
 
+  group('AdminCommentStatus', () {
+    test('matches every backend comment status', () {
+      expect(AdminCommentStatus.visible.apiValue, 'VISIBLE');
+      expect(AdminCommentStatus.pending.apiValue, 'PENDING');
+      expect(AdminCommentStatus.blocked.apiValue, 'BLOCKED');
+      expect(AdminCommentStatus.deleted.apiValue, 'DELETED');
+
+      expect(AdminCommentStatus.fromApi('VISIBLE'), AdminCommentStatus.visible);
+      expect(AdminCommentStatus.fromApi('PENDING'), AdminCommentStatus.pending);
+      expect(AdminCommentStatus.fromApi('BLOCKED'), AdminCommentStatus.blocked);
+      expect(AdminCommentStatus.fromApi('DELETED'), AdminCommentStatus.deleted);
+    });
+
+    test('provides distinct administrator-facing labels', () {
+      expect(
+        AdminCommentStatus.values.map((status) => status.label).toSet(),
+        hasLength(AdminCommentStatus.values.length),
+      );
+    });
+  });
+
   /// ContentListQuery 测试组
   /// 验证默认值和相等性判断
   group('ContentListQuery', () {

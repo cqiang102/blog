@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../core/api_client.dart';
-import '../../../state/state.dart';
 import '../../../core/models.dart';
+import '../../../state/state.dart';
+import '../admin_mutation.dart';
 import '../admin_widgets.dart';
 
 /// 管理后台 - 点赞管理标签页
@@ -20,7 +20,8 @@ class AdminLikeTab extends ConsumerStatefulWidget {
 }
 
 /// 点赞管理标签页状态管理
-class AdminLikeTabState extends ConsumerState<AdminLikeTab> {
+class AdminLikeTabState extends ConsumerState<AdminLikeTab>
+    with AdminPageCorrectionMixin<AdminLikeTab> {
   final _contentIdController = TextEditingController(); // 内容 ID 筛选框
   final _userIdController = TextEditingController(); // 用户 ID 筛选框
   AdminRecordQuery _query = const AdminRecordQuery(); // 当前查询条件
@@ -39,43 +40,59 @@ class AdminLikeTabState extends ConsumerState<AdminLikeTab> {
     return likes.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => AdminErrorPane(
-        message: error.toString(),
+        message: adminErrorMessage(error),
         onRetry: () => ref.invalidate(adminLikesProvider(_query)),
       ),
-      data: (page) => ListView.builder(
-        padding: const EdgeInsets.all(24),
-        itemCount: page.items.length + 1,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _RecordFilters(
-                  contentIdController: _contentIdController,
-                  userIdController: _userIdController,
-                  onApply: _applyFilters,
-                  onClear: _clearFilters,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '共 ${page.total} 条点赞记录',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 12),
-                if (page.items.isEmpty) const AdminEmptyPane(message: '暂无点赞记录'),
-              ],
+      data: (page) {
+        correctAdminPage(
+          page,
+          requestedPage: _query.page,
+          onChanged: _changePage,
+        );
+        return ListView.builder(
+          padding: const EdgeInsets.all(24),
+          itemCount: page.items.length + 1 + (page.total > page.size ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _RecordFilters(
+                    contentIdController: _contentIdController,
+                    userIdController: _userIdController,
+                    onApply: _applyFilters,
+                    onClear: _clearFilters,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '共 ${page.total} 条点赞记录',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  if (page.items.isEmpty)
+                    const AdminEmptyPane(message: '暂无点赞记录'),
+                ],
+              );
+            }
+            if (index > page.items.length) {
+              return AdminPaginationBar(
+                page: page.page,
+                pageSize: page.size,
+                total: page.total,
+                onChanged: _changePage,
+              );
+            }
+            final like = page.items[index - 1];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _LikeAdminRow(
+                like: like,
+                onDelete: () => _deleteLike(context, like),
+              ),
             );
-          }
-          final like = page.items[index - 1];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _LikeAdminRow(
-              like: like,
-              onDelete: () => _deleteLike(context, like),
-            ),
-          );
-        },
-      ),
+          },
+        );
+      },
     );
   }
 
@@ -96,6 +113,11 @@ class AdminLikeTabState extends ConsumerState<AdminLikeTab> {
     });
   }
 
+  void _changePage(int page) {
+    if (page < 0 || page == _query.page) return;
+    setState(() => _query = _query.copyWith(page: page));
+  }
+
   Future<void> _deleteLike(BuildContext context, AdminLikeItem like) async {
     if (!mounted) return;
     final confirmed = await adminConfirm(
@@ -106,21 +128,16 @@ class AdminLikeTabState extends ConsumerState<AdminLikeTab> {
     );
     if (!confirmed || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .deleteAdminLike(accessToken: token, id: like.id);
-      _refreshLikeState(like.contentId);
-      if (!context.mounted) return;
-      showAdminSnack(context, '点赞记录已删除');
-    } on ApiException catch (error) {
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'like:${like.id}',
+      request: (api, token) async {
+        await api.deleteAdminLike(accessToken: token, id: like.id);
+      },
+      invalidate: () => _refreshLikeState(like.contentId),
+      successMessage: '点赞记录已删除',
+    );
   }
 
   void _refreshLikeState(String contentId) {
@@ -142,7 +159,8 @@ class AdminViewTab extends ConsumerStatefulWidget {
 }
 
 /// 浏览记录管理标签页状态管理
-class AdminViewTabState extends ConsumerState<AdminViewTab> {
+class AdminViewTabState extends ConsumerState<AdminViewTab>
+    with AdminPageCorrectionMixin<AdminViewTab> {
   final _contentIdController = TextEditingController(); // 内容 ID 筛选框
   final _userIdController = TextEditingController(); // 用户 ID 筛选框
   AdminRecordQuery _query = const AdminRecordQuery(); // 当前查询条件
@@ -161,43 +179,59 @@ class AdminViewTabState extends ConsumerState<AdminViewTab> {
     return views.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => AdminErrorPane(
-        message: error.toString(),
+        message: adminErrorMessage(error),
         onRetry: () => ref.invalidate(adminViewsProvider(_query)),
       ),
-      data: (page) => ListView.builder(
-        padding: const EdgeInsets.all(24),
-        itemCount: page.items.length + 1,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _RecordFilters(
-                  contentIdController: _contentIdController,
-                  userIdController: _userIdController,
-                  onApply: _applyFilters,
-                  onClear: _clearFilters,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '共 ${page.total} 条浏览记录',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 12),
-                if (page.items.isEmpty) const AdminEmptyPane(message: '暂无浏览记录'),
-              ],
+      data: (page) {
+        correctAdminPage(
+          page,
+          requestedPage: _query.page,
+          onChanged: _changePage,
+        );
+        return ListView.builder(
+          padding: const EdgeInsets.all(24),
+          itemCount: page.items.length + 1 + (page.total > page.size ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _RecordFilters(
+                    contentIdController: _contentIdController,
+                    userIdController: _userIdController,
+                    onApply: _applyFilters,
+                    onClear: _clearFilters,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '共 ${page.total} 条浏览记录',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  if (page.items.isEmpty)
+                    const AdminEmptyPane(message: '暂无浏览记录'),
+                ],
+              );
+            }
+            if (index > page.items.length) {
+              return AdminPaginationBar(
+                page: page.page,
+                pageSize: page.size,
+                total: page.total,
+                onChanged: _changePage,
+              );
+            }
+            final view = page.items[index - 1];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _ViewAdminRow(
+                view: view,
+                onDelete: () => _deleteView(context, view),
+              ),
             );
-          }
-          final view = page.items[index - 1];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _ViewAdminRow(
-              view: view,
-              onDelete: () => _deleteView(context, view),
-            ),
-          );
-        },
-      ),
+          },
+        );
+      },
     );
   }
 
@@ -218,6 +252,11 @@ class AdminViewTabState extends ConsumerState<AdminViewTab> {
     });
   }
 
+  void _changePage(int page) {
+    if (page < 0 || page == _query.page) return;
+    setState(() => _query = _query.copyWith(page: page));
+  }
+
   Future<void> _deleteView(
     BuildContext context,
     AdminViewRecordItem view,
@@ -231,21 +270,16 @@ class AdminViewTabState extends ConsumerState<AdminViewTab> {
     );
     if (!confirmed || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .deleteAdminView(accessToken: token, id: view.id);
-      _refreshViewState(view.contentId);
-      if (!context.mounted) return;
-      showAdminSnack(context, '浏览记录已删除');
-    } on ApiException catch (error) {
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'view:${view.id}',
+      request: (api, token) async {
+        await api.deleteAdminView(accessToken: token, id: view.id);
+      },
+      invalidate: () => _refreshViewState(view.contentId),
+      successMessage: '浏览记录已删除',
+    );
   }
 
   void _refreshViewState(String contentId) {

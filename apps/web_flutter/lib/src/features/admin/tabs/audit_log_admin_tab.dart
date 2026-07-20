@@ -17,7 +17,8 @@ class AdminAuditLogTab extends ConsumerStatefulWidget {
   ConsumerState<AdminAuditLogTab> createState() => AdminAuditLogTabState();
 }
 
-class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab> {
+class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab>
+    with AdminPageCorrectionMixin<AdminAuditLogTab> {
   String? _action;
   String? _resourceType;
   AuditLogQuery _query = const AuditLogQuery();
@@ -61,23 +62,32 @@ class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab> {
     return logs.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => AdminErrorPane(
-        message: error.toString(),
+        message: adminErrorMessage(error),
         onRetry: () => ref.invalidate(adminAuditLogsProvider(_query)),
       ),
-      data: (page) => _AuditLogList(
-        page: page,
-        query: _query,
-        action: _action,
-        resourceType: _resourceType,
-        actions: _actions,
-        actionLabels: _actionLabels,
-        resourceTypes: _resourceTypes,
-        resourceTypeLabels: _resourceTypeLabels,
-        onActionChanged: (value) => setState(() => _action = value),
-        onResourceTypeChanged: (value) => setState(() => _resourceType = value),
-        onApply: _applyFilters,
-        onClear: _clearFilters,
-      ),
+      data: (page) {
+        correctAdminPage(
+          page,
+          requestedPage: _query.page,
+          onChanged: _changePage,
+        );
+        return _AuditLogList(
+          page: page,
+          query: _query,
+          action: _action,
+          resourceType: _resourceType,
+          actions: _actions,
+          actionLabels: _actionLabels,
+          resourceTypes: _resourceTypes,
+          resourceTypeLabels: _resourceTypeLabels,
+          onActionChanged: (value) => setState(() => _action = value),
+          onResourceTypeChanged: (value) =>
+              setState(() => _resourceType = value),
+          onApply: _applyFilters,
+          onClear: _clearFilters,
+          onPageChanged: _changePage,
+        );
+      },
     );
   }
 
@@ -93,6 +103,11 @@ class AdminAuditLogTabState extends ConsumerState<AdminAuditLogTab> {
       _resourceType = null;
       _query = const AuditLogQuery();
     });
+  }
+
+  void _changePage(int page) {
+    if (page < 0 || page == _query.page) return;
+    setState(() => _query = _query.copyWith(page: page));
   }
 }
 
@@ -111,6 +126,7 @@ class _AuditLogList extends StatelessWidget {
     required this.onResourceTypeChanged,
     required this.onApply,
     required this.onClear,
+    required this.onPageChanged,
   });
 
   final PageResult<AuditLogItem> page;
@@ -125,16 +141,25 @@ class _AuditLogList extends StatelessWidget {
   final ValueChanged<String?> onResourceTypeChanged;
   final VoidCallback onApply;
   final VoidCallback onClear;
+  final ValueChanged<int> onPageChanged;
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      itemCount: page.items.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm + 4),
+      itemCount: page.items.length + 1 + (page.total > page.size ? 1 : 0),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm + 4),
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildHeader(context);
+        }
+        if (index > page.items.length) {
+          return AdminPaginationBar(
+            page: page.page,
+            pageSize: page.size,
+            total: page.total,
+            onChanged: onPageChanged,
+          );
         }
         final log = page.items[index - 1];
         return _AuditLogRow(log: log);

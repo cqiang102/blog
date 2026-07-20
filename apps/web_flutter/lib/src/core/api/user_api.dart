@@ -13,7 +13,7 @@ mixin UserApi on ApiClientBase {
   /// 获取当前用户信息
   Future<UserProfile> fetchProfile(String accessToken) async {
     final data = await get('/me', accessToken: accessToken);
-    return UserProfile.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, UserProfile.fromJson);
   }
 
   /// 更新当前用户信息
@@ -36,7 +36,7 @@ mixin UserApi on ApiClientBase {
         'blogUrl': blogUrl,
       },
     );
-    return UserProfile.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, UserProfile.fromJson);
   }
 
   /// 上传用户头像
@@ -55,9 +55,7 @@ mixin UserApi on ApiClientBase {
       accessToken: accessToken,
       formData: formData,
     );
-    final userProfile = UserProfile.fromJson(
-      (data as Map).cast<String, dynamic>(),
-    );
+    final userProfile = decodeObject(data, UserProfile.fromJson);
     return userProfile.avatarUrl ?? '';
   }
 
@@ -66,10 +64,7 @@ mixin UserApi on ApiClientBase {
     required String accessToken,
   }) async {
     final data = await get('/me/oauth-accounts', accessToken: accessToken);
-    return (data as List? ?? const [])
-        .whereType<Map>()
-        .map((item) => OAuthAccountInfo.fromJson(item.cast<String, dynamic>()))
-        .toList();
+    return decodeObjectList(data, OAuthAccountInfo.fromJson);
   }
 
   /// 解绑指定的 OAuth 账户

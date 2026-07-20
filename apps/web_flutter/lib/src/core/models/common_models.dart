@@ -24,6 +24,26 @@ class PageResult<T> {
   final int total;
 }
 
+/// Generic page-only query used by admin resources without filters.
+class AdminPageQuery {
+  const AdminPageQuery({this.page = 0, this.size = 50});
+
+  final int page;
+  final int size;
+
+  AdminPageQuery copyWith({int? page, int? size}) {
+    return AdminPageQuery(page: page ?? this.page, size: size ?? this.size);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is AdminPageQuery && other.page == page && other.size == size;
+  }
+
+  @override
+  int get hashCode => Object.hash(page, size);
+}
+
 /// 标签项模型
 @JsonSerializable()
 class TagItem {
@@ -367,6 +387,21 @@ class AdminKnowledgeDocQuery {
   final bool? enabled;
   final int page;
   final int size;
+
+  AdminKnowledgeDocQuery copyWith({
+    String? query,
+    bool? enabled,
+    bool clearEnabled = false,
+    int? page,
+    int? size,
+  }) {
+    return AdminKnowledgeDocQuery(
+      query: query ?? this.query,
+      enabled: clearEnabled ? null : (enabled ?? this.enabled),
+      page: page ?? this.page,
+      size: size ?? this.size,
+    );
+  }
 
   @override
   bool operator ==(Object other) {

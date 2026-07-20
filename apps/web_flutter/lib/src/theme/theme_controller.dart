@@ -6,17 +6,27 @@ final themeControllerProvider = NotifierProvider<ThemeController, ThemeMode>(
   ThemeController.new,
 );
 
+typedef ThemePreferencesLoader = Future<SharedPreferences> Function();
+
+/// Injectable so initialization/write ordering can be tested deterministically.
+final themePreferencesLoaderProvider = Provider<ThemePreferencesLoader>(
+  (ref) => SharedPreferences.getInstance,
+);
+
 class ThemeController extends Notifier<ThemeMode> {
   static const _preferenceKey = 'app.themeMode';
+  int _mutationVersion = 0;
 
   @override
   ThemeMode build() {
+    _mutationVersion = 0;
     Future.microtask(load);
     return ThemeMode.system;
   }
 
   Future<void> load() async {
-    final preferences = await SharedPreferences.getInstance();
+    final version = _mutationVersion;
+    final preferences = await ref.read(themePreferencesLoaderProvider)();
     final savedMode = preferences.getString(_preferenceKey);
     final nextMode = switch (savedMode) {
       'light' => ThemeMode.light,
@@ -24,7 +34,9 @@ class ThemeController extends Notifier<ThemeMode> {
       _ => ThemeMode.system,
     };
 
-    if (state == nextMode || !ref.mounted) return;
+    if (!ref.mounted || version != _mutationVersion || state == nextMode) {
+      return;
+    }
     state = nextMode;
   }
 
@@ -36,9 +48,10 @@ class ThemeController extends Notifier<ThemeMode> {
 
   Future<void> setMode(ThemeMode mode) async {
     if (state == mode) return;
+    _mutationVersion += 1;
     state = mode;
 
-    final preferences = await SharedPreferences.getInstance();
+    final preferences = await ref.read(themePreferencesLoaderProvider)();
     await preferences.setString(_preferenceKey, mode.name);
   }
 }

@@ -25,7 +25,11 @@ import '../../theme/app_motion.dart';
 
 part 'content_detail/content_error_scaffold.dart';
 part 'content_detail/content_comments.dart';
+part 'content_detail/content_article_hero.dart';
 part 'content_detail/content_media_viewers.dart';
+part 'content_detail/content_markdown_article.dart';
+part 'content_detail/content_image_gallery.dart';
+part 'content_detail/content_video_viewer.dart';
 part 'content_detail/content_actions.dart';
 
 /// 内容详情页 Widget
@@ -200,7 +204,7 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Text(error.toString()),
+                    child: Text(userFacingErrorMessage(error)),
                   ),
                 ),
               ),
@@ -304,13 +308,16 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
       await ref
           .read(apiClientProvider)
           .createComment(accessToken: token, contentId: widget.id, body: body);
+      if (!mounted) return;
       _commentController.clear();
       // 只刷新评论列表，不刷新详情（评论数会在下次进入时更新）
       ref.invalidate(commentsProvider(widget.id));
     } on ApiException catch (error) {
+      if (!mounted) return;
       _showError(error.message);
     } catch (error) {
-      _showError(error.toString());
+      if (!mounted) return;
+      _showError(userFacingErrorMessage(error));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

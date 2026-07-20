@@ -3,6 +3,8 @@
 
 import 'dart:async';
 
+import 'package:dio/dio.dart';
+
 import '../models.dart';
 import '../sse/sse_client.dart';
 import '../sse/sse_event.dart';
@@ -13,21 +15,7 @@ mixin AiApi on ApiClientBase {
   /// 获取 AI 配额
   Future<AiQuota> fetchAiQuota(String accessToken) async {
     final data = await get('/ai/quota', accessToken: accessToken);
-    return AiQuota.fromJson((data as Map).cast<String, dynamic>());
-  }
-
-  /// 发送 AI 聊天消息
-  Future<AiChatReply> sendAiMessage({
-    required String accessToken,
-    required String message,
-    String? sessionId,
-  }) async {
-    final data = await post(
-      '/ai/chat',
-      accessToken: accessToken,
-      body: {'sessionId': sessionId, 'message': message},
-    );
-    return AiChatReply.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AiQuota.fromJson);
   }
 
   /// 发送 AI 聊天消息（SSE 流式）
@@ -121,18 +109,15 @@ mixin AiApi on ApiClientBase {
     final data = await post(
       '/ai/sessions',
       accessToken: accessToken,
-      body: {if (title != null) 'title': title},
+      body: {'title': ?title},
     );
-    return AiSessionItem.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AiSessionItem.fromJson);
   }
 
   /// 获取 AI 会话列表
   Future<List<AiSessionItem>> fetchAiSessions(String accessToken) async {
     final data = await get('/ai/sessions', accessToken: accessToken);
-    return (data as List? ?? const [])
-        .whereType<Map>()
-        .map((item) => AiSessionItem.fromJson(item.cast<String, dynamic>()))
-        .toList();
+    return decodeObjectList(data, AiSessionItem.fromJson);
   }
 
   /// 删除 AI 会话
@@ -149,10 +134,12 @@ mixin AiApi on ApiClientBase {
     required String sessionId,
     int page = 0,
     int size = 50,
+    CancelToken? cancelToken,
   }) async {
     final data = await get(
       '/ai/sessions/$sessionId/messages',
       accessToken: accessToken,
+      cancelToken: cancelToken,
       queryParameters: {'page': page.toString(), 'size': size.toString()},
     );
     return pageResult(data, AiMessageItem.fromJson);

@@ -10,17 +10,13 @@ extension SnackbarContextX on BuildContext {
   /// 显示错误 SnackBar
   void showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(this).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(this).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// 显示成功 SnackBar
   void showSuccess(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(this).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(this).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -46,7 +42,7 @@ Future<T?> runWithErrorHandling<T>(
     }
     return null;
   } catch (error) {
-    final message = error.toString();
+    final message = userFacingErrorMessage(error);
     if (onError != null) {
       onError(message);
     } else if (context.mounted) {

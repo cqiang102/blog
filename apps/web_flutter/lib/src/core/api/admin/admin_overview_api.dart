@@ -6,7 +6,7 @@ mixin AdminOverviewApi on ApiClientBase {
   /// 获取管理后台仪表盘数据
   Future<AdminDashboard> fetchAdminDashboard(String accessToken) async {
     final data = await get('/admin/dashboard', accessToken: accessToken);
-    return AdminDashboard.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AdminDashboard.fromJson);
   }
 
   /// 获取管理后台审计日志

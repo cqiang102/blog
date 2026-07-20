@@ -14,7 +14,7 @@ const _sseTimeout = Duration(minutes: 10);
 
 /// Web 平台 SSE 客户端
 /// 使用 Fetch API + ReadableStream 实现真正的流式读取
-Future<List<SseEvent>> postSse({
+Future<void> postSse({
   required Dio dio,
   required String path,
   required Map<String, dynamic> body,
@@ -22,17 +22,13 @@ Future<List<SseEvent>> postSse({
   required void Function(SseEvent event) onEvent,
   SseCancellationToken? cancellationToken,
 }) async {
-  final events = <SseEvent>[];
   var buffer = '';
 
   void consume(String chunk, {bool flush = false}) {
     buffer = consumeSseChunk(
       buffer: buffer,
       chunk: chunk,
-      onEvent: (event) {
-        events.add(event);
-        onEvent(event);
-      },
+      onEvent: onEvent,
       flush: flush,
     );
   }
@@ -79,7 +75,7 @@ Future<List<SseEvent>> postSse({
     final bodyStream = response.body;
     if (bodyStream == null) {
       consume('', flush: true);
-      return events;
+      return;
     }
 
     final reader = bodyStream.getReader() as web.ReadableStreamDefaultReader;
@@ -106,6 +102,4 @@ Future<List<SseEvent>> postSse({
     timer.cancel();
     cancellationToken?.bind(null);
   }
-
-  return events;
 }

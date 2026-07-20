@@ -17,12 +17,6 @@ final tagsProvider = FutureProvider<List<TagItem>>((ref) {
   return ref.watch(apiClientProvider).fetchTags();
 });
 
-/// 内容列表 Provider（支持查询参数）
-final contentListProvider = FutureProvider.autoDispose
-    .family<PageResult<BlogContent>, ContentListQuery>((ref, query) {
-      return ref.watch(apiClientProvider).fetchContents(query);
-    });
-
 /// 内容详情 Provider
 final contentDetailProvider = FutureProvider.autoDispose
     .family<BlogContent, String>((ref, id) {

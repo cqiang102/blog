@@ -31,17 +31,16 @@ class FriendEditorDialogState extends State<FriendEditorDialog> {
   void initState() {
     super.initState();
     final friend = widget.friend;
-    final draft =
-        friend == null
-            ? const FriendDraft(
-              name: '',
-              intro: '',
-              avatarUrl: '',
-              siteUrl: '',
-              visible: true,
-              sortOrder: 0,
-            )
-            : FriendDraft.fromItem(friend);
+    final draft = friend == null
+        ? const FriendDraft(
+            name: '',
+            intro: '',
+            avatarUrl: '',
+            siteUrl: '',
+            visible: true,
+            sortOrder: 0,
+          )
+        : FriendDraft.fromItem(friend);
     _nameController.text = draft.name;
     _introController.text = draft.intro;
     _avatarController.text = draft.avatarUrl;
@@ -86,11 +85,8 @@ class FriendEditorDialogState extends State<FriendEditorDialog> {
                     controller: _nameController,
                     decoration: const InputDecoration(labelText: '名称'),
                     maxLength: 80,
-                    validator:
-                        (value) =>
-                            value == null || value.trim().isEmpty
-                                ? '请输入名称'
-                                : null,
+                    validator: (value) =>
+                        value == null || value.trim().isEmpty ? '请输入名称' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -123,11 +119,10 @@ class FriendEditorDialogState extends State<FriendEditorDialog> {
                     controller: _sortController,
                     decoration: const InputDecoration(labelText: '排序值'),
                     keyboardType: TextInputType.number,
-                    validator:
-                        (value) =>
-                            int.tryParse(value?.trim() ?? '') == null
-                                ? '请输入数字'
-                                : null,
+                    validator: (value) =>
+                        int.tryParse(value?.trim() ?? '') == null
+                        ? '请输入数字'
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   SwitchListTile(

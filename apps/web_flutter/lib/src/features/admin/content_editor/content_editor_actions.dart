@@ -293,12 +293,9 @@ extension _ContentEditorActions on _ContentEditorPageState {
         status == ContentStatus.published ? '内容已发布' : '内容草稿已保存',
       );
       _leave();
-    } on ApiException catch (error) {
-      _controller.submitFailed();
-      if (mounted) showAdminSnack(context, error.message);
     } catch (error) {
       _controller.submitFailed();
-      if (mounted) showAdminSnack(context, error.toString());
+      if (mounted) showAdminSnack(context, adminErrorMessage(error));
     }
   }
 
@@ -353,6 +350,6 @@ extension _ContentEditorActions on _ContentEditorPageState {
 
   void _leave() {
     if (!mounted) return;
-    context.go('/admin?tab=content');
+    context.go(adminTabLocation(AdminTabId.content));
   }
 }

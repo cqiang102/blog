@@ -86,22 +86,4 @@ class ContentEditorDraftService {
       return false;
     }
   }
-
-  /// 清除所有草稿
-  Future<void> clearAllDrafts() async {
-    try {
-      final keys = _prefs.getKeys().where((k) => k.startsWith(_keyPrefix));
-      for (final key in keys) {
-        await _prefs.remove(key);
-      }
-    } catch (e) {
-      debugPrint('Failed to clear all drafts: $e');
-    }
-  }
-
-  /// 检查是否有草稿
-  bool hasDraft(String? contentId) {
-    final key = _getDraftKey(contentId);
-    return _prefs.containsKey(key);
-  }
 }

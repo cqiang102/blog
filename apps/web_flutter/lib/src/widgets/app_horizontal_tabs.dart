@@ -74,10 +74,9 @@ class _AppHorizontalTab extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color:
-                  selected
-                      ? scheme.onPrimaryContainer
-                      : scheme.onSurfaceVariant,
+              color: selected
+                  ? scheme.onPrimaryContainer
+                  : scheme.onSurfaceVariant,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
             ),
           ),

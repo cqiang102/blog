@@ -15,7 +15,7 @@ extension _ContentEditorScaffold on _ContentEditorPageState {
         leading: BackButton(onPressed: _leave),
       ),
       body: AdminErrorPane(
-        message: _loadError.toString(),
+        message: adminErrorMessage(_loadError!),
         onRetry: _initialize,
       ),
     );

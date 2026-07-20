@@ -33,7 +33,7 @@ mixin AdminUserApi on ApiClientBase {
       accessToken: accessToken,
       body: draft.toJson(),
     );
-    return AdminUserItem.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AdminUserItem.fromJson);
   }
 
   /// 删除管理后台用户

@@ -14,11 +14,10 @@ import '../../state/state.dart';
 /// GitHub 授权后会跳转到 /login/oauth2/code/github?code=...&state=...
 /// 本页面提取 code 和 state，调用后端 API 完成登录/绑定
 class OAuthCallbackPage extends ConsumerStatefulWidget {
-  const OAuthCallbackPage({super.key, this.code, this.state, this.loginCode});
+  const OAuthCallbackPage({super.key, this.code, this.state});
 
   final String? code;
   final String? state;
-  final String? loginCode;
 
   @override
   ConsumerState<OAuthCallbackPage> createState() => _OAuthCallbackPageState();
@@ -40,20 +39,7 @@ class _OAuthCallbackPageState extends ConsumerState<OAuthCallbackPage> {
     _started = true;
 
     try {
-      // 情况 1：Spring Security 登录重定向，携带一次性兑换码
-      if (widget.loginCode != null) {
-        if (!mounted) return;
-        final apiClient = ref.read(apiClientProvider);
-        final authController = ref.read(authControllerProvider);
-        final session = await apiClient.exchangeOAuthLoginCode(
-          widget.loginCode!,
-        );
-        await authController.loginWithSession(session);
-        _navigateHome();
-        return;
-      }
-
-      // 情况 2：前端 GitHub 回调，携带 code 和 state
+      // 前端 GitHub 回调，携带 code 和 state。
       if (widget.code != null) {
         final state = widget.state;
         if (state == null || !consumeOAuthState(state)) {
@@ -93,7 +79,7 @@ class _OAuthCallbackPageState extends ConsumerState<OAuthCallbackPage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = '处理回调失败: $e';
+          _error = '处理回调失败：${userFacingErrorMessage(e)}';
           _processing = false;
         });
       }

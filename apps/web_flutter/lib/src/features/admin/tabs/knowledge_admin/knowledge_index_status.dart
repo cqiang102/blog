@@ -77,7 +77,7 @@ class _KnowledgeIndexStatus extends StatelessWidget {
         if (result == null) {
           return indexStatus.when(
             loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
             data: (status) {
               if (!status.needsReindex) return const SizedBox.shrink();
               return FilledButton.icon(

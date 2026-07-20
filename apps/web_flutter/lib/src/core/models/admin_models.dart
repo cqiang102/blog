@@ -196,6 +196,20 @@ class AdminRecordQuery {
   final int page;
   final int size;
 
+  AdminRecordQuery copyWith({
+    String? contentId,
+    String? userId,
+    int? page,
+    int? size,
+  }) {
+    return AdminRecordQuery(
+      contentId: contentId ?? this.contentId,
+      userId: userId ?? this.userId,
+      page: page ?? this.page,
+      size: size ?? this.size,
+    );
+  }
+
   @override
   bool operator ==(Object other) {
     return other is AdminRecordQuery &&
@@ -224,6 +238,24 @@ class AdminUserQuery {
   final AdminUserStatus? status;
   final int page;
   final int size;
+
+  AdminUserQuery copyWith({
+    String? query,
+    AdminUserRole? role,
+    bool clearRole = false,
+    AdminUserStatus? status,
+    bool clearStatus = false,
+    int? page,
+    int? size,
+  }) {
+    return AdminUserQuery(
+      query: query ?? this.query,
+      role: clearRole ? null : (role ?? this.role),
+      status: clearStatus ? null : (status ?? this.status),
+      page: page ?? this.page,
+      size: size ?? this.size,
+    );
+  }
 
   @override
   bool operator ==(Object other) {
@@ -352,6 +384,24 @@ class AuditLogQuery {
   final String? resourceType;
   final int page;
   final int size;
+
+  AuditLogQuery copyWith({
+    String? action,
+    bool clearAction = false,
+    String? resourceType,
+    bool clearResourceType = false,
+    int? page,
+    int? size,
+  }) {
+    return AuditLogQuery(
+      action: clearAction ? null : (action ?? this.action),
+      resourceType: clearResourceType
+          ? null
+          : (resourceType ?? this.resourceType),
+      page: page ?? this.page,
+      size: size ?? this.size,
+    );
+  }
 
   @override
   bool operator ==(Object other) =>

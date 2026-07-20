@@ -1,5 +1,6 @@
 // 管理后台 Provider
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';
@@ -34,11 +35,8 @@ final adminFriendsProvider = FutureProvider<List<FriendLink>>((ref) {
 });
 
 /// 管理后台评论列表 Provider
-final adminCommentsProvider =
-    FutureProvider.autoDispose.family<PageResult<AdminCommentItem>, AdminCommentQuery>((
-      ref,
-      query,
-    ) {
+final adminCommentsProvider = FutureProvider.autoDispose
+    .family<PageResult<AdminCommentItem>, AdminCommentQuery>((ref, query) {
       final token = ref.watch(authControllerProvider).accessToken;
       if (token == null) {
         throw const ApiException('请先登录');
@@ -49,11 +47,8 @@ final adminCommentsProvider =
     });
 
 /// 管理后台点赞列表 Provider
-final adminLikesProvider =
-    FutureProvider.autoDispose.family<PageResult<AdminLikeItem>, AdminRecordQuery>((
-      ref,
-      query,
-    ) {
+final adminLikesProvider = FutureProvider.autoDispose
+    .family<PageResult<AdminLikeItem>, AdminRecordQuery>((ref, query) {
       final token = ref.watch(authControllerProvider).accessToken;
       if (token == null) {
         throw const ApiException('请先登录');
@@ -64,11 +59,8 @@ final adminLikesProvider =
     });
 
 /// 管理后台浏览记录列表 Provider
-final adminViewsProvider =
-    FutureProvider.autoDispose.family<PageResult<AdminViewRecordItem>, AdminRecordQuery>((
-      ref,
-      query,
-    ) {
+final adminViewsProvider = FutureProvider.autoDispose
+    .family<PageResult<AdminViewRecordItem>, AdminRecordQuery>((ref, query) {
       final token = ref.watch(authControllerProvider).accessToken;
       if (token == null) {
         throw const ApiException('请先登录');
@@ -79,11 +71,8 @@ final adminViewsProvider =
     });
 
 /// 管理后台用户列表 Provider
-final adminUsersProvider =
-    FutureProvider.autoDispose.family<PageResult<AdminUserItem>, AdminUserQuery>((
-      ref,
-      query,
-    ) {
+final adminUsersProvider = FutureProvider.autoDispose
+    .family<PageResult<AdminUserItem>, AdminUserQuery>((ref, query) {
       final token = ref.watch(authControllerProvider).accessToken;
       if (token == null) {
         throw const ApiException('请先登录');
@@ -94,32 +83,31 @@ final adminUsersProvider =
     });
 
 /// 管理后台 AI 聊天会话列表 Provider
-final adminAiChatsProvider =
-    FutureProvider.autoDispose.family<PageResult<AdminAiChatSessionItem>, AdminAiChatQuery>(
-      (ref, query) {
-        final token = ref.watch(authControllerProvider).accessToken;
-        if (token == null) {
-          throw const ApiException('请先登录');
-        }
-        return ref
-            .watch(apiClientProvider)
-            .fetchAdminAiChats(accessToken: token, query: query);
-      },
-    );
+final adminAiChatsProvider = FutureProvider.autoDispose
+    .family<PageResult<AdminAiChatSessionItem>, AdminAiChatQuery>((ref, query) {
+      final token = ref.watch(authControllerProvider).accessToken;
+      if (token == null) {
+        throw const ApiException('请先登录');
+      }
+      return ref
+          .watch(apiClientProvider)
+          .fetchAdminAiChats(accessToken: token, query: query);
+    });
 
 /// 管理后台知识库文档列表 Provider
-final adminKnowledgeDocsProvider = FutureProvider.autoDispose.family<
-  PageResult<AdminKnowledgeDocItem>,
-  AdminKnowledgeDocQuery
->((ref, query) {
-  final token = ref.watch(authControllerProvider).accessToken;
-  if (token == null) {
-    throw const ApiException('请先登录');
-  }
-  return ref
-      .watch(apiClientProvider)
-      .fetchAdminKnowledgeDocs(accessToken: token, query: query);
-});
+final adminKnowledgeDocsProvider = FutureProvider.autoDispose
+    .family<PageResult<AdminKnowledgeDocItem>, AdminKnowledgeDocQuery>((
+      ref,
+      query,
+    ) {
+      final token = ref.watch(authControllerProvider).accessToken;
+      if (token == null) {
+        throw const ApiException('请先登录');
+      }
+      return ref
+          .watch(apiClientProvider)
+          .fetchAdminKnowledgeDocs(accessToken: token, query: query);
+    });
 
 /// 内容列表查询条件 Notifier
 class AdminContentQueryNotifier extends Notifier<AdminContentQuery> {
@@ -130,63 +118,71 @@ class AdminContentQueryNotifier extends Notifier<AdminContentQuery> {
 }
 
 /// 管理后台内容列表查询条件
-final adminContentQueryProvider = NotifierProvider<
-    AdminContentQueryNotifier, AdminContentQuery>(
-  AdminContentQueryNotifier.new,
-);
+final adminContentQueryProvider =
+    NotifierProvider<AdminContentQueryNotifier, AdminContentQuery>(
+      AdminContentQueryNotifier.new,
+    );
 
 /// 管理后台内容列表 Provider
 /// 自动 watch 查询条件，条件变化时自动 refetch
-final adminContentsProvider =
-    FutureProvider<PageResult<AdminContentItem>>((ref) {
-      final query = ref.watch(adminContentQueryProvider);
+final adminContentsProvider = FutureProvider<PageResult<AdminContentItem>>((
+  ref,
+) {
+  final query = ref.watch(adminContentQueryProvider);
+  final token = ref.watch(authControllerProvider).accessToken;
+  if (token == null) {
+    throw const ApiException('请先登录');
+  }
+  return ref
+      .watch(apiClientProvider)
+      .fetchAdminContents(accessToken: token, query: query);
+});
+
+/// 媒体管理关联内容选项：远程搜索、分页，并在查询失去监听时取消请求。
+final adminContentOptionsProvider = FutureProvider.autoDispose
+    .family<PageResult<AdminContentOption>, AdminContentOptionsQuery>((
+      ref,
+      query,
+    ) async {
+      final token = ref.watch(authControllerProvider).accessToken;
+      if (token == null) {
+        throw const ApiException('请先登录');
+      }
+
+      final cancelToken = CancelToken();
+      ref.onDispose(() {
+        if (!cancelToken.isCancelled) {
+          cancelToken.cancel('content option query is no longer active');
+        }
+      });
+      return ref
+          .watch(apiClientProvider)
+          .fetchAdminContentOptions(
+            accessToken: token,
+            query: query,
+            cancelToken: cancelToken,
+          );
+    });
+
+/// 管理后台媒体列表 Provider
+final adminMediaProvider = FutureProvider.autoDispose
+    .family<PageResult<AdminMediaItem>, AdminPageQuery>((ref, query) {
       final token = ref.watch(authControllerProvider).accessToken;
       if (token == null) {
         throw const ApiException('请先登录');
       }
       return ref
           .watch(apiClientProvider)
-          .fetchAdminContents(accessToken: token, query: query);
+          .fetchAdminMedia(
+            accessToken: token,
+            page: query.page,
+            size: query.size,
+          );
     });
-
-/// 媒体管理关联内容选项，不受内容管理页当前筛选和分页影响。
-final adminContentOptionsProvider =
-    FutureProvider.autoDispose<List<AdminContentItem>>((ref) async {
-      final token = ref.watch(authControllerProvider).accessToken;
-      if (token == null) {
-        throw const ApiException('请先登录');
-      }
-
-      final api = ref.watch(apiClientProvider);
-      final items = <AdminContentItem>[];
-      var page = 0;
-      while (true) {
-        final result = await api.fetchAdminContents(
-          accessToken: token,
-          query: AdminContentQuery(page: page, size: 50),
-        );
-        items.addAll(result.items);
-        if (items.length >= result.total || result.items.isEmpty) break;
-        page += 1;
-      }
-      return items;
-    });
-
-/// 管理后台媒体列表 Provider
-final adminMediaProvider = FutureProvider<PageResult<AdminMediaItem>>((ref) {
-  final token = ref.watch(authControllerProvider).accessToken;
-  if (token == null) {
-    throw const ApiException('请先登录');
-  }
-  return ref.watch(apiClientProvider).fetchAdminMedia(accessToken: token);
-});
 
 /// 管理后台审计日志列表 Provider
-final adminAuditLogsProvider =
-    FutureProvider.autoDispose.family<PageResult<AuditLogItem>, AuditLogQuery>((
-      ref,
-      query,
-    ) {
+final adminAuditLogsProvider = FutureProvider.autoDispose
+    .family<PageResult<AuditLogItem>, AuditLogQuery>((ref, query) {
       final token = ref.watch(authControllerProvider).accessToken;
       if (token == null) {
         throw const ApiException('请先登录');
@@ -242,3 +238,24 @@ final knowledgeIndexStatusProvider = FutureProvider<IndexStatus>((ref) {
       .watch(apiClientProvider)
       .fetchKnowledgeIndexStatus(accessToken: token);
 });
+
+/// Invalidates every cached data source shown by the admin shell.
+///
+/// Keeping this in the provider module gives new admin data providers one
+/// obvious place to opt into the shell's global refresh action.
+void invalidateAllAdminData(WidgetRef ref) {
+  ref.invalidate(adminDashboardProvider);
+  ref.invalidate(adminContentsProvider);
+  ref.invalidate(adminContentOptionsProvider);
+  ref.invalidate(adminMediaProvider);
+  ref.invalidate(adminFriendsProvider);
+  ref.invalidate(adminTagsProvider);
+  ref.invalidate(adminCommentsProvider);
+  ref.invalidate(adminLikesProvider);
+  ref.invalidate(adminViewsProvider);
+  ref.invalidate(adminUsersProvider);
+  ref.invalidate(adminAiChatsProvider);
+  ref.invalidate(adminKnowledgeDocsProvider);
+  ref.invalidate(knowledgeIndexStatusProvider);
+  ref.invalidate(adminAuditLogsProvider);
+}

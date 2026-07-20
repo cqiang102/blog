@@ -4,19 +4,15 @@ import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
 import '../../theme/app_spacing.dart';
+import 'admin_content_option_picker.dart';
 import 'admin_widgets.dart';
 
 /// 媒体编辑器对话框
 /// 支持新增和编辑媒体资源，包含 URL、文件名、MIME 类型和尺寸信息
 class MediaEditorDialog extends StatefulWidget {
-  const MediaEditorDialog({
-    super.key,
-    required this.media,
-    required this.contents,
-  });
+  const MediaEditorDialog({super.key, required this.media});
 
   final AdminMediaItem? media; // 待编辑媒体（null 表示新增）
-  final List<AdminContentItem> contents; // 可绑定的内容列表
 
   @override
   State<MediaEditorDialog> createState() => MediaEditorDialogState();
@@ -39,24 +35,20 @@ class MediaEditorDialogState extends State<MediaEditorDialog> {
   void initState() {
     super.initState();
     final media = widget.media;
-    final draft =
-        media == null
-            ? const AdminMediaDraft(
-              contentId: '',
-              type: MediaAssetType.image,
-              publicUrl: '',
-              filename: '',
-              contentType: 'image/jpeg',
-              byteSize: null,
-              width: null,
-              height: null,
-              durationSeconds: null,
-            )
-            : AdminMediaDraft.fromItem(media);
-    final knownContent = widget.contents.any(
-      (content) => content.id == draft.contentId,
-    );
-    _contentId = knownContent ? draft.contentId : '';
+    final draft = media == null
+        ? const AdminMediaDraft(
+            contentId: '',
+            type: MediaAssetType.image,
+            publicUrl: '',
+            filename: '',
+            contentType: 'image/jpeg',
+            byteSize: null,
+            width: null,
+            height: null,
+            durationSeconds: null,
+          )
+        : AdminMediaDraft.fromItem(media);
+    _contentId = draft.contentId;
     _type = draft.type;
     _urlController.text = draft.publicUrl;
     _filenameController.text = draft.filename;
@@ -101,23 +93,19 @@ class MediaEditorDialogState extends State<MediaEditorDialog> {
               title: '资源信息',
               child: Column(
                 children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: _contentId,
-                    decoration: const InputDecoration(labelText: '绑定内容'),
-                    items: [
-                      const DropdownMenuItem(value: '', child: Text('不绑定内容')),
-                      for (final content in widget.contents)
-                        DropdownMenuItem(
-                          value: content.id,
-                          child: Text(
-                            content.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                    onChanged:
-                        (value) => setState(() => _contentId = value ?? ''),
+                  AdminContentOptionPicker(
+                    value: _contentId,
+                    initialOption:
+                        widget.media != null &&
+                            widget.media!.contentId.isNotEmpty
+                        ? AdminContentOption(
+                            id: widget.media!.contentId,
+                            title: widget.media!.contentTitle.isEmpty
+                                ? '当前绑定内容'
+                                : widget.media!.contentTitle,
+                          )
+                        : null,
+                    onChanged: (value) => setState(() => _contentId = value),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<MediaAssetType>(
@@ -127,10 +115,8 @@ class MediaEditorDialogState extends State<MediaEditorDialog> {
                       for (final type in MediaAssetType.values)
                         DropdownMenuItem(value: type, child: Text(type.label)),
                     ],
-                    onChanged:
-                        (value) => setState(
-                          () => _type = value ?? MediaAssetType.image,
-                        ),
+                    onChanged: (value) =>
+                        setState(() => _type = value ?? MediaAssetType.image),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(

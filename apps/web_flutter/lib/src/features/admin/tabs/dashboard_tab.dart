@@ -19,30 +19,28 @@ class AdminDashboardTab extends ConsumerWidget {
 
     return dashboard.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error:
-          (error, stackTrace) => AdminErrorPane(
-            message: error.toString(),
-            onRetry: () => ref.invalidate(adminDashboardProvider),
-          ),
-      data:
-          (data) => RefreshIndicator(
-            onRefresh: () async => ref.invalidate(adminDashboardProvider),
-            child: ListView(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              children: [
-                Text('数据概览', style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '集中查看内容和互动数据，具体管理入口位于左侧菜单。',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                _MetricGrid(metrics: data.metrics),
-              ],
+      error: (error, stackTrace) => AdminErrorPane(
+        message: adminErrorMessage(error),
+        onRetry: () => ref.invalidate(adminDashboardProvider),
+      ),
+      data: (data) => RefreshIndicator(
+        onRefresh: () async => ref.invalidate(adminDashboardProvider),
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          children: [
+            Text('数据概览', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '集中查看内容和互动数据，具体管理入口位于左侧菜单。',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
+            const SizedBox(height: AppSpacing.lg),
+            _MetricGrid(metrics: data.metrics),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -57,12 +55,11 @@ class _MetricGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns =
-            constraints.maxWidth >= kDesktopBreakpoint
-                ? 6
-                : constraints.maxWidth >= kTabletBreakpoint
-                ? 3
-                : 2;
+        final columns = constraints.maxWidth >= kDesktopBreakpoint
+            ? 6
+            : constraints.maxWidth >= kTabletBreakpoint
+            ? 3
+            : 2;
 
         return GridView.builder(
           shrinkWrap: true,

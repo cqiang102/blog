@@ -9,9 +9,6 @@ mixin FriendApi on ApiClientBase {
   /// 获取随机友情链接
   Future<List<FriendLink>> fetchFriends() async {
     final data = await get('/friends/random');
-    return (data as List? ?? const [])
-        .whereType<Map>()
-        .map((item) => FriendLink.fromJson(item.cast<String, dynamic>()))
-        .toList();
+    return decodeObjectList(data, FriendLink.fromJson);
   }
 }

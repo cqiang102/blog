@@ -7,6 +7,7 @@ import '../state/state.dart';
 import 'app_shell.dart';
 import '../features/about/about_page.dart';
 import '../features/admin/admin_page.dart';
+import '../features/admin/admin_tab_registry.dart';
 import '../features/admin/content_editor/content_editor_page.dart';
 import '../features/auth/auth_page.dart';
 import '../features/content/content_detail_page.dart';
@@ -15,6 +16,7 @@ import '../features/friends/friends_page.dart';
 import '../features/home/home_page.dart';
 import '../features/profile/profile_page.dart';
 import '../features/auth/oauth_callback_page.dart';
+import 'internal_redirect.dart';
 
 /// 路由 Provider
 /// 创建并配置 GoRouter 实例，包含认证守卫
@@ -28,50 +30,26 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       // 每次重定向时读取最新的 auth 状态
       final currentAuth = ref.read(authControllerProvider);
-      // 认证守卫：未加载完成时不重定向
-      if (!currentAuth.isLoaded) return null;
-
-      final location = state.uri.path;
-      final isLogin = location == '/login';
-      // OAuth 回调路由不做拦截
-      if (location.startsWith('/login/oauth2/')) return null;
-      // 受保护的路由：个人中心和管理后台
-      final isProtected =
-          location.startsWith('/profile') || location.startsWith('/admin');
-
-      // 未登录访问受保护路由 -> 跳转登录页
-      if (isProtected && !currentAuth.isAuthenticated) {
-        return Uri(
-          path: '/login',
-          queryParameters: {'from': location}, // 记录来源页面
-        ).toString();
-      }
-      // 非 ADMIN 角色访问管理后台 -> 跳转首页
-      if (location.startsWith('/admin') &&
-          !(currentAuth.user?.isAdmin ?? false)) {
-        return '/';
-      }
-      // 已登录访问登录页 -> 跳转来源页或个人中心
-      if (isLogin && currentAuth.isAuthenticated) {
-        return state.uri.queryParameters['from'] ?? '/profile';
-      }
-      return null; // 无需重定向
+      return appRedirectForAuth(
+        uri: state.uri,
+        isLoaded: currentAuth.isLoaded,
+        isAuthenticated: currentAuth.isAuthenticated,
+        isAdmin: currentAuth.user?.isAdmin,
+      );
     },
     routes: [
       StatefulShellRoute.indexedStack(
-        builder:
-            (context, state, navigationShell) =>
-                BlogShell(navigationShell: navigationShell),
+        builder: (context, state, navigationShell) =>
+            BlogShell(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/',
-                pageBuilder:
-                    (context, state) => NoTransitionPage(
-                      key: state.pageKey,
-                      child: const HomePage(),
-                    ),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const HomePage(),
+                ),
               ),
             ],
           ),
@@ -79,21 +57,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/contents',
-                pageBuilder:
-                    (context, state) => NoTransitionPage(
-                      key: state.pageKey,
-                      child: const ContentListPage(),
-                    ),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const ContentListPage(),
+                ),
                 routes: [
                   GoRoute(
                     path: ':id',
-                    pageBuilder:
-                        (context, state) => NoTransitionPage(
-                          key: state.pageKey,
-                          child: ContentDetailPage(
-                            id: state.pathParameters['id']!,
-                          ),
-                        ),
+                    pageBuilder: (context, state) => NoTransitionPage(
+                      key: state.pageKey,
+                      child: ContentDetailPage(id: state.pathParameters['id']!),
+                    ),
                   ),
                 ],
               ),
@@ -103,11 +77,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/friends',
-                pageBuilder:
-                    (context, state) => NoTransitionPage(
-                      key: state.pageKey,
-                      child: const FriendsPage(),
-                    ),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const FriendsPage(),
+                ),
               ),
             ],
           ),
@@ -115,11 +88,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/about',
-                pageBuilder:
-                    (context, state) => NoTransitionPage(
-                      key: state.pageKey,
-                      child: const AboutPage(),
-                    ),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const AboutPage(),
+                ),
               ),
             ],
           ),
@@ -127,11 +99,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/profile',
-                pageBuilder:
-                    (context, state) => NoTransitionPage(
-                      key: state.pageKey,
-                      child: const ProfilePage(),
-                    ),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const ProfilePage(),
+                ),
               ),
             ],
           ),
@@ -139,18 +110,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/admin',
-                pageBuilder:
-                    (context, state) => NoTransitionPage(
-                      key: state.pageKey,
-                      child: AdminPage(
-                        initialTab:
-                            state.uri.path.startsWith('/admin/contents/')
-                            ? 1
-                            : _adminTabIndex(
-                                state.uri.queryParameters['tab'],
-                              ),
-                      ),
-                    ),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: AdminPage(initialTab: adminTabForUri(state.uri)),
+                ),
                 routes: [
                   GoRoute(
                     path: 'contents/new',
@@ -170,11 +133,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/login',
-                pageBuilder:
-                    (context, state) => NoTransitionPage(
-                      key: state.pageKey,
-                      child: const AuthPage(),
-                    ),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const AuthPage(),
+                ),
               ),
             ],
           ),
@@ -183,31 +145,46 @@ final routerProvider = Provider<GoRouter>((ref) {
       // GitHub OAuth 回调路由（不使用 Shell 布局）
       GoRoute(
         path: '/login/oauth2/code/github',
-        builder:
-            (context, state) => OAuthCallbackPage(
-              code: state.uri.queryParameters['code'],
-              state: state.uri.queryParameters['state'],
-              loginCode: state.uri.queryParameters['login_code'],
-            ),
+        builder: (context, state) => OAuthCallbackPage(
+          code: state.uri.queryParameters['code'],
+          state: state.uri.queryParameters['state'],
+        ),
       ),
     ],
   );
 });
 
-int _adminTabIndex(String? tab) {
-  const tabs = [
-    'overview',
-    'content',
-    'comments',
-    'likes',
-    'views',
-    'friends',
-    'tags',
-    'users',
-    'ai',
-    'knowledge',
-    'logs',
-  ];
-  final index = tabs.indexOf(tab ?? '');
-  return index < 0 ? 0 : index;
+/// 根据认证快照计算路由重定向。
+///
+/// [isAdmin] 为 `null` 表示登录用户资料仍在恢复，此时不提前拒绝后台深链接。
+String? appRedirectForAuth({
+  required Uri uri,
+  required bool isLoaded,
+  required bool isAuthenticated,
+  required bool? isAdmin,
+}) {
+  if (!isLoaded) return null;
+
+  final location = uri.path;
+  if (location.startsWith('/login/oauth2/')) return null;
+
+  final isLogin = location == '/login';
+  final isAdminRoute = _isRouteOrDescendant(location, '/admin');
+  final isProtected =
+      _isRouteOrDescendant(location, '/profile') || isAdminRoute;
+
+  if (isProtected && !isAuthenticated) {
+    return Uri(
+      path: '/login',
+      queryParameters: {'from': uri.toString()},
+    ).toString();
+  }
+  if (isAdminRoute && isAdmin == false) return '/';
+  if (isLogin && isAuthenticated) {
+    return safeInternalRedirect(uri.queryParameters['from']);
+  }
+  return null;
 }
+
+bool _isRouteOrDescendant(String location, String route) =>
+    location == route || location.startsWith('$route/');

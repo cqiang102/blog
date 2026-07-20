@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../core/api_client.dart';
-import '../../../state/state.dart';
 import '../../../core/models.dart';
+import '../../../state/state.dart';
 import '../../../theme/app_spacing.dart';
+import '../admin_mutation.dart';
 import '../admin_widgets.dart';
 
 /// 管理后台 - AI 聊天管理标签页
@@ -18,7 +18,8 @@ class AdminAiChatTab extends ConsumerStatefulWidget {
   ConsumerState<AdminAiChatTab> createState() => AdminAiChatTabState();
 }
 
-class AdminAiChatTabState extends ConsumerState<AdminAiChatTab> {
+class AdminAiChatTabState extends ConsumerState<AdminAiChatTab>
+    with AdminPageCorrectionMixin<AdminAiChatTab> {
   final _queryController = TextEditingController();
   final _userIdController = TextEditingController();
   AdminAiChatQuery _query = const AdminAiChatQuery();
@@ -37,19 +38,27 @@ class AdminAiChatTabState extends ConsumerState<AdminAiChatTab> {
     return chats.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => AdminErrorPane(
-        message: error.toString(),
+        message: adminErrorMessage(error),
         onRetry: () => ref.invalidate(adminAiChatsProvider(_query)),
       ),
-      data: (page) => _AiChatList(
-        page: page,
-        query: _query,
-        queryController: _queryController,
-        userIdController: _userIdController,
-        onApply: _applyFilters,
-        onClear: _clearFilters,
-        onOpen: (session) => _openChatDetail(context, session),
-        onDelete: (session) => _deleteChat(context, session),
-      ),
+      data: (page) {
+        correctAdminPage(
+          page,
+          requestedPage: _query.page,
+          onChanged: _changePage,
+        );
+        return _AiChatList(
+          page: page,
+          query: _query,
+          queryController: _queryController,
+          userIdController: _userIdController,
+          onApply: _applyFilters,
+          onClear: _clearFilters,
+          onPageChanged: _changePage,
+          onOpen: (session) => _openChatDetail(context, session),
+          onDelete: (session) => _deleteChat(context, session),
+        );
+      },
     );
   }
 
@@ -70,6 +79,11 @@ class AdminAiChatTabState extends ConsumerState<AdminAiChatTab> {
     });
   }
 
+  void _changePage(int page) {
+    if (page < 0 || page == _query.page) return;
+    setState(() => _query = _query.copyWith(page: page));
+  }
+
   Future<void> _openChatDetail(
     BuildContext context,
     AdminAiChatSessionItem session,
@@ -86,12 +100,9 @@ class AdminAiChatTabState extends ConsumerState<AdminAiChatTab> {
         context: context,
         builder: (context) => _AiChatDetailDialog(detail: detail),
       );
-    } on ApiException catch (error) {
-      if (!context.mounted) return;
-      showAdminSnack(context, error.message);
     } catch (error) {
       if (!context.mounted) return;
-      showAdminSnack(context, error.toString());
+      showAdminSnack(context, adminErrorMessage(error));
     }
   }
 
@@ -109,21 +120,16 @@ class AdminAiChatTabState extends ConsumerState<AdminAiChatTab> {
     );
     if (!confirmed || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .deleteAdminAiChat(accessToken: token, id: session.id);
-      _refreshAiChatState();
-      if (!context.mounted) return;
-      showAdminSnack(context, 'AI 会话已删除');
-    } on ApiException catch (error) {
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'ai-chat:${session.id}',
+      request: (api, token) async {
+        await api.deleteAdminAiChat(accessToken: token, id: session.id);
+      },
+      invalidate: _refreshAiChatState,
+      successMessage: 'AI 会话已删除',
+    );
   }
 
   void _refreshAiChatState() {
@@ -141,6 +147,7 @@ class _AiChatList extends StatelessWidget {
     required this.userIdController,
     required this.onApply,
     required this.onClear,
+    required this.onPageChanged,
     required this.onOpen,
     required this.onDelete,
   });
@@ -151,6 +158,7 @@ class _AiChatList extends StatelessWidget {
   final TextEditingController userIdController;
   final VoidCallback onApply;
   final VoidCallback onClear;
+  final ValueChanged<int> onPageChanged;
   final ValueChanged<AdminAiChatSessionItem> onOpen;
   final ValueChanged<AdminAiChatSessionItem> onDelete;
 
@@ -158,11 +166,19 @@ class _AiChatList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      itemCount: page.items.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm + 4),
+      itemCount: page.items.length + 1 + (page.total > page.size ? 1 : 0),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm + 4),
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildHeader(context);
+        }
+        if (index > page.items.length) {
+          return AdminPaginationBar(
+            page: page.page,
+            pageSize: page.size,
+            total: page.total,
+            onChanged: onPageChanged,
+          );
         }
         final session = page.items[index - 1];
         return _AiChatAdminRow(

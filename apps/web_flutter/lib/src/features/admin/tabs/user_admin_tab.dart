@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../core/api_client.dart';
 import '../../../core/media_url.dart';
-import '../../../state/state.dart';
 import '../../../core/models.dart';
+import '../../../state/state.dart';
 import '../../../theme/app_spacing.dart';
+import '../admin_mutation.dart';
 import '../admin_widgets.dart';
 import '../user_editor_dialog.dart';
 
@@ -20,7 +20,8 @@ class AdminUserTab extends ConsumerStatefulWidget {
   ConsumerState<AdminUserTab> createState() => AdminUserTabState();
 }
 
-class AdminUserTabState extends ConsumerState<AdminUserTab> {
+class AdminUserTabState extends ConsumerState<AdminUserTab>
+    with AdminPageCorrectionMixin<AdminUserTab> {
   final _queryController = TextEditingController();
   AdminUserRole? _role;
   AdminUserStatus? _status;
@@ -40,23 +41,31 @@ class AdminUserTabState extends ConsumerState<AdminUserTab> {
     return users.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => AdminErrorPane(
-        message: error.toString(),
+        message: adminErrorMessage(error),
         onRetry: () => ref.invalidate(adminUsersProvider(_query)),
       ),
-      data: (page) => _UserList(
-        page: page,
-        currentUserId: currentUserId,
-        query: _query,
-        queryController: _queryController,
-        role: _role,
-        status: _status,
-        onRoleChanged: (value) => setState(() => _role = value),
-        onStatusChanged: (value) => setState(() => _status = value),
-        onApply: _applyFilters,
-        onClear: _clearFilters,
-        onEdit: (user) => _openUserEditor(context, user),
-        onDisable: (user) => _disableUser(context, user),
-      ),
+      data: (page) {
+        correctAdminPage(
+          page,
+          requestedPage: _query.page,
+          onChanged: _changePage,
+        );
+        return _UserList(
+          page: page,
+          currentUserId: currentUserId,
+          query: _query,
+          queryController: _queryController,
+          role: _role,
+          status: _status,
+          onRoleChanged: (value) => setState(() => _role = value),
+          onStatusChanged: (value) => setState(() => _status = value),
+          onApply: _applyFilters,
+          onClear: _clearFilters,
+          onPageChanged: _changePage,
+          onEdit: (user) => _openUserEditor(context, user),
+          onDisable: (user) => _disableUser(context, user),
+        );
+      },
     );
   }
 
@@ -79,6 +88,11 @@ class AdminUserTabState extends ConsumerState<AdminUserTab> {
     });
   }
 
+  void _changePage(int page) {
+    if (page < 0 || page == _query.page) return;
+    setState(() => _query = _query.copyWith(page: page));
+  }
+
   Future<void> _openUserEditor(BuildContext context, AdminUserItem user) async {
     final draft = await showDialog<AdminUserDraft>(
       context: context,
@@ -86,21 +100,20 @@ class AdminUserTabState extends ConsumerState<AdminUserTab> {
     );
     if (draft == null || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .updateAdminUser(accessToken: token, id: user.id, draft: draft);
-      _refreshUserState();
-      if (!context.mounted) return;
-      showAdminSnack(context, '用户已保存');
-    } on ApiException catch (error) {
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'user:${user.id}',
+      request: (api, token) async {
+        await api.updateAdminUser(
+          accessToken: token,
+          id: user.id,
+          draft: draft,
+        );
+      },
+      invalidate: _refreshUserState,
+      successMessage: '用户已保存',
+    );
   }
 
   Future<void> _disableUser(BuildContext context, AdminUserItem user) async {
@@ -113,21 +126,16 @@ class AdminUserTabState extends ConsumerState<AdminUserTab> {
     );
     if (!confirmed || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .deleteAdminUser(accessToken: token, id: user.id);
-      _refreshUserState();
-      if (!context.mounted) return;
-      showAdminSnack(context, '用户已禁用');
-    } on ApiException catch (error) {
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'user:${user.id}',
+      request: (api, token) async {
+        await api.deleteAdminUser(accessToken: token, id: user.id);
+      },
+      invalidate: _refreshUserState,
+      successMessage: '用户已禁用',
+    );
   }
 
   void _refreshUserState() {
@@ -149,6 +157,7 @@ class _UserList extends StatelessWidget {
     required this.onStatusChanged,
     required this.onApply,
     required this.onClear,
+    required this.onPageChanged,
     required this.onEdit,
     required this.onDisable,
   });
@@ -163,6 +172,7 @@ class _UserList extends StatelessWidget {
   final ValueChanged<AdminUserStatus?> onStatusChanged;
   final VoidCallback onApply;
   final VoidCallback onClear;
+  final ValueChanged<int> onPageChanged;
   final ValueChanged<AdminUserItem> onEdit;
   final ValueChanged<AdminUserItem> onDisable;
 
@@ -170,11 +180,19 @@ class _UserList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      itemCount: page.items.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm + 4),
+      itemCount: page.items.length + 1 + (page.total > page.size ? 1 : 0),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm + 4),
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildHeader(context);
+        }
+        if (index > page.items.length) {
+          return AdminPaginationBar(
+            page: page.page,
+            pageSize: page.size,
+            total: page.total,
+            onChanged: onPageChanged,
+          );
         }
         final user = page.items[index - 1];
         return _UserAdminRow(

@@ -106,8 +106,8 @@ class UserEditorDialogState extends State<UserEditorDialog> {
           controller: _nicknameController,
           decoration: const InputDecoration(labelText: '昵称'),
           maxLength: 80,
-          validator:
-              (value) => value == null || value.trim().isEmpty ? '请输入昵称' : null,
+          validator: (value) =>
+              value == null || value.trim().isEmpty ? '请输入昵称' : null,
         ),
       ],
     );
@@ -157,8 +157,8 @@ class UserEditorDialogState extends State<UserEditorDialog> {
               for (final role in AdminUserRole.values)
                 DropdownMenuItem(value: role, child: Text(role.label)),
             ],
-            onChanged:
-                (value) => setState(() => _role = value ?? AdminUserRole.user),
+            onChanged: (value) =>
+                setState(() => _role = value ?? AdminUserRole.user),
           ),
         ),
         SizedBox(
@@ -170,9 +170,8 @@ class UserEditorDialogState extends State<UserEditorDialog> {
               for (final status in AdminUserStatus.values)
                 DropdownMenuItem(value: status, child: Text(status.label)),
             ],
-            onChanged:
-                (value) =>
-                    setState(() => _status = value ?? AdminUserStatus.active),
+            onChanged: (value) =>
+                setState(() => _status = value ?? AdminUserStatus.active),
           ),
         ),
       ],

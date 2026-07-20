@@ -4,6 +4,7 @@
 import 'package:json_annotation/json_annotation.dart';
 
 import 'enums.dart';
+import 'helpers.dart';
 import 'json_converters.dart';
 
 part 'ai_models.g.dart';
@@ -199,14 +200,9 @@ class AdminAiChatDetail {
       session: AdminAiChatSessionItem.fromJson(
         (json['session'] as Map? ?? const {}).cast<String, dynamic>(),
       ),
-      messages: (json['messages'] as List? ?? const [])
-          .whereType<Map>()
-          .map(
-            (item) => AdminAiChatMessageItem.fromJson(
-              item.cast<String, dynamic>(),
-            ),
-          )
-          .toList(),
+      messages: jsonObjectList(
+        json['messages'],
+      ).map(AdminAiChatMessageItem.fromJson).toList(),
     );
   }
 }
@@ -224,6 +220,20 @@ class AdminAiChatQuery {
   final String userId;
   final int page;
   final int size;
+
+  AdminAiChatQuery copyWith({
+    String? query,
+    String? userId,
+    int? page,
+    int? size,
+  }) {
+    return AdminAiChatQuery(
+      query: query ?? this.query,
+      userId: userId ?? this.userId,
+      page: page ?? this.page,
+      size: size ?? this.size,
+    );
+  }
 
   @override
   bool operator ==(Object other) {

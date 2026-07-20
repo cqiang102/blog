@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../core/api_client.dart';
 import '../../../core/constants.dart';
 import '../../../core/models.dart';
 import '../../../state/state.dart';
 import '../../../theme/app_spacing.dart';
+import '../admin_mutation.dart';
 import '../admin_widgets.dart';
 import '../tag_editor_dialog.dart';
 
@@ -24,7 +24,7 @@ class AdminTagTab extends ConsumerWidget {
     return tags.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => AdminErrorPane(
-        message: error.toString(),
+        message: adminErrorMessage(error),
         onRetry: () => ref.invalidate(adminTagsProvider),
       ),
       data: (items) => LayoutBuilder(
@@ -83,25 +83,27 @@ class AdminTagTab extends ConsumerWidget {
     );
     if (draft == null || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      final api = ref.read(apiClientProvider);
-      if (tag == null) {
-        await api.createAdminTag(accessToken: token, draft: draft);
-      } else {
-        await api.updateAdminTag(accessToken: token, id: tag.id, draft: draft);
-      }
-      ref.invalidate(adminTagsProvider);
-      ref.invalidate(adminContentsProvider);
-      if (!context.mounted) return;
-      showAdminSnack(context, tag == null ? '标签已创建' : '标签已保存');
-    } on ApiException catch (error) {
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'tag:${tag?.id ?? 'create'}',
+      request: (api, token) async {
+        if (tag == null) {
+          await api.createAdminTag(accessToken: token, draft: draft);
+        } else {
+          await api.updateAdminTag(
+            accessToken: token,
+            id: tag.id,
+            draft: draft,
+          );
+        }
+      },
+      invalidate: () {
+        ref.invalidate(adminTagsProvider);
+        ref.invalidate(adminContentsProvider);
+      },
+      successMessage: tag == null ? '标签已创建' : '标签已保存',
+    );
   }
 
   /// 删除标签
@@ -120,22 +122,19 @@ class AdminTagTab extends ConsumerWidget {
     );
     if (!confirmed || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .deleteAdminTag(accessToken: token, id: tag.id);
-      ref.invalidate(adminTagsProvider);
-      ref.invalidate(adminContentsProvider);
-      if (!context.mounted) return;
-      showAdminSnack(context, '标签已删除');
-    } on ApiException catch (error) {
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'tag:${tag.id}',
+      request: (api, token) async {
+        await api.deleteAdminTag(accessToken: token, id: tag.id);
+      },
+      invalidate: () {
+        ref.invalidate(adminTagsProvider);
+        ref.invalidate(adminContentsProvider);
+      },
+      successMessage: '标签已删除',
+    );
   }
 }
 

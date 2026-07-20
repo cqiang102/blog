@@ -31,9 +31,7 @@ mixin AdminKnowledgeApi on ApiClientBase {
       accessToken: accessToken,
       body: draft.toJson(),
     );
-    return AdminKnowledgeDocItem.fromJson(
-      (data as Map).cast<String, dynamic>(),
-    );
+    return decodeObject(data, AdminKnowledgeDocItem.fromJson);
   }
 
   /// 更新管理后台知识库文档
@@ -47,9 +45,7 @@ mixin AdminKnowledgeApi on ApiClientBase {
       accessToken: accessToken,
       body: draft.toJson(),
     );
-    return AdminKnowledgeDocItem.fromJson(
-      (data as Map).cast<String, dynamic>(),
-    );
+    return decodeObject(data, AdminKnowledgeDocItem.fromJson);
   }
 
   /// 删除管理后台知识库文档
@@ -68,7 +64,7 @@ mixin AdminKnowledgeApi on ApiClientBase {
       '/admin/knowledge/docs/reindex-failed',
       accessToken: accessToken,
     );
-    return ReindexResult.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, ReindexResult.fromJson);
   }
 
   /// 获取知识库索引状态
@@ -79,6 +75,6 @@ mixin AdminKnowledgeApi on ApiClientBase {
       '/admin/knowledge/docs/index-status',
       accessToken: accessToken,
     );
-    return IndexStatus.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, IndexStatus.fromJson);
   }
 }

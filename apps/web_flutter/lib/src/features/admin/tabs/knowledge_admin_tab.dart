@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-import '../../../core/api_client.dart';
-import '../../../state/state.dart';
 import '../../../core/models.dart';
+import '../../../state/state.dart';
 import '../../../theme/app_spacing.dart';
+import '../admin_mutation.dart';
 import '../admin_widgets.dart';
 
 part 'knowledge_admin/knowledge_editor_dialog.dart';
@@ -22,7 +22,8 @@ class AdminKnowledgeTab extends ConsumerStatefulWidget {
   ConsumerState<AdminKnowledgeTab> createState() => AdminKnowledgeTabState();
 }
 
-class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
+class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab>
+    with AdminPageCorrectionMixin<AdminKnowledgeTab> {
   final _queryController = TextEditingController();
   bool? _enabled;
   AdminKnowledgeDocQuery _query = const AdminKnowledgeDocQuery();
@@ -42,25 +43,33 @@ class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
     return docs.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => AdminErrorPane(
-        message: error.toString(),
+        message: adminErrorMessage(error),
         onRetry: () => ref.invalidate(adminKnowledgeDocsProvider(_query)),
       ),
-      data: (page) => _KnowledgeList(
-        page: page,
-        query: _query,
-        queryController: _queryController,
-        enabled: _enabled,
-        onEnabledChanged: (value) => setState(() => _enabled = value),
-        onApply: _applyFilters,
-        onClear: _clearFilters,
-        onOpenEditor: (doc) => _openKnowledgeEditor(context, doc: doc),
-        onDelete: (doc) => _deleteKnowledgeDoc(context, doc),
-        indexStatus: indexStatus,
-        reindexState: reindexState,
-        onReindex: () => _reindexFailedChunks(context),
-        onResetReindex: () =>
-            ref.read(knowledgeReindexProvider.notifier).reset(),
-      ),
+      data: (page) {
+        correctAdminPage(
+          page,
+          requestedPage: _query.page,
+          onChanged: _changePage,
+        );
+        return _KnowledgeList(
+          page: page,
+          query: _query,
+          queryController: _queryController,
+          enabled: _enabled,
+          onEnabledChanged: (value) => setState(() => _enabled = value),
+          onApply: _applyFilters,
+          onClear: _clearFilters,
+          onPageChanged: _changePage,
+          onOpenEditor: (doc) => _openKnowledgeEditor(context, doc: doc),
+          onDelete: (doc) => _deleteKnowledgeDoc(context, doc),
+          indexStatus: indexStatus,
+          reindexState: reindexState,
+          onReindex: () => _reindexFailedChunks(context),
+          onResetReindex: () =>
+              ref.read(knowledgeReindexProvider.notifier).reset(),
+        );
+      },
     );
   }
 
@@ -81,6 +90,11 @@ class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
     });
   }
 
+  void _changePage(int page) {
+    if (page < 0 || page == _query.page) return;
+    setState(() => _query = _query.copyWith(page: page));
+  }
+
   Future<void> _openKnowledgeEditor(
     BuildContext context, {
     AdminKnowledgeDocItem? doc,
@@ -91,33 +105,24 @@ class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
     );
     if (draft == null || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      if (doc == null) {
-        await ref
-            .read(apiClientProvider)
-            .createAdminKnowledgeDoc(accessToken: token, draft: draft);
-      } else {
-        await ref
-            .read(apiClientProvider)
-            .updateAdminKnowledgeDoc(
-              accessToken: token,
-              id: doc.id,
-              draft: draft,
-            );
-      }
-      _refreshKnowledgeState();
-      if (!context.mounted) return;
-      showAdminSnack(context, doc == null ? '知识库文档已创建' : '知识库文档已保存');
-    } on ApiException catch (error) {
-      if (!context.mounted) return;
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      if (!context.mounted) return;
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'knowledge:${doc?.id ?? 'create'}',
+      request: (api, token) async {
+        if (doc == null) {
+          await api.createAdminKnowledgeDoc(accessToken: token, draft: draft);
+        } else {
+          await api.updateAdminKnowledgeDoc(
+            accessToken: token,
+            id: doc.id,
+            draft: draft,
+          );
+        }
+      },
+      invalidate: _refreshKnowledgeState,
+      successMessage: doc == null ? '知识库文档已创建' : '知识库文档已保存',
+    );
   }
 
   Future<void> _deleteKnowledgeDoc(
@@ -133,23 +138,16 @@ class AdminKnowledgeTabState extends ConsumerState<AdminKnowledgeTab> {
     );
     if (!confirmed || !context.mounted) return;
 
-    final token = ref.read(authControllerProvider).accessToken;
-    if (token == null) return;
-
-    try {
-      await ref
-          .read(apiClientProvider)
-          .deleteAdminKnowledgeDoc(accessToken: token, id: doc.id);
-      _refreshKnowledgeState();
-      if (!context.mounted) return;
-      showAdminSnack(context, '知识库文档已删除');
-    } on ApiException catch (error) {
-      if (!context.mounted) return;
-      showAdminSnack(context, error.message);
-    } catch (error) {
-      if (!context.mounted) return;
-      showAdminSnack(context, error.toString());
-    }
+    await runAdminMutation(
+      context: context,
+      ref: ref,
+      mutationKey: 'knowledge:${doc.id}',
+      request: (api, token) async {
+        await api.deleteAdminKnowledgeDoc(accessToken: token, id: doc.id);
+      },
+      invalidate: _refreshKnowledgeState,
+      successMessage: '知识库文档已删除',
+    );
   }
 
   void _refreshKnowledgeState() {

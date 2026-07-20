@@ -9,13 +9,13 @@ mixin AuthApi on ApiClientBase {
   /// 获取 GitHub 绑定授权 URL（已登录用户绑定用）
   Future<String> fetchGithubBindUrl(String accessToken) async {
     final data = await get('/auth/github/bind', accessToken: accessToken);
-    return (data as Map<String, dynamic>)['url'] as String;
+    return decodeObject(data, (json) => json['url'] as String);
   }
 
   /// 获取 OAuth 提供者信息
   Future<Map<String, dynamic>> fetchProviders() async {
     final data = await get('/auth/providers');
-    return (data as Map).cast<String, dynamic>();
+    return decodeObject(data, (json) => json);
   }
 
   /// GitHub OAuth 回调：用授权码换取 JWT 令牌
@@ -26,15 +26,9 @@ mixin AuthApi on ApiClientBase {
     final data = await send(
       'POST',
       '/auth/github/callback',
-      queryParameters: {'code': code, if (state != null) 'state': state},
+      queryParameters: {'code': code, 'state': ?state},
     );
-    return AuthSession.fromJson((data as Map).cast<String, dynamic>());
-  }
-
-  /// 使用 Spring OAuth 回调生成的一次性代码兑换会话。
-  Future<AuthSession> exchangeOAuthLoginCode(String code) async {
-    final data = await post('/auth/oauth/exchange', body: {'code': code});
-    return AuthSession.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AuthSession.fromJson);
   }
 
   /// 用户登录
@@ -46,7 +40,7 @@ mixin AuthApi on ApiClientBase {
       '/auth/login',
       body: {'email': email, 'password': password},
     );
-    return AuthSession.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AuthSession.fromJson);
   }
 
   /// 用户注册
@@ -65,7 +59,7 @@ mixin AuthApi on ApiClientBase {
         'code': code,
       },
     );
-    return AuthSession.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AuthSession.fromJson);
   }
 
   /// 发送邮箱验证码
@@ -76,7 +70,7 @@ mixin AuthApi on ApiClientBase {
   /// 刷新访问令牌
   Future<AuthSession> refreshAccessToken() async {
     final data = await post('/auth/refresh');
-    return AuthSession.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, AuthSession.fromJson);
   }
 
   /// 撤销服务端刷新令牌并清除 HttpOnly Cookie。

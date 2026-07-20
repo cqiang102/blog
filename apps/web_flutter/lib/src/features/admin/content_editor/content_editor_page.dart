@@ -14,6 +14,7 @@ import '../../../core/models.dart';
 import '../../../state/state.dart';
 import '../../../theme/app_motion.dart';
 import '../../../theme/app_spacing.dart';
+import '../admin_tab_registry.dart';
 import '../admin_widgets.dart';
 import 'content_editor_controller.dart';
 import 'content_editor_draft.dart';

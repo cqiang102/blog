@@ -37,7 +37,7 @@ class _ImagePickerDialog extends StatelessWidget {
                   child: CachedNetworkImage(
                     imageUrl: resolveMediaUrl(url),
                     fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) =>
+                    errorWidget: (_, _, _) =>
                         const Center(child: Icon(Icons.broken_image_outlined)),
                   ),
                 ),

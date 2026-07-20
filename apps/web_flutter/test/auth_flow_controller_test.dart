@@ -18,7 +18,7 @@ void main() {
     addTearDown(container.dispose);
     final subscription = container.listen(
       authFlowControllerProvider,
-      (_, __) {},
+      (_, _) {},
       fireImmediately: true,
     );
     addTearDown(subscription.close);
@@ -43,7 +43,7 @@ void main() {
     addTearDown(container.dispose);
     final subscription = container.listen(
       authFlowControllerProvider,
-      (_, __) {},
+      (_, _) {},
       fireImmediately: true,
     );
     addTearDown(subscription.close);
@@ -81,7 +81,7 @@ void main() {
     addTearDown(container.dispose);
     final subscription = container.listen(
       authFlowControllerProvider,
-      (_, __) {},
+      (_, _) {},
       fireImmediately: true,
     );
     addTearDown(subscription.close);

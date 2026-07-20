@@ -39,8 +39,7 @@ class CommentItem {
 
   /// 从 JSON 创建实例
   factory CommentItem.fromJson(Map<String, dynamic> json) {
-    final author =
-        (json['author'] as Map? ?? const {}).cast<String, dynamic>();
+    final author = (json['author'] as Map? ?? const {}).cast<String, dynamic>();
     final nickname = jsonString(author['nickname']);
     return CommentItem(
       id: jsonString(json['id']),
@@ -117,6 +116,23 @@ class AdminCommentQuery {
   final String userId;
   final int page;
   final int size;
+
+  AdminCommentQuery copyWith({
+    AdminCommentStatus? status,
+    bool clearStatus = false,
+    String? contentId,
+    String? userId,
+    int? page,
+    int? size,
+  }) {
+    return AdminCommentQuery(
+      status: clearStatus ? null : (status ?? this.status),
+      contentId: contentId ?? this.contentId,
+      userId: userId ?? this.userId,
+      page: page ?? this.page,
+      size: size ?? this.size,
+    );
+  }
 
   @override
   bool operator ==(Object other) {

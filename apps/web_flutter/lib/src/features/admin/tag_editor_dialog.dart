@@ -65,9 +65,8 @@ class TagEditorDialogState extends State<TagEditorDialog> {
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: '名称'),
                 maxLength: 60,
-                validator:
-                    (value) =>
-                        value == null || value.trim().isEmpty ? '请输入名称' : null,
+                validator: (value) =>
+                    value == null || value.trim().isEmpty ? '请输入名称' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(

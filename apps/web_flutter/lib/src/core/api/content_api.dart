@@ -9,7 +9,7 @@ mixin ContentApi on ApiClientBase {
   /// 获取首页推荐内容
   Future<Recommendations> fetchRecommendations() async {
     final data = await get('/contents/recommendations');
-    return Recommendations.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, Recommendations.fromJson);
   }
 
   /// 获取内容列表（分页）
@@ -28,33 +28,19 @@ mixin ContentApi on ApiClientBase {
         'size': query.size.toString(),
       },
     );
-    final json = (data as Map).cast<String, dynamic>();
-    return PageResult<BlogContent>(
-      items: (json['items'] as List? ?? const [])
-          .whereType<Map>()
-          .map(
-            (item) => BlogContent.fromSummaryJson(item.cast<String, dynamic>()),
-          )
-          .toList(),
-      page: (json['page'] as num?)?.toInt() ?? 0,
-      size: (json['size'] as num?)?.toInt() ?? 10,
-      total: (json['total'] as num?)?.toInt() ?? 0,
-    );
+    return pageResult(data, BlogContent.fromSummaryJson);
   }
 
   /// 获取内容详情
   Future<BlogContent> fetchContent(String id, {String? accessToken}) async {
     final data = await get('/contents/$id', accessToken: accessToken);
-    return BlogContent.fromDetailJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, BlogContent.fromDetailJson);
   }
 
   /// 获取所有标签
   Future<List<TagItem>> fetchTags() async {
     final data = await get('/contents/tags');
-    return (data as List? ?? const [])
-        .whereType<Map>()
-        .map((item) => TagItem.fromJson(item.cast<String, dynamic>()))
-        .toList();
+    return decodeObjectList(data, TagItem.fromJson);
   }
 
   /// 获取内容评论列表
@@ -74,7 +60,7 @@ mixin ContentApi on ApiClientBase {
       accessToken: accessToken,
       body: {'body': body},
     );
-    return CommentItem.fromJson((data as Map).cast<String, dynamic>());
+    return decodeObject(data, CommentItem.fromJson);
   }
 
   /// 删除评论
@@ -94,7 +80,7 @@ mixin ContentApi on ApiClientBase {
       '/contents/$contentId/likes',
       accessToken: accessToken,
     );
-    return ((data as Map).cast<String, dynamic>())['liked'] == true;
+    return decodeObject(data, (json) => json['liked'] as bool);
   }
 
   /// 取消点赞内容
@@ -106,7 +92,7 @@ mixin ContentApi on ApiClientBase {
       '/contents/$contentId/likes',
       accessToken: accessToken,
     );
-    return ((data as Map).cast<String, dynamic>())['liked'] == true;
+    return decodeObject(data, (json) => json['liked'] as bool);
   }
 
   /// 记录浏览

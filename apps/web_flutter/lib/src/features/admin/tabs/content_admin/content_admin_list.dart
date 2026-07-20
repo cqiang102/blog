@@ -121,7 +121,7 @@ class _ContentList extends StatelessWidget {
                 ),
               if (page.total > 0) ...[
                 const SizedBox(height: AppSpacing.md),
-                _PaginationBar(
+                AdminPaginationBar(
                   page: page.page,
                   pageSize: page.size,
                   total: page.total,

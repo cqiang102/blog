@@ -12,7 +12,7 @@ const _sseTimeout = Duration(minutes: 10);
 
 /// IO 平台（移动端/桌面端）SSE 客户端
 /// 使用 Dio 的 ResponseType.stream 读取字节流
-Future<List<SseEvent>> postSse({
+Future<void> postSse({
   required Dio dio,
   required String path,
   required Map<String, dynamic> body,
@@ -20,17 +20,13 @@ Future<List<SseEvent>> postSse({
   required void Function(SseEvent event) onEvent,
   SseCancellationToken? cancellationToken,
 }) async {
-  final events = <SseEvent>[];
   var buffer = '';
 
   void consume(String chunk, {bool flush = false}) {
     buffer = consumeSseChunk(
       buffer: buffer,
       chunk: chunk,
-      onEvent: (event) {
-        events.add(event);
-        onEvent(event);
-      },
+      onEvent: onEvent,
       flush: flush,
     );
   }
@@ -55,7 +51,7 @@ Future<List<SseEvent>> postSse({
     );
 
     final responseBody = response.data;
-    if (responseBody == null) return events;
+    if (responseBody == null) return;
 
     await for (final chunk in responseBody.stream.cast<List<int>>().transform(
       utf8.decoder,
@@ -64,11 +60,10 @@ Future<List<SseEvent>> postSse({
       consume(chunk);
     }
     consume('', flush: true);
-    return events;
   } on DioException catch (error) {
     if (CancelToken.isCancel(error) &&
         (cancellationToken?.isCancelled ?? false)) {
-      return events;
+      return;
     }
     throw SseRequestException(
       error.response?.data?.toString() ?? error.message ?? 'SSE 请求失败',

@@ -54,7 +54,9 @@ class _ContentErrorScaffold extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
-                      notFound ? '内容可能已归档、删除，或当前链接已经失效。' : error.toString(),
+                      notFound
+                          ? '内容可能已归档、删除，或当前链接已经失效。'
+                          : userFacingErrorMessage(error),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),

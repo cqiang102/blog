@@ -10,6 +10,7 @@ class _KnowledgeList extends StatelessWidget {
     required this.onEnabledChanged,
     required this.onApply,
     required this.onClear,
+    required this.onPageChanged,
     required this.onOpenEditor,
     required this.onDelete,
     required this.indexStatus,
@@ -25,6 +26,7 @@ class _KnowledgeList extends StatelessWidget {
   final ValueChanged<bool?> onEnabledChanged;
   final VoidCallback onApply;
   final VoidCallback onClear;
+  final ValueChanged<int> onPageChanged;
   final ValueChanged<AdminKnowledgeDocItem?> onOpenEditor;
   final ValueChanged<AdminKnowledgeDocItem> onDelete;
   final AsyncValue<IndexStatus> indexStatus;
@@ -36,11 +38,19 @@ class _KnowledgeList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      itemCount: page.items.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm + 4),
+      itemCount: page.items.length + 1 + (page.total > page.size ? 1 : 0),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm + 4),
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildHeader(context);
+        }
+        if (index > page.items.length) {
+          return AdminPaginationBar(
+            page: page.page,
+            pageSize: page.size,
+            total: page.total,
+            onChanged: onPageChanged,
+          );
         }
         final doc = page.items[index - 1];
         return _KnowledgeDocRow(

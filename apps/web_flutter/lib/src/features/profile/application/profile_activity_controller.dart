@@ -4,23 +4,22 @@ import '../../../core/api_client.dart';
 import '../../../core/models.dart';
 import '../../../state/api_providers.dart';
 
-final profileCommentsProvider =
-    NotifierProvider.autoDispose<
-      ProfileActivityController,
-      ProfileActivityState
-    >(() => ProfileActivityController('comments'));
+enum ProfileActivityType {
+  comments('comments'),
+  likes('likes'),
+  views('views');
 
-final profileLikesProvider =
-    NotifierProvider.autoDispose<
-      ProfileActivityController,
-      ProfileActivityState
-    >(() => ProfileActivityController('likes'));
+  const ProfileActivityType(this.apiValue);
 
-final profileViewsProvider =
-    NotifierProvider.autoDispose<
+  final String apiValue;
+}
+
+final profileActivityProvider = NotifierProvider.autoDispose
+    .family<
       ProfileActivityController,
-      ProfileActivityState
-    >(() => ProfileActivityController('views'));
+      ProfileActivityState,
+      ProfileActivityType
+    >(ProfileActivityController.new);
 
 class ProfileActivityState {
   const ProfileActivityState({
@@ -63,13 +62,15 @@ class ProfileActivityController extends Notifier<ProfileActivityState> {
   ProfileActivityController(this.type);
 
   static const _pageSize = 20;
-  final String type;
+  final ProfileActivityType type;
   bool _disposed = false;
   int _generation = 0;
+  final Set<String> _deletedIds = <String>{};
 
   @override
   ProfileActivityState build() {
     _disposed = false;
+    _deletedIds.clear();
     ref.onDispose(() {
       _disposed = true;
       _generation++;
@@ -92,12 +93,15 @@ class ProfileActivityController extends Notifier<ProfileActivityState> {
           .read(apiClientProvider)
           .fetchMyActivity(
             accessToken: token,
-            type: type,
+            type: type.apiValue,
             page: state.currentPage,
             size: _pageSize,
           );
       if (_disposed || generation != _generation) return;
-      final items = [...state.items, ...result.items];
+      final items = [
+        ...state.items,
+        ...result.items.where((item) => !_deletedIds.contains(item.id)),
+      ];
       state = state.copyWith(
         items: items,
         currentPage: state.currentPage + 1,
@@ -108,7 +112,10 @@ class ProfileActivityController extends Notifier<ProfileActivityState> {
       );
     } catch (error) {
       if (!_disposed && generation == _generation) {
-        state = state.copyWith(isLoading: false, error: error.toString());
+        state = state.copyWith(
+          isLoading: false,
+          error: userFacingErrorMessage(error),
+        );
       }
     }
   }
@@ -125,18 +132,32 @@ class ProfileActivityController extends Notifier<ProfileActivityState> {
     try {
       await ref
           .read(apiClientProvider)
-          .deleteMyActivity(accessToken: token, type: type, id: item.id);
+          .deleteMyActivity(
+            accessToken: token,
+            type: type.apiValue,
+            id: item.id,
+          );
       if (!_disposed) {
+        // Invalidate any page request that started before the delete completed.
+        // The tombstone also protects against a briefly stale subsequent page.
+        _generation++;
+        _deletedIds.add(item.id);
+        final items = state.items
+            .where((current) => current.id != item.id)
+            .toList();
+        final total = state.total > 0 ? state.total - 1 : 0;
         state = state.copyWith(
-          items: state.items.where((current) => current.id != item.id).toList(),
-          total: state.total > 0 ? state.total - 1 : 0,
+          items: items,
+          total: total,
+          isLoading: false,
+          hasMore: items.length < total,
         );
       }
       return null;
     } on ApiException catch (error) {
       return error.message;
     } catch (error) {
-      return error.toString();
+      return userFacingErrorMessage(error);
     }
   }
 }

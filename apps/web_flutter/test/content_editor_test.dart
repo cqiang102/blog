@@ -350,7 +350,7 @@ void main() {
     final container = ProviderContainer();
     final subscription = container.listen(
       contentEditorControllerProvider(null),
-      (_, __) {},
+      (_, _) {},
       fireImmediately: true,
     );
     addTearDown(() {

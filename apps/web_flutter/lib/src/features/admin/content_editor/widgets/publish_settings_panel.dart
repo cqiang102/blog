@@ -193,7 +193,7 @@ class PublishSettingsPanel extends StatelessWidget {
                         : CachedNetworkImage(
                             imageUrl: resolveMediaUrl(state.coverUrl!),
                             fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => const Center(
+                            errorWidget: (_, _, _) => const Center(
                               child: HugeIcon(
                                 icon: HugeIcons.strokeRoundedImageNotFound01,
                               ),

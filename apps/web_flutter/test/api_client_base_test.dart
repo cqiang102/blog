@@ -162,4 +162,84 @@ void main() {
       ),
     );
   });
+
+  test('applies bounded default timeouts without overriding custom values', () {
+    final defaultDio = Dio();
+    ApiClientBase(dio: defaultDio);
+    expect(defaultDio.options.connectTimeout, const Duration(seconds: 15));
+    expect(defaultDio.options.sendTimeout, const Duration(seconds: 30));
+    expect(defaultDio.options.receiveTimeout, const Duration(seconds: 30));
+
+    final customDio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 3),
+        sendTimeout: const Duration(seconds: 4),
+        receiveTimeout: const Duration(seconds: 5),
+      ),
+    );
+    ApiClientBase(dio: customDio);
+    expect(customDio.options.connectTimeout, const Duration(seconds: 3));
+    expect(customDio.options.sendTimeout, const Duration(seconds: 4));
+    expect(customDio.options.receiveTimeout, const Duration(seconds: 5));
+  });
+
+  test('decodes typed object and object-list payloads', () {
+    final client = ApiClientBase(dio: Dio());
+    String idOf(Map<String, dynamic> json) => json['id'] as String;
+
+    expect(client.decodeObject({'id': 'one'}, idOf), 'one');
+    expect(
+      client.decodeObjectList([
+        {'id': 'one'},
+        {'id': 'two'},
+      ], idOf),
+      ['one', 'two'],
+    );
+  });
+
+  test('normalizes malformed object payloads into ApiException', () {
+    final client = ApiClientBase(dio: Dio());
+    String idOf(Map<String, dynamic> json) => json['id'] as String;
+    final malformedPayloads = <Object?>[
+      'not-an-object',
+      [
+        {'id': 'valid'},
+        'not-an-object',
+      ],
+      {'id': 42},
+    ];
+
+    expect(
+      () => client.decodeObject(malformedPayloads[0], idOf),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          '后端响应数据格式不正确',
+        ),
+      ),
+    );
+    expect(
+      () => client.decodeObjectList(malformedPayloads[1], idOf),
+      throwsA(isA<ApiException>()),
+    );
+    expect(
+      () => client.decodeObject(malformedPayloads[2], idOf),
+      throwsA(isA<ApiException>()),
+    );
+  });
+
+  test('rejects malformed paged items instead of silently dropping them', () {
+    final client = ApiClientBase(dio: Dio());
+
+    expect(
+      () => client.pageResult<String>({
+        'items': [
+          {'id': 'valid'},
+          'not-an-object',
+        ],
+      }, (json) => json['id'] as String),
+      throwsA(isA<ApiException>()),
+    );
+  });
 }
