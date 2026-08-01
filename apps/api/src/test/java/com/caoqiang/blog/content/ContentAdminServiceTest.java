@@ -76,7 +76,8 @@ class ContentAdminServiceTest {
                 domainEventPublisher);
 
         when(contentRepository.findById(content.getId())).thenReturn(Optional.of(content));
-        when(contentRepository.existsBySlugAndIdNot("video", content.getId())).thenReturn(false);
+        when(contentRepository.existsBySlugAndIdNotAndDeletedAtIsNull("video", content.getId()))
+                .thenReturn(false);
         when(mediaAssetRepository.save(any(MediaAsset.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.update(content.getId(), request);
@@ -105,7 +106,8 @@ class ContentAdminServiceTest {
                 "更新后的文章", "article", null, null, null, "更新后的正文", false, null, List.of(), null, null);
 
         when(contentRepository.findById(content.getId())).thenReturn(Optional.of(content));
-        when(contentRepository.existsBySlugAndIdNot("article", content.getId())).thenReturn(false);
+        when(contentRepository.existsBySlugAndIdNotAndDeletedAtIsNull("article", content.getId()))
+                .thenReturn(false);
 
         contentAdminService(FIXED_CLOCK).update(content.getId(), request);
 
@@ -120,7 +122,8 @@ class ContentAdminServiceTest {
                 "草稿", "draft", null, ContentStatus.PUBLISHED, null, null, false, null, List.of(), null, null);
 
         when(contentRepository.findById(content.getId())).thenReturn(Optional.of(content));
-        when(contentRepository.existsBySlugAndIdNot("draft", content.getId())).thenReturn(false);
+        when(contentRepository.existsBySlugAndIdNotAndDeletedAtIsNull("draft", content.getId()))
+                .thenReturn(false);
 
         contentAdminService(FIXED_CLOCK).update(content.getId(), request);
 

@@ -4,11 +4,14 @@ import com.caoqiang.blog.ai.chat.application.dto.AiChatResponse;
 import com.caoqiang.blog.ai.chat.application.port.AiChatStreamSink;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /** Maps transport-neutral chat stream events onto Spring MVC SSE. */
 final class SseAiChatStream implements AiChatStreamSink {
 
+    private static final Logger log = LoggerFactory.getLogger(SseAiChatStream.class);
     private static final long TIMEOUT_MILLIS = 180_000L;
 
     private final SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
@@ -38,6 +41,7 @@ final class SseAiChatStream implements AiChatStreamSink {
             emitter.send(SseEmitter.event().name("token").data(token));
             return true;
         } catch (Exception exception) {
+            log.debug("SSE token send failed (client likely disconnected): {}", exception.getMessage());
             notifyCancellation();
             return false;
         }
@@ -51,6 +55,7 @@ final class SseAiChatStream implements AiChatStreamSink {
         try {
             emitter.send(SseEmitter.event().name("done").data(response));
         } catch (Exception exception) {
+            log.debug("SSE complete send failed: {}", exception.getMessage());
             notifyCancellation();
         } finally {
             emitter.complete();
@@ -65,6 +70,7 @@ final class SseAiChatStream implements AiChatStreamSink {
         try {
             emitter.send(SseEmitter.event().name("error").data(message));
         } catch (Exception exception) {
+            log.debug("SSE error send failed: {}", exception.getMessage());
             notifyCancellation();
         } finally {
             emitter.complete();

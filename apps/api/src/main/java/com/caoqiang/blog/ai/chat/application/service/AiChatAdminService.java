@@ -145,7 +145,8 @@ public class AiChatAdminService {
 
     private Map<UUID, IdentityUser> usersById(List<UUID> userIds) {
         return userAccountService.findByIds(userIds).stream()
-                .collect(java.util.stream.Collectors.toMap(IdentityUser::id, java.util.function.Function.identity()));
+                .collect(java.util.stream.Collectors.toMap(
+                        IdentityUser::id, java.util.function.Function.identity(), (a, b) -> a));
     }
 
     private IdentityUser requireUser(Map<UUID, IdentityUser> users, UUID userId) {

@@ -290,7 +290,7 @@ public class ContentQueryService {
         }
         List<UUID> ids = contents.stream().map(Content::getId).toList();
         Map<UUID, Content> hydratedById = contentRepository.findAllWithSummaryRelationsByIdIn(ids).stream()
-                .collect(java.util.stream.Collectors.toMap(Content::getId, content -> content));
+                .collect(java.util.stream.Collectors.toMap(Content::getId, content -> content, (a, b) -> a));
         return contents.stream()
                 .map(content -> hydratedById.getOrDefault(content.getId(), content))
                 .toList();

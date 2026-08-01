@@ -112,14 +112,14 @@ public class AiChatStreamingService {
                         .streamAnswer(prepared.userMessage(), prepared.history(), currentUser)
                         .timeout(MODEL_STREAM_TIMEOUT)
                         .publishOn(SSE_SEND_SCHEDULER)
-                        .subscribe(this::onToken, error -> failPrepared(prepared), () -> complete(prepared));
+                        .subscribe(this::onToken, error -> failPrepared(prepared, error), () -> complete(prepared));
                 subscription.set(handle);
                 if (cancelled.get()) {
                     dispose(handle);
                 }
             } catch (RuntimeException exception) {
                 log.error("Failed to start AI stream", exception);
-                failPrepared(prepared);
+                failPrepared(prepared, exception);
             }
         }
 
@@ -151,8 +151,9 @@ public class AiChatStreamingService {
             }
         }
 
-        private void failPrepared(AiChatExchangeService.PreparedExchange prepared) {
+        private void failPrepared(AiChatExchangeService.PreparedExchange prepared, Throwable error) {
             if (finalized.compareAndSet(false, true)) {
+                log.warn("AI stream failed: {}", error.getMessage(), error);
                 exchangeService.release(prepared);
                 sink.fail("AI 服务暂时不可用，请稍后重试");
             }

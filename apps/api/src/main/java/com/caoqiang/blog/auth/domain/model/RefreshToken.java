@@ -19,16 +19,7 @@ import java.util.UUID;
  *   <li>用户关联 - 通过外键关联到用户实体</li>
  *   <li>生命周期管理 - 包含创建时间、过期时间和撤销时间</li>
  *   <li>令牌轮换 - 支持令牌撤销，实现令牌轮换机制</li>
- * </ul>
- *
- * <p>数据库表结构：</p>
- * <ul>
- *   <li>id - 主键，UUID 类型</li>
- *   <li>user_id - 外键，关联用户表</li>
- *   <li>token_hash - 令牌的 SHA-256 哈希值</li>
- *   <li>expires_at - 令牌过期时间</li>
- *   <li>revoked_at - 令牌撤销时间（null 表示未撤销）</li>
- *   <li>created_at - 记录创建时间</li>
+ *   <li>令牌族 - 通过 familyId 关联同一登录链的所有令牌，支持重放攻击检测与族撤销</li>
  * </ul>
  *
  * @author blog-mimo
@@ -45,6 +36,10 @@ public class RefreshToken {
     /** 关联用户 ID；认证领域不直接持有用户模块的 JPA 实体。 */
     @Column(name = "user_id", nullable = false)
     private UUID userId;
+
+    /** 令牌族 ID：同一次登录链的所有令牌共享此 ID，用于重放攻击检测与族撤销。 */
+    @Column(name = "family_id")
+    private UUID familyId;
 
     /** 令牌的 SHA-256 哈希值 */
     @Column(name = "token_hash", nullable = false, columnDefinition = "TEXT")
@@ -68,7 +63,7 @@ public class RefreshToken {
     protected RefreshToken() {}
 
     /**
-     * 构造函数，创建新的刷新令牌
+     * 构造函数，创建新的刷新令牌（新登录链，自动生成 familyId）
      *
      * @param userId    关联用户 ID
      * @param tokenHash 令牌的哈希值
@@ -78,6 +73,22 @@ public class RefreshToken {
         this.userId = userId;
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;
+        this.familyId = UUID.randomUUID();
+    }
+
+    /**
+     * 构造函数，在已有令牌族内创建轮换令牌
+     *
+     * @param userId    关联用户 ID
+     * @param tokenHash 令牌的哈希值
+     * @param expiresAt 过期时间
+     * @param familyId  所属令牌族 ID
+     */
+    public RefreshToken(UUID userId, String tokenHash, Instant expiresAt, UUID familyId) {
+        this.userId = userId;
+        this.tokenHash = tokenHash;
+        this.expiresAt = expiresAt;
+        this.familyId = familyId;
     }
 
     /**
@@ -100,6 +111,15 @@ public class RefreshToken {
     }
 
     /**
+     * 获取令牌族 ID
+     *
+     * @return 令牌族 ID
+     */
+    public UUID getFamilyId() {
+        return familyId;
+    }
+
+    /**
      * 获取令牌过期时间
      *
      * @return 过期时间
@@ -115,6 +135,13 @@ public class RefreshToken {
      */
     public Instant getRevokedAt() {
         return revokedAt;
+    }
+
+    /**
+     * 判断令牌是否已被撤销
+     */
+    public boolean isRevoked() {
+        return revokedAt != null;
     }
 
     /**

@@ -47,8 +47,8 @@ public class Content extends AggregateRoot {
     @Column(nullable = false, length = 180)
     private String title;
 
-    /** URL 友好的唯一标识符，用于前端路由 */
-    @Column(nullable = false, unique = true, length = 220)
+    /** URL 友好的唯一标识符，用于前端路由（唯一性由部分索引 uq_contents_slug_active 保证） */
+    @Column(nullable = false, length = 220)
     private String slug;
 
     /** 内容类型：ARTICLE / IMAGE / VIDEO */

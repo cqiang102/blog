@@ -51,8 +51,7 @@ public class AiChatAuditService {
                 messageRepository.save(message);
             });
         } catch (Exception e) {
-            log.error("AI chat message audit failed: messageId={}", messageId);
-            log.debug("AI chat message audit failure details: messageId={}", messageId, e);
+            log.error("AI chat message audit failed: messageId={}", messageId, e);
         }
     }
 }

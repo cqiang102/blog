@@ -80,6 +80,7 @@ public class InteractionQueryService {
                 result.getContent().stream().map(Comment::getContentId).toList());
         Map<UUID, IdentityUser> users = referenceData.users(
                 result.getContent().stream().map(Comment::getUserId).toList());
+        Map<UUID, String> avatarUrls = referenceData.avatarUrls(users);
         return new PageResponse<>(
                 result.getContent().stream()
                         .map(comment -> {
@@ -88,7 +89,7 @@ public class InteractionQueryService {
                                     comment,
                                     referenceData.content(contents, comment.getContentId()),
                                     user,
-                                    referenceData.avatarUrl(user));
+                                    avatarUrls.get(user.id()));
                         })
                         .toList(),
                 result.getNumber(),

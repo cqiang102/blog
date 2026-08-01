@@ -6,6 +6,8 @@ import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -19,6 +21,8 @@ import reactor.core.publisher.Flux;
 @Service
 public class AiChatModelService {
 
+    private static final Logger log = LoggerFactory.getLogger(AiChatModelService.class);
+
     private final ChatClient chatClient;
     private final AiBlogTools blogTools;
 
@@ -31,6 +35,7 @@ public class AiChatModelService {
         try {
             return prompt(message, history, currentUser).call().content();
         } catch (Exception exception) {
+            log.warn("AI model call failed: {}", exception.getMessage(), exception);
             throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "AI 服务暂时不可用");
         }
     }

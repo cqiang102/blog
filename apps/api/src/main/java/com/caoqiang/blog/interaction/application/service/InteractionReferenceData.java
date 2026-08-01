@@ -6,6 +6,7 @@ import com.caoqiang.blog.shared.model.Role;
 import com.caoqiang.blog.user.application.api.IdentityUser;
 import com.caoqiang.blog.user.application.api.UserAccountService;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
@@ -26,12 +27,12 @@ public class InteractionReferenceData {
 
     public Map<UUID, ContentInteractionSnapshot> contents(Collection<UUID> ids) {
         return contentInteractionService.findByIds(ids).stream()
-                .collect(Collectors.toMap(ContentInteractionSnapshot::id, Function.identity()));
+                .collect(Collectors.toMap(ContentInteractionSnapshot::id, Function.identity(), (a, b) -> a));
     }
 
     public Map<UUID, IdentityUser> users(Collection<UUID> ids) {
         return userAccountService.findByIds(ids).stream()
-                .collect(Collectors.toMap(IdentityUser::id, Function.identity()));
+                .collect(Collectors.toMap(IdentityUser::id, Function.identity(), (a, b) -> a));
     }
 
     public ContentInteractionSnapshot content(Map<UUID, ContentInteractionSnapshot> contents, UUID id) {
@@ -44,5 +45,16 @@ public class InteractionReferenceData {
 
     public String avatarUrl(IdentityUser user) {
         return contentInteractionService.resolveMediaUrl(user.avatarUrl());
+    }
+
+    /**
+     * 批量解析用户头像 URL，按 userId 去重，避免 N+1 预签名调用。
+     */
+    public Map<UUID, String> avatarUrls(Map<UUID, IdentityUser> users) {
+        Map<UUID, String> result = new HashMap<>(users.size());
+        for (IdentityUser user : users.values()) {
+            result.put(user.id(), contentInteractionService.resolveMediaUrl(user.avatarUrl()));
+        }
+        return result;
     }
 }

@@ -109,7 +109,7 @@ public class ContentAdminService {
                     .findAllWithSummaryRelationsByIdIn(
                             result.getContent().stream().map(Content::getId).toList())
                     .stream()
-                    .collect(java.util.stream.Collectors.toMap(Content::getId, content -> content));
+                    .collect(java.util.stream.Collectors.toMap(Content::getId, content -> content, (a, b) -> a));
             hydratedContents = result.getContent().stream()
                     .map(content -> hydratedById.getOrDefault(content.getId(), content))
                     .toList();
@@ -210,7 +210,7 @@ public class ContentAdminService {
     @CacheEvict(value = CacheNames.RECOMMENDATIONS, allEntries = true)
     public AdminContentResponse create(AdminContentRequest request) {
         String slug = slugFor(request);
-        if (contentRepository.existsBySlug(slug)) {
+        if (contentRepository.existsBySlugAndDeletedAtIsNull(slug)) {
             throw new BusinessException(HttpStatus.CONFLICT, "内容 slug 已存在");
         }
 
@@ -260,7 +260,7 @@ public class ContentAdminService {
         Content content =
                 contentRepository.findById(id).orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "内容不存在"));
         String slug = slugFor(request);
-        if (contentRepository.existsBySlugAndIdNot(slug, id)) {
+        if (contentRepository.existsBySlugAndIdNotAndDeletedAtIsNull(slug, id)) {
             throw new BusinessException(HttpStatus.CONFLICT, "内容 slug 已存在");
         }
 

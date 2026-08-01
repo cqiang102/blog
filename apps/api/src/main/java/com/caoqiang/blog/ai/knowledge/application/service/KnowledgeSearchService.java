@@ -179,10 +179,11 @@ public class KnowledgeSearchService {
                 .toList();
 
         Map<UUID, ContentKnowledgeSource> contentMap = contentKnowledgeService.findPublishedByIds(contentIds).stream()
-                .collect(java.util.stream.Collectors.toMap(ContentKnowledgeSource::id, content -> content));
+                .collect(
+                        java.util.stream.Collectors.toMap(ContentKnowledgeSource::id, content -> content, (a, b) -> a));
         Map<UUID, KnowledgeDoc> docMap = knowledgeDocRepository.findAllById(docIds).stream()
                 .filter(KnowledgeDoc::isEnabled)
-                .collect(java.util.stream.Collectors.toMap(KnowledgeDoc::getId, doc -> doc));
+                .collect(java.util.stream.Collectors.toMap(KnowledgeDoc::getId, doc -> doc, (a, b) -> a));
 
         LinkedHashMap<String, KnowledgeSearchResult> results = new LinkedHashMap<>();
         for (Object[] chunk : acceptedChunks) {

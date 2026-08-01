@@ -98,21 +98,21 @@ public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpec
     Optional<Content> findById(UUID id);
 
     /**
-     * 检查 slug 是否已存在。
+     * 检查 slug 是否被未删除的内容占用。
      *
      * @param slug URL 标识符
      * @return 是否存在
      */
-    boolean existsBySlug(String slug);
+    boolean existsBySlugAndDeletedAtIsNull(String slug);
 
     /**
-     * 检查 slug 是否被其他内容占用（排除指定 ID）。
+     * 检查 slug 是否被其他未删除的内容占用（排除指定 ID）。
      *
      * @param slug URL 标识符
      * @param id   排除的内容 UUID
      * @return 是否存在冲突
      */
-    boolean existsBySlugAndIdNot(String slug, UUID id);
+    boolean existsBySlugAndIdNotAndDeletedAtIsNull(String slug, UUID id);
 
     /**
      * 检查指定 ID 和状态的内容是否存在。

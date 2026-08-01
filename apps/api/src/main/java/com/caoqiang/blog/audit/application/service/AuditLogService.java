@@ -96,7 +96,8 @@ public class AuditLogService {
                         .distinct()
                         .toList())
                 .stream()
-                .collect(java.util.stream.Collectors.toMap(IdentityUser::id, java.util.function.Function.identity()));
+                .collect(java.util.stream.Collectors.toMap(
+                        IdentityUser::id, java.util.function.Function.identity(), (a, b) -> a));
         return new PageResponse<>(
                 result.getContent().stream()
                         .map(log -> AuditLogResponse.from(log, actors.get(log.getActorUserId())))

@@ -15,6 +15,8 @@ import com.caoqiang.blog.user.application.api.UserAccountService;
 import com.caoqiang.blog.user.application.api.UserProfileResponse;
 import java.time.Clock;
 import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,15 +31,15 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>用户注册 - 创建新用户账户，验证邮箱唯一性，生成认证令牌</li>
  *   <li>用户登录 - 验证用户凭据，检查账户状态，生成认证令牌</li>
- *   <li>令牌刷新 - 验证刷新令牌有效性，轮换刷新令牌，生成新的访问令牌</li>
+ *   <li>令牌刷新 - 验证刷新令牌有效性，轮换刷新令牌，检测重放攻击并撤销令牌族</li>
  * </ul>
- *
- * <p>事务管理：所有公共方法都在事务中执行，确保数据一致性。</p>
  *
  * @author blog-mimo
  */
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     /** 用户仓库，用于访问用户数据 */
     private final UserAccountService userAccountService;
@@ -56,18 +58,6 @@ public class AuthService {
     /** 时钟，用于获取当前时间，便于测试 */
     private final Clock clock;
 
-    /**
-     * 构造函数，注入所有依赖
-     *
-     * @param userAccountService    用户模块公开账户服务
-     * @param passwordEncoder       密码编码器
-     * @param jwtService            JWT 服务
-     * @param refreshTokenService   刷新令牌服务
-     * @param verificationService   验证码服务
-     * @param domainEventPublisher  领域事件发布器
-     * @param contentMediaService     媒体服务
-     * @param clock                 时钟实例
-     */
     public AuthService(
             UserAccountService userAccountService,
             PasswordEncoder passwordEncoder,
@@ -87,97 +77,78 @@ public class AuthService {
         this.clock = clock;
     }
 
-    /**
-     * 用户注册
-     * 创建新用户账户，验证邮箱唯一性，生成并返回认证令牌。
-     *
-     * @param request 注册请求，包含邮箱、密码、昵称和验证码
-     * @return 包含访问令牌、刷新令牌和用户信息的认证令牌响应
-     * @throws BusinessException 如果邮箱已注册（HTTP 409 CONFLICT）或验证码无效
-     */
     @Transactional
     public IssuedAuthSession register(RegisterRequest request) {
-        // 规范化邮箱地址（转小写、去除空白）
         String email = EmailNormalizer.normalize(request.email());
-
-        // 校验验证码
         verificationService.verify(email, request.code());
-
-        // 检查邮箱是否已被注册
         if (userAccountService.existsByEmail(email)) {
             throw new BusinessException(HttpStatus.CONFLICT, "邮箱已注册");
         }
-
-        // 创建用户实体，密码使用 BCrypt 加密
         PasswordPolicy.validate(request.password());
         IdentityUser user = userAccountService.registerLocal(
                 email,
                 passwordEncoder.encode(request.password()),
                 request.nickname().trim());
-        // 发布领域事件
         domainEventPublisher.publishEvent(new UserCreatedEvent(user.id(), user.email(), user.nickname()));
-        // 生成访问令牌和刷新令牌
         return issueTokens(user);
     }
 
-    /**
-     * 用户登录
-     * 验证用户凭据，检查账户状态，生成并返回认证令牌。
-     *
-     * @param request 登录请求，包含邮箱和密码
-     * @return 包含访问令牌、刷新令牌和用户信息的认证令牌响应
-     * @throws BusinessException 如果邮箱不存在、密码错误或账户已禁用（HTTP 401 UNAUTHORIZED）
-     */
     @Transactional
     public IssuedAuthSession login(LoginRequest request) {
-        // 规范化邮箱地址
         String email = EmailNormalizer.normalize(request.email());
-        // 查找用户，不存在则抛出异常
         IdentityUser user = userAccountService
                 .findByEmail(email)
                 .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "邮箱或密码错误"));
-
-        // 验证用户状态和密码：账户必须激活、必须有密码哈希、密码必须匹配
         if (!user.active()
                 || user.passwordHash() == null
                 || !passwordEncoder.matches(request.password(), user.passwordHash())) {
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "邮箱或密码错误");
         }
-
-        // 生成访问令牌和刷新令牌
         return issueTokens(user);
     }
 
     /**
-     * 刷新令牌
-     * 验证刷新令牌有效性，轮换刷新令牌（旧令牌失效），生成新的访问令牌。
-     *
-     * @param rawRefreshToken HttpOnly Cookie 中的原始刷新令牌
-     * @return 包含新访问令牌、新刷新令牌和用户信息的认证令牌响应
-     * @throws BusinessException 如果刷新令牌无效、已过期或用户账户已禁用（HTTP 401 UNAUTHORIZED）
+     * 刷新令牌。
+     * <p>
+     * 实现令牌轮换 + 重放攻击检测：
+     * <ul>
+     *   <li>正常路径：找到未撤销令牌 → 撤销 → 在同一族内签发新令牌</li>
+     *   <li>重放检测：令牌已撤销但仍被提交 → 撤销整个令牌族 → 拒绝请求</li>
+     * </ul>
      */
     @Transactional
     public IssuedAuthSession refresh(String rawRefreshToken) {
-        // 计算刷新令牌的哈希值，用于数据库查询
         String tokenHash = refreshTokenService.hash(rawRefreshToken);
-        // 查找可用的刷新令牌
-        RefreshToken refreshToken = refreshTokenService
-                .findUsable(tokenHash)
-                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "刷新令牌无效"));
 
+        // 尝试查找可用的（未撤销的）令牌
+        var usableToken = refreshTokenService.findUsable(tokenHash);
+        if (usableToken.isEmpty()) {
+            // 重放攻击检测：令牌存在但已被撤销，说明有人试图重用旧令牌
+            refreshTokenService.findByHash(tokenHash).ifPresent(revokedToken -> {
+                if (revokedToken.isRevoked() && revokedToken.getFamilyId() != null) {
+                    int revoked = refreshTokenService.revokeFamily(revokedToken.getFamilyId());
+                    log.warn(
+                            "Refresh token replay detected: userId={}, familyId={}, revoked {} tokens",
+                            revokedToken.getUserId(),
+                            revokedToken.getFamilyId(),
+                            revoked);
+                }
+            });
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "刷新令牌无效");
+        }
+
+        RefreshToken refreshToken = usableToken.get();
         Instant now = clock.instant();
         IdentityUser user =
                 userAccountService.findActiveById(refreshToken.getUserId()).orElse(null);
-        // 检查令牌是否过期或用户是否激活
         if (refreshToken.isExpired(now) || user == null) {
             refreshToken.revoke(now);
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "刷新令牌无效");
         }
 
-        // 撤销当前刷新令牌（实现令牌轮换，防止重放攻击）
+        // 撤销当前令牌，在同一族内签发新令牌（保持链路可追溯）
         refreshToken.revoke(now);
-        // 为用户生成新的令牌对
-        return issueTokens(user);
+        return issueTokensInFamily(user, refreshToken.getFamilyId());
     }
 
     /** 撤销当前浏览器会话持有的刷新令牌。重复登出保持幂等。 */
@@ -188,18 +159,26 @@ public class AuthService {
     }
 
     /**
-     * 为用户生成令牌对
-     * 创建访问令牌和刷新令牌，并组装成认证令牌响应。
-     *
-     * @param user 用户实体
-     * @return 包含访问令牌、刷新令牌、过期时间和用户信息的认证令牌响应
+     * 为用户生成令牌对（新登录链）
      */
     private IssuedAuthSession issueTokens(IdentityUser user) {
-        // 创建 JWT 访问令牌
         JwtService.JwtToken accessToken = jwtService.createAccessToken(user);
-        // 创建刷新令牌
         RefreshTokenService.RawRefreshToken refreshToken = refreshTokenService.createFor(user.id());
-        // 组装响应，包含用户资料信息
+        return new IssuedAuthSession(
+                accessToken.value(),
+                refreshToken.value(),
+                accessToken.expiresAt(),
+                UserProfileResponse.from(user, contentMediaService.resolveUrl(user.avatarUrl())));
+    }
+
+    /**
+     * 在已有令牌族内为用户生成令牌对（轮换）
+     */
+    private IssuedAuthSession issueTokensInFamily(IdentityUser user, java.util.UUID familyId) {
+        JwtService.JwtToken accessToken = jwtService.createAccessToken(user);
+        RefreshTokenService.RawRefreshToken refreshToken = familyId != null
+                ? refreshTokenService.createInFamily(user.id(), familyId)
+                : refreshTokenService.createFor(user.id());
         return new IssuedAuthSession(
                 accessToken.value(),
                 refreshToken.value(),
