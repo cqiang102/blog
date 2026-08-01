@@ -89,6 +89,9 @@ public class SecurityConfig {
                         // 管理后台接口需 ADMIN 角色
                         .requestMatchers("/api/v1/admin/**")
                         .hasRole("ADMIN")
+                        // 健康检查供容器编排公开探测；其余管理端点仅管理员可见
+                        .requestMatchers("/actuator/**")
+                        .hasRole("ADMIN")
                         .anyRequest()
                         .authenticated())
                 .httpBasic(AbstractHttpConfigurer::disable)

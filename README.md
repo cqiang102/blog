@@ -6,10 +6,10 @@
 
 ```text
 apps/
-  api/          Java 21 + Spring Boot 4 后端
+  api/          Java 25 + Spring Boot 4 后端
   web_flutter/  Flutter Web 前端
 infra/          本地基础设施（PostgreSQL、Redis、MinIO）
-deploy/         生产部署包（Dockerfile、Nginx、docker-compose）
+deploy/         生产部署包（Caddy、docker-compose）
 scripts/        本地开发脚本
 docs/           架构、功能、接口、运行与部署文档
 ```
@@ -18,7 +18,7 @@ docs/           架构、功能、接口、运行与部署文档
 
 ## 技术栈
 
-- 后端：Java 21、Spring Boot 4.1.0、Spring AI 2.0.0、Spring Data JPA、Flyway
+- 后端：Java 25、Spring Boot 4.1.0、Spring AI 2.0.0、Spring Data JPA、Flyway
 - 前端：Flutter 3.35.4、Dart 3.9.2、Riverpod、go_router、Dio
 - 基础设施：PostgreSQL 18 + pgvector、Redis 7.4、MinIO、Docker Compose
 
@@ -67,10 +67,10 @@ cd apps/web_flutter
 fvm dart format --output=none --set-exit-if-changed lib test
 fvm flutter analyze
 fvm flutter test
-fvm flutter build web --release
+fvm flutter build web --release --wasm
 ```
 
-同一组门禁会在 [GitHub Actions](.github/workflows/ci.yml) 中自动执行。项目固定使用 Java 21、Maven 3.9.16、FVM 3.2.1 和 Flutter 3.35.4；后端脚本与 CI 默认使用 `apps/api/mvnw`，前端命令通过 `apps/web_flutter/.fvmrc` 解析 Flutter 版本，本地仍可通过 `MAVEN_BIN` 或 `FVM_BIN` 覆盖。JaCoCo HTML 报告生成在 `apps/api/target/site/jacoco/index.html`。
+同一组门禁会在 [GitHub Actions](.github/workflows/ci.yml) 中自动执行。生产 Web 构建优先使用更紧凑的 SkWasm 渲染器，并保留 JavaScript + CanvasKit 兼容回退。项目固定使用 Java 21、Maven 3.9.16、FVM 3.2.1 和 Flutter 3.35.4；后端脚本与 CI 默认使用 `apps/api/mvnw`，前端命令通过 `apps/web_flutter/.fvmrc` 解析 Flutter 版本，本地仍可通过 `MAVEN_BIN` 或 `FVM_BIN` 覆盖。JaCoCo HTML 报告生成在 `apps/api/target/site/jacoco/index.html`。
 
 ## 生产部署
 
@@ -80,18 +80,17 @@ fvm flutter build web --release
 scripts/package-deploy.sh
 ```
 
-上传 `blog-mimo-1.0.0.tar.gz` 到服务器后：
+部署包支持两种模式：
 
-```bash
-tar xzf blog-mimo-1.0.0.tar.gz && cd blog-deploy
-test -f .env || cp .env.example .env
-vim .env   # 确认生产配置
-docker compose up -d --build
-```
+- 服务器已有 Caddy：默认模式，仅把 API/MinIO 发布到 `127.0.0.1`，宿主 Caddy
+  直接服务 Flutter 静态文件并反向代理动态请求。
+- 服务器无其他 Web 服务：启用 `bundled-caddy` profile，让容器 Caddy 独占
+  80/443。
 
-生产数据持久化在解压目录同级的 `blog-deploy/.data/`，迁移服务器时保留整个 `blog-deploy/` 目录即可带上 PostgreSQL、Redis 和 MinIO 数据。`1.0.0` 面向新库部署，数据库重新部署时会通过 Flyway `V1/V2` 初始化当前最终结构和种子数据。
-
-详细配置见 [部署说明](docs/deployment.md)。
+生产推荐使用 `/srv/blog-mimo/releases/<version>`、`current` 原子软链接和
+`/srv/blog-mimo/shared/data` 持久化目录。新数据库会通过 Flyway V1–V4 初始化。
+现有 Caddy、旧静态博客的并行验收、最终切换和回滚步骤见
+[部署说明](docs/deployment.md)。
 
 ## 当前状态
 

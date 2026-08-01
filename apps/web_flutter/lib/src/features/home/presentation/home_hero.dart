@@ -146,7 +146,7 @@ class _HeroIntro extends StatelessWidget {
                   width: 2,
                 ),
                 image: const DecorationImage(
-                  image: AssetImage('assets/images/lacia.png'),
+                  image: AssetImage('assets/images/lacia.webp'),
                   fit: BoxFit.cover,
                 ),
               ),

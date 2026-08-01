@@ -269,12 +269,13 @@ fvm flutter run -d chrome
 |----|--------|------|------|------|
 | PKG-01 | P0 | 检查部署配置 | `scripts/package-deploy.sh --check` | 通过 |
 | PKG-02 | P0 | 生产 env 展开 | `docker compose --env-file deploy/.env -f deploy/docker-compose.yml config` | 通过，必填项不报错 |
-| PKG-03 | P0 | 打包包含 env | 执行 `scripts/package-deploy.sh --skip-build` 后查看 tar 列表 | 包含 `.env` 和 `.env.example` |
-| PKG-04 | P1 | 新目录启动 | 解压到临时目录执行 `docker compose up -d --build` | 服务启动；只暴露 `WEB_PORT` 到 `127.0.0.1` |
-| PKG-05 | P1 | 生产健康检查 | 请求 `http://127.0.0.1:${WEB_PORT}/api/v1/meta` | 返回版本 `1.0.0` |
-| PKG-06 | P1 | Flyway 历史 | 查询 `flyway_schema_history` | 只包含 `1 init schema`、`2 seed initial data`，均 success |
-| PKG-07 | P1 | 生产媒体地址 | 上传图片后前台访问 | 不出现 `http://minio:9000/...` |
-| PKG-08 | P2 | 重启恢复 | `docker compose restart` | 数据仍在 `.data/`；登录、内容、媒体不丢失 |
+| PKG-03 | P0 | 打包排除 env | 执行 `scripts/package-deploy.sh --skip-build` 后查看 tar 列表 | 包含 `.env.example` 和 `DEPLOYMENT.md`，默认不包含 `.env` |
+| PKG-04 | P0 | 宿主 Caddy 模式 | 解压后执行默认 `docker compose up -d --build` | 不启动 `web`；API/MinIO 仅绑定 `127.0.0.1:18080/19000` |
+| PKG-05 | P1 | 容器 Caddy 模式 | 在 80/443 可用的隔离环境执行 `docker compose --profile bundled-caddy up -d --build` | `web` 启动并提供自动 HTTPS |
+| PKG-06 | P1 | 生产健康检查 | 请求 `${FRONTEND_BASE_URL}/api/v1/meta` | HTTPS 有效并返回版本 `1.0.0` |
+| PKG-07 | P1 | Flyway 历史 | 查询 `flyway_schema_history` | V1–V4 均为 success |
+| PKG-08 | P1 | 生产媒体地址 | 上传图片后前台访问 | 不出现 `http://minio:9000/...` |
+| PKG-09 | P2 | 重启恢复 | `docker compose restart` | 数据仍在 `DATA_DIR`；登录、内容、媒体不丢失 |
 
 ---
 

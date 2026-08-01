@@ -52,7 +52,7 @@ class _AboutIdentityPanel extends StatelessWidget {
                       border: Border.all(color: scheme.surface, width: 4),
                       boxShadow: [design.cardShadow],
                       image: const DecorationImage(
-                        image: AssetImage('assets/images/lacia.png'),
+                        image: AssetImage('assets/images/lacia.webp'),
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -157,7 +157,7 @@ class _ChatHeader extends StatelessWidget {
     return ListTile(
       leading: CircleAvatar(
         radius: 20,
-        backgroundImage: const AssetImage('assets/images/lacia.png'),
+        backgroundImage: const AssetImage('assets/images/lacia.webp'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       ),
       title: const Text('问问沐凉'),

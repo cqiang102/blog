@@ -9,6 +9,7 @@ DEPLOY_DIR="$ROOT_DIR/deploy"
 APP_VERSION="${APP_VERSION:-$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")}"
 OUTPUT="${OUTPUT:-$ROOT_DIR/blog-mimo-$APP_VERSION.tar.gz}"
 PACKAGE_NAME="${PACKAGE_NAME:-blog-deploy}"
+CADDY_IMAGE="${CADDY_IMAGE:-caddy:2.11.4-alpine}"
 API_JAR="${API_JAR:-}"
 WEB_BUILD_OUTPUT="${WEB_BUILD_OUTPUT:-$WEB_DIR/build/web}"
 RUN_BUILDS=1
@@ -25,16 +26,17 @@ usage() {
 选项：
   --check       只检查本地工具、部署文件和 Docker Compose 配置。
   --skip-build  跳过 Flutter/JAR 构建，直接打包已有产物。
+  --include-env 显式把 deploy/.env 放入部署包（包含明文凭据，谨慎使用）。
   -h, --help    显示帮助。
 
 可覆盖的环境变量：
-  FVM_BIN, DOCKER_BIN, MAVEN_BIN, JAVA_HOME, JAVA_HOME_OVERRIDE, API_JAR, WEB_BUILD_OUTPUT,
-  APP_VERSION, OUTPUT, PACKAGE_NAME
+  FVM_BIN, DOCKER_BIN, MAVEN_BIN, PYTHON_BIN, JAVA_HOME, JAVA_HOME_OVERRIDE, CADDY_IMAGE, API_JAR,
+  WEB_BUILD_OUTPUT, APP_VERSION, OUTPUT, PACKAGE_NAME
 
 说明：
   Spring Boot JAR 构建会传入 -DskipApiDocs=true，生产部署包不包含 Swagger/OpenAPI 依赖。
   默认构建会先执行 Dart 格式检查、Flutter 分析/测试和 Maven verify；--skip-build 仅用于打包已验证的现有产物。
-  如果 deploy/.env 存在，脚本会把它一起放入部署包；deploy/.env 被 Git 忽略，不会随源码发布。
+  默认不打包 deploy/.env；只有传入 --include-env 时才会把明文生产配置放入部署包。
 USAGE
 }
 
@@ -45,6 +47,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-build)
       RUN_BUILDS=0
+      ;;
+    --include-env)
+      INCLUDE_DEPLOY_ENV=1
       ;;
     -h | --help)
       usage
@@ -93,11 +98,11 @@ require_dir() {
   fi
 }
 
-# 构建后端 JAR 必须使用 Java 21+。
-ensure_java_21() {
+# 构建后端 JAR 必须使用 Java 25+。
+ensure_java_25() {
   local resolved_java_home
-  if ! resolved_java_home="$(resolve_java_21_home "${JAVA_HOME_OVERRIDE:-}" "${JAVA_HOME:-}")"; then
-    echo "构建 API JAR 需要 Java 21+。请设置 JAVA_HOME/JAVA_HOME_OVERRIDE，或把 Java 21 加入 PATH。" >&2
+  if ! resolved_java_home="$(resolve_java_25_home "${JAVA_HOME_OVERRIDE:-}" "${JAVA_HOME:-}")"; then
+    echo "构建 API JAR 需要 Java 25+。请设置 JAVA_HOME/JAVA_HOME_OVERRIDE，或把 Java 25 加入 PATH。" >&2
     exit 1
   fi
   export JAVA_HOME="$resolved_java_home"
@@ -150,9 +155,14 @@ DOCKER_BIN="${DOCKER_BIN:-$(find_command docker /usr/local/bin/docker /Applicati
   exit 1
 }
 
+PYTHON_BIN="${PYTHON_BIN:-$(find_command python3 /usr/bin/python3 /opt/homebrew/bin/python3)}" || {
+  echo "部署配置检查需要 python3，但未在 PATH 或常见安装位置中找到。" >&2
+  exit 1
+}
+
 MAVEN_BIN="${MAVEN_BIN:-}"
 if [[ "$RUN_BUILDS" -eq 1 || "$CHECK_ONLY" -eq 1 ]]; then
-  ensure_java_21
+  ensure_java_25
 fi
 if [[ ( "$RUN_BUILDS" -eq 1 || "$CHECK_ONLY" -eq 1 ) && -z "$MAVEN_BIN" ]]; then
   if [[ -x "$API_DIR/mvnw" ]]; then
@@ -175,13 +185,14 @@ done
 
 run_checks() {
   echo "==> 检查部署输入文件..."
-  require_file "$DEPLOY_DIR/Dockerfile.api"
-  require_file "$DEPLOY_DIR/Dockerfile.web"
   require_file "$DEPLOY_DIR/docker-compose.yml"
-  require_file "$DEPLOY_DIR/nginx.conf"
+  require_file "$DEPLOY_DIR/Caddyfile"
+  require_file "$DEPLOY_DIR/Caddyfile.host.example"
   require_file "$DEPLOY_DIR/.env.example"
-  if [[ -f "$DEPLOY_DIR/.env" ]]; then
-    INCLUDE_DEPLOY_ENV=1
+  require_file "$ROOT_DIR/docs/deployment.md"
+  if [[ "$INCLUDE_DEPLOY_ENV" == "1" && ! -f "$DEPLOY_DIR/.env" ]]; then
+    echo "已指定 --include-env，但 $DEPLOY_DIR/.env 不存在。" >&2
+    exit 1
   fi
 
   echo "==> 检查本地工具..."
@@ -204,7 +215,49 @@ run_checks() {
       --env-file "$DEPLOY_DIR/.env.example" \
       -f "$DEPLOY_DIR/docker-compose.yml" \
       config >/dev/null
+    "$DOCKER_BIN" compose \
+      --env-file "$DEPLOY_DIR/.env.example" \
+      -f "$DEPLOY_DIR/docker-compose.yml" \
+      config --format json \
+      | "$PYTHON_BIN" -c '
+import json
+import sys
+
+services = json.load(sys.stdin)["services"]
+if "web" in services:
+    raise SystemExit("default Compose config must not enable the bundled web Caddy")
+
+expected = {"api": ("127.0.0.1", "18080"), "minio": ("127.0.0.1", "19000")}
+for service_name, (host_ip, published) in expected.items():
+    ports = services[service_name].get("ports", [])
+    if not any(port.get("host_ip") == host_ip and str(port.get("published")) == published for port in ports):
+        raise SystemExit(
+            f"{service_name} must publish only {host_ip}:{published} in the example host-Caddy config"
+        )
+'
+    "$DOCKER_BIN" compose \
+      --profile bundled-caddy \
+      --env-file "$DEPLOY_DIR/.env.example" \
+      -f "$DEPLOY_DIR/docker-compose.yml" \
+      config >/dev/null
+    "$DOCKER_BIN" compose \
+      --profile bundled-caddy \
+      --env-file "$DEPLOY_DIR/.env.example" \
+      -f "$DEPLOY_DIR/docker-compose.yml" \
+      config --services \
+      | grep -qx web
   )
+
+  echo "==> 检查 Caddy 配置..."
+  "$DOCKER_BIN" run --rm \
+    -e FRONTEND_BASE_URL=https://example.com \
+    -v "$DEPLOY_DIR/Caddyfile:/etc/caddy/Caddyfile:ro" \
+    "$CADDY_IMAGE" \
+    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
+  "$DOCKER_BIN" run --rm \
+    -v "$DEPLOY_DIR/Caddyfile.host.example:/etc/caddy/Caddyfile:ro" \
+    "$CADDY_IMAGE" \
+    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
 }
 
 run_checks
@@ -221,7 +274,7 @@ if [[ "$RUN_BUILDS" -eq 1 ]]; then
   "$FVM_BIN" dart format --output=none --set-exit-if-changed lib test
   "$FVM_BIN" flutter analyze
   "$FVM_BIN" flutter test
-  "$FVM_BIN" flutter build web --release --tree-shake-icons --dart-define=API_BASE_URL=/api/v1
+  "$FVM_BIN" flutter build web --release --wasm --tree-shake-icons --dart-define=API_BASE_URL=/api/v1
 
   echo "==> [2/4] 验证并构建 Spring Boot JAR..."
   cd "$API_DIR"
@@ -246,12 +299,14 @@ mkdir -p \
   "$STAGING_DIR/web" \
   "$STAGING_DIR/.data/postgres" \
   "$STAGING_DIR/.data/redis" \
-  "$STAGING_DIR/.data/minio"
-cp "$DEPLOY_DIR/Dockerfile.api" "$STAGING_DIR/"
-cp "$DEPLOY_DIR/Dockerfile.web" "$STAGING_DIR/"
+  "$STAGING_DIR/.data/minio" \
+  "$STAGING_DIR/.data/caddy/data" \
+  "$STAGING_DIR/.data/caddy/config"
 cp "$DEPLOY_DIR/docker-compose.yml" "$STAGING_DIR/"
-cp "$DEPLOY_DIR/nginx.conf" "$STAGING_DIR/"
+cp "$DEPLOY_DIR/Caddyfile" "$STAGING_DIR/"
+cp "$DEPLOY_DIR/Caddyfile.host.example" "$STAGING_DIR/"
 cp "$DEPLOY_DIR/.env.example" "$STAGING_DIR/"
+cp "$ROOT_DIR/docs/deployment.md" "$STAGING_DIR/DEPLOYMENT.md"
 if [[ "$INCLUDE_DEPLOY_ENV" == "1" ]]; then
   cp "$DEPLOY_DIR/.env" "$STAGING_DIR/.env"
 fi
@@ -264,11 +319,14 @@ tar czf "$OUTPUT" -C "$STAGING_ROOT" "$PACKAGE_NAME"
 
 echo ""
 echo "==> 完成！产物：$OUTPUT"
-echo "    上传到服务器后执行："
-echo "    tar xzf $(basename "$OUTPUT") && cd $PACKAGE_NAME"
+echo "    上传前请先阅读包内 DEPLOYMENT.md，并核验服务器 SSH 主机指纹。"
 if [[ "$INCLUDE_DEPLOY_ENV" == "1" ]]; then
-  echo "    # 已包含 deploy/.env，请确认配置后启动"
+  echo "    已包含 deploy/.env；请限制文件权限，并迁移为服务器 shared/.env。"
 else
-  echo "    cp .env.example .env && vim .env"
+  echo "    默认未包含 .env；服务器使用 /srv/blog-mimo/shared/.env。"
 fi
-echo "    docker compose up -d --build"
+echo "    # 服务器已有 Caddy（推荐）："
+echo "    按 DEPLOYMENT.md 版本化解压并执行默认 docker compose up。"
+echo "    然后合并 Caddyfile.host.example 并平滑 reload。"
+echo "    # 独占 80/443 的全容器模式："
+echo "    docker compose --profile bundled-caddy up -d --build"

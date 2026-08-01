@@ -163,7 +163,7 @@ class _SidebarIdentity extends StatelessWidget {
         image: DecorationImage(
           image: hasNetworkAvatar
               ? NetworkImage(resolveMediaUrl(avatarUrl!))
-              : const AssetImage('assets/images/lacia.png'),
+              : const AssetImage('assets/images/lacia.webp'),
           fit: BoxFit.cover,
         ),
       ),

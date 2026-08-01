@@ -19,10 +19,10 @@ is_compatible_java_home() {
   local candidate="$1"
   [[ -n "$candidate" \
     && -x "$candidate/bin/java" \
-    && "$(java_major_version "$candidate/bin/java")" -ge 21 ]]
+    && "$(java_major_version "$candidate/bin/java")" -ge 25 ]]
 }
 
-resolve_java_21_home() {
+resolve_java_25_home() {
   local candidate
   for candidate in "$@"; do
     if is_compatible_java_home "$candidate"; then
@@ -32,7 +32,7 @@ resolve_java_21_home() {
   done
 
   if [[ "$(uname -s)" == "Darwin" && -x /usr/libexec/java_home ]]; then
-    candidate="$(/usr/libexec/java_home -v 21 2>/dev/null || true)"
+    candidate="$(/usr/libexec/java_home -v 25 2>/dev/null || true)"
     if is_compatible_java_home "$candidate"; then
       echo "$candidate"
       return
@@ -41,7 +41,7 @@ resolve_java_21_home() {
 
   local java_bin
   java_bin="$(command -v java || true)"
-  if [[ -n "$java_bin" && "$(java_major_version "$java_bin")" -ge 21 ]]; then
+  if [[ -n "$java_bin" && "$(java_major_version "$java_bin")" -ge 25 ]]; then
     candidate="$("$java_bin" -XshowSettings:properties -version 2>&1 \
       | awk -F'= ' '/^[[:space:]]*java.home = / {print $2; exit}')"
     if is_compatible_java_home "$candidate"; then

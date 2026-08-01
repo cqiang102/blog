@@ -2,7 +2,7 @@ spring:
   application:
     name: personal-blog-api
   threads:
-    # Use Java 21 virtual threads for framework-managed request and task execution.
+    # Use Java 25 virtual threads for framework-managed request and task execution.
     # AI streaming concurrency remains bounded by its dedicated executor (see AsyncConfig).
     virtual:
       enabled: ${VIRTUAL_THREADS:true}

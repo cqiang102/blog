@@ -29,7 +29,7 @@ class _AuthBrandPanel extends StatelessWidget {
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   image: DecorationImage(
-                    image: AssetImage('assets/images/lacia.png'),
+                    image: AssetImage('assets/images/lacia.webp'),
                     fit: BoxFit.cover,
                   ),
                 ),

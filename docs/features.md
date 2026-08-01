@@ -10,7 +10,7 @@
 |------|------|
 | 类型 | 个人博客全栈应用 |
 | 架构 | Monorepo（后端 + 前端 + 基础设施） |
-| 后端 | Java 21 + Spring Boot 4.1.0 + Spring AI 2.0.0 |
+| 后端 | Java 25 + Spring Boot 4.1.0 + Spring AI 2.0.0 |
 | 前端 | Flutter Web 3.35.4 + Dart 3.9.2 |
 | 数据库 | PostgreSQL 18 + pgvector |
 | 缓存 | Redis 7.4 |
@@ -378,16 +378,16 @@
 | 功能 | 状态 | 说明 |
 |------|------|------|
 | 本地开发 | ✅ | scripts/infra.sh + infra/docker-compose.yml（PG18 + Redis + MinIO，共用 deploy/.data） |
-| 生产部署 | ✅ | deploy/docker-compose.yml（API + Web + Nginx） |
-| API Dockerfile | ✅ | deploy/Dockerfile.api（Java 21 JRE + Spring Boot JAR） |
-| Web Dockerfile | ✅ | deploy/Dockerfile.web（Nginx + Flutter 产物） |
-| Nginx 配置 | ✅ | deploy/nginx.conf（反向代理 + SPA 回退 + 静态资源缓存） |
+| 生产部署 | ✅ | deploy/docker-compose.yml（默认复用宿主 Caddy，API/MinIO 仅回环暴露；可选容器 Caddy） |
+| API 容器 | ✅ | eclipse-temurin:25-jre-noble 镜像 + 挂载 blog-api.jar（无需服务器构建） |
+| Web 容器 | ✅ | caddy:2.11.4-alpine 镜像 + 挂载 web/ 和 Caddyfile（可选 bundled-caddy profile） |
+| Caddy 配置 | ✅ | deploy/Caddyfile + Caddyfile.host.example（自动 HTTPS / 复用宿主 Caddy） |
 
 ### 8.5 监控
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| Actuator | ✅ | health, info, metrics, loggers |
+| Actuator | ✅ | health 公开；info、metrics 等其余管理端点仅 ADMIN |
 | 健康检查 | ✅ | Kubernetes 探针支持 |
 
 ---
@@ -399,7 +399,7 @@
 | 脚本 | 说明 |
 |------|------|
 | scripts/infra.sh | 本地依赖服务脚本（读取 apps/api/.env，管理 PostgreSQL、Redis、MinIO） |
-| scripts/dev-api.sh | 后端开发脚本（切换 Java 21、按需启动依赖、运行应用或完整验证） |
+| scripts/dev-api.sh | 后端开发脚本（切换 Java 25、按需启动依赖、运行应用或完整验证） |
 | scripts/package-deploy.sh | 生产部署包脚本（先验证，再构建 JAR 和 Flutter Web 并组装 tar.gz） |
 
 ### 9.2 文档
@@ -418,7 +418,7 @@
 
 | 检查 | 状态 | 说明 |
 |------|------|------|
-| 后端 CI | ✅ | Java 21 下执行 Spotless 格式、Checkstyle 源码卫生、测试和 JaCoCo 覆盖率门禁 |
+| 后端 CI | ✅ | Java 25 下执行 Spotless 格式、Checkstyle 源码卫生、测试和 JaCoCo 覆盖率门禁 |
 | 前端 CI | ✅ | Flutter 3.35.4 下执行格式、静态分析、测试和 Web 构建 |
 | 部署检查 | ✅ | `scripts/package-deploy.sh --check` 验证工具、部署文件和 Compose 配置 |
 

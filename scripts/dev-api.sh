@@ -36,7 +36,7 @@ if [[ "$COMMAND" == "--help" || "$COMMAND" == "-h" ]]; then
 环境变量：
   MAVEN_BIN           覆盖 Maven 可执行文件路径。
   SKIP_INFRA          设为 1 时跳过 scripts/infra.sh up。
-  JAVA_HOME_OVERRIDE  覆盖自动探测到的 Java 21 路径。
+  JAVA_HOME_OVERRIDE  覆盖自动探测到的 Java 25 路径。
   LOG_FILE            覆盖后端运行日志路径。
   本地配置会从 apps/api/.env 读取。
 USAGE
@@ -81,9 +81,9 @@ if [[ ! -x "$MAVEN_BIN" ]]; then
   fi
 fi
 
-# 统一使用 Java 21+，避免本机默认 JDK 版本影响 Spring Boot 启动。
-if ! JAVA_HOME="$(resolve_java_21_home "${JAVA_HOME_OVERRIDE:-}" "${JAVA_HOME:-}")"; then
-  echo "需要 Java 21+。请设置 JAVA_HOME/JAVA_HOME_OVERRIDE，或把 Java 21 加入 PATH。" >&2
+# 统一使用 Java 25+，避免本机默认 JDK 版本影响 Spring Boot 启动。
+if ! JAVA_HOME="$(resolve_java_25_home "${JAVA_HOME_OVERRIDE:-}" "${JAVA_HOME:-}")"; then
+  echo "需要 Java 25+。请设置 JAVA_HOME/JAVA_HOME_OVERRIDE，或把 Java 25 加入 PATH。" >&2
   exit 1
 fi
 export JAVA_HOME

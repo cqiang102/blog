@@ -97,8 +97,8 @@ ThemeData _buildTheme({
     brightness: brightness,
     scaffoldBackgroundColor: background,
     extensions: [designTokens],
+    fontFamily: 'system-ui',
     fontFamilyFallback: const [
-      'system-ui',
       '-apple-system',
       'BlinkMacSystemFont',
       'Segoe UI',
@@ -240,8 +240,9 @@ TextTheme _buildTextTheme(Brightness brightness) {
   final Color textColor = brightness == Brightness.light
       ? AppColors.lightInk
       : AppColors.darkInk;
+  const bodyFont = 'system-ui';
+  const editorialFont = 'Songti SC';
   const editorialFallback = [
-    'Songti SC',
     'Noto Serif CJK SC',
     'Source Han Serif SC',
     'STSong',
@@ -255,6 +256,7 @@ TextTheme _buildTextTheme(Brightness brightness) {
       fontWeight: FontWeight.w700,
       letterSpacing: -1.2,
       color: textColor,
+      fontFamily: editorialFont,
       fontFamilyFallback: editorialFallback,
     ),
     displayMedium: TextStyle(
@@ -263,6 +265,7 @@ TextTheme _buildTextTheme(Brightness brightness) {
       fontWeight: FontWeight.w700,
       letterSpacing: -0.8,
       color: textColor,
+      fontFamily: editorialFont,
       fontFamilyFallback: editorialFallback,
     ),
     displaySmall: TextStyle(
@@ -271,6 +274,7 @@ TextTheme _buildTextTheme(Brightness brightness) {
       fontWeight: FontWeight.w700,
       letterSpacing: -0.5,
       color: textColor,
+      fontFamily: editorialFont,
       fontFamilyFallback: editorialFallback,
     ),
     headlineLarge: TextStyle(
@@ -278,6 +282,7 @@ TextTheme _buildTextTheme(Brightness brightness) {
       height: 1.25,
       fontWeight: FontWeight.w700,
       color: textColor,
+      fontFamily: editorialFont,
       fontFamilyFallback: editorialFallback,
     ),
     headlineMedium: TextStyle(
@@ -285,6 +290,7 @@ TextTheme _buildTextTheme(Brightness brightness) {
       height: 1.3,
       fontWeight: FontWeight.w700,
       color: textColor,
+      fontFamily: editorialFont,
       fontFamilyFallback: editorialFallback,
     ),
     headlineSmall: TextStyle(
@@ -292,6 +298,7 @@ TextTheme _buildTextTheme(Brightness brightness) {
       height: 1.3,
       fontWeight: FontWeight.w700,
       color: textColor,
+      fontFamily: editorialFont,
       fontFamilyFallback: editorialFallback,
     ),
     titleLarge: TextStyle(
@@ -299,6 +306,7 @@ TextTheme _buildTextTheme(Brightness brightness) {
       height: 1.3,
       fontWeight: FontWeight.w700,
       color: textColor,
+      fontFamily: editorialFont,
       fontFamilyFallback: editorialFallback,
     ),
     titleMedium: TextStyle(
@@ -306,48 +314,56 @@ TextTheme _buildTextTheme(Brightness brightness) {
       height: 1.4,
       fontWeight: FontWeight.w600,
       color: textColor,
+      fontFamily: bodyFont,
     ),
     titleSmall: TextStyle(
       fontSize: 14,
       height: 1.4,
       fontWeight: FontWeight.w600,
       color: textColor,
+      fontFamily: bodyFont,
     ),
     bodyLarge: TextStyle(
       fontSize: 17,
       height: 1.75,
       fontWeight: FontWeight.w400,
       color: textColor,
+      fontFamily: bodyFont,
     ),
     bodyMedium: TextStyle(
       fontSize: 14,
       height: 1.65,
       fontWeight: FontWeight.w400,
       color: textColor,
+      fontFamily: bodyFont,
     ),
     bodySmall: TextStyle(
       fontSize: 13,
       height: 1.5,
       fontWeight: FontWeight.w400,
       color: textColor.withValues(alpha: 0.8),
+      fontFamily: bodyFont,
     ),
     labelLarge: TextStyle(
       fontSize: 14,
       height: 1.4,
       fontWeight: FontWeight.w600,
       color: textColor,
+      fontFamily: bodyFont,
     ),
     labelMedium: TextStyle(
       fontSize: 12,
       height: 1.4,
       fontWeight: FontWeight.w600,
       color: textColor,
+      fontFamily: bodyFont,
     ),
     labelSmall: TextStyle(
       fontSize: 11,
       height: 1.4,
       fontWeight: FontWeight.w600,
       color: textColor.withValues(alpha: 0.8),
+      fontFamily: bodyFont,
     ),
   );
 }

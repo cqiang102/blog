@@ -96,7 +96,7 @@ class AppIcons {
   static Widget robot({double radius = 20, Color? backgroundColor}) {
     return CircleAvatar(
       radius: radius,
-      backgroundImage: const AssetImage('assets/images/lacia.png'),
+      backgroundImage: const AssetImage('assets/images/lacia.webp'),
       backgroundColor: backgroundColor,
     );
   }

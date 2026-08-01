@@ -309,7 +309,7 @@ class _AiChatAdminRow extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 16,
-          backgroundImage: const AssetImage('assets/images/lacia.png'),
+          backgroundImage: const AssetImage('assets/images/lacia.webp'),
           backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         ),
         const SizedBox(width: AppSpacing.sm + 4),

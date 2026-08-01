@@ -1,7 +1,7 @@
 flutter_launcher_icons:
-  image_path: "assets/images/lacia.png"
+  image_path: "assets/images/4.0x/lacia.webp"
   web:
     generate: true
-    image_path: "assets/images/lacia.png"
+    image_path: "assets/images/4.0x/lacia.webp"
     background_color: "#F7FAF8"
     theme_color: "#1F6F64"
