@@ -37,6 +37,7 @@ public class EmbeddingService {
      */
     @Retryable(
             retryFor = {Exception.class},
+            noRetryFor = {IllegalStateException.class},
             maxAttempts = 3,
             backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
     public float[] embed(String text) {

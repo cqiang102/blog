@@ -25,6 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class FriendQueryService {
 
+    /** 单次返回的最大友链数量 */
+    private static final int MAX_VISIBLE_FRIENDS = 50;
+
     /** 友链数据访问层 */
     private final FriendRepository friendRepository;
 
@@ -49,6 +52,10 @@ public class FriendQueryService {
         List<Friend> friends = new ArrayList<>(friendRepository.findByVisibleTrueOrderBySortOrderAscCreatedAtDesc());
         // 随机打乱顺序
         Collections.shuffle(friends);
+        // 限制返回数量，防止友链表增长后无界查询
+        if (friends.size() > MAX_VISIBLE_FRIENDS) {
+            friends = friends.subList(0, MAX_VISIBLE_FRIENDS);
+        }
         return friends.stream()
                 .map(friend -> FriendResponse.from(friend, contentMediaService::resolveUrl))
                 .toList();

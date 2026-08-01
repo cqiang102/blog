@@ -41,6 +41,15 @@ public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
+    /** 账户级登录失败锁定：连续失败次数上限 */
+    private static final int MAX_LOGIN_FAILURES = 5;
+    /** 账户级登录失败锁定时间（毫秒） */
+    private static final long LOCKOUT_DURATION_MILLIS = 15 * 60 * 1000L;
+
+    /** 登录失败记录：email -> [失败次数, 首次失败时间戳] */
+    private final java.util.concurrent.ConcurrentHashMap<String, long[]> loginFailures =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     /** 用户仓库，用于访问用户数据 */
     private final UserAccountService userAccountService;
     /** 密码编码器，用于密码加密和验证 */
@@ -96,14 +105,23 @@ public class AuthService {
     @Transactional
     public IssuedAuthSession login(LoginRequest request) {
         String email = EmailNormalizer.normalize(request.email());
-        IdentityUser user = userAccountService
-                .findByEmail(email)
-                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "邮箱或密码错误"));
+
+        // 账户级锁定检查
+        checkAccountLockout(email);
+
+        IdentityUser user = userAccountService.findByEmail(email).orElseThrow(() -> {
+            recordLoginFailure(email);
+            return new BusinessException(HttpStatus.UNAUTHORIZED, "邮箱或密码错误");
+        });
         if (!user.active()
                 || user.passwordHash() == null
                 || !passwordEncoder.matches(request.password(), user.passwordHash())) {
+            recordLoginFailure(email);
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "邮箱或密码错误");
         }
+
+        // 登录成功，清除失败记录
+        loginFailures.remove(email);
         return issueTokens(user);
     }
 
@@ -184,5 +202,40 @@ public class AuthService {
                 refreshToken.value(),
                 accessToken.expiresAt(),
                 UserProfileResponse.from(user, contentMediaService.resolveUrl(user.avatarUrl())));
+    }
+
+    /**
+     * 检查账户是否处于锁定状态。
+     * 连续失败超过 MAX_LOGIN_FAILURES 次后锁定 LOCKOUT_DURATION_MILLIS 毫秒。
+     */
+    private void checkAccountLockout(String email) {
+        long[] record = loginFailures.get(email);
+        if (record == null) {
+            return;
+        }
+        long failures = record[0];
+        long firstFailureAt = record[1];
+        long now = System.currentTimeMillis();
+        if (now - firstFailureAt > LOCKOUT_DURATION_MILLIS) {
+            // 锁定窗口已过，清除记录
+            loginFailures.remove(email);
+            return;
+        }
+        if (failures >= MAX_LOGIN_FAILURES) {
+            long remainingSeconds = (LOCKOUT_DURATION_MILLIS - (now - firstFailureAt)) / 1000;
+            throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS, "登录失败次数过多，请 " + remainingSeconds + " 秒后重试");
+        }
+    }
+
+    /** 记录一次登录失败 */
+    private void recordLoginFailure(String email) {
+        loginFailures.compute(email, (key, existing) -> {
+            long now = System.currentTimeMillis();
+            if (existing == null || now - existing[1] > LOCKOUT_DURATION_MILLIS) {
+                return new long[] {1, now};
+            }
+            existing[0]++;
+            return existing;
+        });
     }
 }

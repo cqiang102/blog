@@ -60,12 +60,18 @@ public class AiChatExchangeService {
     }
 
     public AiChatResponse complete(PreparedExchange exchange, String answer) {
-        long finalMessageCount = persistenceService.persistExchange(
-                exchange.user().id(),
-                exchange.session().getId(),
-                exchange.userMessage(),
-                answer,
-                MAX_MESSAGES_PER_SESSION);
+        long finalMessageCount;
+        try {
+            finalMessageCount = persistenceService.persistExchange(
+                    exchange.user().id(),
+                    exchange.session().getId(),
+                    exchange.userMessage(),
+                    answer,
+                    MAX_MESSAGES_PER_SESSION);
+        } catch (RuntimeException exception) {
+            release(exchange);
+            throw exception;
+        }
         return new AiChatResponse(
                 exchange.session().getId(),
                 answer,

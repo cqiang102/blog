@@ -22,6 +22,9 @@ public final class VectorUtils {
     public static String toPgVectorString(float[] embedding) {
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < embedding.length; i++) {
+            if (!Float.isFinite(embedding[i])) {
+                throw new IllegalArgumentException("Embedding contains non-finite value at index " + i);
+            }
             if (i > 0) sb.append(",");
             sb.append(embedding[i]);
         }

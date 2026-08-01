@@ -93,7 +93,7 @@ public class ContentQueryService {
      * @return 推荐内容响应
      */
     @Transactional(readOnly = true)
-    @Cacheable(value = CacheNames.RECOMMENDATIONS, key = "'all'")
+    @Cacheable(value = CacheNames.RECOMMENDATIONS, key = "'all'", sync = true)
     public RecommendationResponse recommendations() {
         List<Content> pinned =
                 contentRepository

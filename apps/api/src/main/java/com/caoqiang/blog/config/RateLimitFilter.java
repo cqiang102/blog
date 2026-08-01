@@ -110,7 +110,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String method = request.getMethod();
-        String path = request.getRequestURI();
+        String path = normalizePath(request.getRequestURI());
 
         if ("OPTIONS".equalsIgnoreCase(method) || path.startsWith("/actuator/")) {
             filterChain.doFilter(request, response);
@@ -197,6 +197,26 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private boolean matchWildcard(String pattern, String path) {
         Pattern compiled = compiledPatterns.computeIfAbsent(pattern, p -> Pattern.compile(p.replace("*", "[^/]+")));
         return compiled.matcher(path).matches();
+    }
+
+    /**
+     * 规范化请求路径，防止通过分号（matrix params）、URL 编码或尾部斜杠绕过限流规则。
+     */
+    private static String normalizePath(String uri) {
+        // 去除分号及其后的 matrix parameters（如 /login;x=1）
+        int semicolon = uri.indexOf(';');
+        String path = semicolon >= 0 ? uri.substring(0, semicolon) : uri;
+        // URL 解码一次（防止 %6Cogin 绕过）
+        try {
+            path = java.net.URLDecoder.decode(path, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException ignored) {
+            // 非法编码保持原样
+        }
+        // 去除尾部斜杠（根路径除外）
+        if (path.length() > 1 && path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        return path;
     }
 
     private long incrementLocalWindow(String key, int windowSeconds) {

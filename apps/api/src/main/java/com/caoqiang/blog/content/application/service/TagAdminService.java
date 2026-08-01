@@ -6,7 +6,6 @@ import com.caoqiang.blog.content.domain.model.Tag;
 import com.caoqiang.blog.content.domain.repository.TagRepository;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.util.SlugUtils;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -42,8 +41,7 @@ public class TagAdminService {
      */
     @Transactional(readOnly = true)
     public List<TagResponse> list() {
-        return tagRepository.findAll().stream()
-                .sorted(Comparator.comparing(Tag::getName))
+        return tagRepository.findAll(org.springframework.data.domain.Sort.by("name")).stream()
                 .map(TagResponse::from)
                 .toList();
     }

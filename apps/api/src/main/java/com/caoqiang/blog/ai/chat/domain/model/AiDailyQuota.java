@@ -18,7 +18,9 @@ import java.util.UUID;
  * 配额由应用层通过数据库原子预留和释放，避免并发请求突破每日上限。
  */
 @Entity
-@Table(name = "ai_daily_quotas")
+@Table(
+        name = "ai_daily_quotas",
+        uniqueConstraints = @jakarta.persistence.UniqueConstraint(columnNames = {"user_id", "quota_date"}))
 public class AiDailyQuota {
 
     @Id

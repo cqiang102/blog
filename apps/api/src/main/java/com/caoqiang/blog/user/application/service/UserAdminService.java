@@ -66,10 +66,15 @@ public class UserAdminService {
     @Transactional(readOnly = true)
     public PageResponse<AdminUserResponse> list(int page, int size, String query, Role role, UserStatus status) {
         Page<User> result = userRepository.findAll(filters(query, role, status), pageRequest(page, size));
+        // 批量解析头像 URL，避免 N+1 预签名调用
+        java.util.Map<String, String> avatarCache = new java.util.HashMap<>();
         return new PageResponse<>(
                 result.getContent().stream()
-                        .map(u ->
-                                AdminUserResponse.from(u, profileService.generatePresignedAvatarUrl(u.getAvatarUrl())))
+                        .map(u -> AdminUserResponse.from(
+                                u,
+                                avatarCache.computeIfAbsent(
+                                        u.getAvatarUrl() == null ? "" : u.getAvatarUrl(),
+                                        url -> profileService.generatePresignedAvatarUrl(url.isEmpty() ? null : url))))
                         .toList(),
                 result.getNumber(),
                 result.getSize(),

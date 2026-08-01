@@ -36,6 +36,9 @@ public class AiChatStreamingService {
     /** 模型流无响应的上限，远小于 SSE emitter 超时，及时释放被占用的资源。 */
     private static final Duration MODEL_STREAM_TIMEOUT = Duration.ofSeconds(120);
 
+    /** 单次回答的最大字符数，防止模型进入重复循环导致 OOM。 */
+    private static final int MAX_ANSWER_LENGTH = 50_000;
+
     private final AiChatExchangeService exchangeService;
     private final AiChatModelService modelService;
     private final Executor streamExecutor;
@@ -128,6 +131,11 @@ public class AiChatStreamingService {
                 return;
             }
             answer.append(token);
+            if (answer.length() > MAX_ANSWER_LENGTH) {
+                log.warn("AI answer exceeded {} chars, cancelling stream", MAX_ANSWER_LENGTH);
+                cancel();
+                return;
+            }
             if (!sink.emitToken(token)) {
                 cancel();
             }

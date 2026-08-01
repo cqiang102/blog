@@ -36,6 +36,8 @@ public class KnowledgeIndexService {
     private static final int CHUNK_OVERLAP = 50;
     /** knowledge_chunks.embedding 列的固定向量维度 */
     private static final int EMBEDDING_DIMENSIONS = 768;
+    /** 单次索引的最大文档字符数（约 200KB），超出则跳过并记录警告 */
+    private static final int MAX_DOCUMENT_SIZE = 200_000;
 
     private final KnowledgeDocRepository knowledgeDocRepository;
     private final EmbeddingService embeddingService;
@@ -67,6 +69,10 @@ public class KnowledgeIndexService {
                     .findById(docId)
                     .orElseThrow(() -> new IllegalArgumentException("知识库文档不存在: " + docId));
             String body = doc.getBody();
+            if (body != null && body.length() > MAX_DOCUMENT_SIZE) {
+                log.warn("Knowledge document too large to index ({} chars): documentId={}", body.length(), docId);
+                return;
+            }
             List<PreparedChunk> chunks = prepareChunks(body, "knowledgeDoc", docId);
             if (knowledgeChunkWriter.replaceDocumentChunks(docId, body, chunks)) {
                 return;

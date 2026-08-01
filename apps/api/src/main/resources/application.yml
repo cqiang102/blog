@@ -70,6 +70,10 @@ spring:
         dimensions: 768
 server:
   port: ${SERVER_PORT:8080}
+  tomcat:
+    max-http-form-post-size: 2MB
+    max-swallow-size: 2MB
+  max-http-request-header-size: 8KB
 
 management:
   endpoints:
