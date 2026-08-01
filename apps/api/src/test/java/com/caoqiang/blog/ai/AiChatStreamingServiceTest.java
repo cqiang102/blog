@@ -130,6 +130,21 @@ class AiChatStreamingServiceTest {
         verify(exchangeService, never()).complete(any(), any());
     }
 
+    @Test
+    void cancelsStreamWhenAnswerExceedsMaxLength() throws Exception {
+        TestSink sink = new TestSink();
+        String hugeToken = "x".repeat(60_000);
+        when(exchangeService.prepare(principal, request)).thenReturn(prepared);
+        when(modelService.streamAnswer("问题", List.of(), principal)).thenReturn(Flux.just(hugeToken));
+        AiChatStreamingService service = new AiChatStreamingService(exchangeService, modelService, Runnable::run);
+
+        service.start(principal, request, sink);
+
+        // 流应被取消（cancel → release），不应调用 complete
+        verify(exchangeService).release(prepared);
+        verify(exchangeService, never()).complete(any(), any());
+    }
+
     private boolean waitUntil(AtomicBoolean condition) throws InterruptedException {
         for (int attempt = 0; attempt < 100 && !condition.get(); attempt++) {
             Thread.sleep(10);

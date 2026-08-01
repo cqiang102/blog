@@ -152,6 +152,30 @@ class MediaAdminServiceTest {
         verify(mediaStorage, never()).delete(storedObject);
     }
 
+    @Test
+    void rejectsDeletionWhenMediaIsReferencedInContentBody() {
+        MediaAsset asset = managedAsset();
+        com.caoqiang.blog.content.domain.model.Content content = new com.caoqiang.blog.content.domain.model.Content(
+                "文章",
+                "slug",
+                com.caoqiang.blog.content.domain.model.ContentType.ARTICLE,
+                com.caoqiang.blog.content.domain.model.ContentStatus.DRAFT,
+                null,
+                "正文 ![img](" + com.caoqiang.blog.content.domain.model.MediaReference.filePath(asset.getId()) + ")",
+                false,
+                null,
+                java.util.Set.of());
+        asset.assignTo(content);
+        when(mediaAssetRepository.findById(asset.getId())).thenReturn(Optional.of(asset));
+
+        assertThatThrownBy(() -> service.delete(asset.getId()))
+                .isInstanceOf(com.caoqiang.blog.shared.exception.BusinessException.class)
+                .satisfies(e -> assertThat(((com.caoqiang.blog.shared.exception.BusinessException) e).status())
+                        .isEqualTo(org.springframework.http.HttpStatus.CONFLICT));
+
+        verify(mediaAssetRepository, never()).delete(asset);
+    }
+
     private MediaAsset managedAsset() {
         return new MediaAsset(
                 null,
