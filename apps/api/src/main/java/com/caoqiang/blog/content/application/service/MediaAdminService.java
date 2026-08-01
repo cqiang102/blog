@@ -286,6 +286,11 @@ public class MediaAdminService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "媒体资源不存在"));
         Content content = mediaAsset.getContent();
         if (content != null
+                && content.getBodyMarkdown() != null
+                && content.getBodyMarkdown().contains(MediaReference.filePath(id))) {
+            throw new BusinessException(HttpStatus.CONFLICT, "该媒体正在被内容正文引用，无法删除");
+        }
+        if (content != null
                 && content.getCoverMedia() != null
                 && content.getCoverMedia().getId().equals(id)) {
             content.setCoverMedia(null);

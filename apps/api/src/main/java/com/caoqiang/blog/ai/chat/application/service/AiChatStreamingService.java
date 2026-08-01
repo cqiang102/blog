@@ -5,6 +5,7 @@ import com.caoqiang.blog.ai.chat.application.dto.AiChatResponse;
 import com.caoqiang.blog.ai.chat.application.port.AiChatStreamSink;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import java.time.Duration;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -14,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import reactor.core.Disposable;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
 /** Owns the cancellation-safe lifecycle of a streaming AI exchange. */
@@ -21,6 +23,18 @@ import reactor.core.scheduler.Schedulers;
 public class AiChatStreamingService {
 
     private static final Logger log = LoggerFactory.getLogger(AiChatStreamingService.class);
+
+    /**
+     * SSE 发送专用有界调度器。
+     * <p>
+     * emitter.send() 是同步阻塞写，慢客户端会长时间占用线程。使用独立的有界调度器
+     * 与全局共享的 {@code Schedulers.boundedElastic()} 隔离，避免少量挂起连接拖垮
+     * 应用内其它依赖该调度器的响应式操作。
+     */
+    private static final Scheduler SSE_SEND_SCHEDULER = Schedulers.newBoundedElastic(20, 100, "ai-sse-send", 60);
+
+    /** 模型流无响应的上限，远小于 SSE emitter 超时，及时释放被占用的资源。 */
+    private static final Duration MODEL_STREAM_TIMEOUT = Duration.ofSeconds(120);
 
     private final AiChatExchangeService exchangeService;
     private final AiChatModelService modelService;
@@ -96,7 +110,8 @@ public class AiChatStreamingService {
             try {
                 Disposable handle = modelService
                         .streamAnswer(prepared.userMessage(), prepared.history(), currentUser)
-                        .publishOn(Schedulers.boundedElastic())
+                        .timeout(MODEL_STREAM_TIMEOUT)
+                        .publishOn(SSE_SEND_SCHEDULER)
                         .subscribe(this::onToken, error -> failPrepared(prepared), () -> complete(prepared));
                 subscription.set(handle);
                 if (cancelled.get()) {

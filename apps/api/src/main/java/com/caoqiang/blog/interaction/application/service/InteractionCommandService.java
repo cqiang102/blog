@@ -86,7 +86,7 @@ public class InteractionCommandService {
         Comment comment = commentRepository.save(new Comment(contentId, user.id(), body));
         contentInteractionService.incrementCommentCount(contentId, 1);
         domainEventPublisher.publishEvent(new CommentCreatedEvent(comment.getId(), contentId, currentUser.id()));
-        return CommentResponse.from(comment, content, user, referenceData.avatarUrl(user));
+        return CommentResponse.from(comment, content, user, safeAvatarUrl(user));
     }
 
     @Transactional
@@ -164,6 +164,14 @@ public class InteractionCommandService {
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "浏览记录不存在"));
         if (viewRecordRepository.deleteByIdAndUserId(viewRecordId, currentUser.id()) == 1) {
             contentInteractionService.incrementViewCount(viewRecord.getContentId(), -1);
+        }
+    }
+
+    private String safeAvatarUrl(IdentityUser user) {
+        try {
+            return referenceData.avatarUrl(user);
+        } catch (Exception e) {
+            return user.avatarUrl();
         }
     }
 

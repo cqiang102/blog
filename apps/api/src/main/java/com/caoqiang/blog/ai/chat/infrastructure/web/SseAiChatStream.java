@@ -9,7 +9,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 /** Maps transport-neutral chat stream events onto Spring MVC SSE. */
 final class SseAiChatStream implements AiChatStreamSink {
 
-    private static final long TIMEOUT_MILLIS = 600_000L;
+    private static final long TIMEOUT_MILLIS = 180_000L;
 
     private final SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
     private final AtomicBoolean terminal = new AtomicBoolean();
