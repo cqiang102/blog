@@ -112,6 +112,10 @@ class AiChatController extends Notifier<AiChatState> {
   int _historyGeneration = 0;
   bool _disposed = false;
 
+  /// Token buffer to batch SSE token updates and avoid per-token rebuilds.
+  final StringBuffer _tokenBuffer = StringBuffer();
+  Timer? _flushTimer;
+
   @override
   AiChatState build() {
     _disposed = false;
@@ -343,6 +347,7 @@ class AiChatController extends Notifier<AiChatState> {
       removeAiPlaceholder();
       _setError(userFacingErrorMessage(error));
     } finally {
+      stopTokenBuffer();
       if (identical(_activeChat, activeChat)) {
         _activeChat = null;
       }
@@ -416,12 +421,32 @@ class AiChatController extends Notifier<AiChatState> {
   }
 
   void appendAiToken(String token) {
+    _tokenBuffer.write(token);
+    _flushTimer ??= Timer.periodic(
+      const Duration(milliseconds: 50),
+      (_) => _flushTokenBuffer(),
+    );
+  }
+
+  /// Flushes buffered tokens into state in a single rebuild.
+  void _flushTokenBuffer() {
+    if (_tokenBuffer.isEmpty) return;
+    final buffered = _tokenBuffer.toString();
+    _tokenBuffer.clear();
+    if (_disposed) return;
     final messages = List<ChatMessage>.from(state.messages);
     if (messages.isNotEmpty && !messages.last.isMine) {
       final last = messages.last;
-      messages[messages.length - 1] = ChatMessage.ai(last.text + token);
+      messages[messages.length - 1] = ChatMessage.ai(last.text + buffered);
       state = state.copyWith(messages: messages);
     }
+  }
+
+  /// Cancels the flush timer and flushes any remaining buffered tokens.
+  void stopTokenBuffer() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _flushTokenBuffer();
   }
 
   void completeAiReply({
@@ -460,6 +485,7 @@ class AiChatController extends Notifier<AiChatState> {
 
   void cancelSending() {
     if (!state.isSending) return;
+    stopTokenBuffer();
     final messages = List<ChatMessage>.from(state.messages);
     if (messages.isNotEmpty &&
         !messages.last.isMine &&

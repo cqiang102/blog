@@ -155,17 +155,20 @@ class _SidebarIdentity extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final hasNetworkAvatar = avatarUrl != null && avatarUrl!.isNotEmpty;
     final avatarSize = avatarExpanded ? 64.0 : 40.0;
-    final avatar = Container(
-      width: avatarSize,
-      height: avatarSize,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        image: DecorationImage(
-          image: hasNetworkAvatar
-              ? NetworkImage(resolveMediaUrl(avatarUrl!))
-              : const AssetImage('assets/images/lacia.webp'),
-          fit: BoxFit.cover,
-        ),
+    final avatar = ClipOval(
+      child: SizedBox(
+        width: avatarSize,
+        height: avatarSize,
+        child: hasNetworkAvatar
+            ? Image.network(
+                resolveMediaUrl(avatarUrl!),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Image.asset(
+                  'assets/images/lacia.webp',
+                  fit: BoxFit.cover,
+                ),
+              )
+            : Image.asset('assets/images/lacia.webp', fit: BoxFit.cover),
       ),
     );
 

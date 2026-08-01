@@ -96,6 +96,11 @@ Future<void> postSse({
       }
       consume('', flush: true);
     } finally {
+      try {
+        await reader.cancel().toDart;
+      } catch (_) {
+        // Stream may already be closed; safe to ignore.
+      }
       reader.releaseLock();
     }
   } finally {

@@ -17,10 +17,37 @@ class _MarkdownPreview extends StatefulWidget {
 
 class _MarkdownPreviewState extends State<_MarkdownPreview> {
   final _headingKeys = <String, GlobalKey>{};
+  Timer? _debounceTimer;
+  late String _debouncedData;
+
+  @override
+  void initState() {
+    super.initState();
+    _debouncedData = widget.data;
+  }
+
+  @override
+  void didUpdateWidget(covariant _MarkdownPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          setState(() => _debouncedData = widget.data);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final headings = _extractMarkdownHeadings(widget.data);
+    final headings = _extractMarkdownHeadings(_debouncedData);
     final currentSlugs = headings.map((heading) => heading.slug).toSet();
     _headingKeys.removeWhere((slug, _) => !currentSlugs.contains(slug));
     for (final heading in headings) {
@@ -115,7 +142,7 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
                     width: contentWidth,
                     child: MarkdownBody(
                       key: const ValueKey('content-editor-markdown-preview'),
-                      data: widget.data.trim().isEmpty ? '*暂无内容*' : widget.data,
+                      data: _debouncedData.trim().isEmpty ? '*暂无内容*' : _debouncedData,
                       selectable: true,
                       fitContent: false,
                       softLineBreak: true,

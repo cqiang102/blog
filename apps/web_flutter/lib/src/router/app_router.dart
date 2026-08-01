@@ -150,6 +150,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           state: state.uri.queryParameters['state'],
         ),
       ),
+      // 404 兜底：未匹配的 URL 重定向到首页
+      GoRoute(
+        path: '/:rest(.*)',
+        redirect: (_, _) => '/',
+      ),
     ],
   );
 });

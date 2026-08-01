@@ -3,19 +3,31 @@ import 'package:flutter/material.dart';
 class MarkdownEditingController extends TextEditingController {
   MarkdownEditingController({super.text});
 
+  String? _lastText;
+  TextSpan? _lastSpan;
+
   @override
   TextSpan buildTextSpan({
     required BuildContext context,
     TextStyle? style,
     required bool withComposing,
   }) {
+    final currentText = text;
+    if (currentText == _lastText && _lastSpan != null) {
+      return _lastSpan!;
+    }
+
     final baseStyle = style ?? DefaultTextStyle.of(context).style;
     final scheme = Theme.of(context).colorScheme;
-    var children = _highlightMarkdownText(text, baseStyle, scheme);
+    var children = _highlightMarkdownText(currentText, baseStyle, scheme);
     if (withComposing && value.isComposingRangeValid) {
       children = _applyComposingUnderline(children, value.composing);
     }
-    return TextSpan(style: baseStyle, children: children);
+    final span = TextSpan(style: baseStyle, children: children);
+
+    _lastText = currentText;
+    _lastSpan = span;
+    return span;
   }
 }
 
@@ -182,7 +194,7 @@ List<TextSpan> _highlightInlineMarkdown(
 ) {
   final spans = <TextSpan>[];
   final pattern = RegExp(
-    r'(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(\*[^*]+\*)|(\[[^\]]+\]\([^)]+\))|(!?\[[^\]]*\]\([^)]+\))',
+    r'(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(\*[^*]+\*)|(!\[[^\]]*\]\([^)]+\))|(\[[^\]]+\]\([^)]+\))',
   );
   var cursor = 0;
 

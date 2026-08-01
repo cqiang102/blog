@@ -185,6 +185,8 @@ extension _ContentEditorActions on _ContentEditorPageState {
     PastedMarkdownImage image,
     String marker,
   ) async {
+    const maxAttempts = 250; // 250 * 120ms = 30 seconds
+    var attempts = 0;
     while (true) {
       if (!mounted) return;
       final state = ref.read(contentEditorControllerProvider(widget.contentId));
@@ -194,6 +196,11 @@ extension _ContentEditorActions on _ContentEditorPageState {
         return;
       }
       if (!state.isUploading) break;
+      if (++attempts >= maxAttempts) {
+        _replacePastedImageMarker(marker, '');
+        showAdminSnack(context, '等待上传超时，请重试');
+        return;
+      }
       await Future<void>.delayed(const Duration(milliseconds: 120));
     }
     if (!mounted) return;
@@ -245,7 +252,7 @@ extension _ContentEditorActions on _ContentEditorPageState {
 
   void _saveCurrentToServer() {
     final state = ref.read(contentEditorControllerProvider(widget.contentId));
-    _submit(widget.contentId == null ? ContentStatus.draft : state.status);
+    _submit(state.status);
   }
 
   Future<void> _submit(ContentStatus status) async {

@@ -20,9 +20,9 @@ final tagsProvider = FutureProvider<List<TagItem>>((ref) {
 /// 内容详情 Provider
 final contentDetailProvider = FutureProvider.autoDispose
     .family<BlogContent, String>((ref, id) {
-      final token = ref.watch(
-        authControllerProvider.select((auth) => auth.accessToken),
-      );
+      // Only re-fetch when auth state changes (logged in/out), not on token rotation.
+      ref.watch(authControllerProvider.select((auth) => auth.isAuthenticated));
+      final token = ref.read(authControllerProvider).accessToken;
       return ref.watch(apiClientProvider).fetchContent(id, accessToken: token);
     });
 

@@ -3,6 +3,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/api/api_exception.dart';
 import '../core/constants.dart';
 import '../core/models.dart';
 
@@ -33,6 +34,7 @@ class PaginationState<T> {
     bool? isLoading,
     bool? hasMore,
     String? error,
+    bool clearError = false,
   }) {
     return PaginationState<T>(
       items: items ?? this.items,
@@ -40,7 +42,7 @@ class PaginationState<T> {
       total: total ?? this.total,
       isLoading: isLoading ?? this.isLoading,
       hasMore: hasMore ?? this.hasMore,
-      error: error,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }
@@ -61,7 +63,7 @@ abstract class PaginationNotifier<T> extends Notifier<PaginationState<T>> {
     final generation = _requestGeneration;
     final page = state.currentPage;
     final previousItems = state.items;
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, clearError: true);
 
     try {
       final result = await fetchPage(page, _pageSize);
@@ -76,7 +78,7 @@ abstract class PaginationNotifier<T> extends Notifier<PaginationState<T>> {
       );
     } catch (e) {
       if (!ref.mounted || generation != _requestGeneration) return;
-      state = state.copyWith(error: e.toString(), isLoading: false);
+      state = state.copyWith(error: userFacingErrorMessage(e), isLoading: false);
     }
   }
 
@@ -96,13 +98,13 @@ abstract class PaginationNotifier<T> extends Notifier<PaginationState<T>> {
       );
     } catch (e) {
       if (!ref.mounted || generation != _requestGeneration) return;
-      state = PaginationState(error: e.toString(), isLoading: false);
+      state = PaginationState(error: userFacingErrorMessage(e), isLoading: false);
     }
   }
 
   /// 清除错误状态
   void clearError() {
-    state = state.copyWith(error: null);
+    state = state.copyWith(clearError: true);
   }
 
   Future<PageResult<T>> fetchPage(int page, int size);

@@ -37,9 +37,11 @@ Future<bool> runAdminMutation({
     }
 
     await request(api, token);
-    if (!context.mounted) return false;
 
+    // Invalidate caches on success regardless of mount state (ref is still valid).
     invalidate();
+
+    if (!context.mounted) return true;
     showAdminSnack(context, successMessage);
     return true;
   } catch (error) {

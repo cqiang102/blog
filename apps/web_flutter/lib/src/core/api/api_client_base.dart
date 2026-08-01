@@ -153,7 +153,10 @@ class ApiClientBase {
           try {
             final retryResponse = await _dio.request<Object?>(
               normalizedPath,
-              data: _requestData(formData: formData, body: body),
+              data: _requestData(
+                formData: formData?.clone(),
+                body: body,
+              ),
               queryParameters: queryParameters,
               cancelToken: cancelToken,
               options: Options(
@@ -179,8 +182,7 @@ class ApiClientBase {
     required Map<String, Object?>? body,
   }) {
     if (formData != null) {
-      // Dio 的 FormData 发送后会被 finalize，刷新令牌后的重试必须使用副本。
-      return formData.clone();
+      return formData;
     }
     return body != null ? jsonEncode(body) : null;
   }

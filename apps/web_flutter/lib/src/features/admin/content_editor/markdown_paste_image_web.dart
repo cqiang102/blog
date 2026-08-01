@@ -72,9 +72,11 @@ class _MarkdownPasteImageListenerState
 
   void _readImageFile(html.File file, String mimeType) {
     final reader = html.FileReader();
-    reader.onLoad.first.then((_) {
+    Future.any<Object?>([
+      reader.onLoad.first.then((_) => reader.result),
+      reader.onError.first.then((_) => null),
+    ]).then((result) {
       if (!mounted) return;
-      final result = reader.result;
       if (result is! ByteBuffer) return;
 
       widget.onImage(

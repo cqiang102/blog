@@ -538,10 +538,16 @@ TextSpan _highlightedCodeSpan({
     return TextSpan(style: baseStyle, text: code);
   }
 
-  final result = _editorCodeHighlighter.parse(
-    code,
-    language: normalizedLanguage,
-  );
+  final highlight.Result result;
+  try {
+    result = _editorCodeHighlighter.parse(
+      code,
+      language: normalizedLanguage,
+    );
+  } on ArgumentError {
+    // Language not registered with the highlighter; fall back to plain text.
+    return TextSpan(style: baseStyle, text: code);
+  }
   final children = <TextSpan>[];
   for (final node in result.nodes ?? const <highlight.Node>[]) {
     _appendHighlightNode(children, node, baseStyle, palette);

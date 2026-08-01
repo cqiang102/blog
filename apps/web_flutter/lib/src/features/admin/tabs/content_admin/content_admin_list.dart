@@ -336,9 +336,9 @@ class _ResultSummary extends StatelessWidget {
         DropdownButton<int>(
           value: pageSize,
           isDense: true,
-          items: const [
-            DropdownMenuItem(value: 20, child: Text('20')),
-            DropdownMenuItem(value: 50, child: Text('50')),
+          items: [
+            for (final size in [20, 50, if (pageSize != 20 && pageSize != 50) pageSize])
+              DropdownMenuItem(value: size, child: Text('$size')),
           ],
           onChanged: (value) {
             if (value != null) onPageSizeChanged(value);

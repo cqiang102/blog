@@ -141,8 +141,10 @@ AdminTabId adminTabForUri(Uri uri) {
   );
 }
 
-int adminTabIndex(AdminTabId id) =>
-    adminTabs.indexWhere((definition) => definition.id == id);
+int adminTabIndex(AdminTabId id) {
+  final index = adminTabs.indexWhere((definition) => definition.id == id);
+  return index == -1 ? 0 : index;
+}
 
 String adminTabLocation(AdminTabId id) =>
     Uri(path: '/admin', queryParameters: {'tab': id.routeValue}).toString();

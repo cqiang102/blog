@@ -26,6 +26,14 @@ class _MarkdownArticle extends StatelessWidget {
                 styleSheet: _articleMarkdownStyle(context),
                 imageBuilder: (uri, title, alt) =>
                     _buildMarkdownImage(context, uri, title, alt),
+                onTapLink: (text, href, title) {
+                  if (href != null) {
+                    launchUrl(
+                      Uri.parse(href),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                },
               ),
             ),
           );
