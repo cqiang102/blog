@@ -5,6 +5,7 @@ import com.caoqiang.blog.ai.chat.application.dto.AiChatResponse;
 import com.caoqiang.blog.ai.chat.application.port.AiChatStreamSink;
 import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
+import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -31,7 +32,7 @@ public class AiChatStreamingService {
      * 与全局共享的 {@code Schedulers.boundedElastic()} 隔离，避免少量挂起连接拖垮
      * 应用内其它依赖该调度器的响应式操作。
      */
-    private static final Scheduler SSE_SEND_SCHEDULER = Schedulers.newBoundedElastic(20, 100, "ai-sse-send", 60);
+    private final Scheduler sseSendScheduler = Schedulers.newBoundedElastic(20, 100, "ai-sse-send", 60);
 
     /** 模型流无响应的上限，远小于 SSE emitter 超时，及时释放被占用的资源。 */
     private static final Duration MODEL_STREAM_TIMEOUT = Duration.ofSeconds(120);
@@ -50,6 +51,11 @@ public class AiChatStreamingService {
         this.exchangeService = exchangeService;
         this.modelService = modelService;
         this.streamExecutor = streamExecutor;
+    }
+
+    @PreDestroy
+    void disposeScheduler() {
+        sseSendScheduler.dispose();
     }
 
     public void start(AuthenticatedUser currentUser, AiChatRequest request, AiChatStreamSink sink) {
@@ -73,6 +79,7 @@ public class AiChatStreamingService {
         private final AiChatStreamSink sink;
         private final AtomicBoolean cancelled = new AtomicBoolean();
         private final AtomicBoolean finalized = new AtomicBoolean();
+        private final AtomicBoolean streamCompleted = new AtomicBoolean();
         private final AtomicReference<AiChatExchangeService.PreparedExchange> exchange = new AtomicReference<>();
         private final AtomicReference<Disposable> subscription = new AtomicReference<>();
         private final StringBuilder answer = new StringBuilder();
@@ -114,7 +121,7 @@ public class AiChatStreamingService {
                 Disposable handle = modelService
                         .streamAnswer(prepared.userMessage(), prepared.history(), currentUser)
                         .timeout(MODEL_STREAM_TIMEOUT)
-                        .publishOn(SSE_SEND_SCHEDULER)
+                        .publishOn(sseSendScheduler)
                         .subscribe(this::onToken, error -> failPrepared(prepared, error), () -> complete(prepared));
                 subscription.set(handle);
                 if (cancelled.get()) {
@@ -142,6 +149,7 @@ public class AiChatStreamingService {
         }
 
         private void complete(AiChatExchangeService.PreparedExchange prepared) {
+            streamCompleted.set(true);
             if (cancelled.get()) {
                 cancel();
                 return;
@@ -153,7 +161,7 @@ public class AiChatStreamingService {
                 AiChatResponse response = exchangeService.complete(prepared, answer.toString());
                 sink.complete(response);
             } catch (RuntimeException exception) {
-                exchangeService.release(prepared);
+                // exchangeService.complete() already releases quota before re-throwing
                 log.error("Failed to persist AI stream result", exception);
                 sink.fail("保存对话失败，请稍后重试");
             }
@@ -181,7 +189,22 @@ public class AiChatStreamingService {
             }
             AiChatExchangeService.PreparedExchange prepared = exchange.get();
             if (prepared != null && finalized.compareAndSet(false, true)) {
-                exchangeService.release(prepared);
+                if (streamCompleted.get() && !answer.isEmpty()) {
+                    persistOnCancel(prepared);
+                } else {
+                    exchangeService.release(prepared);
+                }
+            }
+        }
+
+        private void persistOnCancel(AiChatExchangeService.PreparedExchange prepared) {
+            try {
+                AiChatResponse response = exchangeService.complete(prepared, answer.toString());
+                sink.complete(response);
+            } catch (RuntimeException exception) {
+                // exchangeService.complete() already releases quota before re-throwing
+                log.error("Failed to persist AI stream result on cancel", exception);
+                sink.fail("保存对话失败，请稍后重试");
             }
         }
 

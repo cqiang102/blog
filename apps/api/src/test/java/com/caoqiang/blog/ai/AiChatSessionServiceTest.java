@@ -82,7 +82,7 @@ class AiChatSessionServiceTest {
         when(sessionRepository.findByIdAndUserIdAndDeletedFalse(session.getId(), userId))
                 .thenReturn(Optional.of(session));
         when(messageRepository.countBySessionIdAndDeletedFalse(session.getId())).thenReturn(7L);
-        when(messageRepository.findTop20BySessionIdAndDeletedFalseOrderByCreatedAtDesc(session.getId()))
+        when(messageRepository.findTop20BySessionIdAndDeletedFalseOrderByCreatedAtDescIdDesc(session.getId()))
                 .thenReturn(List.of(newerAnswer, olderQuestion));
 
         AiChatSessionService.ResolvedSession result = service.resolveForChat(identity, session.getId());

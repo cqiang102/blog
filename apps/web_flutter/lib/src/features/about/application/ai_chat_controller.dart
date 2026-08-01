@@ -123,6 +123,11 @@ class AiChatController extends Notifier<AiChatState> {
       _disposed = true;
       _historyGeneration += 1;
       _historyCancelToken?.cancel('AI history controller disposed');
+      // _cancelActiveChat 不会停止 token 缓冲区计时器，这里直接清理，
+      // 避免 dispose 后周期性 Timer 继续触发。
+      _flushTimer?.cancel();
+      _flushTimer = null;
+      _tokenBuffer.clear();
       unawaited(_cancelActiveChat(updateState: false));
     });
     return const AiChatState();
@@ -145,8 +150,14 @@ class AiChatController extends Notifier<AiChatState> {
         return;
       }
       await _loadHistory(sessions.first.id, generation);
-    } on ApiException {
-      // A user without previous sessions starts with an empty conversation.
+    } on ApiException catch (error) {
+      if (_disposed || generation != _historyGeneration) return;
+      // 仅把“没有会话”类的错误（404 / 资源不存在）当作空会话静默处理；
+      // 其余错误（500、超时、网络等）需要暴露给 UI 以便提示重试。
+      final isNoSession =
+          error.statusCode == 404 || error.message.contains('不存在');
+      if (isNoSession) return;
+      _setError('加载会话失败，请重试');
     }
   }
 
@@ -325,7 +336,7 @@ class AiChatController extends Notifier<AiChatState> {
           if (!request.cancelled &&
               !request.terminalEventReceived &&
               !_disposed) {
-            removeAiPlaceholder();
+            removeAiPlaceholder(force: true);
             _setError('连接提前中断，请重试');
           }
           if (!request.completion.isCompleted) {
@@ -340,11 +351,11 @@ class AiChatController extends Notifier<AiChatState> {
       if (error.message.contains('会话消息数已达上限')) {
         setSessionLimitReached();
       }
-      removeAiPlaceholder();
+      removeAiPlaceholder(force: true);
       _setError(error.message);
     } catch (error) {
       if (_disposed) return;
-      removeAiPlaceholder();
+      removeAiPlaceholder(force: true);
       _setError(userFacingErrorMessage(error));
     } finally {
       stopTokenBuffer();
@@ -374,7 +385,7 @@ class AiChatController extends Notifier<AiChatState> {
           ref.invalidate(aiQuotaProvider);
         case 'error':
           request.terminalEventReceived = true;
-          removeAiPlaceholder();
+          removeAiPlaceholder(force: true);
           final message =
               event.data.contains('提问次数') || event.data.contains('配额')
               ? '今日提问次数已用完'
@@ -430,10 +441,16 @@ class AiChatController extends Notifier<AiChatState> {
 
   /// Flushes buffered tokens into state in a single rebuild.
   void _flushTokenBuffer() {
+    // 若控制器已释放，或当前会话已被取消，丢弃缓冲的 token，避免会话 A 的
+    // token 被追加到会话 B 的消息上。取消路径都会把 cancelled 置为 true；
+    // 正常结束时 cancelled 仍为 false，因此最后一批 token 仍会被刷新出来。
+    if (_disposed || (_activeChat?.cancelled ?? false)) {
+      _tokenBuffer.clear();
+      return;
+    }
     if (_tokenBuffer.isEmpty) return;
     final buffered = _tokenBuffer.toString();
     _tokenBuffer.clear();
-    if (_disposed) return;
     final messages = List<ChatMessage>.from(state.messages);
     if (messages.isNotEmpty && !messages.last.isMine) {
       final last = messages.last;
@@ -455,13 +472,21 @@ class AiChatController extends Notifier<AiChatState> {
     required int remainingQuestions,
     required int remainingMessages,
   }) {
+    // 若控制器已释放，或当前会话已被取消，不能用旧会话的结果覆盖状态。
+    // done 事件与 createNewSession 竞态时，下方的 sessionId 校验会避免把
+    // 新会话的 ID 回退成旧会话的 ID。
+    if (_disposed || (_activeChat?.cancelled ?? false)) return;
     final messages = List<ChatMessage>.from(state.messages);
     if (messages.isNotEmpty && !messages.last.isMine) {
       messages[messages.length - 1] = ChatMessage.ai(answer);
     }
+    // 仅当当前 sessionId 为空或与本次回答一致时才写入，避免把新会话的
+    // sessionId 回退成旧会话的 ID。
+    final shouldUpdateSessionId =
+        state.sessionId == null || state.sessionId == sessionId;
     state = state.copyWith(
       messages: messages,
-      sessionId: sessionId,
+      sessionId: shouldUpdateSessionId ? sessionId : state.sessionId,
       remainingQuestions: remainingQuestions,
       remainingMessages: remainingMessages,
       isSending: false,
@@ -473,11 +498,12 @@ class AiChatController extends Notifier<AiChatState> {
     state = state.copyWith(isSessionLimitReached: true);
   }
 
-  void removeAiPlaceholder() {
+  void removeAiPlaceholder({bool force = false}) {
     final messages = List<ChatMessage>.from(state.messages);
-    if (messages.isNotEmpty &&
-        !messages.last.isMine &&
-        messages.last.text.isEmpty) {
+    if (messages.isEmpty || messages.last.isMine) return;
+    // force=true 用于错误路径：即便已经流出了部分文本，也移除这条不完整的
+    // 回答，避免残缺内容被当作有效回复保留下来。
+    if (force || messages.last.text.isEmpty) {
       messages.removeLast();
       state = state.copyWith(messages: messages);
     }

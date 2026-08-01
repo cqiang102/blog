@@ -9,6 +9,8 @@ import com.caoqiang.blog.shared.exception.BusinessException;
 import com.caoqiang.blog.shared.model.AuthenticatedUser;
 import com.caoqiang.blog.user.application.api.IdentityUser;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -20,6 +22,9 @@ public class AiChatExchangeService {
 
     private static final Logger log = LoggerFactory.getLogger(AiChatExchangeService.class);
     private static final int MAX_MESSAGES_PER_SESSION = 40;
+
+    /** In-flight guard preventing concurrent exchanges on the same session (TOCTOU on message count). */
+    private final ConcurrentHashMap<UUID, Boolean> activeSessions = new ConcurrentHashMap<>();
 
     private final BlogProperties blogProperties;
     private final AiChatSessionService sessionService;
@@ -38,24 +43,33 @@ public class AiChatExchangeService {
     }
 
     public PreparedExchange prepare(AuthenticatedUser currentUser, AiChatRequest request) {
-        IdentityUser user = sessionService.requireActiveUser(currentUser);
-        int dailyLimit = blogProperties.getAi().getDailyQuestionLimit();
-        AiQuotaService.Reservation reservation = quotaService.reserve(user.id(), dailyLimit);
+        UUID sessionKey = request.sessionId() != null ? request.sessionId() : currentUser.id();
+        if (activeSessions.putIfAbsent(sessionKey, Boolean.TRUE) != null) {
+            throw new BusinessException(HttpStatus.TOO_MANY_REQUESTS, "该会话正在处理中，请稍候");
+        }
         try {
-            AiChatSessionService.ResolvedSession resolved = sessionService.resolveForChat(user, request.sessionId());
-            if (resolved.messageCount() + 2 > MAX_MESSAGES_PER_SESSION) {
-                throw new BusinessException(HttpStatus.CONFLICT, "该会话消息数已达上限，请创建新会话");
+            IdentityUser user = sessionService.requireActiveUser(currentUser);
+            int dailyLimit = blogProperties.getAi().getDailyQuestionLimit();
+            AiQuotaService.Reservation reservation = quotaService.reserve(user.id(), dailyLimit);
+            try {
+                AiChatSessionService.ResolvedSession resolved =
+                        sessionService.resolveForChat(user, request.sessionId());
+                if (resolved.messageCount() + 2 > MAX_MESSAGES_PER_SESSION) {
+                    throw new BusinessException(HttpStatus.CONFLICT, "该会话消息数已达上限，请创建新会话");
+                }
+                return new PreparedExchange(
+                        user,
+                        resolved.session(),
+                        reservation,
+                        dailyLimit,
+                        request.message().trim(),
+                        resolved.history());
+            } catch (RuntimeException exception) {
+                release(reservation);
+                throw exception;
             }
-            return new PreparedExchange(
-                    user,
-                    resolved.session(),
-                    reservation,
-                    dailyLimit,
-                    request.message().trim(),
-                    resolved.history());
-        } catch (RuntimeException exception) {
-            release(reservation);
-            throw exception;
+        } finally {
+            activeSessions.remove(sessionKey);
         }
     }
 

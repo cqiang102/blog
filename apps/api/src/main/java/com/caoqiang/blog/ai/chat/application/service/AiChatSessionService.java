@@ -75,7 +75,9 @@ public class AiChatSessionService {
         AiChatSession session = resolveSession(user, sessionId);
         long messageCount = messageRepository.countBySessionIdAndDeletedFalse(session.getId());
         List<AiChatHistoryMessage> history = new ArrayList<>(
-                messageRepository.findTop20BySessionIdAndDeletedFalseOrderByCreatedAtDesc(session.getId()).stream()
+                messageRepository
+                        .findTop20BySessionIdAndDeletedFalseOrderByCreatedAtDescIdDesc(session.getId())
+                        .stream()
                         .filter(message -> message.getRole()
                                         == com.caoqiang.blog.ai.chat.domain.model.AiMessageRole.USER
                                 || message.getRole() == com.caoqiang.blog.ai.chat.domain.model.AiMessageRole.ASSISTANT)

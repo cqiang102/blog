@@ -34,6 +34,13 @@ Future<void> postSse({
   final dioCancelToken = CancelToken();
   cancellationToken?.bind(() => dioCancelToken.cancel('SSE request cancelled'));
 
+  // 与 Web 实现保持一致：整体读取超时。若服务端停止发送却不关闭连接，
+  // 计时器触发后取消 Dio 请求，避免 await for 永久挂起。
+  final timer = Timer(
+    _sseTimeout,
+    () => dioCancelToken.cancel('SSE stream read timeout'),
+  );
+
   try {
     final response = await dio.post<ResponseBody>(
       path,
@@ -70,6 +77,7 @@ Future<void> postSse({
       statusCode: error.response?.statusCode,
     );
   } finally {
+    timer.cancel();
     cancellationToken?.bind(null);
   }
 }

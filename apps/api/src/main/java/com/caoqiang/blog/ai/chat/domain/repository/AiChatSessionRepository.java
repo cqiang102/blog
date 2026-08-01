@@ -41,7 +41,7 @@ public interface AiChatSessionRepository
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT s FROM AiChatSession s
-            WHERE s.id = :id AND s.userId = :userId AND s.deleted = false
+            WHERE s.id = :id AND s.userId = :userId
             """)
     Optional<AiChatSession> findForUpdate(@Param("id") UUID id, @Param("userId") UUID userId);
 

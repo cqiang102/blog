@@ -23,6 +23,9 @@ public class AiChatModelService {
 
     private static final Logger log = LoggerFactory.getLogger(AiChatModelService.class);
 
+    /** 单次回答的最大字符数，与流式路径保持一致，防止模型进入重复循环导致 OOM。 */
+    private static final int MAX_ANSWER_LENGTH = 50_000;
+
     private final ChatClient chatClient;
     private final AiBlogTools blogTools;
 
@@ -33,7 +36,12 @@ public class AiChatModelService {
 
     public String generateAnswer(String message, List<AiChatHistoryMessage> history, AuthenticatedUser currentUser) {
         try {
-            return prompt(message, history, currentUser).call().content();
+            String answer = prompt(message, history, currentUser).call().content();
+            if (answer != null && answer.length() > MAX_ANSWER_LENGTH) {
+                log.warn("Sync AI answer exceeded {} chars, truncating", MAX_ANSWER_LENGTH);
+                answer = answer.substring(0, MAX_ANSWER_LENGTH);
+            }
+            return answer;
         } catch (Exception exception) {
             log.warn("AI model call failed: {}", exception.getMessage(), exception);
             throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "AI 服务暂时不可用");
