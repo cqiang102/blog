@@ -70,7 +70,7 @@ fvm flutter test
 fvm flutter build web --release --wasm
 ```
 
-生产 Web 构建优先使用更紧凑的 SkWasm 渲染器，并保留 JavaScript + CanvasKit 兼容回退。项目固定使用 Java 25、Maven 3.9.16、FVM 3.2.1 和 Flutter 3.35.4；后端脚本与 CI 默认使用 `apps/api/mvnw`，前端命令通过 `apps/web_flutter/.fvmrc` 解析 Flutter 版本，本地仍可通过 `MAVEN_BIN` 或 `FVM_BIN` 覆盖。JaCoCo HTML 报告生成在 `apps/api/target/site/jacoco/index.html`。
+生产 Web 构建优先使用更紧凑的 SkWasm 渲染器，并保留 JavaScript + CanvasKit 兼容回退。项目固定使用 Java 25、Maven 3.9.16、FVM 3.2.1 和 Flutter 3.35.4；后端脚本默认使用 `apps/api/mvnw`，前端命令通过 `apps/web_flutter/.fvmrc` 解析 Flutter 版本，本地仍可通过 `MAVEN_BIN` 或 `FVM_BIN` 覆盖。JaCoCo HTML 报告生成在 `apps/api/target/site/jacoco/index.html`。
 
 ## 生产部署
 
