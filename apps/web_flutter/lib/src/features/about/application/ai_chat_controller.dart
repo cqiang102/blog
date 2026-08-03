@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api_client.dart';
@@ -353,8 +354,10 @@ class AiChatController extends Notifier<AiChatState> {
       }
       removeAiPlaceholder(force: true);
       _setError(error.message);
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (_disposed) return;
+      // 记录被吞掉的异常，便于线上定位 SSE 流式失败的真实原因。
+      debugPrint('AI chat SSE error: $error\n$stackTrace');
       removeAiPlaceholder(force: true);
       _setError(userFacingErrorMessage(error));
     } finally {

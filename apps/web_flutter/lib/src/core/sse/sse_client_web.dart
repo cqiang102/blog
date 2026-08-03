@@ -39,10 +39,24 @@ Future<void> postSse({
       : dio.options.baseUrl;
   final normalizedPath = path.startsWith('/') ? path : '/$path';
 
-  // 使用 AbortController 实现超时控制
-  final abortController = web.AbortController();
-  cancellationToken?.bind(() => abortController.abort());
-  final timer = Timer(_sseTimeout, () => abortController.abort());
+  // 使用 AbortController 实现超时控制。
+  // Wasm 兼容：部分环境下 AbortController 构造可能抛错，失败时降级为无信号，
+  // 避免整个 SSE 请求在发出前就失败。
+  web.AbortController? abortController;
+  try {
+    abortController = web.AbortController();
+  } catch (_) {
+    abortController = null;
+  }
+  cancellationToken?.bind(() => abortController?.abort());
+  final timer = Timer(_sseTimeout, () => abortController?.abort());
+
+  // Wasm 兼容：使用 Headers 对象构造请求头，避免 Map.jsify() 在 Wasm 下的
+  // 互操作问题导致请求在发出前抛错。
+  final headers = web.Headers();
+  headers.append('Content-Type', 'application/json');
+  headers.append('Accept', 'text/event-stream');
+  headers.append('Authorization', 'Bearer $accessToken');
 
   try {
     final response = await web.window
@@ -51,14 +65,8 @@ Future<void> postSse({
           web.RequestInit(
             method: 'POST',
             body: jsonEncode(body).toJS,
-            headers:
-                {
-                      'Content-Type': 'application/json',
-                      'Accept': 'text/event-stream',
-                      'Authorization': 'Bearer $accessToken',
-                    }.jsify()!
-                    as JSObject,
-            signal: abortController.signal,
+            headers: headers,
+            signal: abortController?.signal,
           ),
         )
         .toDart;
@@ -85,7 +93,9 @@ Future<void> postSse({
           if (cancellationToken?.isCancelled ?? false) return;
           final result = await reader.read().toDart;
           if (result.done) return;
-          yield (result.value! as JSUint8Array).toDart;
+          final value = result.value;
+          if (value == null) continue;
+          yield (value as JSUint8Array).toDart;
         }
       }
 
