@@ -153,10 +153,7 @@ class ApiClientBase {
           try {
             final retryResponse = await _dio.request<Object?>(
               normalizedPath,
-              data: _requestData(
-                formData: formData?.clone(),
-                body: body,
-              ),
+              data: _requestData(formData: formData?.clone(), body: body),
               queryParameters: queryParameters,
               cancelToken: cancelToken,
               options: Options(
@@ -203,21 +200,36 @@ class ApiClientBase {
       };
     }
 
+    final message = _statusMessage(error);
     if (response.data is Map) {
       try {
         final envelope = _jsonObject(response.data);
         return ApiException(
-          envelope['message']?.toString() ?? '请求失败',
+          envelope['message']?.toString() ?? message,
           statusCode: response.statusCode,
         );
       } on ApiException {
-        return ApiException('请求失败', statusCode: response.statusCode);
+        // 业务 envelope 解析失败时回退到状态码文案。
       }
     }
-    return ApiException(
-      error.message ?? '请求失败',
-      statusCode: response.statusCode,
-    );
+    return ApiException(message, statusCode: response.statusCode);
+  }
+
+  /// 状态码响应（非 JSON）使用稳定的中文文案，避免泄漏 Dio 原始英文错误。
+  String _statusMessage(DioException error) {
+    final statusCode = error.response?.statusCode;
+    if (statusCode != null && statusCode >= 400) {
+      return friendlyStatusMessage(statusCode);
+    }
+    return switch (error.type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.sendTimeout ||
+      DioExceptionType.receiveTimeout => '请求超时，请稍后重试',
+      DioExceptionType.connectionError => '无法连接服务器，请检查网络后重试',
+      DioExceptionType.badCertificate => '安全连接验证失败，请稍后重试',
+      DioExceptionType.cancel => '请求已取消',
+      _ => '网络请求失败，请稍后重试',
+    };
   }
 
   /// 从 Dio 响应中提取业务数据
