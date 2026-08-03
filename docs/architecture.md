@@ -93,7 +93,7 @@ features/<feature>/
 按风险和收益排序：
 
 1. 继续将其他大型页面中的数据加载和写操作下沉到 feature 内 Controller/Notifier；主页、认证页和个人资料页已完成入口/presentation 分离。
-2. 消除 `content ↔ interaction` 的模块级环后，按 [ADR-0002](adr/0002-spring-modulith-evaluation.md) 试点 test-scope Spring Modulith 验证。
+2. 消除 `content ↔ interaction` 的模块级环后，再试点 test-scope Spring Modulith 验证（评估结论见已归档的 ADR-0002）。
 3. 对高风险后端流程继续补模块集成测试；常规发布执行脚本检查和人工冒烟。
 
 这些调整应分批提交，避免与业务修复混在同一变更中。
