@@ -1,10 +1,11 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
+// ignore_for_file: avoid_web_libraries_in_flutter
 
 import 'dart:async';
-import 'dart:html' as html;
+import 'dart:js_interop';
 import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
+import 'package:web/web.dart' as web;
 
 class PastedMarkdownImage {
   const PastedMarkdownImage({
@@ -37,59 +38,60 @@ class MarkdownPasteImageListener extends StatefulWidget {
 
 class _MarkdownPasteImageListenerState
     extends State<MarkdownPasteImageListener> {
-  late final StreamSubscription<html.Event> _pasteSubscription;
+  // 使用 package:web（dart:js_interop）实现，兼容 Wasm 构建；
+  // 不再依赖 Wasm 不可用的 dart:html。
+  web.EventListener? _pasteListener;
 
   @override
   void initState() {
     super.initState();
-    _pasteSubscription = html.document.onPaste.listen(_handlePaste);
+    _pasteListener = _handlePaste.toJS;
+    web.document.addEventListener('paste', _pasteListener);
   }
 
   @override
   void dispose() {
-    _pasteSubscription.cancel();
+    if (_pasteListener != null) {
+      web.document.removeEventListener('paste', _pasteListener);
+    }
     super.dispose();
   }
 
-  void _handlePaste(html.Event event) {
+  void _handlePaste(web.Event event) {
     if (!widget.focusNode.hasFocus) return;
-    final clipboardEvent = event as html.ClipboardEvent;
+    final clipboardEvent = event as web.ClipboardEvent;
     final items = clipboardEvent.clipboardData?.items;
     if (items == null) return;
 
-    for (var index = 0; index < (items.length ?? 0); index++) {
+    for (var index = 0; index < items.length; index++) {
       final item = items[index];
-      final mimeType = item.type ?? '';
+      final mimeType = item.type;
       if (item.kind != 'file' || !mimeType.startsWith('image/')) continue;
 
       final file = item.getAsFile();
       if (file == null) continue;
       event.preventDefault();
-      _readImageFile(file, mimeType);
+      unawaited(_readImageFile(file, mimeType));
       return;
     }
   }
 
-  void _readImageFile(html.File file, String mimeType) {
-    final reader = html.FileReader();
-    Future.any<Object?>([
-      reader.onLoad.first.then((_) => reader.result),
-      reader.onError.first.then((_) => null),
-    ]).then((result) {
+  Future<void> _readImageFile(web.File file, String mimeType) async {
+    try {
+      final buffer = (await file.arrayBuffer().toDart).toDart;
       if (!mounted) return;
-      if (result is! ByteBuffer) return;
-
       widget.onImage(
         PastedMarkdownImage(
-          bytes: Uint8List.view(result),
+          bytes: Uint8List.view(buffer),
           filename: file.name.isEmpty
               ? 'pasted-image.${_extensionForMimeType(mimeType)}'
               : file.name,
           mimeType: mimeType,
         ),
       );
-    });
-    reader.readAsArrayBuffer(file);
+    } catch (_) {
+      // 剪贴板图片读取失败时静默忽略，不影响编辑器。
+    }
   }
 
   @override

@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'sse_client_stub.dart'
-    if (dart.library.html) 'sse_client_web.dart'
+    if (dart.library.js_interop) 'sse_client_web.dart'
     if (dart.library.io) 'sse_client_io.dart'
     as impl;
 import 'sse_event.dart';
