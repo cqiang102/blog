@@ -163,10 +163,8 @@ class _SidebarIdentity extends StatelessWidget {
             ? Image.network(
                 resolveMediaUrl(avatarUrl!),
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Image.asset(
-                  'assets/images/lacia.webp',
-                  fit: BoxFit.cover,
-                ),
+                errorBuilder: (_, _, _) =>
+                    Image.asset('assets/images/lacia.webp', fit: BoxFit.cover),
               )
             : Image.asset('assets/images/lacia.webp', fit: BoxFit.cover),
       ),

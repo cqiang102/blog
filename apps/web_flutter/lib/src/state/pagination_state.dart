@@ -78,7 +78,10 @@ abstract class PaginationNotifier<T> extends Notifier<PaginationState<T>> {
       );
     } catch (e) {
       if (!ref.mounted || generation != _requestGeneration) return;
-      state = state.copyWith(error: userFacingErrorMessage(e), isLoading: false);
+      state = state.copyWith(
+        error: userFacingErrorMessage(e),
+        isLoading: false,
+      );
     }
   }
 
@@ -98,7 +101,10 @@ abstract class PaginationNotifier<T> extends Notifier<PaginationState<T>> {
       );
     } catch (e) {
       if (!ref.mounted || generation != _requestGeneration) return;
-      state = PaginationState(error: userFacingErrorMessage(e), isLoading: false);
+      state = PaginationState(
+        error: userFacingErrorMessage(e),
+        isLoading: false,
+      );
     }
   }
 

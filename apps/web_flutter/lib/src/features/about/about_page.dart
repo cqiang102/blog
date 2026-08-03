@@ -59,8 +59,7 @@ class _AboutPageState extends ConsumerState<AboutPage> {
     final position = _scrollController.position;
     // 仅当用户已经接近底部时才自动跟随滚动；如果用户向上滚动超过 150px，
     // 说明其正在回看历史消息，流式更新不应强行把视图拉回底部。
-    final nearBottom =
-        position.pixels >= position.maxScrollExtent - 150;
+    final nearBottom = position.pixels >= position.maxScrollExtent - 150;
     if (!nearBottom) return;
     _scrollController.animateTo(
       position.maxScrollExtent,

@@ -540,10 +540,7 @@ TextSpan _highlightedCodeSpan({
 
   final highlight.Result result;
   try {
-    result = _editorCodeHighlighter.parse(
-      code,
-      language: normalizedLanguage,
-    );
+    result = _editorCodeHighlighter.parse(code, language: normalizedLanguage);
   } on ArgumentError {
     // Language not registered with the highlighter; fall back to plain text.
     return TextSpan(style: baseStyle, text: code);

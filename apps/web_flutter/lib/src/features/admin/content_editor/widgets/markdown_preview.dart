@@ -142,7 +142,9 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
                     width: contentWidth,
                     child: MarkdownBody(
                       key: const ValueKey('content-editor-markdown-preview'),
-                      data: _debouncedData.trim().isEmpty ? '*暂无内容*' : _debouncedData,
+                      data: _debouncedData.trim().isEmpty
+                          ? '*暂无内容*'
+                          : _debouncedData,
                       selectable: true,
                       fitContent: false,
                       softLineBreak: true,
