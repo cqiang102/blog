@@ -12,7 +12,7 @@ if [ ! -f "$F" ]; then
   exit 1
 fi
 
-if grep -q 'canvasKitBaseUrl' "$F"; then
+if grep -q 'canvasKitBaseUrl: "canvaskit/"' "$F"; then
   echo "已打过补丁，跳过: $F"
   exit 0
 fi
