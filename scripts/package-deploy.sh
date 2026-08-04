@@ -275,6 +275,8 @@ if [[ "$RUN_BUILDS" -eq 1 ]]; then
   "$FVM_BIN" flutter analyze
   "$FVM_BIN" flutter test
   "$FVM_BIN" flutter build web --release --wasm --tree-shake-icons --dart-define=API_BASE_URL=/api/v1
+  # CanvasKit/SkWasm 改为本地加载，避免 gstatic CDN（国内访问慢）
+  bash "$ROOT_DIR/apps/web_flutter/tool/patch_flutter_bootstrap.sh" "$WEB_BUILD_OUTPUT"
 
   echo "==> [2/4] 验证并构建 Spring Boot JAR..."
   cd "$API_DIR"
