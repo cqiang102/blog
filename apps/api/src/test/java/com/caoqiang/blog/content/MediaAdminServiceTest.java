@@ -71,6 +71,7 @@ class MediaAdminServiceTest {
         StoredObject storedObject = new StoredObject(asset.getBucket(), asset.getObjectKey());
         String signedUrl = "https://blog.example.com/minio/blog-media/uploads/2026/06/photo.png?signed";
         when(mediaAssetRepository.findById(asset.getId())).thenReturn(Optional.of(asset));
+        when(mediaStorage.publicUrl(storedObject)).thenReturn(Optional.empty());
         when(mediaStorage.presignedUrl(storedObject, NOW.plusSeconds(7 * 24 * 60 * 60)))
                 .thenReturn(signedUrl);
 
@@ -88,9 +89,10 @@ class MediaAdminServiceTest {
 
     @Test
     void compensatesImmediatelyWhenMediaRecordCreationFailsWithoutTransaction() {
-        StoredObject storedObject = new StoredObject("minio-1", "uploads/2026/06/photo.png");
+        StoredObject storedObject = new StoredObject("qiniu-public", "uploads/2026/06/photo.png");
         UploadedFile file = imageFile();
-        when(mediaStorage.upload(file, "2026/06/14/", "photo.png", "image/png")).thenReturn(storedObject);
+        when(mediaStorage.upload(file, "2026/06/14/", "photo.png", "image/png", false))
+                .thenReturn(storedObject);
         when(mediaAssetWriter.createUploaded(
                         null, MediaAssetType.IMAGE, storedObject, "photo.png", "image/png", file.size()))
                 .thenThrow(new IllegalStateException("database unavailable"));
@@ -104,10 +106,11 @@ class MediaAdminServiceTest {
 
     @Test
     void keepsUploadedObjectAfterMediaRecordIsCommitted() {
-        StoredObject storedObject = new StoredObject("minio-1", "uploads/2026/06/photo.png");
+        StoredObject storedObject = new StoredObject("qiniu-public", "uploads/2026/06/photo.png");
         UploadedFile file = imageFile();
         MediaAsset asset = managedAsset();
-        when(mediaStorage.upload(file, "2026/06/14/", "photo.png", "image/png")).thenReturn(storedObject);
+        when(mediaStorage.upload(file, "2026/06/14/", "photo.png", "image/png", false))
+                .thenReturn(storedObject);
         when(mediaAssetWriter.createUploaded(
                         null, MediaAssetType.IMAGE, storedObject, "photo.png", "image/png", file.size()))
                 .thenReturn(com.caoqiang.blog.content.application.dto.AdminMediaResponse.from(asset));
@@ -176,11 +179,31 @@ class MediaAdminServiceTest {
         verify(mediaAssetRepository, never()).delete(asset);
     }
 
+    @Test
+    void routesPrivateUploadToPrivateStorage() {
+        StoredObject storedObject = new StoredObject("qiniu-private", "uploads/2026/06/secret.pdf");
+        UploadedFile file = new UploadedFile(
+                "secret.pdf",
+                "application/pdf",
+                3L,
+                () -> new ByteArrayInputStream(new byte[] {1, 2, 3}));
+        when(mediaStorage.upload(file, "2026/06/14/", "secret.pdf", "application/pdf", true))
+                .thenReturn(storedObject);
+        when(mediaAssetWriter.createUploaded(
+                        null, MediaAssetType.FILE, storedObject, "secret.pdf", "application/pdf", 3L))
+                .thenReturn(com.caoqiang.blog.content.application.dto.AdminMediaResponse.from(managedAsset()));
+
+        service.upload(null, MediaAssetType.FILE, file, true);
+
+        verify(mediaAssetWriter)
+                .createUploaded(null, MediaAssetType.FILE, storedObject, "secret.pdf", "application/pdf", 3L);
+    }
+
     private MediaAsset managedAsset() {
         return new MediaAsset(
                 null,
                 MediaAssetType.IMAGE,
-                "minio-1",
+                "qiniu-public",
                 "uploads/2026/06/photo.png",
                 "/api/v1/media-assets/file",
                 "photo.png",

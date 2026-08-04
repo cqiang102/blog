@@ -25,7 +25,7 @@ public record AdminMediaResponse(
         MediaAssetType type,
         /** 存储 bucket */
         String bucket,
-        /** MinIO 对象 key */
+        /** 对象 key（七牛 Kodo） */
         String objectKey,
         /** 公开访问 URL */
         String publicUrl,

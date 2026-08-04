@@ -27,10 +27,10 @@ public class MediaController {
     }
 
     /**
-     * 重定向到 MinIO 预签名 URL。
+     * 重定向到对象存储可访问 URL（公开直链或私有预签名）。
      *
      * @param id 媒体资源 UUID
-     * @return 302 重定向到预签名 URL
+     * @return 302 重定向到公开直链或预签名 URL
      */
     @GetMapping("/{id}/file")
     public ResponseEntity<Void> file(@PathVariable UUID id) {

@@ -40,12 +40,12 @@ class MediaAssetWriterTest {
 
     @Test
     void persistsUploadedMetadataWithStableProxyUrl() {
-        StoredObject storedObject = new StoredObject("minio-1", "uploads/2026/07/photo.png");
+        StoredObject storedObject = new StoredObject("qiniu-public", "uploads/2026/07/photo.png");
         when(mediaAssetRepository.save(any(MediaAsset.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = writer.createUploaded(null, MediaAssetType.IMAGE, storedObject, "photo.png", "image/png", 128L);
 
-        assertThat(response.bucket()).isEqualTo("minio-1");
+        assertThat(response.bucket()).isEqualTo("qiniu-public");
         assertThat(response.objectKey()).isEqualTo(storedObject.objectKey());
         assertThat(response.publicUrl()).isEqualTo("/api/v1/media-assets/" + response.id() + "/file");
     }
@@ -58,7 +58,7 @@ class MediaAssetWriterTest {
         assertThatThrownBy(() -> writer.createUploaded(
                         contentId,
                         MediaAssetType.IMAGE,
-                        new StoredObject("minio-1", "uploads/photo.png"),
+                        new StoredObject("qiniu-public", "uploads/photo.png"),
                         "photo.png",
                         "image/png",
                         128L))

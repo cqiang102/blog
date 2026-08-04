@@ -17,31 +17,50 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-/** x-file-storage adapter for the media storage application port. */
+/**
+ * x-file-storage 适配器（七牛云 Kodo）。
+ *
+ * <p>配置两个平台：
+ * <ul>
+ *   <li>{@code qiniu-public}（默认）：lacia-public 公开空间，CDN 域名 static.blog.lacia.cn</li>
+ *   <li>{@code qiniu-private}：lacia-private 私有空间，CDN 域名 file.lacia.cn（签名访问）</li>
+ * </ul>
+ */
 @Component
 public class XFileMediaStorageAdapter implements MediaStorage {
 
     private static final Logger log = LoggerFactory.getLogger(XFileMediaStorageAdapter.class);
 
+    private static final String LEGACY_MINIO_PREFIX = "minio/";
+
     private final FileStorageService fileStorageService;
     private final MediaStorageProvisioner storageProvisioner;
-    private final String storageEndpoint;
-    private final String publicEndpoint;
-    private final String bucketName;
+    private final String publicPlatform;
+    private final String privatePlatform;
+    private final String publicDomain;
+    private final String privateDomain;
+    private final String publicBucket;
+    private final String privateBucket;
     private final String basePath;
 
     public XFileMediaStorageAdapter(
             FileStorageService fileStorageService,
             MediaStorageProvisioner storageProvisioner,
-            @Value("${dromara.x-file-storage.minio[0].end-point:http://localhost:9000}") String storageEndpoint,
-            @Value("${MINIO_PUBLIC_ENDPOINT:}") String publicEndpoint,
-            @Value("${dromara.x-file-storage.minio[0].bucket-name:blog-media}") String bucketName,
-            @Value("${dromara.x-file-storage.minio[0].base-path:uploads/}") String basePath) {
+            @Value("${dromara.x-file-storage.default-platform:qiniu-public}") String publicPlatform,
+            @Value("${dromara.x-file-storage.qiniu-kodo[1].platform:qiniu-private}") String privatePlatform,
+            @Value("${dromara.x-file-storage.qiniu-kodo[0].domain:https://static.blog.lacia.cn/}") String publicDomain,
+            @Value("${dromara.x-file-storage.qiniu-kodo[1].domain:https://file.lacia.cn/}") String privateDomain,
+            @Value("${dromara.x-file-storage.qiniu-kodo[0].bucket-name:lacia-public}") String publicBucket,
+            @Value("${dromara.x-file-storage.qiniu-kodo[1].bucket-name:lacia-private}") String privateBucket,
+            @Value("${dromara.x-file-storage.qiniu-kodo[0].base-path:uploads/}") String basePath) {
         this.fileStorageService = fileStorageService;
         this.storageProvisioner = storageProvisioner;
-        this.storageEndpoint = storageEndpoint;
-        this.publicEndpoint = publicEndpoint;
-        this.bucketName = bucketName;
+        this.publicPlatform = publicPlatform;
+        this.privatePlatform = privatePlatform;
+        this.publicDomain = normalizeDirectory(publicDomain);
+        this.privateDomain = normalizeDirectory(privateDomain);
+        this.publicBucket = publicBucket;
+        this.privateBucket = privateBucket;
         this.basePath = normalizeDirectory(basePath);
     }
 
@@ -52,15 +71,24 @@ public class XFileMediaStorageAdapter implements MediaStorage {
 
     @Override
     public StoredObject upload(UploadedFile file, String path, String filename, String contentType) {
+        return upload(file, path, filename, contentType, false);
+    }
+
+    @Override
+    public StoredObject upload(
+            UploadedFile file, String path, String filename, String contentType, boolean isPrivate) {
         ensureReady();
         FileInfo fileInfo;
         try (var input = file.openStream()) {
-            fileInfo = fileStorageService
+            var pretreatment = fileStorageService
                     .of(input, file.originalFilename(), contentType, file.size())
                     .setPath(path)
                     .setSaveFilename(filename)
-                    .setContentType(contentType)
-                    .upload();
+                    .setContentType(contentType);
+            if (isPrivate) {
+                pretreatment.setPlatform(privatePlatform);
+            }
+            fileInfo = pretreatment.upload();
         } catch (IOException exception) {
             throw new UncheckedIOException("Unable to read uploaded media", exception);
         }
@@ -77,9 +105,16 @@ public class XFileMediaStorageAdapter implements MediaStorage {
     }
 
     @Override
+    public Optional<String> publicUrl(StoredObject object) {
+        if (isPublicPlatform(object.platform())) {
+            return Optional.of(publicDomain + fullObjectKey(object.objectKey()));
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public String presignedUrl(StoredObject object, Instant expiresAt) {
-        String fallbackUrl = portablePath(object.objectKey());
-        return generatePresignedUrl(fileInfo(object), expiresAt, fallbackUrl);
+        return generatePresignedUrl(fileInfo(object), expiresAt, portablePath(object.objectKey()));
     }
 
     @Override
@@ -88,8 +123,15 @@ public class XFileMediaStorageAdapter implements MediaStorage {
         if (objectKey.isEmpty()) {
             return Optional.empty();
         }
-        StoredObject object =
-                new StoredObject(fileStorageService.getProperties().getDefaultPlatform(), objectKey.get());
+        // 公开空间直链无需签名；私有空间生成下载凭证
+        if (isPrivateStorageUrl(sourceUrl)) {
+            StoredObject object = new StoredObject(privatePlatform, objectKey.get());
+            return Optional.of(generatePresignedUrl(fileInfo(object), expiresAt, sourceUrl));
+        }
+        if (hostMatches(sourceUrl, publicDomain)) {
+            return Optional.of(portablePath(objectKey.get()));
+        }
+        StoredObject object = new StoredObject(publicPlatform, objectKey.get());
         return Optional.of(generatePresignedUrl(fileInfo(object), expiresAt, portablePath(objectKey.get())));
     }
 
@@ -99,13 +141,20 @@ public class XFileMediaStorageAdapter implements MediaStorage {
             return null;
         }
         String trimmed = sourceUrl.trim();
-        return objectKeyFromStorageUrl(trimmed).map(this::portablePath).orElse(trimmed);
+        Optional<String> objectKey = objectKeyFromStorageUrl(trimmed);
+        if (objectKey.isEmpty()) {
+            return trimmed;
+        }
+        // 私有地址保持原样（访问走预签名），公开地址归一化为 CDN 直链
+        if (isPrivateStorageUrl(trimmed)) {
+            return trimmed;
+        }
+        return portablePath(objectKey.get());
     }
 
     @Override
     public String portablePath(String objectKey) {
-        String publicBase = publicStorageBasePath();
-        return publicBase + "/" + bucketName + "/" + fullObjectKey(objectKey);
+        return publicDomain + fullObjectKey(objectKey);
     }
 
     private String generatePresignedUrl(FileInfo fileInfo, Instant expiresAt, String fallbackUrl) {
@@ -118,7 +167,15 @@ public class XFileMediaStorageAdapter implements MediaStorage {
                     fileInfo.getFilename());
             return fallbackUrl;
         }
-        return publicPresignedUrl(signedUrl);
+        return signedUrl;
+    }
+
+    private boolean isPublicPlatform(String platform) {
+        return platform == null || platform.isBlank() || equalsIgnoreCase(platform, publicPlatform);
+    }
+
+    private boolean isPrivateStorageUrl(String sourceUrl) {
+        return hostMatches(sourceUrl, privateDomain);
     }
 
     private FileInfo fileInfo(StoredObject object) {
@@ -133,29 +190,7 @@ public class XFileMediaStorageAdapter implements MediaStorage {
         fileInfo.setBasePath(basePath);
         fileInfo.setPath(path);
         fileInfo.setFilename(filename);
-        fileInfo.setUrl(buildStorageUrl(fullKey));
         return fileInfo;
-    }
-
-    private String publicPresignedUrl(String signedUrl) {
-        if (!StringUtils.hasText(publicEndpoint)) {
-            return signedUrl;
-        }
-        try {
-            URI signedUri = URI.create(signedUrl);
-            URI endpointUri = URI.create(storageEndpoint);
-            if (!equalsIgnoreCase(signedUri.getHost(), endpointUri.getHost())
-                    || effectivePort(signedUri) != effectivePort(endpointUri)) {
-                return signedUrl;
-            }
-
-            String publicBase = publicEndpoint.replaceAll("/+$", "");
-            String query = signedUri.getRawQuery();
-            return publicBase + signedUri.getRawPath() + (query == null ? "" : "?" + query);
-        } catch (IllegalArgumentException exception) {
-            log.warn("Unable to rewrite object storage presigned URL", exception);
-            return signedUrl;
-        }
     }
 
     private Optional<String> objectKeyFromStorageUrl(String sourceUrl) {
@@ -166,70 +201,46 @@ public class XFileMediaStorageAdapter implements MediaStorage {
                 return Optional.empty();
             }
             String normalizedPath = path.replaceAll("^/+", "");
-            if (!isConfiguredStorageUrl(uri, normalizedPath)) {
-                return Optional.empty();
+
+            // 1) 七牛 CDN 域名（公开/私有）：key 就是路径（无 bucket 前缀）
+            if (hostMatches(sourceUrl, publicDomain) || hostMatches(sourceUrl, privateDomain)) {
+                return StringUtils.hasText(normalizedPath)
+                        ? Optional.of(normalizedPath)
+                        : Optional.empty();
             }
-            String bucketPrefix = bucketName + "/";
-            int bucketIndex = normalizedPath.indexOf(bucketPrefix);
-            if (bucketIndex < 0) {
-                return Optional.empty();
+
+            // 2) 兼容旧 MinIO 代理路径 /minio/{bucket}/{key}
+            if (normalizedPath.startsWith(LEGACY_MINIO_PREFIX)) {
+                String rest = normalizedPath.substring(LEGACY_MINIO_PREFIX.length());
+                String objectKey = stripBucketPrefix(rest);
+                return StringUtils.hasText(objectKey) ? Optional.of(objectKey) : Optional.empty();
             }
-            String objectKey = normalizedPath.substring(bucketIndex + bucketPrefix.length());
-            return StringUtils.hasText(objectKey) ? Optional.of(objectKey) : Optional.empty();
+            return Optional.empty();
         } catch (IllegalArgumentException ignored) {
             return Optional.empty();
         }
     }
 
-    private boolean isConfiguredStorageUrl(URI uri, String normalizedPath) {
-        try {
-            URI endpointUri = URI.create(storageEndpoint);
-            if (equalsIgnoreCase(uri.getHost(), endpointUri.getHost())
-                    && effectivePort(uri) == effectivePort(endpointUri)) {
-                return true;
+    private String stripBucketPrefix(String path) {
+        for (String bucket : new String[] {publicBucket, privateBucket}) {
+            String prefix = bucket + "/";
+            if (path.startsWith(prefix)) {
+                return path.substring(prefix.length());
             }
-        } catch (IllegalArgumentException ignored) {
-            // Continue with stable/public path checks.
         }
-
-        String storageBase = publicStorageBasePath().replaceAll("^/+", "").replaceAll("/+$", "");
-        if (StringUtils.hasText(storageBase)
-                && (normalizedPath.equals(storageBase) || normalizedPath.startsWith(storageBase + "/"))) {
-            return true;
-        }
-        if (!StringUtils.hasText(publicEndpoint)) {
-            return false;
-        }
-
-        try {
-            URI publicUri = URI.create(publicEndpoint);
-            String publicPath = publicUri.getPath().replaceAll("^/+", "").replaceAll("/+$", "");
-            boolean pathMatches = publicPath.isEmpty()
-                    || normalizedPath.equals(publicPath)
-                    || normalizedPath.startsWith(publicPath + "/");
-            if (!pathMatches) {
-                return false;
-            }
-            return uri.getHost() == null
-                    || (equalsIgnoreCase(uri.getHost(), publicUri.getHost())
-                            && effectivePort(uri) == effectivePort(publicUri));
-        } catch (IllegalArgumentException ignored) {
-            return false;
-        }
+        return null;
     }
 
-    private String publicStorageBasePath() {
-        if (!StringUtils.hasText(publicEndpoint)) {
-            return "/minio";
+    private boolean hostMatches(String url, String domain) {
+        if (!StringUtils.hasText(url) || !StringUtils.hasText(domain)) {
+            return false;
         }
         try {
-            String path = URI.create(publicEndpoint).getPath();
-            if (!StringUtils.hasText(path) || "/".equals(path)) {
-                return "";
-            }
-            return "/" + path.replaceAll("^/+", "").replaceAll("/+$", "");
+            String urlHost = URI.create(url).getHost();
+            String domainHost = URI.create(domain).getHost();
+            return urlHost != null && equalsIgnoreCase(urlHost, domainHost);
         } catch (IllegalArgumentException ignored) {
-            return "/minio";
+            return false;
         }
     }
 
@@ -245,10 +256,6 @@ public class XFileMediaStorageAdapter implements MediaStorage {
         return !basePath.isEmpty() && objectKey.startsWith(basePath)
                 ? objectKey.substring(basePath.length())
                 : objectKey;
-    }
-
-    private String buildStorageUrl(String objectKey) {
-        return storageEndpoint.replaceAll("/+$", "") + "/" + bucketName + "/" + objectKey;
     }
 
     private static String normalizeDirectory(String value) {
@@ -279,12 +286,5 @@ public class XFileMediaStorageAdapter implements MediaStorage {
 
     private static boolean equalsIgnoreCase(String first, String second) {
         return first != null && second != null && first.equalsIgnoreCase(second);
-    }
-
-    private static int effectivePort(URI uri) {
-        if (uri.getPort() > 0) {
-            return uri.getPort();
-        }
-        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
     }
 }

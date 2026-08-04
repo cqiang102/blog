@@ -62,6 +62,7 @@ public final class MediaReference {
         if (!MediaAsset.EXTERNAL_BUCKET.equals(mediaAsset.getBucket())
                 && hasText(mediaAsset.getBucket())
                 && hasText(mediaAsset.getObjectKey())) {
+            // 兼容历史 MinIO 代理路径（迁移后仅用于把旧引用改写成 API 路径）
             references.add(
                     "/minio/" + stripSlashes(mediaAsset.getBucket()) + "/" + stripSlashes(mediaAsset.getObjectKey()));
         }

@@ -152,7 +152,7 @@ class ProfileServiceTest {
     @Test
     void updatesAvatarAfterStorageOperationsComplete() {
         UploadedFile file = pngAvatar();
-        ContentMediaUpload upload = new ContentMediaUpload("minio-1", "uploads/avatars/2026/07/12/avatar.png");
+        ContentMediaUpload upload = new ContentMediaUpload("qiniu-public", "uploads/avatars/2026/07/12/avatar.png");
         String portableUrl = "/minio/blog-media/uploads/avatars/2026/07/12/avatar.png";
         when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
         when(contentMediaService.upload(file, "avatars/2026/07/12/", "avatar_1783843200000.png", "image/png"))
@@ -171,7 +171,7 @@ class ProfileServiceTest {
     @Test
     void compensatesAvatarUploadWhenProfileUpdateFails() {
         UploadedFile file = pngAvatar();
-        ContentMediaUpload upload = new ContentMediaUpload("minio-1", "uploads/avatars/2026/07/12/avatar.png");
+        ContentMediaUpload upload = new ContentMediaUpload("qiniu-public", "uploads/avatars/2026/07/12/avatar.png");
         String portableUrl = "/minio/blog-media/uploads/avatars/2026/07/12/avatar.png";
         when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
         when(contentMediaService.upload(file, "avatars/2026/07/12/", "avatar_1783843200000.png", "image/png"))

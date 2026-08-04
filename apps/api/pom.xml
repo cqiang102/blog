@@ -21,7 +21,6 @@
         <java.version>25</java.version>
         <spring-ai.version>2.0.0</spring-ai.version>
         <springdoc.version>3.0.0</springdoc.version>
-        <minio.version>8.5.17</minio.version>
         <archunit.version>1.4.2</archunit.version>
         <jacoco.version>0.8.13</jacoco.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
@@ -108,14 +107,15 @@
             <artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.minio</groupId>
-            <artifactId>minio</artifactId>
-            <version>${minio.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.dromara.x-file-storage</groupId>
             <artifactId>x-file-storage-spring</artifactId>
             <version>2.3.0</version>
+        </dependency>
+        <!-- 七牛云 Kodo 平台所需的官方 SDK -->
+        <dependency>
+            <groupId>com.qiniu</groupId>
+            <artifactId>qiniu-java-sdk</artifactId>
+            <version>7.12.1</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

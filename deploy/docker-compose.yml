@@ -35,19 +35,6 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     restart: unless-stopped
 
-  minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
-    command: ["server", "/data"]
-    volumes:
-      - ${DATA_DIR:-./.data}/minio:/data
-    ports:
-      # 宿主机 Caddy 通过回环地址代理对象存储；不要绑定到公网地址。
-      - "${MINIO_BIND_ADDRESS:-127.0.0.1}:${MINIO_HOST_PORT:-19000}:9000"
-    restart: unless-stopped
-
   api:
     image: eclipse-temurin:25-jre-noble
     command: ["java", "-jar", "/app/blog-api.jar"]
@@ -65,11 +52,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_PUBLIC_ENDPOINT: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL is required}/minio
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
-      MINIO_BUCKET: ${MINIO_BUCKET:-blog-media}
+      QINIU_ACCESS_KEY: ${QINIU_ACCESS_KEY:?QINIU_ACCESS_KEY is required}
+      QINIU_SECRET_KEY: ${QINIU_SECRET_KEY:?QINIU_SECRET_KEY is required}
+      QINIU_PUBLIC_BUCKET: ${QINIU_PUBLIC_BUCKET:-lacia-public}
+      QINIU_PUBLIC_DOMAIN: ${QINIU_PUBLIC_DOMAIN:-https://static.blog.lacia.cn/}
+      QINIU_PRIVATE_BUCKET: ${QINIU_PRIVATE_BUCKET:-lacia-private}
+      QINIU_PRIVATE_DOMAIN: ${QINIU_PRIVATE_DOMAIN:-https://file.lacia.cn/}
       OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com}
       OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4.1-mini}
@@ -100,8 +88,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health/readiness || curl -fsS http://localhost:8080/actuator/health"]
       interval: 10s

@@ -20,7 +20,7 @@ class AdminContentResponseTest {
         MediaAsset cover = new MediaAsset(
                 content,
                 MediaAssetType.IMAGE,
-                "minio-1",
+                "qiniu-public",
                 "uploads/cover.png",
                 null,
                 "cover.png",

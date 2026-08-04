@@ -28,12 +28,19 @@ blog:
 
 dromara:
   x-file-storage:
-    minio:
-      - platform: minio-1
+    default-platform: qiniu-public
+    qiniu-kodo:
+      - platform: qiniu-public
         enable-storage: true
-        access-key: test-minio
-        secret-key: test-minio-secret
-        end-point: http://localhost:9000
-        bucket-name: blog-test
-        domain: http://localhost:9000/blog-test/
+        access-key: ${QINIU_ACCESS_KEY:test-qiniu}
+        secret-key: ${QINIU_SECRET_KEY:test-qiniu-secret}
+        bucket-name: ${QINIU_PUBLIC_BUCKET:lacia-public}
+        domain: ${QINIU_PUBLIC_DOMAIN:https://static.blog.lacia.cn/}
+        base-path: uploads/
+      - platform: qiniu-private
+        enable-storage: true
+        access-key: ${QINIU_ACCESS_KEY:test-qiniu}
+        secret-key: ${QINIU_SECRET_KEY:test-qiniu-secret}
+        bucket-name: ${QINIU_PRIVATE_BUCKET:lacia-private}
+        domain: ${QINIU_PRIVATE_DOMAIN:https://file.lacia.cn/}
         base-path: uploads/

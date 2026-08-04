@@ -19,7 +19,7 @@ import java.util.UUID;
  * 对应数据库表 {@code media_assets}，存储博客系统中所有媒体文件的元数据。
  * 支持两种存储模式：
  * <ul>
- *   <li>本地上传：文件存储在 MinIO 中，bucket 和 objectKey 指向实际存储位置</li>
+ *   <li>本地上传：文件存储在七牛云 Kodo 中，bucket 和 objectKey 指向实际存储位置</li>
  *   <li>外链引用：文件托管在外部 CDN，bucket 为 "external"，publicUrl 指向外部地址</li>
  * </ul>
  * <p>
@@ -55,7 +55,7 @@ public class MediaAsset {
     @Column(nullable = false, length = 120)
     private String bucket;
 
-    /** MinIO 对象 key，外链媒体为 "external/UUID" */
+    /** 对象 key（七牛 Kodo），外链媒体为 "external/UUID" */
     @Column(name = "object_key", nullable = false, columnDefinition = "TEXT")
     private String objectKey;
 

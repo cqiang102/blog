@@ -117,6 +117,20 @@ public class MediaAdminService {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AdminMediaResponse upload(UUID contentId, MediaAssetType type, UploadedFile file) {
+        return upload(contentId, type, file, false);
+    }
+
+    /**
+     * 上传文件到对象存储并创建媒体资源记录。
+     *
+     * @param contentId 所属内容 UUID（可为 null）
+     * @param type      媒体类型（可为 null，自动推断）
+     * @param file      上传的文件
+     * @param isPrivate true 存入私有空间（lacia-private），false 存入公开空间（lacia-public）
+     * @return 创建后的媒体资源响应
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public AdminMediaResponse upload(UUID contentId, MediaAssetType type, UploadedFile file, boolean isPrivate) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "请选择要上传的文件");
         }
@@ -130,7 +144,7 @@ public class MediaAdminService {
                 StringUtils.hasText(file.contentType()) ? file.contentType() : defaultContentType(mediaType);
         String path = datePath();
 
-        StoredObject storedObject = mediaStorage.upload(file, path, filename, contentType);
+        StoredObject storedObject = mediaStorage.upload(file, path, filename, contentType, isPrivate);
         try {
             return mediaAssetWriter.createUploaded(
                     contentId, mediaType, storedObject, filename, contentType, file.size());
@@ -152,12 +166,15 @@ public class MediaAdminService {
                 .findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "媒体资源不存在"));
 
-        // 内部存储媒体：直接生成预签名
+        // 内部存储媒体：公开对象返回 CDN 直链，私有对象生成预签名 URL
         if (!MediaAsset.EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
-            return mediaStorage.presignedUrl(storedObject(mediaAsset), presignedUrlExpiry());
+            StoredObject storedObject = storedObject(mediaAsset);
+            return mediaStorage
+                    .publicUrl(storedObject)
+                    .orElseGet(() -> mediaStorage.presignedUrl(storedObject, presignedUrlExpiry()));
         }
 
-        // 外链媒体：尝试用默认平台生成预签名（URL 指向本机 MinIO 的场景）
+        // 外链媒体：尝试解析存储 URL（兼容旧 MinIO 代理路径），否则原样返回
         String publicUrl = mediaAsset.getPublicUrl();
         if (publicUrl != null) {
             return mediaStorage.presignedUrl(publicUrl, presignedUrlExpiry()).orElse(publicUrl);
@@ -171,7 +188,7 @@ public class MediaAdminService {
      * 支持三种输入：
      * <ul>
      *   <li>代理路径 {@code /api/v1/media-assets/{id}/file} → 查库生成预签名</li>
-     *   <li>本机 MinIO 直连 URL → 提取路径生成预签名</li>
+     *   <li>存储直连 URL（七牛 CDN / 旧 MinIO 代理）→ 提取路径生成可访问 URL</li>
      *   <li>外部 URL → 原样返回</li>
      * </ul>
      *
@@ -191,19 +208,19 @@ public class MediaAdminService {
             return getPresignedUrl(mediaId.get());
         }
 
-        // 当前部署的 MinIO 代理路径或内部 URL
+        // 存储直链（公开 CDN / 私有签名 / 旧 MinIO 代理）
         return mediaStorage.presignedUrl(trimmed, presignedUrlExpiry()).orElse(trimmed);
     }
 
     /**
-     * 将指向当前 MinIO bucket 的 URL 规范化为稳定代理路径，便于跨服务器迁移。
+     * 将指向当前存储的 URL 规范化为可持久化路径（公开对象 → CDN 直链）。
      */
     public String normalizeStorageUrlForPersistence(String url) {
         return mediaStorage.normalizeForPersistence(url);
     }
 
     /**
-     * 使用同源 MinIO 代理路径构造稳定地址，不绑定域名、端口或 Docker 内部服务名。
+     * 返回对象可持久化的公开地址（公开对象为 CDN 直链，私有对象调用方应走媒体端点）。
      */
     public String portableStoragePath(String objectKey) {
         return mediaStorage.portablePath(objectKey);

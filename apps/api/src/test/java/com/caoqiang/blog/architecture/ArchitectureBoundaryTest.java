@@ -75,8 +75,8 @@ class ArchitectureBoundaryTest {
                 .resideInAPackage("..application..")
                 .should()
                 .dependOnClassesThat()
-                .resideInAnyPackage("org.dromara.x.file.storage..", "io.minio..")
-                .because("object storage vendors are hidden behind content/application/port")
+                .resideInAPackage("org.dromara.x.file.storage..")
+                .because("object storage vendor types are hidden behind content/application/port")
                 .check(applicationClasses);
     }
 
