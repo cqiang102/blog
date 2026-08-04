@@ -129,17 +129,41 @@ def upload_cert(auth, domain: str, chain: str, key: str, dry_run: bool) -> str:
     return cert_id
 
 
+def domain_https_certid(auth, domain: str):
+    """Return the certId currently bound to the CDN domain (or None)."""
+    url = f"{CDN_API}/domain/{domain}"
+    headers = qiniu_headers(auth, "GET", url, None)
+    try:
+        data = http_json(url, "GET", headers)
+    except Exception:
+        return None
+    https = data.get("https") or {}
+    for key in ("certId", "certID", "cert_id"):
+        if https.get(key):
+            return https.get(key)
+    return None
+
+
 def bind_cert(auth, domain: str, cert_id: str, dry_run: bool):
     body = json.dumps({"certId": cert_id, "forceHttps": True, "http2Enable": True}).encode("utf-8")
     url = f"{CDN_API}/domain/{domain}/httpsconf"
     if dry_run:
         print(f"[dry-run] would bind cert {cert_id} to {domain}")
-        return
+        return True
     headers = qiniu_headers(auth, "PUT", url, body)
-    data = http_json(url, "PUT", headers, body)
-    if data.get("code") != 200:
-        raise SystemExit(f"bind cert failed: {data}")
-    print(f"bound cert {cert_id} to https://{domain}")
+    try:
+        data = http_json(url, "PUT", headers, body)
+    except Exception as exc:
+        print(f"bind cert failed (will retry next run): {exc}")
+        return False
+    if data.get("code") == 200:
+        print(f"bound cert {cert_id} to https://{domain}")
+        return True
+    if "400910" in str(data.get("code")):  # 没有改动
+        print(f"cert {cert_id} already bound to {domain}")
+        return True
+    print(f"bind cert failed (will retry next run): {data}")
+    return False
 
 
 def delete_old_certs(auth, domain: str, keep_cert_id: str, dry_run: bool):
@@ -183,19 +207,30 @@ def main() -> int:
     fingerprint, not_after, enddate, chain, key = local_cert_info(args.cert, args.key)
     print(f"local cert: {args.domain} sha256={fingerprint} not_after={enddate}")
 
+    existing_cert_id = None
     if not args.force and not args.dry_run:
         for cert in list_qiniu_certs(auth):
             dnsnames = cert.get("dnsnames") or []
             if args.domain in dnsnames and cert.get("not_after") == not_after:
-                print(f"Qiniu already has this cert ({cert.get('certid')}), nothing to do.")
-                return 0
+                existing_cert_id = cert.get("certid")
+                break
+
+    if existing_cert_id:
+        print(f"Qiniu already has this cert ({existing_cert_id})")
+        if domain_https_certid(auth, args.domain) == existing_cert_id:
+            print("and it is already bound to the CDN domain, nothing to do.")
+            return 0
+        print("cert not bound yet, binding now...")
+        ok = bind_cert(auth, args.domain, existing_cert_id, args.dry_run)
+        print("done")
+        return 0 if ok else 1
 
     cert_id = upload_cert(auth, args.domain, chain, key, args.dry_run)
-    bind_cert(auth, args.domain, cert_id, args.dry_run)
+    ok = bind_cert(auth, args.domain, cert_id, args.dry_run)
     if args.delete_old:
         delete_old_certs(auth, args.domain, cert_id, args.dry_run)
     print("done")
-    return 0
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
