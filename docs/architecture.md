@@ -7,7 +7,7 @@ flowchart LR
     Web["Flutter Web"] --> API["Spring Boot API"]
     API --> PG["PostgreSQL + pgvector"]
     API --> Redis["Redis"]
-    API --> MinIO["MinIO"]
+    API --> Kodo["七牛云 Kodo (lacia-public / lacia-private)"]
     API --> AI["OpenAI compatible API"]
 ```
 
@@ -15,7 +15,7 @@ flowchart LR
 
 - `apps/api`：后端业务、认证、持久化、AI 和管理接口。
 - `apps/web_flutter`：公开页面、用户中心和管理中心。
-- `infra`：本地开发基础设施（PostgreSQL、Redis、MinIO）。
+- `infra`：本地开发基础设施（PostgreSQL、Redis；对象存储默认直连七牛云 Kodo）。
 - `deploy`：生产部署包（Caddy 配置、docker-compose）。
 - `scripts`：开发和诊断入口。
 - `docs`：当前说明与归档资料。

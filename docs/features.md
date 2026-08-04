@@ -14,7 +14,7 @@
 | 前端 | Flutter Web 3.35.4 + Dart 3.9.2 |
 | 数据库 | PostgreSQL 18 + pgvector |
 | 缓存 | Redis 7.4 |
-| 存储 | MinIO |
+| 存储 | 七牛云 Kodo（lacia-public / lacia-private） |
 | AI | OpenAI 兼容聊天 API + Ollama nomic-embed-text 嵌入模型 |
 
 ---
@@ -85,7 +85,7 @@
 | 创建内容 | ✅ | 标题、摘要、正文、类型、标签、状态 |
 | 更新内容 | ✅ | 修改内容所有字段 |
 | 删除内容 | ✅ | 软删除（归档） |
-| 媒体上传 | ✅ | 图片/视频上传到 MinIO |
+| 媒体上传 | ✅ | 图片/视频上传到七牛云 Kodo（公开/私有空间） |
 | 管理媒体 | ✅ | 媒体资源 CRUD |
 
 ### 2.5 标签管理
@@ -370,15 +370,15 @@
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| MinIO 对象存储 | ✅ | 图片、视频、文件上传 |
+| 七牛云 Kodo 对象存储 | ✅ | 图片、视频、文件上传（公开 CDN + 私有签名） |
 | 文件大小限制 | ✅ | 默认 50MB（可配置） |
 
 ### 8.4 容器化
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| 本地开发 | ✅ | scripts/infra.sh + infra/docker-compose.yml（PG18 + Redis + MinIO，共用 deploy/.data） |
-| 生产部署 | ✅ | deploy/docker-compose.yml（默认复用宿主 Caddy，API/MinIO 仅回环暴露；可选容器 Caddy） |
+| 本地开发 | ✅ | scripts/infra.sh + infra/docker-compose.yml（PG18 + Redis，对象存储直连七牛） |
+| 生产部署 | ✅ | deploy/docker-compose.yml（默认复用宿主 Caddy，API 仅回环暴露；对象存储走七牛） |
 | API 容器 | ✅ | eclipse-temurin:25-jre-noble 镜像 + 挂载 blog-api.jar（无需服务器构建） |
 | Web 容器 | ✅ | caddy:2.11.4-alpine 镜像 + 挂载 web/ 和 Caddyfile（可选 bundled-caddy profile） |
 | Caddy 配置 | ✅ | deploy/Caddyfile + Caddyfile.host.example（自动 HTTPS / 复用宿主 Caddy） |
@@ -398,7 +398,7 @@
 
 | 脚本 | 说明 |
 |------|------|
-| scripts/infra.sh | 本地依赖服务脚本（读取 apps/api/.env，管理 PostgreSQL、Redis、MinIO） |
+| scripts/infra.sh | 本地依赖服务脚本（读取 apps/api/.env，管理 PostgreSQL、Redis；对象存储直连七牛） |
 | scripts/dev-api.sh | 后端开发脚本（切换 Java 25、按需启动依赖、运行应用或完整验证） |
 | scripts/package-deploy.sh | 生产部署包脚本（先验证，再构建 JAR 和 Flutter Web 并组装 tar.gz） |
 
@@ -478,10 +478,12 @@
 | REDIS_HOST | localhost | Redis 主机 |
 | REDIS_PORT | 6379 | Redis 端口 |
 | REDIS_PASSWORD | blog_redis | Redis 密码 |
-| MINIO_ENDPOINT | http://localhost:9000 | MinIO 地址 |
-| MINIO_ACCESS_KEY | blog_minio | MinIO 访问密钥 |
-| MINIO_SECRET_KEY | blog_minio_password | MinIO 秘密密钥 |
-| MINIO_BUCKET | blog-media | MinIO 存储桶 |
+| QINIU_ACCESS_KEY | 七牛云 AccessKey | 七牛访问密钥 |
+| QINIU_SECRET_KEY | 七牛云 SecretKey | 七牛秘密密钥 |
+| QINIU_PUBLIC_BUCKET | lacia-public | 公开空间 |
+| QINIU_PUBLIC_DOMAIN | https://static.blog.lacia.cn/ | 公开空间 CDN 域名 |
+| QINIU_PRIVATE_BUCKET | lacia-private | 私有空间 |
+| QINIU_PRIVATE_DOMAIN | https://file.lacia.cn/ | 私有空间 CDN 域名 |
 | OPENAI_API_KEY | 开发占位值 | OpenAI API 密钥，生产必须配置 |
 | OPENAI_BASE_URL | https://api.deepseek.com | OpenAI 兼容 API 地址 |
 | OPENAI_CHAT_MODEL | deepseek-v4-flash | 聊天模型 |

@@ -30,8 +30,7 @@ scripts/infra.sh status
 
 - PostgreSQL：`localhost:5432`
 - Redis：`localhost:6379`
-- MinIO API：`localhost:9000`
-- MinIO Console：`localhost:9001`
+- 七牛云 Kodo：lacia-public / lacia-private（配置在 apps/api/.env）
 - 本地数据目录：`deploy/.data/`
 
 如果需要重置本地数据：
@@ -86,7 +85,7 @@ fvm flutter run -d chrome
 
 | ID | 场景 | 步骤 | 预期 |
 |----|------|------|------|
-| P0-01 | 依赖服务启动 | 执行 `scripts/infra.sh up` 和 `scripts/infra.sh status` | PostgreSQL、Redis、MinIO 容器正常运行 |
+| P0-01 | 依赖服务启动 | 执行 `scripts/infra.sh up` 和 `scripts/infra.sh status` | PostgreSQL、Redis 容器正常运行 |
 | P0-02 | 后端启动 | IDE 以 `dev` profile 启动后端 | 无启动异常；Flyway 执行成功；端口 `8080` 可访问 |
 | P0-03 | 健康检查 | 请求 `/actuator/health/liveness`、`/actuator/health/readiness`、`/api/v1/meta` | liveness/readiness 可用；meta 返回版本信息 |
 | P0-04 | 前端启动 | 运行 Flutter Web 并打开首页 | 页面可加载；无白屏；控制台无阻塞性错误 |
@@ -96,7 +95,7 @@ fvm flutter run -d chrome
 | P0-08 | 内容列表 | 打开 `/contents`，执行搜索、标签筛选、分页/排序 | 列表刷新正确；无 500；空结果状态合理 |
 | P0-09 | 内容详情 | 打开任意已发布内容详情 `/contents/{id}` | 正文、封面/媒体、浏览数、评论区展示正常 |
 | P0-10 | 创建发布文章 | 管理后台新建 `ARTICLE`，设置 `PUBLISHED` | 保存成功；前台列表和详情可见 |
-| P0-11 | 上传图片 | 管理后台上传图片并设置为封面 | 上传成功；前台图片可访问；URL 不出现 `http://minio:9000/...` |
+| P0-11 | 上传图片 | 管理后台上传图片并设置为封面 | 上传成功；前台图片可通过 `static.blog.lacia.cn` CDN 访问 |
 | P0-12 | 评论点赞 | 普通用户对已发布内容评论、点赞、取消点赞 | 计数更新；重复点赞被正确处理；自己的评论可删除 |
 | P0-13 | 生产包检查 | 执行 `scripts/package-deploy.sh --check` | 检查通过 |
 | P0-14 | 生产配置检查 | 执行 `docker compose --env-file deploy/.env -f deploy/docker-compose.yml config` | Compose 配置可展开；必填 env 不报错 |
@@ -182,7 +181,7 @@ fvm flutter run -d chrome
 | ADMIN-05 | P1 | 草稿不可见 | 新建 `DRAFT` 内容 | 前台不可见；管理后台可见 |
 | ADMIN-06 | P1 | 归档内容 | 删除/归档内容 | 前台不可见；管理后台可恢复 |
 | ADMIN-07 | P1 | 编辑内容 | 修改标题、摘要、正文、标签、封面 | 保存后前台同步变化 |
-| ADMIN-08 | P0 | 图片上传 | 上传图片媒体 | MinIO 存储成功；媒体列表出现 |
+| ADMIN-08 | P0 | 图片上传 | 上传图片媒体 | 七牛 Kodo 存储成功；媒体列表出现 |
 | ADMIN-09 | P1 | 视频上传 | 上传小视频 | 上传成功；详情页能播放或展示链接 |
 | ADMIN-10 | P1 | 媒体编辑 | 修改文件名/元数据 | 保存成功；列表同步 |
 | ADMIN-11 | P1 | 标签管理 | 新建、编辑、删除标签 | 内容关联正确；删除有保护或合理提示 |
@@ -230,7 +229,7 @@ fvm flutter run -d chrome
 | MEDIA-04 | P1 | 封面绑定 | 给文章绑定封面媒体 | 列表、详情、首页封面一致 |
 | MEDIA-05 | P1 | 删除媒体 | 删除未使用媒体 | 删除成功；列表消失 |
 | MEDIA-06 | P2 | 删除被引用媒体 | 删除作为封面的媒体 | 有保护或前台降级显示，不白屏 |
-| MEDIA-07 | P2 | MinIO 重启 | 重启 MinIO 后访问已上传媒体 | 媒体仍存在 |
+| MEDIA-07 | P2 | 存储故障 | 七牛空间暂时不可用后访问已上传媒体 | 报错提示清晰，恢复后媒体仍可访问 |
 
 ---
 
@@ -270,11 +269,11 @@ fvm flutter run -d chrome
 | PKG-01 | P0 | 检查部署配置 | `scripts/package-deploy.sh --check` | 通过 |
 | PKG-02 | P0 | 生产 env 展开 | `docker compose --env-file deploy/.env -f deploy/docker-compose.yml config` | 通过，必填项不报错 |
 | PKG-03 | P0 | 打包排除 env | 执行 `scripts/package-deploy.sh --skip-build` 后查看 tar 列表 | 包含 `.env.example` 和 `DEPLOYMENT.md`，默认不包含 `.env` |
-| PKG-04 | P0 | 宿主 Caddy 模式 | 解压后执行默认 `docker compose up -d --build` | 不启动 `web`；API/MinIO 仅绑定 `127.0.0.1:18080/19000` |
+| PKG-04 | P0 | 宿主 Caddy 模式 | 解压后执行默认 `docker compose up -d --build` | 不启动 `web`；API 仅绑定 `127.0.0.1:18080` |
 | PKG-05 | P1 | 容器 Caddy 模式 | 在 80/443 可用的隔离环境执行 `docker compose --profile bundled-caddy up -d --build` | `web` 启动并提供自动 HTTPS |
 | PKG-06 | P1 | 生产健康检查 | 请求 `${FRONTEND_BASE_URL}/api/v1/meta` | HTTPS 有效并返回版本 `1.0.0` |
 | PKG-07 | P1 | Flyway 历史 | 查询 `flyway_schema_history` | V1–V4 均为 success |
-| PKG-08 | P1 | 生产媒体地址 | 上传图片后前台访问 | 不出现 `http://minio:9000/...` |
+| PKG-08 | P1 | 生产媒体地址 | 上传图片后前台访问 | 图片经 `static.blog.lacia.cn` CDN 直链访问 |
 | PKG-09 | P2 | 重启恢复 | `docker compose restart` | 数据仍在 `DATA_DIR`；登录、内容、媒体不丢失 |
 
 ---

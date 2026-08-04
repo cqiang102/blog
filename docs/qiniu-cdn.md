@@ -7,7 +7,7 @@
 
 ```
 浏览器
- ├─ https://blog.lacia.cn        → Caddy（服务器）：index.html + /api/* + /minio/*（旧数据兼容）
+ ├─ https://blog.lacia.cn        → Caddy（服务器）：index.html + /api/*
  │                                 · index.html 内 <base> 指向 CDN，所有静态资源走七牛
  └─ https://static.blog.lacia.cn → 七牛 CDN（源站 lacia-public 公开空间）
                                     · /web/<sha>/ 版本化目录：main.dart.wasm、main.dart.mjs、

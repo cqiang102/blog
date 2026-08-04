@@ -46,17 +46,16 @@ blog-deploy/
 ├── DEPLOYMENT.md           # 随部署包携带的本说明
 ├── blog-api.jar            # Spring Boot 可执行 JAR
 ├── web/                    # Flutter build 产物
-├── .data/                  # PostgreSQL、Redis、MinIO、Caddy 持久化数据
+├── .data/                  # PostgreSQL、Redis、Caddy 持久化数据（对象存储已迁移到七牛云 Kodo）
 │   ├── postgres/
 │   ├── redis/
-│   ├── minio/
 │   └── caddy/              # ACME 证书和 Caddy 运行配置
 ├── .env                    # 可选；仅使用 --include-env 时随包带入
 └── .env.example
 ```
 
 默认 `docker compose up` 不启动 `web` 服务：Flutter 静态文件由宿主机现有
-Caddy 直接提供，API 和 MinIO 只发布到 `127.0.0.1`。只有服务器没有其他
+Caddy 直接提供，API 只发布到 `127.0.0.1`。只有服务器没有其他
 Web 服务器、且容器可以独占 80/443 时，才使用
 `docker compose --profile bundled-caddy up`。
 
@@ -84,14 +83,14 @@ Internet
 宿主机 Caddy（现有证书与旧站继续保留）
    ├── /              → /srv/blog-mimo/current/web
    ├── /api/*         → 127.0.0.1:18080 → API 容器
-   └── /minio/*       → 127.0.0.1:19000 → MinIO 容器
+   └── 静态资源/媒体  → 七牛 CDN（static.blog.lacia.cn / file.lacia.cn，见 docs/qiniu-cdn.md）
 
 /srv/blog-mimo/
    ├── current -> releases/1.0.0
    ├── releases/1.0.0/          # 不可变部署产物
    └── shared/
        ├── .env                 # 0600，绝不放进发布包
-       └── data/                # PostgreSQL、Redis、MinIO 持久化数据
+       └── data/                # PostgreSQL、Redis 持久化数据
 ```
 
 旧静态博客的目录不删除、现有域名站点块不提前替换。先使用
@@ -147,8 +146,7 @@ scp blog-mimo-1.0.0.tar.gz root@lacia.cn:/tmp/
 sudo install -d -m 0755 \
   /srv/blog-mimo/releases/1.0.0 \
   /srv/blog-mimo/shared/data/postgres \
-  /srv/blog-mimo/shared/data/redis \
-  /srv/blog-mimo/shared/data/minio
+  /srv/blog-mimo/shared/data/redis
 sudo tar xzf /tmp/blog-mimo-1.0.0.tar.gz \
   -C /srv/blog-mimo/releases/1.0.0 \
   --strip-components=1
@@ -161,8 +159,10 @@ sudo find /srv/blog-mimo/releases/1.0.0/web -type f -exec chmod 0644 {} +
 旧 PostgreSQL 数据目录直接挂载到新容器；有旧动态数据时应先单独备份并制定
 导入方案。旧纯静态博客不使用本项目数据库，因此可继续原样保留。
 
-系统上传的正文媒体保存为 `/api/v1/media-assets/{id}/file` 稳定路径，头像等
-对象存储引用使用 `/minio/{bucket}/{objectKey}`；`shared/data` 必须跨版本保留。
+系统上传的正文媒体保存为 `/api/v1/media-assets/{id}/file` 稳定路径，对象存储使用
+七牛云 Kodo：公开对象走 `static.blog.lacia.cn` CDN 直链，私有对象走 `file.lacia.cn`
+预签名 URL（旧 `/minio/{bucket}/{objectKey}` 引用仅作兼容解析）。存储配置见
+`docs/qiniu-cdn.md`。
 
 ### 4. 配置共享环境变量
 
@@ -178,11 +178,12 @@ sudoedit /srv/blog-mimo/shared/.env
 |------|------|------|
 | `DATA_DIR` | 固定为 `/srv/blog-mimo/shared/data` | ✅ |
 | `API_BIND_ADDRESS` / `API_HOST_PORT` | 默认 `127.0.0.1:18080` | ✅ |
-| `MINIO_BIND_ADDRESS` / `MINIO_HOST_PORT` | 默认 `127.0.0.1:19000` | ✅ |
 | `POSTGRES_PASSWORD` | PostgreSQL 密码 | ✅ |
 | `REDIS_PASSWORD` | Redis 密码 | ✅ |
-| `MINIO_ACCESS_KEY` | MinIO 访问密钥 | ✅ |
-| `MINIO_SECRET_KEY` | MinIO 密钥 | ✅ |
+| `QINIU_ACCESS_KEY` | 七牛云 AccessKey | ✅ |
+| `QINIU_SECRET_KEY` | 七牛云 SecretKey | ✅ |
+| `QINIU_PUBLIC_BUCKET` / `QINIU_PUBLIC_DOMAIN` | 公开空间 `lacia-public` / `https://static.blog.lacia.cn/` | ✅ |
+| `QINIU_PRIVATE_BUCKET` / `QINIU_PRIVATE_DOMAIN` | 私有空间 `lacia-private` / `https://file.lacia.cn/` | ✅ |
 | `OPENAI_API_KEY` | OpenAI API Key | ✅ |
 | `OPENAI_BASE_URL` | OpenAI API 地址 | ✅ |
 | `OPENAI_CHAT_MODEL` | 聊天模型名称 | ✅ |
@@ -214,8 +215,12 @@ sudoedit /srv/blog-mimo/shared/.env
 DATA_DIR=/srv/blog-mimo/shared/data
 API_BIND_ADDRESS=127.0.0.1
 API_HOST_PORT=18080
-MINIO_BIND_ADDRESS=127.0.0.1
-MINIO_HOST_PORT=19000
+QINIU_ACCESS_KEY=your_qiniu_access_key
+QINIU_SECRET_KEY=your_qiniu_secret_key
+QINIU_PUBLIC_BUCKET=lacia-public
+QINIU_PUBLIC_DOMAIN=https://static.blog.lacia.cn/
+QINIU_PRIVATE_BUCKET=lacia-private
+QINIU_PRIVATE_DOMAIN=https://file.lacia.cn/
 FRONTEND_BASE_URL=https://next.blog.lacia.cn
 BLOG_CORS_ALLOWED_ORIGINS=https://next.blog.lacia.cn,https://blog.lacia.cn
 ```
@@ -249,7 +254,7 @@ sudo ss -lntp | grep -E ':(18080|19000)\b'
 ### 6. 通过预览域名接入现有 Caddy
 
 把部署包中的 `Caddyfile.host.example` 复制为一个新站点配置，将域名保持为
-`next.blog.lacia.cn`。如果 API/MinIO 回环端口有调整，同步修改模板。然后先格式化
+`next.blog.lacia.cn`。如果 API 回环端口有调整，同步修改模板。然后先格式化
 新片段，再验证完整主配置：
 
 ```bash
@@ -279,7 +284,7 @@ sudo docker compose \
 - Flyway V1–V4 全部成功。
 - `.wasm` 响应类型正确，`flutter_bootstrap.js` 不被长期缓存。
 - 管理员账号可以登录，并能创建/编辑内容。
-- 上传图片后前台可通过当前域名访问，不出现 `http://minio:9000/...`。
+- 上传图片后前台可通过 `static.blog.lacia.cn` CDN 直链访问，私有文件通过 `file.lacia.cn` 预签名 URL 访问。
 - GitHub OAuth、SMTP 验证码、AI 对话、Ollama embedding 按生产配置可用。
 
 GitHub OAuth App 只能配置一个回调地址时，预览阶段可先不验收 GitHub 登录，或

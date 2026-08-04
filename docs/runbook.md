@@ -8,7 +8,7 @@ scripts/infra.sh up
 ```
 
 本地运行只维护 `apps/api/.env` 一份配置。`scripts/infra.sh` 会把它传给 Docker Compose。
-本地 PostgreSQL、Redis 和 MinIO 数据保存在 `deploy/.data/`，与生产部署包保持同一套目录约定。
+本地 PostgreSQL、Redis 数据保存在 `deploy/.data/`，与生产部署包保持同一套目录约定；对象存储使用七牛云 Kodo（lacia-public / lacia-private）。
 不要同时启动本地 `infra/docker-compose.yml` 和 `deploy/docker-compose.yml`，它们会访问同一份 `deploy/.data/` 数据。
 
 等价的手动命令：
@@ -21,8 +21,7 @@ docker compose --env-file apps/api/.env -f infra/docker-compose.yml up -d
 
 - PostgreSQL：`localhost:5432`
 - Redis：`localhost:6379`
-- MinIO API：`localhost:9000`
-- MinIO Console：`localhost:9001`
+- 七牛云 Kodo：lacia-public / lacia-private（配置见 apps/api/.env 与 docs/qiniu-cdn.md）
 
 ## 后端
 
