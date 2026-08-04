@@ -138,6 +138,14 @@ public class XFileMediaStorageAdapter implements MediaStorage {
     }
 
     private FileInfo fileInfo(StoredObject object) {
+        String resolvedPlatform = resolvePlatform(object.platform());
+        if (!resolvedPlatform.equals(object.platform())) {
+            log.warn(
+                    "Media object uses legacy/unknown platform {}, resolving to {}: key={}",
+                    object.platform(),
+                    resolvedPlatform,
+                    object.objectKey());
+        }
         String fullKey = fullObjectKey(object.objectKey());
         String relativeKey = stripBasePath(fullKey);
         int lastSlash = relativeKey.lastIndexOf('/');
@@ -145,7 +153,7 @@ public class XFileMediaStorageAdapter implements MediaStorage {
         String filename = lastSlash < 0 ? relativeKey : relativeKey.substring(lastSlash + 1);
 
         FileInfo fileInfo = new FileInfo();
-        fileInfo.setPlatform(object.platform());
+        fileInfo.setPlatform(resolvedPlatform);
         fileInfo.setBasePath(basePath);
         fileInfo.setPath(path);
         fileInfo.setFilename(filename);
@@ -202,6 +210,17 @@ public class XFileMediaStorageAdapter implements MediaStorage {
             return path.substring(prefix.length());
         }
         return null;
+    }
+
+    /**
+     * 兼容迁移前的历史平台标识（如 minio-1）：一律映射到当前私有平台，
+     * 避免旧数据库记录导致预签名/删除直接报“平台不存在”。
+     */
+    private String resolvePlatform(String platform) {
+        if (platform == null || platform.isBlank() || !platform.equals(privatePlatform)) {
+            return privatePlatform;
+        }
+        return platform;
     }
 
     private boolean hostMatches(String url, String domain) {

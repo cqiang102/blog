@@ -44,6 +44,15 @@ blog:
       email: ${ADMIN_EMAIL:admin@example.com}
       password: ${ADMIN_PASSWORD:change-me-local-admin-password}
       nickname: ${ADMIN_NICKNAME:站长}
+  # 本地开发放宽限流，避免调试/热重载时频繁触发 429；生产仍使用默认值。
+  rate-limit:
+    login-max-requests: 20
+    register-max-requests: 10
+    verification-code-max-requests: 10
+    views-max-requests: 120
+    ai-chat-max-requests: 50
+    default-max-requests: 300
+    window-seconds: 60
 
 dromara:
   x-file-storage:
