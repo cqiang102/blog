@@ -112,15 +112,8 @@ blog:
 
 dromara:
   x-file-storage:
-    default-platform: qiniu-public
+    default-platform: qiniu-private
     qiniu-kodo:
-      - platform: qiniu-public
-        enable-storage: true
-        access-key: ${QINIU_ACCESS_KEY:test-qiniu}
-        secret-key: ${QINIU_SECRET_KEY:test-qiniu-secret}
-        bucket-name: ${QINIU_PUBLIC_BUCKET:lacia-public}
-        domain: ${QINIU_PUBLIC_DOMAIN:https://static.blog.lacia.cn/}
-        base-path: uploads/
       - platform: qiniu-private
         enable-storage: true
         access-key: ${QINIU_ACCESS_KEY:test-qiniu}

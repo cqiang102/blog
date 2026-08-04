@@ -82,21 +82,17 @@ public class AdminMediaController {
      * <p>
      * 支持图片、视频等文件上传，自动存储并返回资源信息。
      *
-     * @param contentId  关联的内容 ID，可选
-     * @param type       媒体资源类型，可选
-     * @param visibility 可见性：public（默认，lacia-public）/ private（lacia-private）
-     * @param file       上传的文件
+     * @param contentId 关联的内容 ID，可选
+     * @param type      媒体资源类型，可选
+     * @param file      上传的文件
      * @return 上传后的媒体资源响应 DTO
      */
     @PostMapping(value = "/media-assets/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<AdminMediaResponse> upload(
             @RequestParam(required = false) UUID contentId,
             @RequestParam(required = false) MediaAssetType type,
-            @RequestParam(required = false, defaultValue = "public") String visibility,
             @RequestParam("file") MultipartFile file) {
-        boolean isPrivate = "private".equalsIgnoreCase(visibility);
-        return ApiResponse.ok(
-                mediaAdminService.upload(contentId, type, MultipartFileUploads.from(file), isPrivate));
+        return ApiResponse.ok(mediaAdminService.upload(contentId, type, MultipartFileUploads.from(file)));
     }
 
     /**

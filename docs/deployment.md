@@ -159,10 +159,10 @@ sudo find /srv/blog-mimo/releases/1.0.0/web -type f -exec chmod 0644 {} +
 旧 PostgreSQL 数据目录直接挂载到新容器；有旧动态数据时应先单独备份并制定
 导入方案。旧纯静态博客不使用本项目数据库，因此可继续原样保留。
 
-系统上传的正文媒体保存为 `/api/v1/media-assets/{id}/file` 稳定路径，对象存储使用
-七牛云 Kodo：公开对象走 `static.blog.lacia.cn` CDN 直链，私有对象走 `file.lacia.cn`
-预签名 URL（旧 `/minio/{bucket}/{objectKey}` 引用仅作兼容解析）。存储配置见
-`docs/qiniu-cdn.md`。
+系统上传的正文媒体保存为 `/api/v1/media-assets/{id}/file` 稳定路径，所有上传均为
+七牛私有对象（lacia-private），访问通过 `/api/v1/storage/file?key=...` 或媒体端点
+302 跳转到 `file.lacia.cn` 预签名 URL（旧 `/minio/{bucket}/{objectKey}` 引用仅作兼容
+解析）。存储配置见 `docs/qiniu-cdn.md`。
 
 ### 4. 配置共享环境变量
 
@@ -182,7 +182,6 @@ sudoedit /srv/blog-mimo/shared/.env
 | `REDIS_PASSWORD` | Redis 密码 | ✅ |
 | `QINIU_ACCESS_KEY` | 七牛云 AccessKey | ✅ |
 | `QINIU_SECRET_KEY` | 七牛云 SecretKey | ✅ |
-| `QINIU_PUBLIC_BUCKET` / `QINIU_PUBLIC_DOMAIN` | 公开空间 `lacia-public` / `https://static.blog.lacia.cn/` | ✅ |
 | `QINIU_PRIVATE_BUCKET` / `QINIU_PRIVATE_DOMAIN` | 私有空间 `lacia-private` / `https://file.lacia.cn/` | ✅ |
 | `OPENAI_API_KEY` | OpenAI API Key | ✅ |
 | `OPENAI_BASE_URL` | OpenAI API 地址 | ✅ |
@@ -217,8 +216,6 @@ API_BIND_ADDRESS=127.0.0.1
 API_HOST_PORT=18080
 QINIU_ACCESS_KEY=your_qiniu_access_key
 QINIU_SECRET_KEY=your_qiniu_secret_key
-QINIU_PUBLIC_BUCKET=lacia-public
-QINIU_PUBLIC_DOMAIN=https://static.blog.lacia.cn/
 QINIU_PRIVATE_BUCKET=lacia-private
 QINIU_PRIVATE_DOMAIN=https://file.lacia.cn/
 FRONTEND_BASE_URL=https://next.blog.lacia.cn

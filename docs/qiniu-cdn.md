@@ -19,14 +19,14 @@
 |---|---|---|---|
 | `blog.lacia.cn` | 页面 + API（Caddy 反代） | 服务器 | 公开 |
 | `static.blog.lacia.cn` | 前端静态资源加速 | `lacia-public` | 公开，CDN 缓存 |
-| `file.lacia.cn` | 私有文件 | `lacia-private` | 仅七牛签名 URL（下载凭证） |
+| `file.lacia.cn` | 后端上传文件 | `lacia-private` | 仅七牛签名 URL（下载凭证） |
 
 七牛空间（均在华南 z2 区）：
 
 | 空间 | 权限 | 用途 |
 |---|---|---|
-| `lacia-public` | 公开 | Flutter Web 静态资源、公开媒体 |
-| `lacia-private` | 私有 | 私有媒体（签名访问） |
+| `lacia-public` | 公开 | 仅 Flutter Web 静态资源（CDN 加速） |
+| `lacia-private` | 私有 | 全部后端上传（媒体、头像等，签名访问） |
 | `lacia-dev` | - | 历史开发空间，未使用 |
 
 ## 2. 证书自动化（Caddy DNS-01 → 七牛）

@@ -85,7 +85,7 @@
 | 创建内容 | ✅ | 标题、摘要、正文、类型、标签、状态 |
 | 更新内容 | ✅ | 修改内容所有字段 |
 | 删除内容 | ✅ | 软删除（归档） |
-| 媒体上传 | ✅ | 图片/视频上传到七牛云 Kodo（公开/私有空间） |
+| 媒体上传 | ✅ | 图片/视频上传到七牛私有空间（签名访问） |
 | 管理媒体 | ✅ | 媒体资源 CRUD |
 
 ### 2.5 标签管理
@@ -370,7 +370,7 @@
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| 七牛云 Kodo 对象存储 | ✅ | 图片、视频、文件上传（公开 CDN + 私有签名） |
+| 七牛云 Kodo 对象存储 | ✅ | 图片、视频、文件上传（lacia-private 私有签名） |
 | 文件大小限制 | ✅ | 默认 50MB（可配置） |
 
 ### 8.4 容器化
@@ -480,8 +480,6 @@
 | REDIS_PASSWORD | blog_redis | Redis 密码 |
 | QINIU_ACCESS_KEY | 七牛云 AccessKey | 七牛访问密钥 |
 | QINIU_SECRET_KEY | 七牛云 SecretKey | 七牛秘密密钥 |
-| QINIU_PUBLIC_BUCKET | lacia-public | 公开空间 |
-| QINIU_PUBLIC_DOMAIN | https://static.blog.lacia.cn/ | 公开空间 CDN 域名 |
 | QINIU_PRIVATE_BUCKET | lacia-private | 私有空间 |
 | QINIU_PRIVATE_DOMAIN | https://file.lacia.cn/ | 私有空间 CDN 域名 |
 | OPENAI_API_KEY | 开发占位值 | OpenAI API 密钥，生产必须配置 |

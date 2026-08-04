@@ -6,6 +6,8 @@ import com.caoqiang.blog.shared.model.UploadedFile;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
@@ -18,13 +20,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 /**
- * x-file-storage 适配器（七牛云 Kodo）。
+ * x-file-storage 适配器（七牛云 Kodo 私有空间）。
  *
- * <p>配置两个平台：
- * <ul>
- *   <li>{@code qiniu-public}（默认）：lacia-public 公开空间，CDN 域名 static.blog.lacia.cn</li>
- *   <li>{@code qiniu-private}：lacia-private 私有空间，CDN 域名 file.lacia.cn（签名访问）</li>
- * </ul>
+ * <p>所有上传写入 {@code qiniu-private}（lacia-private），访问必须通过预签名 URL
+ * （file.lacia.cn + 下载凭证）。lacia-public 仅用于 Flutter 静态资源的 CDN 加速，
+ * 与后端上传无关。</p>
  */
 @Component
 public class XFileMediaStorageAdapter implements MediaStorage {
@@ -32,34 +32,26 @@ public class XFileMediaStorageAdapter implements MediaStorage {
     private static final Logger log = LoggerFactory.getLogger(XFileMediaStorageAdapter.class);
 
     private static final String LEGACY_MINIO_PREFIX = "minio/";
+    private static final String STORAGE_FILE_PATH = "/api/v1/storage/file";
 
     private final FileStorageService fileStorageService;
     private final MediaStorageProvisioner storageProvisioner;
-    private final String publicPlatform;
     private final String privatePlatform;
-    private final String publicDomain;
     private final String privateDomain;
-    private final String publicBucket;
     private final String privateBucket;
     private final String basePath;
 
     public XFileMediaStorageAdapter(
             FileStorageService fileStorageService,
             MediaStorageProvisioner storageProvisioner,
-            @Value("${dromara.x-file-storage.default-platform:qiniu-public}") String publicPlatform,
-            @Value("${dromara.x-file-storage.qiniu-kodo[1].platform:qiniu-private}") String privatePlatform,
-            @Value("${dromara.x-file-storage.qiniu-kodo[0].domain:https://static.blog.lacia.cn/}") String publicDomain,
-            @Value("${dromara.x-file-storage.qiniu-kodo[1].domain:https://file.lacia.cn/}") String privateDomain,
-            @Value("${dromara.x-file-storage.qiniu-kodo[0].bucket-name:lacia-public}") String publicBucket,
-            @Value("${dromara.x-file-storage.qiniu-kodo[1].bucket-name:lacia-private}") String privateBucket,
+            @Value("${dromara.x-file-storage.default-platform:qiniu-private}") String privatePlatform,
+            @Value("${dromara.x-file-storage.qiniu-kodo[0].domain:https://file.lacia.cn/}") String privateDomain,
+            @Value("${dromara.x-file-storage.qiniu-kodo[0].bucket-name:lacia-private}") String privateBucket,
             @Value("${dromara.x-file-storage.qiniu-kodo[0].base-path:uploads/}") String basePath) {
         this.fileStorageService = fileStorageService;
         this.storageProvisioner = storageProvisioner;
-        this.publicPlatform = publicPlatform;
         this.privatePlatform = privatePlatform;
-        this.publicDomain = normalizeDirectory(publicDomain);
         this.privateDomain = normalizeDirectory(privateDomain);
-        this.publicBucket = publicBucket;
         this.privateBucket = privateBucket;
         this.basePath = normalizeDirectory(basePath);
     }
@@ -71,24 +63,15 @@ public class XFileMediaStorageAdapter implements MediaStorage {
 
     @Override
     public StoredObject upload(UploadedFile file, String path, String filename, String contentType) {
-        return upload(file, path, filename, contentType, false);
-    }
-
-    @Override
-    public StoredObject upload(
-            UploadedFile file, String path, String filename, String contentType, boolean isPrivate) {
         ensureReady();
         FileInfo fileInfo;
         try (var input = file.openStream()) {
-            var pretreatment = fileStorageService
+            fileInfo = fileStorageService
                     .of(input, file.originalFilename(), contentType, file.size())
                     .setPath(path)
                     .setSaveFilename(filename)
-                    .setContentType(contentType);
-            if (isPrivate) {
-                pretreatment.setPlatform(privatePlatform);
-            }
-            fileInfo = pretreatment.upload();
+                    .setContentType(contentType)
+                    .upload();
         } catch (IOException exception) {
             throw new UncheckedIOException("Unable to read uploaded media", exception);
         }
@@ -105,16 +88,14 @@ public class XFileMediaStorageAdapter implements MediaStorage {
     }
 
     @Override
-    public Optional<String> publicUrl(StoredObject object) {
-        if (isPublicPlatform(object.platform())) {
-            return Optional.of(publicDomain + fullObjectKey(object.objectKey()));
-        }
-        return Optional.empty();
+    public String presignedUrl(StoredObject object, Instant expiresAt) {
+        return generatePresignedUrl(fileInfo(object), expiresAt, portablePath(object.objectKey()));
     }
 
     @Override
-    public String presignedUrl(StoredObject object, Instant expiresAt) {
-        return generatePresignedUrl(fileInfo(object), expiresAt, portablePath(object.objectKey()));
+    public String presignedUrlByKey(String objectKey, Instant expiresAt) {
+        StoredObject object = new StoredObject(privatePlatform, objectKey);
+        return generatePresignedUrl(fileInfo(object), expiresAt, portablePath(objectKey));
     }
 
     @Override
@@ -123,16 +104,8 @@ public class XFileMediaStorageAdapter implements MediaStorage {
         if (objectKey.isEmpty()) {
             return Optional.empty();
         }
-        // 公开空间直链无需签名；私有空间生成下载凭证
-        if (isPrivateStorageUrl(sourceUrl)) {
-            StoredObject object = new StoredObject(privatePlatform, objectKey.get());
-            return Optional.of(generatePresignedUrl(fileInfo(object), expiresAt, sourceUrl));
-        }
-        if (hostMatches(sourceUrl, publicDomain)) {
-            return Optional.of(portablePath(objectKey.get()));
-        }
-        StoredObject object = new StoredObject(publicPlatform, objectKey.get());
-        return Optional.of(generatePresignedUrl(fileInfo(object), expiresAt, portablePath(objectKey.get())));
+        StoredObject object = new StoredObject(privatePlatform, objectKey.get());
+        return Optional.of(generatePresignedUrl(fileInfo(object), expiresAt, sourceUrl));
     }
 
     @Override
@@ -141,20 +114,14 @@ public class XFileMediaStorageAdapter implements MediaStorage {
             return null;
         }
         String trimmed = sourceUrl.trim();
-        Optional<String> objectKey = objectKeyFromStorageUrl(trimmed);
-        if (objectKey.isEmpty()) {
-            return trimmed;
-        }
-        // 私有地址保持原样（访问走预签名），公开地址归一化为 CDN 直链
-        if (isPrivateStorageUrl(trimmed)) {
-            return trimmed;
-        }
-        return portablePath(objectKey.get());
+        return objectKeyFromStorageUrl(trimmed).map(this::portablePath).orElse(trimmed);
     }
 
     @Override
     public String portablePath(String objectKey) {
-        return publicDomain + fullObjectKey(objectKey);
+        String fullKey = fullObjectKey(objectKey);
+        return STORAGE_FILE_PATH + "?key="
+                + URLEncoder.encode(fullKey, StandardCharsets.UTF_8);
     }
 
     private String generatePresignedUrl(FileInfo fileInfo, Instant expiresAt, String fallbackUrl) {
@@ -168,14 +135,6 @@ public class XFileMediaStorageAdapter implements MediaStorage {
             return fallbackUrl;
         }
         return signedUrl;
-    }
-
-    private boolean isPublicPlatform(String platform) {
-        return platform == null || platform.isBlank() || equalsIgnoreCase(platform, publicPlatform);
-    }
-
-    private boolean isPrivateStorageUrl(String sourceUrl) {
-        return hostMatches(sourceUrl, privateDomain);
     }
 
     private FileInfo fileInfo(StoredObject object) {
@@ -202,8 +161,8 @@ public class XFileMediaStorageAdapter implements MediaStorage {
             }
             String normalizedPath = path.replaceAll("^/+", "");
 
-            // 1) 七牛 CDN 域名（公开/私有）：key 就是路径（无 bucket 前缀）
-            if (hostMatches(sourceUrl, publicDomain) || hostMatches(sourceUrl, privateDomain)) {
+            // 1) 私有 CDN 域名（file.lacia.cn）：key 就是路径
+            if (hostMatches(sourceUrl, privateDomain)) {
                 return StringUtils.hasText(normalizedPath)
                         ? Optional.of(normalizedPath)
                         : Optional.empty();
@@ -215,18 +174,32 @@ public class XFileMediaStorageAdapter implements MediaStorage {
                 String objectKey = stripBucketPrefix(rest);
                 return StringUtils.hasText(objectKey) ? Optional.of(objectKey) : Optional.empty();
             }
+
+            // 3) 稳定存储代理路径 /api/v1/storage/file?key=...
+            if (normalizedPath.equals(STORAGE_FILE_PATH.replaceAll("^/+", ""))) {
+                String key = uri.getQuery() == null ? null : queryValue(uri.getQuery(), "key");
+                return StringUtils.hasText(key) ? Optional.of(key) : Optional.empty();
+            }
             return Optional.empty();
         } catch (IllegalArgumentException ignored) {
             return Optional.empty();
         }
     }
 
-    private String stripBucketPrefix(String path) {
-        for (String bucket : new String[] {publicBucket, privateBucket}) {
-            String prefix = bucket + "/";
-            if (path.startsWith(prefix)) {
-                return path.substring(prefix.length());
+    private String queryValue(String query, String name) {
+        for (String pair : query.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq > 0 && pair.substring(0, eq).equals(name)) {
+                return java.net.URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
             }
+        }
+        return null;
+    }
+
+    private String stripBucketPrefix(String path) {
+        String prefix = privateBucket + "/";
+        if (path.startsWith(prefix)) {
+            return path.substring(prefix.length());
         }
         return null;
     }

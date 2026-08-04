@@ -266,15 +266,15 @@ class ApiContractTest {
         MediaAdminService service = mock(MediaAdminService.class);
         AdminMediaController controller = new AdminMediaController(service);
         UUID mediaId = UUID.randomUUID();
-        when(service.upload(isNull(), eq(MediaAssetType.IMAGE), any(UploadedFile.class), eq(false)))
+        when(service.upload(isNull(), eq(MediaAssetType.IMAGE), any(UploadedFile.class)))
                 .thenReturn(new AdminMediaResponse(
                         mediaId,
                         null,
                         null,
                         MediaAssetType.IMAGE,
-                        "lacia-public",
+                        "lacia-private",
                         "uploads/cover.png",
-                        "https://static.blog.lacia.cn/uploads/cover.png",
+                        "https://file.lacia.cn/uploads/cover.png",
                         "cover.png",
                         "image/png",
                         3L,
@@ -294,9 +294,9 @@ class ApiContractTest {
                 .andExpect(jsonPath("$.data.id").value(mediaId.toString()))
                 .andExpect(jsonPath("$.data.type").value("IMAGE"))
                 .andExpect(jsonPath("$.data.filename").value("cover.png"))
-                .andExpect(jsonPath("$.data.publicUrl").value("https://static.blog.lacia.cn/uploads/cover.png"));
+                .andExpect(jsonPath("$.data.publicUrl").value("https://file.lacia.cn/uploads/cover.png"));
 
-        verify(service).upload(isNull(), eq(MediaAssetType.IMAGE), any(UploadedFile.class), eq(false));
+        verify(service).upload(isNull(), eq(MediaAssetType.IMAGE), any(UploadedFile.class));
     }
 
     @Test

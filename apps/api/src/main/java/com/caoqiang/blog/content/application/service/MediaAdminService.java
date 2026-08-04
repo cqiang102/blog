@@ -117,20 +117,6 @@ public class MediaAdminService {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public AdminMediaResponse upload(UUID contentId, MediaAssetType type, UploadedFile file) {
-        return upload(contentId, type, file, false);
-    }
-
-    /**
-     * 上传文件到对象存储并创建媒体资源记录。
-     *
-     * @param contentId 所属内容 UUID（可为 null）
-     * @param type      媒体类型（可为 null，自动推断）
-     * @param file      上传的文件
-     * @param isPrivate true 存入私有空间（lacia-private），false 存入公开空间（lacia-public）
-     * @return 创建后的媒体资源响应
-     */
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public AdminMediaResponse upload(UUID contentId, MediaAssetType type, UploadedFile file, boolean isPrivate) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "请选择要上传的文件");
         }
@@ -144,7 +130,7 @@ public class MediaAdminService {
                 StringUtils.hasText(file.contentType()) ? file.contentType() : defaultContentType(mediaType);
         String path = datePath();
 
-        StoredObject storedObject = mediaStorage.upload(file, path, filename, contentType, isPrivate);
+        StoredObject storedObject = mediaStorage.upload(file, path, filename, contentType);
         try {
             return mediaAssetWriter.createUploaded(
                     contentId, mediaType, storedObject, filename, contentType, file.size());
@@ -166,12 +152,9 @@ public class MediaAdminService {
                 .findById(id)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "媒体资源不存在"));
 
-        // 内部存储媒体：公开对象返回 CDN 直链，私有对象生成预签名 URL
+        // 内部存储媒体：全部为私有对象，生成预签名 URL
         if (!MediaAsset.EXTERNAL_BUCKET.equals(mediaAsset.getBucket())) {
-            StoredObject storedObject = storedObject(mediaAsset);
-            return mediaStorage
-                    .publicUrl(storedObject)
-                    .orElseGet(() -> mediaStorage.presignedUrl(storedObject, presignedUrlExpiry()));
+            return mediaStorage.presignedUrl(storedObject(mediaAsset), presignedUrlExpiry());
         }
 
         // 外链媒体：尝试解析存储 URL（兼容旧 MinIO 代理路径），否则原样返回
@@ -180,6 +163,20 @@ public class MediaAdminService {
             return mediaStorage.presignedUrl(publicUrl, presignedUrlExpiry()).orElse(publicUrl);
         }
         return publicUrl;
+    }
+
+    /**
+     * 为未登记为媒体资源的对象 key（如头像）生成预签名 URL。
+     *
+     * @param key 对象 key，例如 uploads/2026/08/04/avatar.png
+     * @return 预签名 URL
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public String presignedUrlForKey(String key) {
+        if (key == null || key.isBlank()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "缺少文件 key");
+        }
+        return mediaStorage.presignedUrlByKey(key.trim(), presignedUrlExpiry());
     }
 
     /**

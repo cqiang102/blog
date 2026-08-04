@@ -12,7 +12,7 @@ import org.springframework.util.StringUtils;
 /**
  * Qiniu Kodo provisioner.
  *
- * <p>空间在七牛控制台/API 中预创建（lacia-public / lacia-private），这里只校验配置，
+ * <p>空间在七牛控制台/API 中预创建（lacia-private），这里只校验配置，
  * 让配置缺失或拼写错误时快速失败。</p>
  */
 @Component
@@ -20,21 +20,21 @@ public class QiniuMediaStorageProvisioner implements MediaStorageProvisioner {
 
     private static final Logger log = LoggerFactory.getLogger(QiniuMediaStorageProvisioner.class);
 
-    private final String publicBucket;
-    private final String publicDomain;
+    private final String bucket;
+    private final String domain;
 
     public QiniuMediaStorageProvisioner(
-            @Value("${dromara.x-file-storage.qiniu-kodo[0].bucket-name:lacia-public}") String publicBucket,
-            @Value("${dromara.x-file-storage.qiniu-kodo[0].domain:}") String publicDomain) {
-        this.publicBucket = publicBucket;
-        this.publicDomain = publicDomain;
+            @Value("${dromara.x-file-storage.qiniu-kodo[0].bucket-name:lacia-private}") String bucket,
+            @Value("${dromara.x-file-storage.qiniu-kodo[0].domain:}") String domain) {
+        this.bucket = bucket;
+        this.domain = domain;
     }
 
     @Override
     public void ensureReady() {
-        if (!StringUtils.hasText(publicBucket) || !StringUtils.hasText(publicDomain)) {
+        if (!StringUtils.hasText(bucket) || !StringUtils.hasText(domain)) {
             throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "文件存储配置不完整");
         }
-        log.info("Qiniu Kodo 存储就绪: bucket={}, domain={}", publicBucket, publicDomain);
+        log.info("Qiniu Kodo 私有存储就绪: bucket={}, domain={}", bucket, domain);
     }
 }

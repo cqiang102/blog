@@ -9,6 +9,8 @@ import java.util.Optional;
  *
  * <p>The application layer deals only with stable storage identifiers. Vendor-specific objects,
  * endpoint rewriting and bucket configuration belong to the infrastructure adapter.
+ *
+ * <p>博客所有上传均为私有对象（七牛 lacia-private），访问必须通过预签名 URL。
  */
 public interface MediaStorage {
 
@@ -16,25 +18,12 @@ public interface MediaStorage {
 
     StoredObject upload(UploadedFile file, String path, String filename, String contentType);
 
-    /**
-     * 上传到指定可见性平台。默认实现等同公开上传；基础设施适配器按需覆盖。
-     *
-     * @param isPrivate true 时存入私有空间（lacia-private），false 时存入公开空间
-     */
-    default StoredObject upload(
-            UploadedFile file, String path, String filename, String contentType, boolean isPrivate) {
-        return upload(file, path, filename, contentType);
-    }
-
     void delete(StoredObject object);
 
-    /**
-     * 返回对象的公开直链（仅公开平台有）；私有对象返回 {@link Optional#empty()}，
-     * 调用方应回退到 {@link #presignedUrl(StoredObject, Instant)}。
-     */
-    Optional<String> publicUrl(StoredObject object);
-
     String presignedUrl(StoredObject object, Instant expiresAt);
+
+    /** 按对象 key 生成默认（私有）平台的预签名 URL，用于未登记为媒体资源的对象（如头像）。 */
+    String presignedUrlByKey(String objectKey, Instant expiresAt);
 
     Optional<String> presignedUrl(String sourceUrl, Instant expiresAt);
 
