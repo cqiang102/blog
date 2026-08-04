@@ -107,10 +107,13 @@ def list_qiniu_certs(auth) -> list[dict]:
         url = f"{FUSION_API}/sslcert?marker={marker}&limit=200"
         headers = qbox_headers(auth, "GET", url)
         data = http_json(url, "GET", headers)
-        certs.extend(data.get("certs", []) or [])
-        marker = data.get("marker", "")
-        if not marker:
+        page = data.get("certs", []) or []
+        certs.extend(page)
+        next_marker = data.get("marker", "")
+        # 该接口在最后一页仍可能返回 marker，按“无新数据或 marker 不变”结束
+        if not page or not next_marker or next_marker == marker:
             return certs
+        marker = next_marker
 
 
 def upload_cert(auth, domain: str, chain: str, key: str, dry_run: bool) -> str:
@@ -146,9 +149,21 @@ def domain_https_certid(auth, domain: str):
 
 def bind_cert(auth, domain: str, cert_id: str, dry_run: bool):
     body = json.dumps({"certId": cert_id, "forceHttps": True, "http2Enable": True}).encode("utf-8")
-    url = f"{CDN_API}/domain/{domain}/httpsconf"
+    base = f"{CDN_API}/domain/{domain}"
+
+    # 域名尚未开启 HTTPS 时用 /sslize，否则用 /httpsconf
+    use_sslize = True
+    try:
+        cur = http_json(base, "GET", qiniu_headers(auth, "GET", base, None))
+        https = cur.get("https") or {}
+        if https.get("certId"):
+            use_sslize = False
+    except Exception:
+        use_sslize = True
+
+    url = f"{base}/sslize" if use_sslize else f"{base}/httpsconf"
     if dry_run:
-        print(f"[dry-run] would bind cert {cert_id} to {domain}")
+        print(f"[dry-run] would {'sslize' if use_sslize else 'httpsconf'} cert {cert_id} to {domain}")
         return True
     headers = qiniu_headers(auth, "PUT", url, body)
     try:
@@ -156,11 +171,9 @@ def bind_cert(auth, domain: str, cert_id: str, dry_run: bool):
     except Exception as exc:
         print(f"bind cert failed (will retry next run): {exc}")
         return False
-    if data.get("code") == 200:
+    code = data.get("code") if isinstance(data, dict) else None
+    if code in (None, 200) or "400910" in str(code):  # 200 / 空响应 / 没有改动
         print(f"bound cert {cert_id} to https://{domain}")
-        return True
-    if "400910" in str(data.get("code")):  # 没有改动
-        print(f"cert {cert_id} already bound to {domain}")
         return True
     print(f"bind cert failed (will retry next run): {data}")
     return False
