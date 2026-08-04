@@ -88,8 +88,8 @@ public class SecurityConfig {
                         // 公开内容接口：文章、友链的 GET 请求
                         .requestMatchers(HttpMethod.GET, "/api/v1/contents/**", "/api/v1/friends/**")
                         .permitAll()
-                        // 文件下载接口
-                        .requestMatchers(HttpMethod.GET, "/api/v1/media-assets/*/file")
+                        // 文件下载接口（媒体资源 + 对象存储 key 代理）
+                        .requestMatchers(HttpMethod.GET, "/api/v1/media-assets/*/file", "/api/v1/storage/file")
                         .permitAll()
                         // 文章浏览量统计接口（允许匿名访问以记录 PV）
                         .requestMatchers(HttpMethod.POST, "/api/v1/contents/*/views")
