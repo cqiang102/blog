@@ -8,7 +8,7 @@
 apps/
   api/          Java 25 + Spring Boot 4 后端
   web_flutter/  Flutter Web 前端
-infra/          本地基础设施（PostgreSQL、Redis、MinIO）
+infra/          本地基础设施（PostgreSQL、Redis）
 deploy/         生产部署包（Caddy、docker-compose）
 scripts/        本地开发脚本
 docs/           架构、功能、接口、运行与部署文档
@@ -20,7 +20,8 @@ docs/           架构、功能、接口、运行与部署文档
 
 - 后端：Java 25、Spring Boot 4.1.0、Spring AI 2.0.0、Spring Data JPA、Flyway
 - 前端：Flutter 3.35.4、Dart 3.9.2、Riverpod、go_router、Dio
-- 基础设施：PostgreSQL 18 + pgvector、Redis 7.4、MinIO、Docker Compose
+- 基础设施：PostgreSQL 18 + pgvector、Redis 7.4、Docker Compose
+- 对象存储：七牛云 Kodo（后端上传全部私有 lacia-private，前端静态资源走 lacia-public CDN）
 
 ## 快速启动
 
@@ -82,13 +83,14 @@ scripts/package-deploy.sh
 
 部署包支持两种模式：
 
-- 服务器已有 Caddy：默认模式，仅把 API/MinIO 发布到 `127.0.0.1`，宿主 Caddy
-  直接服务 Flutter 静态文件并反向代理动态请求。
+- 服务器已有 Caddy：默认模式，仅把 API 发布到 `127.0.0.1`，宿主 Caddy
+  直接服务 Flutter 静态文件并反向代理动态请求；对象存储使用七牛云。
 - 服务器无其他 Web 服务：启用 `bundled-caddy` profile，让容器 Caddy 独占
   80/443。
 
 生产推荐使用 `/srv/blog-mimo/releases/<version>`、`current` 原子软链接和
-`/srv/blog-mimo/shared/data` 持久化目录。新数据库会通过 Flyway V1–V4 初始化。
+`/srv/blog-mimo/shared/data` 持久化目录。新数据库会通过 Flyway V1–V6 初始化。
+前端静态资源与证书自动化见 [七牛云 CDN 与证书](docs/qiniu-cdn.md)。
 现有 Caddy、旧静态博客的并行验收、最终切换和回滚步骤见
 [部署说明](docs/deployment.md)。
 

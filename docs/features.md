@@ -1,6 +1,6 @@
 # 功能清单
 
-> 最后核对：2026-06-15。以代码、数据库迁移和 OpenAPI 输出为最终依据。
+> 最后核对：2026-08-04。以代码、数据库迁移和 OpenAPI 输出为最终依据。
 
 ---
 
@@ -14,7 +14,7 @@
 | 前端 | Flutter Web 3.35.4 + Dart 3.9.2 |
 | 数据库 | PostgreSQL 18 + pgvector |
 | 缓存 | Redis 7.4 |
-| 存储 | 七牛云 Kodo（lacia-public / lacia-private） |
+| 存储 | 七牛云 Kodo（上传 lacia-private 私有；lacia-public 仅 Web 静态 CDN） |
 | AI | OpenAI 兼容聊天 API + Ollama nomic-embed-text 嵌入模型 |
 
 ---
@@ -381,7 +381,7 @@
 | 生产部署 | ✅ | deploy/docker-compose.yml（默认复用宿主 Caddy，API 仅回环暴露；对象存储走七牛） |
 | API 容器 | ✅ | eclipse-temurin:25-jre-noble 镜像 + 挂载 blog-api.jar（无需服务器构建） |
 | Web 容器 | ✅ | caddy:2.11.4-alpine 镜像 + 挂载 web/ 和 Caddyfile（可选 bundled-caddy profile） |
-| Caddy 配置 | ✅ | deploy/Caddyfile + Caddyfile.host.example（自动 HTTPS / 复用宿主 Caddy） |
+| Caddy 配置 | ✅ | deploy/Caddyfile + Caddyfile.host.example（自动 HTTPS / 复用宿主 Caddy）；宿主 Caddy 使用 `caddy:2.11.4-alidns-amd64` 支持 DNS-01 证书自动化（见 qiniu-cdn.md） |
 
 ### 8.5 监控
 
@@ -418,8 +418,8 @@
 
 | 检查 | 状态 | 说明 |
 |------|------|------|
-| 后端 CI | ✅ | Java 25 下执行 Spotless 格式、Checkstyle 源码卫生、测试和 JaCoCo 覆盖率门禁 |
-| 前端 CI | ✅ | Flutter 3.35.4 下执行格式、静态分析、测试和 Web 构建 |
+| 后端 CI | ✖️ 已移除 | 仓库不再配置 GitHub Actions；本地用 `scripts/dev-api.sh test` 验证 |
+| 前端 CI | ✖️ 已移除 | 仓库不再配置 GitHub Actions；本地按 README 的验证命令执行 |
 | 部署检查 | ✅ | `scripts/package-deploy.sh --check` 验证工具、部署文件和 Compose 配置 |
 
 ---

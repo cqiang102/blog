@@ -20,7 +20,8 @@
 - `/auth`：验证码、注册、登录、刷新令牌、浏览器绑定的 OAuth 回调和登录方式查询。
 - `/auth/github`：GitHub 账号绑定。
 - `/contents`：推荐、分页搜索、详情和标签。
-- `/media-assets/{id}/file`：媒体文件。
+- `/media-assets/{id}/file`：媒体文件（302 → 预签名 URL）。
+- `/storage/file?key=...`：对象存储文件（头像等，302 → 预签名 URL）。
 - `/friends/random`：随机可见友链。
 - `/contents/{contentId}/comments`：评论列表与新增评论。
 - `/contents/{contentId}/likes`：点赞与取消点赞。
@@ -48,7 +49,7 @@
 管理员接口统一使用 `/admin` 子路径：
 
 - `/admin/dashboard`、`/admin/modules`、`/admin/logs`
-- `/admin/contents`、`/admin/tags`、`/admin/media-assets`
+- `/admin/contents`、`/admin/tags`、`/admin/media-assets`、`/admin/media-assets/upload`（上传）
 - `/admin/comments`、`/admin/likes`、`/admin/views`
 - `/admin/friends`、`/admin/users`
 - `/admin/ai/chats`

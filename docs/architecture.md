@@ -5,9 +5,10 @@
 ```mermaid
 flowchart LR
     Web["Flutter Web"] --> API["Spring Boot API"]
+    Web --> CDN["七牛 CDN（lacia-public 静态资源）"]
     API --> PG["PostgreSQL + pgvector"]
     API --> Redis["Redis"]
-    API --> Kodo["七牛云 Kodo (lacia-public / lacia-private)"]
+    API --> Kodo["七牛云 Kodo（lacia-private 私有上传）"]
     API --> AI["OpenAI compatible API"]
 ```
 
@@ -101,7 +102,7 @@ features/<feature>/
 ## 变更规则
 
 - API 路径或 DTO 字段变化时，同步更新 OpenAPI、Flutter 模型和契约测试。
-- 当前数据库迁移以 `V1` 最终结构和 `V2` 初始数据为基线；后续结构变化再新增 migration。
+- 当前数据库迁移以 Flyway `V1–V6` 为基线（`V2` 含初始数据）；后续结构变化再新增 migration。
 - 新模块优先遵循现有业务分层，不在根包新增控制器或 DTO。
 - `ArchitectureBoundaryTest` 必须通过；不得通过白名单隐藏新增的反向依赖。
 - 应用服务不得直接依赖 `infrastructure`，需要外部能力时在所属模块的 `application/port` 声明端口。

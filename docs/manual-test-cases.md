@@ -30,7 +30,7 @@ scripts/infra.sh status
 
 - PostgreSQL：`localhost:5432`
 - Redis：`localhost:6379`
-- 七牛云 Kodo：lacia-public / lacia-private（配置在 apps/api/.env）
+- 七牛云 Kodo：上传走 lacia-private（file.lacia.cn 预签名），lacia-public 仅静态 CDN（配置在 apps/api/.env）
 - 本地数据目录：`deploy/.data/`
 
 如果需要重置本地数据：
@@ -95,7 +95,7 @@ fvm flutter run -d chrome
 | P0-08 | 内容列表 | 打开 `/contents`，执行搜索、标签筛选、分页/排序 | 列表刷新正确；无 500；空结果状态合理 |
 | P0-09 | 内容详情 | 打开任意已发布内容详情 `/contents/{id}` | 正文、封面/媒体、浏览数、评论区展示正常 |
 | P0-10 | 创建发布文章 | 管理后台新建 `ARTICLE`，设置 `PUBLISHED` | 保存成功；前台列表和详情可见 |
-| P0-11 | 上传图片 | 管理后台上传图片并设置为封面 | 上传成功；前台图片可通过 `static.blog.lacia.cn` CDN 访问 |
+| P0-11 | 上传图片 | 管理后台上传图片并设置为封面 | 上传成功；前台图片可通过 `file.lacia.cn` 预签名 URL 访问 |
 | P0-12 | 评论点赞 | 普通用户对已发布内容评论、点赞、取消点赞 | 计数更新；重复点赞被正确处理；自己的评论可删除 |
 | P0-13 | 生产包检查 | 执行 `scripts/package-deploy.sh --check` | 检查通过 |
 | P0-14 | 生产配置检查 | 执行 `docker compose --env-file deploy/.env -f deploy/docker-compose.yml config` | Compose 配置可展开；必填 env 不报错 |
@@ -272,8 +272,8 @@ fvm flutter run -d chrome
 | PKG-04 | P0 | 宿主 Caddy 模式 | 解压后执行默认 `docker compose up -d --build` | 不启动 `web`；API 仅绑定 `127.0.0.1:18080` |
 | PKG-05 | P1 | 容器 Caddy 模式 | 在 80/443 可用的隔离环境执行 `docker compose --profile bundled-caddy up -d --build` | `web` 启动并提供自动 HTTPS |
 | PKG-06 | P1 | 生产健康检查 | 请求 `${FRONTEND_BASE_URL}/api/v1/meta` | HTTPS 有效并返回版本 `1.0.0` |
-| PKG-07 | P1 | Flyway 历史 | 查询 `flyway_schema_history` | V1–V4 均为 success |
-| PKG-08 | P1 | 生产媒体地址 | 上传图片后前台访问 | 图片经 `static.blog.lacia.cn` CDN 直链访问 |
+| PKG-07 | P1 | Flyway 历史 | 查询 `flyway_schema_history` | V1–V6 均为 success |
+| PKG-08 | P1 | 生产媒体地址 | 上传图片后前台访问 | 图片经 `file.lacia.cn` 预签名 URL 访问 |
 | PKG-09 | P2 | 重启恢复 | `docker compose restart` | 数据仍在 `DATA_DIR`；登录、内容、媒体不丢失 |
 
 ---

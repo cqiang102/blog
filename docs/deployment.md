@@ -33,7 +33,7 @@ scripts/package-deploy.sh
 Flutter Web 使用 `--wasm` 构建：支持 WasmGC 的浏览器加载 Dart Wasm + SkWasm，不支持的浏览器自动回退到 JavaScript + CanvasKit。Caddy 会按 `.wasm` 扩展名提供正确的内容类型，并对可压缩响应启用 Zstandard/Gzip。
 
 > 部署 JAR 会跳过 `api-docs` Maven profile，不包含 SpringDoc/Swagger UI 依赖；`/v3/api-docs` 和 `/swagger-ui.html` 在生产部署中预期为不可用。开发环境默认启用 `dev` profile，可继续使用 Swagger/OpenAPI 辅助调试。
-> `--skip-build` 会复用现有前后端产物，同时跳过上述自动化验证，仅适合已经通过 CI 或本地完整验证后的产物。
+> `--skip-build` 会复用现有前后端产物，同时跳过上述自动化验证，仅适合已经通过本地完整验证后的产物。
 > 部署包默认不包含 `deploy/.env`，避免数据库、OAuth、AI 等明文凭据进入压缩包。确实需要一并传输时可显式使用 `--include-env`，并应通过受控渠道传输和限制文件权限。
 
 产出结构：
@@ -74,6 +74,10 @@ scripts/package-deploy.sh --skip-build
 ```
 
 ## 服务器部署：复用现有 Caddy，保留旧静态站
+
+> 当前线上服务器实际部署在 `/usr/local/docker/blog-mimo`（直接使用部署目录 + `.env`，
+> 未采用下述 `/srv/blog-mimo` 版本化目录规范）；本文的 `/srv/blog-mimo` 结构是
+> 推荐的发布规范，可按需选用。对象存储与前端静态资源均走七牛（见 `docs/qiniu-cdn.md`）。
 
 推荐拓扑如下：
 
@@ -155,7 +159,7 @@ sudo find /srv/blog-mimo/releases/1.0.0/web -type d -exec chmod 0755 {} +
 sudo find /srv/blog-mimo/releases/1.0.0/web -type f -exec chmod 0644 {} +
 ```
 
-`1.0.0` 按新数据库部署。Flyway 会依次执行当前仓库的 V1–V4。不要把来源不明的
+`1.0.0` 按新数据库部署。Flyway 会依次执行当前仓库的 V1–V6。不要把来源不明的
 旧 PostgreSQL 数据目录直接挂载到新容器；有旧动态数据时应先单独备份并制定
 导入方案。旧纯静态博客不使用本项目数据库，因此可继续原样保留。
 
@@ -278,7 +282,7 @@ sudo docker compose \
 
 确认项：
 
-- Flyway V1–V4 全部成功。
+- Flyway V1–V6 全部成功。
 - `.wasm` 响应类型正确，`flutter_bootstrap.js` 不被长期缓存。
 - 管理员账号可以登录，并能创建/编辑内容。
 - 上传图片后前台可通过 `static.blog.lacia.cn` CDN 直链访问，私有文件通过 `file.lacia.cn` 预签名 URL 访问。

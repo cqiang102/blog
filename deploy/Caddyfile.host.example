@@ -24,13 +24,6 @@ next.blog.lacia.cn {
 		}
 	}
 
-	# API-generated signatures use the internal MinIO host. Preserve that Host
-	# value while proxying through the loopback-only published port.
-	handle_path /minio/* {
-		reverse_proxy 127.0.0.1:19000 {
-			header_up Host "minio:9000"
-		}
-	}
 
 	handle {
 		# /srv/blog-mimo/current is an atomic symlink to a versioned release.

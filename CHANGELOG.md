@@ -1,3 +1,12 @@
+# 更新日志
+
+## 1.1.0 - 2026-08-04
+
+- 对象存储从 MinIO 迁移到七牛云 Kodo：全部上传为私有对象（lacia-private），访问通过 `file.lacia.cn` 预签名 URL；`lacia-public` 仅承载 Flutter Web 静态资源 CDN。
+- 前端静态资源接入七牛 CDN（`static.blog.lacia.cn`），采用版本化目录发布，API 地址改为绝对 URL（避免 `<base>` 影响相对路径）。
+- 证书自动化：Caddy DNS-01（阿里云 DNS）签发 Let's Encrypt 证书，定时自动同步到七牛 CDN 并绑定域名。
+- 兼容历史 MinIO 平台标识，旧媒体记录可正常生成预签名 URL；本地 dev 放宽 API 限流。
+
 # Changelog
 
 ## 1.0.0 - 2026-06-24
