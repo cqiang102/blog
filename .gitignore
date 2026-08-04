@@ -35,3 +35,11 @@ logs/
 blog-deploy*.tar.gz
 blog-mimo-*.tar.gz
 blog-mimo-*.tar.gz.sha256
+
+# Qiniu tooling
+.tools/
+.qiniu.env
+
+# Python
+__pycache__/
+*.pyc

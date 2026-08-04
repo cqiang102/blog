@@ -1,0 +1,9 @@
+[Unit]
+Description=Sync Caddy certificate to Qiniu CDN HTTPS
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/usr/local/docker/qiniu-cert-sync/env
+ExecStart=/usr/local/docker/qiniu-cert-sync/run.sh

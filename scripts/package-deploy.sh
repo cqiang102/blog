@@ -12,6 +12,7 @@ PACKAGE_NAME="${PACKAGE_NAME:-blog-deploy}"
 CADDY_IMAGE="${CADDY_IMAGE:-caddy:2.11.4-alpine}"
 API_JAR="${API_JAR:-}"
 WEB_BUILD_OUTPUT="${WEB_BUILD_OUTPUT:-$WEB_DIR/build/web}"
+WEB_BASE_HREF="${WEB_BASE_HREF:-/}"
 RUN_BUILDS=1
 CHECK_ONLY=0
 INCLUDE_DEPLOY_ENV=0
@@ -31,7 +32,7 @@ usage() {
 
 可覆盖的环境变量：
   FVM_BIN, DOCKER_BIN, MAVEN_BIN, PYTHON_BIN, JAVA_HOME, JAVA_HOME_OVERRIDE, CADDY_IMAGE, API_JAR,
-  WEB_BUILD_OUTPUT, APP_VERSION, OUTPUT, PACKAGE_NAME
+  WEB_BUILD_OUTPUT, WEB_BASE_HREF, APP_VERSION, OUTPUT, PACKAGE_NAME
 
 说明：
   Spring Boot JAR 构建会传入 -DskipApiDocs=true，生产部署包不包含 Swagger/OpenAPI 依赖。
@@ -274,7 +275,7 @@ if [[ "$RUN_BUILDS" -eq 1 ]]; then
   "$FVM_BIN" dart format --output=none --set-exit-if-changed lib test
   "$FVM_BIN" flutter analyze
   "$FVM_BIN" flutter test
-  "$FVM_BIN" flutter build web --release --wasm --tree-shake-icons --dart-define=API_BASE_URL=/api/v1
+  "$FVM_BIN" flutter build web --release --wasm --tree-shake-icons --base-href="$WEB_BASE_HREF" --dart-define=API_BASE_URL=/api/v1
   # CanvasKit/SkWasm 改为本地加载，避免 gstatic CDN（国内访问慢）
   bash "$ROOT_DIR/apps/web_flutter/tool/patch_flutter_bootstrap.sh" "$WEB_BUILD_OUTPUT"
 
