@@ -198,7 +198,11 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
   Future<void> _launchPreviewLink(BuildContext context, String href) async {
     final parsed = Uri.tryParse(href);
     if (parsed == null) return;
-    final uri = parsed.hasScheme ? parsed : Uri.base.resolveUri(parsed);
+    final uri = parsed.hasScheme
+        ? parsed
+        : (parsed.path.startsWith('/api/')
+            ? Uri.parse(resolveMediaUrl(href))
+            : Uri.base.resolveUri(parsed));
     if (!const {'http', 'https', 'mailto'}.contains(uri.scheme)) {
       if (context.mounted) {
         ScaffoldMessenger.of(
