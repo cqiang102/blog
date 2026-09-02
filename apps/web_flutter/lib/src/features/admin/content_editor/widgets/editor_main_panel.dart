@@ -37,6 +37,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/constants.dart';
+import '../../../../core/markdown_headings.dart';
 import '../../../../core/media_url.dart';
 import '../../../../theme/app_spacing.dart';
 import '../content_editor_state.dart';

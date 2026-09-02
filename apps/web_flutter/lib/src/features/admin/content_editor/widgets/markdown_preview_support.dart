@@ -3,8 +3,8 @@ part of 'editor_main_panel.dart';
 class _MarkdownToc extends StatelessWidget {
   const _MarkdownToc({required this.headings, required this.onSelected});
 
-  final List<_MarkdownHeading> headings;
-  final ValueChanged<_MarkdownHeading> onSelected;
+  final List<MarkdownHeading> headings;
+  final ValueChanged<MarkdownHeading> onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +86,7 @@ class _MarkdownHeadingBuilder extends MarkdownElementBuilder {
       child: SelectableText.rich(
         TextSpan(
           style: headingStyle,
-          children: _headingInlineSpans(
+          children: markdownHeadingInlineSpans(
             context,
             element.children,
             headingStyle,
@@ -95,123 +95,6 @@ class _MarkdownHeadingBuilder extends MarkdownElementBuilder {
       ),
     );
   }
-}
-
-List<InlineSpan> _headingInlineSpans(
-  BuildContext context,
-  List<md.Node>? nodes,
-  TextStyle parentStyle,
-) {
-  if (nodes == null) return const [];
-  return [
-    for (final node in nodes)
-      if (node is md.Text)
-        TextSpan(text: node.text)
-      else if (node is md.Element)
-        TextSpan(
-          style: _headingInlineStyle(context, node.tag, parentStyle),
-          children: _headingInlineSpans(context, node.children, parentStyle),
-        ),
-  ];
-}
-
-TextStyle? _headingInlineStyle(
-  BuildContext context,
-  String tag,
-  TextStyle parentStyle,
-) {
-  final scheme = Theme.of(context).colorScheme;
-  return switch (tag) {
-    'strong' || 'b' => parentStyle.copyWith(fontWeight: FontWeight.w800),
-    'em' || 'i' => parentStyle.copyWith(fontStyle: FontStyle.italic),
-    'del' ||
-    's' => parentStyle.copyWith(decoration: TextDecoration.lineThrough),
-    'code' => parentStyle.copyWith(
-      fontFamily: 'monospace',
-      backgroundColor: scheme.surfaceContainerHighest,
-    ),
-    'a' => parentStyle.copyWith(
-      color: scheme.primary,
-      decoration: TextDecoration.underline,
-      decorationColor: scheme.primary,
-    ),
-    _ => null,
-  };
-}
-
-class _MarkdownHeading {
-  const _MarkdownHeading({
-    required this.level,
-    required this.text,
-    required this.slug,
-  });
-
-  final int level;
-  final String text;
-  final String slug;
-}
-
-List<_MarkdownHeading> _extractMarkdownHeadings(String data) {
-  if (data.trim().isEmpty) return const [];
-
-  final headings = <_MarkdownHeading>[];
-  final used = <String, int>{};
-  var inCodeFence = false;
-
-  for (final line in data.split('\n')) {
-    if (RegExp(r'^\s*(```|~~~)').hasMatch(line)) {
-      inCodeFence = !inCodeFence;
-      continue;
-    }
-    if (inCodeFence) continue;
-
-    final match = RegExp(r'^(#{1,6})\s+(.+?)\s*#*\s*$').firstMatch(line);
-    if (match == null) continue;
-
-    final text = _cleanHeadingText(match.group(2)!);
-    if (text.isEmpty) continue;
-    headings.add(
-      _MarkdownHeading(
-        level: match.group(1)!.length,
-        text: text,
-        slug: _nextHeadingSlug(text, used),
-      ),
-    );
-  }
-
-  return headings;
-}
-
-String _nextHeadingSlug(String text, Map<String, int> used) {
-  final base = _headingSlugBase(text);
-  final count = (used[base] ?? 0) + 1;
-  used[base] = count;
-  return count == 1 ? base : '$base-$count';
-}
-
-String _headingSlugBase(String text) {
-  final slug = _cleanHeadingText(text)
-      .toLowerCase()
-      .replaceAll(RegExp(r'[`*_~\[\]()]'), '')
-      .replaceAll(RegExp(r'\s+'), '-')
-      .replaceAll(RegExp(r'[^a-z0-9\-\u4e00-\u9fa5]'), '')
-      .replaceAll(RegExp(r'-+'), '-')
-      .replaceAll(RegExp(r'^-|-$'), '');
-  return slug.isEmpty ? 'section' : slug;
-}
-
-String _cleanHeadingText(String text) {
-  return text
-      .replaceAllMapped(
-        RegExp(r'!\[([^\]]*)\]\([^)]+\)'),
-        (match) => match.group(1)!,
-      )
-      .replaceAllMapped(
-        RegExp(r'\[([^\]]+)\]\([^)]+\)'),
-        (match) => match.group(1)!,
-      )
-      .replaceAll(RegExp(r'[`*_~]'), '')
-      .trim();
 }
 
 class _MarkdownCodeBlockBuilder extends MarkdownElementBuilder {

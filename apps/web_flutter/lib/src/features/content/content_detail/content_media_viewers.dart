@@ -5,14 +5,18 @@ part of '../content_detail_page.dart';
 // ============================================================================
 
 class _ContentViewer extends StatelessWidget {
-  const _ContentViewer({required this.content});
+  const _ContentViewer({required this.content, required this.headingKeys});
 
   final BlogContent content;
+  final Map<String, GlobalKey> headingKeys;
 
   @override
   Widget build(BuildContext context) {
     return switch (content.type) {
-      ContentType.markdown => _MarkdownArticle(content: content),
+      ContentType.markdown => _MarkdownArticle(
+        content: content,
+        headingKeys: headingKeys,
+      ),
       ContentType.image => _ImageGallery(urls: content.mediaUrls),
       ContentType.video => _VideoPlayerWidget(content: content),
     };

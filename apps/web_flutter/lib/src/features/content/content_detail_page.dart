@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
+import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
@@ -17,6 +18,7 @@ import '../../widgets/widgets.dart';
 import '../../auth/auth_controller.dart';
 
 import '../../core/constants.dart';
+import '../../core/markdown_headings.dart';
 import '../../core/media_url.dart';
 import '../../core/models.dart';
 import '../../theme/app_spacing.dart';
@@ -45,9 +47,18 @@ class ContentDetailPage extends ConsumerStatefulWidget {
 
 class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
   final _commentController = TextEditingController();
+  final _scrollController = ScrollController();
+  final _headingKeys = <String, GlobalKey>{};
   bool _viewRecorded = false;
   bool _submitting = false;
   bool _appBarCollapsed = false;
+  bool _showBackToTop = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScrollChanged);
+  }
 
   @override
   void didUpdateWidget(covariant ContentDetailPage oldWidget) {
@@ -59,6 +70,9 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
 
   @override
   void dispose() {
+    _scrollController
+      ..removeListener(_onScrollChanged)
+      ..dispose();
     _commentController.dispose();
     super.dispose();
   }
@@ -68,6 +82,48 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
   void _onAppBarCollapsedChanged(bool collapsed) {
     if (!mounted || collapsed == _appBarCollapsed) return;
     setState(() => _appBarCollapsed = collapsed);
+  }
+
+  void _onScrollChanged() {
+    if (!_scrollController.hasClients) return;
+    final show = _scrollController.offset >= _backToTopScrollThreshold;
+    if (show != _showBackToTop && mounted) {
+      setState(() => _showBackToTop = show);
+    }
+  }
+
+  /// 同步目录标题与正文标题的锚点 key 集合。
+  List<MarkdownHeading> _syncHeadings(BlogContent content) {
+    final source = content.markdown.trim().isEmpty
+        ? content.summary
+        : content.markdown;
+    final headings = extractMarkdownHeadings(source);
+    final slugs = {for (final heading in headings) heading.slug};
+    _headingKeys.removeWhere((slug, _) => !slugs.contains(slug));
+    for (final heading in headings) {
+      _headingKeys.putIfAbsent(heading.slug, GlobalKey.new);
+    }
+    return headings;
+  }
+
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: AppMotion.duration(context, AppAnimations.slow),
+      curve: AppAnimations.defaultCurve,
+    );
+  }
+
+  void _scrollToHeading(MarkdownHeading heading) {
+    final headingContext = _headingKeys[heading.slug]?.currentContext;
+    if (headingContext == null) return;
+    Scrollable.ensureVisible(
+      headingContext,
+      duration: AppMotion.duration(context, AppAnimations.normal),
+      curve: Curves.easeOutCubic,
+      alignment: 0.08,
+    );
   }
 
   @override
@@ -105,139 +161,177 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     final scheme = Theme.of(context).colorScheme;
     final collapsed = _appBarCollapsed;
     final appBarForeground = collapsed ? scheme.onSurface : AppColors.onOverlay;
+    final headings = _syncHeadings(content);
 
     return AppPageFrame(
       maxWidth: 1320,
-      child: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: expandedHeight,
-            pinned: true,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            foregroundColor: appBarForeground,
-            backgroundColor: scheme.surface,
-            actions: [
-              AppThemeToggle(color: appBarForeground),
-              const SizedBox(width: AppSpacing.sm),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                0,
-                72,
-                AppSpacing.lg,
-              ),
-              expandedTitleScale: viewportWidth < kSmallTabletBreakpoint
-                  ? 1.35
-                  : 1.75,
-              title: Text(
-                content.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: appBarForeground,
-                  fontWeight: FontWeight.w700,
-                  shadows: collapsed
-                      ? null
-                      : const [
-                          Shadow(
-                            color: Color(0x8A000000),
-                            blurRadius: 12,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                ),
-              ),
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _ArticleHero(content: content),
-                  _AppBarCollapseProbe(
-                    onCollapsedChanged: _onAppBarCollapsedChanged,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.xl,
-              AppSpacing.lg,
-              AppSpacing.lg,
-            ),
-            sliver: SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: AppLayout.readingWidth,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _ArticleMeta(content: content),
-                      const SizedBox(height: AppSpacing.md),
-                      _buildTags(context, content),
-                      if (content.summary.isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.lg),
-                        _ArticleSummary(summary: content.summary),
-                      ],
-                      const SizedBox(height: AppSpacing.xl),
-                      _ContentViewer(content: content),
-                      const SizedBox(height: AppSpacing.xxl),
-                      _buildCommentInput(context, content),
-                      const SizedBox(height: AppSpacing.lg),
-                      Row(
+      child: LayoutBuilder(
+        builder: (context, frameConstraints) {
+          final showToc =
+              collapsed &&
+              content.type == ContentType.markdown &&
+              headings.length > 1 &&
+              frameConstraints.maxWidth >= _articleTocMinPageWidth;
+          return Stack(
+            children: [
+              CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  SliverAppBar(
+                    expandedHeight: expandedHeight,
+                    pinned: true,
+                    elevation: 0,
+                    scrolledUnderElevation: 0,
+                    foregroundColor: appBarForeground,
+                    backgroundColor: scheme.surface,
+                    actions: [
+                      AppThemeToggle(color: appBarForeground),
+                      const SizedBox(width: AppSpacing.sm),
+                    ],
+                    flexibleSpace: FlexibleSpaceBar(
+                      titlePadding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        0,
+                        72,
+                        AppSpacing.lg,
+                      ),
+                      expandedTitleScale: viewportWidth < kSmallTabletBreakpoint
+                          ? 1.35
+                          : 1.75,
+                      title: Text(
+                        content.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: appBarForeground,
+                          fontWeight: FontWeight.w700,
+                          shadows: collapsed
+                              ? null
+                              : const [
+                                  Shadow(
+                                    color: Color(0x8A000000),
+                                    blurRadius: 12,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                        ),
+                      ),
+                      background: Stack(
+                        fit: StackFit.expand,
                         children: [
-                          Text(
-                            '读者评论',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const Spacer(),
-                          Text(
-                            '共${commentCount > 99 ? '99+' : commentCount}条',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
+                          _ArticleHero(content: content),
+                          _AppBarCollapseProbe(
+                            onCollapsedChanged: _onAppBarCollapsedChanged,
                           ),
                         ],
                       ),
-                      const SizedBox(height: AppSpacing.sm),
-                    ],
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.xl,
+                      AppSpacing.lg,
+                      AppSpacing.lg,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: AppLayout.readingWidth,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _ArticleMeta(content: content),
+                              const SizedBox(height: AppSpacing.md),
+                              _buildTags(context, content),
+                              if (content.summary.isNotEmpty) ...[
+                                const SizedBox(height: AppSpacing.lg),
+                                _ArticleSummary(summary: content.summary),
+                              ],
+                              const SizedBox(height: AppSpacing.xl),
+                              _ContentViewer(
+                                content: content,
+                                headingKeys: _headingKeys,
+                              ),
+                              const SizedBox(height: AppSpacing.xxl),
+                              _buildCommentInput(context, content),
+                              const SizedBox(height: AppSpacing.lg),
+                              Row(
+                                children: [
+                                  Text(
+                                    '读者评论',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge,
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    '共${commentCount > 99 ? '99+' : commentCount}条',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  comments.when(
+                    loading: () => const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                        child: Center(
+                          child: CircularProgressIndicator.adaptive(),
+                        ),
+                      ),
+                    ),
+                    error: (error, stackTrace) => SliverToBoxAdapter(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: AppLayout.readingWidth,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.lg),
+                            child: Text(userFacingErrorMessage(error)),
+                          ),
+                        ),
+                      ),
+                    ),
+                    data: (page) => _CommentList(
+                      comments: page.items,
+                      contentId: widget.id,
+                    ),
+                  ),
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: AppSpacing.xxl),
+                  ),
+                ],
+              ),
+              _BackToTopFab(visible: _showBackToTop, onPressed: _scrollToTop),
+              if (showToc)
+                Positioned(
+                  top: kToolbarHeight + AppSpacing.sm,
+                  right: AppSpacing.lg,
+                  bottom: AppSpacing.xxl,
+                  width: _articleTocWidth,
+                  child: _ArticleTocPanel(
+                    headings: headings,
+                    onSelected: _scrollToHeading,
                   ),
                 ),
-              ),
-            ),
-          ),
-          comments.when(
-            loading: () => const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                child: Center(child: CircularProgressIndicator.adaptive()),
-              ),
-            ),
-            error: (error, stackTrace) => SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: AppLayout.readingWidth,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Text(userFacingErrorMessage(error)),
-                  ),
-                ),
-              ),
-            ),
-            data: (page) =>
-                _CommentList(comments: page.items, contentId: widget.id),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

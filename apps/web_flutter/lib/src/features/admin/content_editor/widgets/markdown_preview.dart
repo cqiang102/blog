@@ -47,7 +47,7 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
 
   @override
   Widget build(BuildContext context) {
-    final headings = _extractMarkdownHeadings(_debouncedData);
+    final headings = extractMarkdownHeadings(_debouncedData);
     final currentSlugs = headings.map((heading) => heading.slug).toSet();
     _headingKeys.removeWhere((slug, _) => !currentSlugs.contains(slug));
     for (final heading in headings) {
@@ -94,7 +94,7 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
   Widget _buildScrollablePreview(
     BuildContext context,
     BoxConstraints constraints,
-    List<_MarkdownHeading> headings,
+    List<MarkdownHeading> headings,
   ) {
     final headingUsage = <String, int>{};
     final builders = <String, MarkdownElementBuilder>{
@@ -103,7 +103,7 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
         'h$level': _MarkdownHeadingBuilder(
           level: level,
           keyForHeading: (text) {
-            final slug = _nextHeadingSlug(text, headingUsage);
+            final slug = nextMarkdownHeadingSlug(text, headingUsage);
             return _headingKeys[slug];
           },
         ),
@@ -179,7 +179,7 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
     );
   }
 
-  void _scrollToHeading(_MarkdownHeading heading) {
+  void _scrollToHeading(MarkdownHeading heading) {
     final headingContext = _headingKeys[heading.slug]?.currentContext;
     if (headingContext == null) return;
     Scrollable.ensureVisible(
@@ -201,8 +201,8 @@ class _MarkdownPreviewState extends State<_MarkdownPreview> {
     final uri = parsed.hasScheme
         ? parsed
         : (parsed.path.startsWith('/api/')
-            ? Uri.parse(resolveMediaUrl(href))
-            : Uri.base.resolveUri(parsed));
+              ? Uri.parse(resolveMediaUrl(href))
+              : Uri.base.resolveUri(parsed));
     if (!const {'http', 'https', 'mailto'}.contains(uri.scheme)) {
       if (context.mounted) {
         ScaffoldMessenger.of(
