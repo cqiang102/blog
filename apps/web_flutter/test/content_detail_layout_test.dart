@@ -286,6 +286,12 @@ void main() {
     expect(find.text('目录'), findsOneWidget);
     expect(_backToTopOpacity(tester), 1);
 
+    // 目录应位于正文左侧，且不与右下角回到顶部重叠。
+    expect(
+      tester.getTopLeft(find.text('目录')).dx,
+      lessThan(tester.getTopLeft(find.byType(MarkdownBody)).dx),
+    );
+
     // 点击目录应跳到对应小节。
     await tester.tap(find.widgetWithText(TextButton, '第三节 总结'));
     await tester.pumpAndSettle();

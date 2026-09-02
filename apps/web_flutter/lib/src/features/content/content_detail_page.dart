@@ -321,7 +321,7 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
               if (showToc)
                 Positioned(
                   top: kToolbarHeight + AppSpacing.sm,
-                  right: AppSpacing.lg,
+                  left: AppSpacing.lg,
                   bottom: AppSpacing.xxl,
                   width: _articleTocWidth,
                   child: _ArticleTocPanel(
