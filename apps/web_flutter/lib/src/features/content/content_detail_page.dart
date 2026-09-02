@@ -47,6 +47,7 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
   final _commentController = TextEditingController();
   bool _viewRecorded = false;
   bool _submitting = false;
+  bool _appBarCollapsed = false;
 
   @override
   void didUpdateWidget(covariant ContentDetailPage oldWidget) {
@@ -60,6 +61,13 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
   void dispose() {
     _commentController.dispose();
     super.dispose();
+  }
+
+  /// SliverAppBar 完全收起后切换为中性表面色，避免整条变成高饱和绿色。
+  /// 收起状态由 FlexibleSpaceBarSettings 精确驱动（由 _AppBarCollapseProbe 上报）。
+  void _onAppBarCollapsedChanged(bool collapsed) {
+    if (!mounted || collapsed == _appBarCollapsed) return;
+    setState(() => _appBarCollapsed = collapsed);
   }
 
   @override
@@ -94,6 +102,9 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final expandedHeight = viewportWidth >= kDesktopBreakpoint ? 420.0 : 320.0;
     final commentCount = comments.value?.total ?? content.commentCount;
+    final scheme = Theme.of(context).colorScheme;
+    final collapsed = _appBarCollapsed;
+    final appBarForeground = collapsed ? scheme.onSurface : AppColors.onOverlay;
 
     return AppPageFrame(
       maxWidth: 1320,
@@ -102,11 +113,13 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
           SliverAppBar(
             expandedHeight: expandedHeight,
             pinned: true,
-            foregroundColor: AppColors.onOverlay,
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            actions: const [
-              AppThemeToggle(color: AppColors.onOverlay),
-              SizedBox(width: AppSpacing.sm),
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            foregroundColor: appBarForeground,
+            backgroundColor: scheme.surface,
+            actions: [
+              AppThemeToggle(color: appBarForeground),
+              const SizedBox(width: AppSpacing.sm),
             ],
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.fromLTRB(
@@ -122,19 +135,29 @@ class _ContentDetailPageState extends ConsumerState<ContentDetailPage> {
                 content.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.onOverlay,
+                style: TextStyle(
+                  color: appBarForeground,
                   fontWeight: FontWeight.w700,
-                  shadows: [
-                    Shadow(
-                      color: Color(0x8A000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
+                  shadows: collapsed
+                      ? null
+                      : const [
+                          Shadow(
+                            color: Color(0x8A000000),
+                            blurRadius: 12,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
                 ),
               ),
-              background: _ArticleHero(content: content),
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _ArticleHero(content: content),
+                  _AppBarCollapseProbe(
+                    onCollapsedChanged: _onAppBarCollapsedChanged,
+                  ),
+                ],
+              ),
             ),
           ),
           SliverPadding(
@@ -437,5 +460,37 @@ class _ArticleSummary extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 监听 FlexibleSpaceBar 的收起状态并上报给内容详情页。
+///
+/// 放在 flexibleSpace 的 background 里，通过继承的 [FlexibleSpaceBarSettings]
+/// 精确知道当前是否已完全收起，避免用滚动位移估算产生误差。
+class _AppBarCollapseProbe extends StatefulWidget {
+  const _AppBarCollapseProbe({required this.onCollapsedChanged});
+
+  final ValueChanged<bool> onCollapsedChanged;
+
+  @override
+  State<_AppBarCollapseProbe> createState() => _AppBarCollapseProbeState();
+}
+
+class _AppBarCollapseProbeState extends State<_AppBarCollapseProbe> {
+  bool _collapsed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context
+        .dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
+    final collapsed =
+        settings != null && settings.currentExtent <= settings.minExtent + 0.5;
+    if (collapsed != _collapsed) {
+      _collapsed = collapsed;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onCollapsedChanged(collapsed);
+      });
+    }
+    return const SizedBox.shrink();
   }
 }
