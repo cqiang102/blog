@@ -7,8 +7,9 @@
 
 ```
 浏览器
- ├─ https://blog.lacia.cn        → Caddy（服务器）：index.html + /api/*
- │                                 · index.html 内 <base> 指向 CDN，所有静态资源走七牛
+ ├─ https://blog.lacia.cn        → Caddy（服务器）：index.html + /api/* + flutter_bootstrap.js
+ │                                 · index.html 的 <base> 保持同源 "/"（绝不能指向 CDN，见 5.5）
+ │                                 · flutter_bootstrap.js 把资源基址指向 CDN，主包/引擎走七牛
  └─ https://static.blog.lacia.cn → 七牛 CDN（源站 lacia-public 公开空间）
                                     · /web/<sha>/ 版本化目录：main.dart.wasm、main.dart.mjs、
                                       canvaskit/、assets/、flutter_bootstrap.js 等
@@ -78,16 +79,23 @@ static.blog.lacia.cn, file.lacia.cn {
 
 ## 3. 构建与发布（Flutter Web → CDN）
 
-### 关键约束（重要）
+### 关键约束（重要，2026-09 修订）
 
-1. `--base-href` 只接受**以 / 开头和结尾的路径**，不接受完整 URL。
-2. 构建后必须把 index.html 的 `<base href="/web/<sha>/">` 替换为 CDN 完整地址
-   `https://static.blog.lacia.cn/web/<sha>/`，否则静态资源不会走 CDN。
-3. **API 地址必须用绝对 URL**：`--dart-define=API_BASE_URL=https://blog.lacia.cn/api/v1`。
-   - 原因：`<base>` 指向 CDN 后，浏览器会把 `/api/v1` 这类**以 / 开头的相对路径也解析到 CDN 域名**，
-     导致 API 404（详见“故障排查”）。
+1. 入口 `index.html` 的 `<base>` **必须保持同源**（`/`），**不能**改成 CDN 绝对地址。
+   - 原因：Flutter Web 的 GoRouter 初始化会把 `Uri.base` 写入 `history.replaceState`；
+     `<base>` 指向 CDN 时等于跨域写入 history，浏览器抛 `SecurityError`，Dart 侧变成
+     `JavaScriptError`，最终页面 `ProviderException` 白屏（详见 5.5）。
+   - 历史上 8/7 部署把 `<base>` 指向 `https://static.blog.lacia.cn/web/<sha>/` 导致全站白屏，
+     修复方式见 5.5。
+2. CDN 只承担 Flutter 主包/引擎等大文件：构建后**修改 `flutter_bootstrap.js`**，把资源解析基址
+   `document.baseURI` 替换为 CDN 版本化目录，并**移除 `serviceWorkerSettings`**（入口与 CDN 跨域，
+   Service Worker 无法注册，留着只会报错）。
+3. **API 地址建议用绝对 URL**：`--dart-define=API_BASE_URL=https://blog.lacia.cn/api/v1`，
+   保证媒体地址、SSE 等拼接不依赖 `Uri.base`（提交 `0c3212d` 起代码已按 API 地址解析）。
 4. 每次发布使用**版本化目录** `web/<git-sha>/`（新 URL 天然绕过 CDN/浏览器旧缓存），
    旧目录可保留回滚，也可定期在七牛控制台清理。
+5. Dart 引擎仍按页面 `document.baseURI` 加载 `assets/`（字体、AssetManifest 等小文件），
+   所以发布时需把新构建的 `assets/` 同步到服务器入口目录，避免个别资源 404。
 
 ### 构建命令
 
@@ -95,39 +103,42 @@ static.blog.lacia.cn, file.lacia.cn {
 SHA=$(git rev-parse --short HEAD)
 cd apps/web_flutter
 fvm flutter build web --release --wasm --tree-shake-icons \
-  --base-href="/web/$SHA/" \
+  --base-href="/" \
   --dart-define=API_BASE_URL=https://blog.lacia.cn/api/v1
-# 本地 CanvasKit 补丁（canvaskit/ 相对路径，会随 <base> 解析到 CDN）
+# 1) CanvasKit 本地化补丁（canvaskit/ 相对路径）
 bash tool/patch_flutter_bootstrap.sh build/web
-# 把 <base> 改成 CDN 绝对地址
+# 2) 把 flutter_bootstrap.js 的资源基址指向 CDN，并关闭跨域 ServiceWorker 注册
 python3 - <<'PY'
 import re
-p='build/web/index.html'
-s=open(p).read()
-s=re.sub(r'<base href="[^"]*">', f'<base href="https://static.blog.lacia.cn/web/{SHA}/">', s, count=1)
-open(p,'w').write(s)
+p = 'build/web/flutter_bootstrap.js'
+s = open(p).read()
+s = s.replace('document.baseURI', f'"https://static.blog.lacia.cn/web/{SHA}/"', 1)
+s = re.sub(r'serviceWorkerSettings:\s*\{[^}]*\}\s*,\s*', '', s)
+open(p, 'w').write(s)
 PY
 ```
 
-或使用打包脚本（支持变量覆盖）：
-
-```bash
-WEB_BASE_HREF=/web/<sha>/ \
-WEB_API_BASE_URL=https://blog.lacia.cn/api/v1 \
-scripts/package-deploy.sh
-```
+> 不要修改构建产物 `index.html` 的 `<base>`，保持 `/`。使用打包脚本时同样保持
+> `WEB_BASE_HREF=/`，仅覆盖 `WEB_API_BASE_URL=https://blog.lacia.cn/api/v1`。
 
 ### 上传与部署
 
 ```bash
-# 上传 build/web 到 lacia-public 的 web/<sha>/ 目录
+# 上传 build/web 到 lacia-public 的 web/<sha>/ 目录（含 main.dart.wasm、canvaskit 等）
 QINIU_ACCESS_KEY=xxx QINIU_SECRET_KEY=xxx \
 QINIU_BUCKET=lacia-public QINIU_PREFIX=web/<sha>/ \
 scripts/qiniu-upload.sh
 
-# 部署 index.html 到服务器（其余资源全部走 CDN）
+# 部署到服务器入口目录 /usr/local/docker/blog-mimo/web/：
+#  - flutter_bootstrap.js：补丁后的版本（资源指向 CDN）
+#  - index.html：仅在有改动时覆盖，<base> 保持 "/"
+#  - assets/：同步新构建的小资源（字体、AssetManifest 等），让 Dart 引擎同源加载
+scp apps/web_flutter/build/web/flutter_bootstrap.js \
+  root@<server>:/usr/local/docker/blog-mimo/web/flutter_bootstrap.js
 scp apps/web_flutter/build/web/index.html \
   root@<server>:/usr/local/docker/blog-mimo/web/index.html
+rsync -a apps/web_flutter/build/web/assets/ \
+  root@<server>:/usr/local/docker/blog-mimo/web/assets/
 ```
 
 ## 4. 脚本清单（仓库内）
@@ -140,13 +151,12 @@ scp apps/web_flutter/build/web/index.html \
 
 ## 5. 故障排查
 
-### 5.1 API 404：请求打到了 static.blog.lacia.cn
+### 5.1 （历史）API 404：请求打到了 static.blog.lacia.cn
 
-- **现象**：`https://static.blog.lacia.cn/api/v1/...` 返回 404。
-- **根因**：`<base>` 指向 CDN 后，所有以 `/` 开头的相对 URL（Dio 的 `/api/v1`、Markdown 里的
-  `/api/v1/media-assets/...`）都会解析到 CDN 域名。
-- **解决**：构建时使用绝对 `API_BASE_URL=https://blog.lacia.cn/api/v1`（代码内 `resolveMediaUrl`
-  基于 API 地址拼接；Markdown 预览的 `/api/` 链接也按 API 地址解析，不再用 `Uri.base`）。
+- **历史现象**：`https://static.blog.lacia.cn/api/v1/...` 返回 404。
+- **历史根因**：旧方案把 `<base>` 指向 CDN，`/api/v1` 这类以 `/` 开头的相对 URL 被解析到 CDN。
+- **现状**：本方案入口 `<base>` 保持 `/`（见 5.5），不会再出现该问题；仍建议构建时使用绝对
+  `API_BASE_URL=https://blog.lacia.cn/api/v1`（`resolveMediaUrl` 与 Markdown `/api/` 链接均按 API 地址解析）。
 - 提交：`0c3212d fix(web): resolve /api links against API base, support absolute API_BASE_URL build`
 
 ### 5.2 Caddy 容器启动失败 `exec format error`
@@ -162,6 +172,26 @@ scp apps/web_flutter/build/web/index.html \
 ### 5.4 域名 protocol=http 时绑定证书失败
 
 - 未开启 HTTPS 的域名要先调 `/sslize`，已开启的用 `/httpsconf`；脚本会自动判断。
+
+### 5.5 白屏 / ProviderException：入口 `<base>` 指向 CDN（跨域）
+
+- **现象**（2026-08-07 部署后全站复现）：
+  - 控制台：`SecurityError: Failed to register a ServiceWorker ... does not match the current origin`
+  - `Manifest: property 'start_url' ignored, should be same origin as document`
+  - `ProviderException: Tried to use a provider that is in error state.`（底层 `JavaScriptError`）
+  - 页面停在 loading 或白屏，且**不会发出任何 API 请求**。
+- **根因**：`index.html` 的 `<base href="https://static.blog.lacia.cn/web/<sha>/">` 指向 CDN。
+  GoRouter（`usePathUrlStrategy`）启动时把 `Uri.base`（此时为 CDN 地址）写入
+  `history.replaceState`；跨域 URL 被浏览器拒绝（SecurityError）→ Dart 侧 `JavaScriptError`
+  → `routerProvider` 进入错误态 → 读取时抛 `ProviderException`。
+- **修复**：
+  1. 服务器入口 `index.html` 的 `<base>` 改回 `/`（备份旧文件后再改）。
+  2. 按第 3 节用补丁版 `flutter_bootstrap.js`（资源基址指向 CDN、移除 `serviceWorkerSettings`），
+     让 main.dart.wasm / canvaskit 仍走七牛 CDN。
+- 服务器现状（2026-09-02 已修复）：
+  - `/usr/local/docker/blog-mimo/web/index.html`：`<base href="/">`
+  - `/usr/local/docker/blog-mimo/web/flutter_bootstrap.js`：补丁版（指向 `web/0c3212d/`）
+  - 回滚备份：`index.html.bak-20260902-cdnbase`、`flutter_bootstrap.js.bak-20260902-sameorigin`
 
 ## 6. 相关文档
 

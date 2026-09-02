@@ -9,11 +9,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_DIR="${QINIU_VENV:-$ROOT_DIR/.tools/qiniu-venv}"
 PY="$VENV_DIR/bin/python"
 
-# 默认上传到 web/<git short sha>/，与构建时 --base-href 的版本化目录保持一致
+# 默认上传到 web/<git short sha>/，与 flutter_bootstrap.js 里指向 CDN 的版本化目录保持一致。
+# 注意：入口 index.html 的 <base> 保持 "/"，不要指向 CDN（见 docs/qiniu-cdn.md 5.5）。
 if [[ -z "${QINIU_PREFIX:-}" ]]; then
   SHA="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)"
   QINIU_PREFIX="web/$SHA/"
-  echo "==> 使用版本化前缀: ${QINIU_PREFIX}（构建时请用 --base-href=https://static.blog.lacia.cn/${QINIU_PREFIX}）"
+  echo "==> 使用版本化前缀: ${QINIU_PREFIX}（构建后请把 flutter_bootstrap.js 的资源基址改为 https://static.blog.lacia.cn/${QINIU_PREFIX}）"
 fi
 
 if [[ ! -x "$PY" ]]; then
