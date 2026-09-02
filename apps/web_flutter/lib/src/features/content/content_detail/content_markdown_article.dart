@@ -67,42 +67,54 @@ class _MarkdownArticle extends StatelessWidget {
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      child: Semantics(
-        image: true,
-        label: (alt?.trim().isNotEmpty ?? false) ? alt!.trim() : '文章配图',
-        excludeSemantics: true,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppRadii.control),
-          child: CachedNetworkImage(
-            imageUrl: resolveMediaUrl(uri.toString()),
-            fit: BoxFit.contain,
-            placeholder: (context, url) => Container(
-              constraints: const BoxConstraints(minHeight: 180),
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              alignment: Alignment.center,
-              child: const CircularProgressIndicator(strokeWidth: 2),
-            ),
-            errorWidget: (context, url, error) => Container(
-              constraints: const BoxConstraints(minHeight: 180),
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const HugeIcon(
-                    icon: HugeIcons.strokeRoundedImageNotFound01,
-                    size: 40,
+      // 图片区域使用稳定高度：加载中/成功/失败三种状态占位一致，
+      // 避免图片加载完成后把下方正文顶开，导致目录跳转后标题“跑位”。
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.hasBoundedWidth
+              ? constraints.maxWidth
+              : AppLayout.readingWidth.toDouble();
+          final height = (width * 9 / 16).clamp(240.0, 520.0);
+          final scheme = Theme.of(context).colorScheme;
+          return Semantics(
+            image: true,
+            label: (alt?.trim().isNotEmpty ?? false) ? alt!.trim() : '文章配图',
+            excludeSemantics: true,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadii.control),
+              child: SizedBox(
+                width: double.infinity,
+                height: height,
+                child: ColoredBox(
+                  color: scheme.surfaceContainerLow,
+                  child: CachedNetworkImage(
+                    imageUrl: resolveMediaUrl(uri.toString()),
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    errorWidget: (context, url, error) => Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const HugeIcon(
+                            icon: HugeIcons.strokeRoundedImageNotFound01,
+                            size: 40,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            '图片暂时无法加载',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    '图片暂时无法加载',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

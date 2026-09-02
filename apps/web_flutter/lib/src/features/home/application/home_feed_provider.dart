@@ -25,16 +25,14 @@ class HomeFeed {
         : recommendations.latest.isEmpty
         ? null
         : recommendations.latest.first;
-    final withoutFeatured = featured == null
+    final latest = recommendations.pinned.isNotEmpty
         ? recommendations.latest
-        : recommendations.latest
-              .where((content) => content.id != featured.id)
-              .toList();
+              .where((content) => content.id != featured!.id)
+              .toList()
+        : recommendations.latest;
     return HomeFeed(
       featured: featured,
-      latest: withoutFeatured.isEmpty
-          ? recommendations.latest
-          : withoutFeatured,
+      latest: latest.isEmpty ? recommendations.latest : latest,
       mostLiked: recommendations.mostLiked,
     );
   }

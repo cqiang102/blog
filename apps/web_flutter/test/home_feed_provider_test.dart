@@ -34,7 +34,8 @@ void main() {
     );
 
     expect(feed.featured?.id, 'first');
-    expect(feed.latest.map((item) => item.id), ['second']);
+    // 无置顶时，hero 取最新一篇，但“最近更新”仍展示全部最新内容
+    expect(feed.latest.map((item) => item.id), ['first', 'second']);
   });
 }
 
