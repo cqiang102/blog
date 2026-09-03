@@ -35,6 +35,7 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
   bool _showFilters = false;
+  bool _filterReloadScheduled = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -61,6 +62,7 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
   }
 
   void _loadInitialData() {
+    if (!mounted) return;
     final filter = ref.read(contentFilterProvider);
     _searchController.text = filter.query;
     final query = filter.toQuery();
@@ -73,6 +75,7 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
   }
 
   void _loadMore() {
+    if (_filterReloadScheduled) return;
     final filter = ref.read(contentFilterProvider);
     ref.read(contentPaginationProvider(filter.toQuery()).notifier).loadMore();
   }
@@ -85,8 +88,21 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
   }
 
   void _updateFilter(VoidCallback update) {
+    final previous = ref.read(contentFilterProvider);
     update();
-    _resetAndLoad();
+    if (ref.read(contentFilterProvider) == previous || _filterReloadScheduled) {
+      return;
+    }
+
+    // 先让 build 订阅新查询，避免未被监听的 autoDispose 分页状态丢失请求结果。
+    // 同一帧内多次修改筛选时，只加载最终条件。
+    _filterReloadScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _filterReloadScheduled = false;
+      _resetAndLoad();
+      if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    });
   }
 
   void _search() {
@@ -99,8 +115,7 @@ class _ContentListPageState extends ConsumerState<ContentListPage>
 
   void _clearAll() {
     _searchController.clear();
-    ref.read(contentFilterProvider.notifier).clearAll();
-    _resetAndLoad();
+    _updateFilter(() => ref.read(contentFilterProvider.notifier).clearAll());
   }
 
   @override

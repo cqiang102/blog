@@ -9,15 +9,48 @@ class _TestPaginationNotifier extends PaginationNotifier<String> {
   _TestPaginationNotifier(this.requests);
 
   final List<Completer<PageResult<String>>> requests;
+  final requestedPages = <int>[];
   var _requestIndex = 0;
 
   @override
   Future<PageResult<String>> fetchPage(int page, int size) {
+    requestedPages.add(page);
     return requests[_requestIndex++].future;
   }
 }
 
 void main() {
+  for (final items in [
+    <String>[],
+    ['only item'],
+  ]) {
+    test(
+      'stops requesting pages after loading ${items.length} total items',
+      () async {
+        final response = Completer<PageResult<String>>();
+        final provider =
+            NotifierProvider<_TestPaginationNotifier, PaginationState<String>>(
+              () => _TestPaginationNotifier([response]),
+            );
+        final container = ProviderContainer.test();
+        addTearDown(container.dispose);
+        final notifier = container.read(provider.notifier);
+
+        response.complete(
+          PageResult(items: items, page: 0, size: 20, total: items.length),
+        );
+        await notifier.resetAndLoad();
+        await notifier.loadMore();
+        await notifier.loadMore();
+
+        expect(notifier.requestedPages, [0]);
+        expect(container.read(provider).items, items);
+        expect(container.read(provider).hasMore, isFalse);
+        expect(container.read(provider).error, isNull);
+      },
+    );
+  }
+
   test(
     'reset prevents an older page request from overwriting new data',
     () async {

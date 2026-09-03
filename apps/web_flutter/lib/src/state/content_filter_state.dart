@@ -101,20 +101,20 @@ class ContentFilterNotifier extends Notifier<ContentFilterState> {
 
   /// 更新开始日期筛选
   void updateStartDate(DateTime? date) {
-    if (date == null) {
-      state = state.copyWith(clearStartDate: true);
-    } else {
-      state = state.copyWith(startDate: date);
-    }
+    state = state.copyWith(
+      startDate: date,
+      clearStartDate: date == null,
+      clearEndDate: date != null && (state.endDate?.isBefore(date) ?? false),
+    );
   }
 
   /// 更新结束日期筛选
   void updateEndDate(DateTime? date) {
-    if (date == null) {
-      state = state.copyWith(clearEndDate: true);
-    } else {
-      state = state.copyWith(endDate: date);
-    }
+    state = state.copyWith(
+      endDate: date,
+      clearEndDate: date == null,
+      clearStartDate: date != null && (state.startDate?.isAfter(date) ?? false),
+    );
   }
 
   /// 清除所有筛选条件

@@ -252,7 +252,8 @@ class _TagFilter extends ConsumerWidget {
               FilterChip(
                 label: Text(tag.name),
                 selected: selectedTag == tag.slug,
-                onSelected: (_) => onTagChanged(tag.slug),
+                onSelected: (selected) =>
+                    onTagChanged(selected ? tag.slug : null),
               ),
           ],
         );
@@ -323,14 +324,8 @@ class _DateFilter extends StatelessWidget {
 
     if (isStart) {
       onStartDateChanged(picked);
-      if (endDate != null && endDate!.isBefore(picked)) {
-        onEndDateChanged(null);
-      }
     } else {
       onEndDateChanged(picked);
-      if (startDate != null && startDate!.isAfter(picked)) {
-        onStartDateChanged(null);
-      }
     }
   }
 }

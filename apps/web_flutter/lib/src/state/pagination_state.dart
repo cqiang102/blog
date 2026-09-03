@@ -58,7 +58,7 @@ abstract class PaginationNotifier<T> extends Notifier<PaginationState<T>> {
 
   /// 加载更多数据
   Future<void> loadMore() async {
-    if (state.isLoading) return;
+    if (state.isLoading || !state.hasMore) return;
 
     final generation = _requestGeneration;
     final page = state.currentPage;
