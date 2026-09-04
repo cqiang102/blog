@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/link.dart';
 
 import '../../../widgets/widgets.dart';
 import '../../../core/api_client.dart';

@@ -90,8 +90,7 @@ class MediaAdminServiceTest {
     void compensatesImmediatelyWhenMediaRecordCreationFailsWithoutTransaction() {
         StoredObject storedObject = new StoredObject("qiniu-private", "uploads/2026/06/photo.png");
         UploadedFile file = imageFile();
-        when(mediaStorage.upload(file, "2026/06/14/", "photo.png", "image/png"))
-                .thenReturn(storedObject);
+        when(mediaStorage.upload(file, "2026/06/14/", "photo.png", "image/png")).thenReturn(storedObject);
         when(mediaAssetWriter.createUploaded(
                         null, MediaAssetType.IMAGE, storedObject, "photo.png", "image/png", file.size()))
                 .thenThrow(new IllegalStateException("database unavailable"));
@@ -108,8 +107,7 @@ class MediaAdminServiceTest {
         StoredObject storedObject = new StoredObject("qiniu-private", "uploads/2026/06/photo.png");
         UploadedFile file = imageFile();
         MediaAsset asset = managedAsset();
-        when(mediaStorage.upload(file, "2026/06/14/", "photo.png", "image/png"))
-                .thenReturn(storedObject);
+        when(mediaStorage.upload(file, "2026/06/14/", "photo.png", "image/png")).thenReturn(storedObject);
         when(mediaAssetWriter.createUploaded(
                         null, MediaAssetType.IMAGE, storedObject, "photo.png", "image/png", file.size()))
                 .thenReturn(com.caoqiang.blog.content.application.dto.AdminMediaResponse.from(asset));

@@ -84,6 +84,7 @@ public class RedisConfig {
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
+                .withCacheConfiguration(CacheNames.ATOM_FEED, defaultConfig.entryTtl(Duration.ofMinutes(5)))
                 // 推荐内容缓存
                 .withCacheConfiguration(
                         CacheNames.RECOMMENDATIONS,

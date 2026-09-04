@@ -13,7 +13,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Owns recommendation-cache reactions for events consumed by the content module.
+ * Owns recommendation and feed cache reactions for content lifecycle events.
  */
 @Component
 public class ContentCacheEventListener {
@@ -30,12 +30,14 @@ public class ContentCacheEventListener {
     public void onContentPublished(ContentPublishedEvent event) {
         log.debug("Content published; evicting recommendations: contentId={}", event.getContentId());
         evictRecommendationsCache();
+        evictFeedCache();
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onContentArchived(ContentArchivedEvent event) {
         log.debug("Content archived; evicting recommendations: contentId={}", event.getContentId());
         evictRecommendationsCache();
+        evictFeedCache();
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -52,6 +54,13 @@ public class ContentCacheEventListener {
 
     private void evictRecommendationsCache() {
         var cache = cacheManager.getCache(CacheNames.RECOMMENDATIONS);
+        if (cache != null) {
+            cache.clear();
+        }
+    }
+
+    private void evictFeedCache() {
+        var cache = cacheManager.getCache(CacheNames.ATOM_FEED);
         if (cache != null) {
             cache.clear();
         }

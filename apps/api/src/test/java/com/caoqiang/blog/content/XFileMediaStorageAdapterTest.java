@@ -45,12 +45,7 @@ class XFileMediaStorageAdapterTest {
     @BeforeEach
     void setUp() {
         adapter = new XFileMediaStorageAdapter(
-                fileStorageService,
-                storageProvisioner,
-                PRIVATE_PLATFORM,
-                PRIVATE_DOMAIN,
-                "lacia-private",
-                "uploads/");
+                fileStorageService, storageProvisioner, PRIVATE_PLATFORM, PRIVATE_DOMAIN, "lacia-private", "uploads/");
     }
 
     @Test

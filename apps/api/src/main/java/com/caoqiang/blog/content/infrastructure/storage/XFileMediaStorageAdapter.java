@@ -120,8 +120,7 @@ public class XFileMediaStorageAdapter implements MediaStorage {
     @Override
     public String portablePath(String objectKey) {
         String fullKey = fullObjectKey(objectKey);
-        return STORAGE_FILE_PATH + "?key="
-                + URLEncoder.encode(fullKey, StandardCharsets.UTF_8);
+        return STORAGE_FILE_PATH + "?key=" + URLEncoder.encode(fullKey, StandardCharsets.UTF_8);
     }
 
     private String generatePresignedUrl(FileInfo fileInfo, Instant expiresAt, String fallbackUrl) {
@@ -171,9 +170,7 @@ public class XFileMediaStorageAdapter implements MediaStorage {
 
             // 1) 私有 CDN 域名（file.lacia.cn）：key 就是路径
             if (hostMatches(sourceUrl, privateDomain)) {
-                return StringUtils.hasText(normalizedPath)
-                        ? Optional.of(normalizedPath)
-                        : Optional.empty();
+                return StringUtils.hasText(normalizedPath) ? Optional.of(normalizedPath) : Optional.empty();
             }
 
             // 2) 兼容旧 MinIO 代理路径 /minio/{bucket}/{key}

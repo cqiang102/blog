@@ -75,6 +75,38 @@ scripts/package-deploy.sh --skip-build
 
 ## 服务器部署：复用现有 Caddy，保留旧静态站
 
+### Atom 文章订阅
+
+公开订阅地址为 `https://blog.lacia.cn/atom.xml`，Caddy 将其内部改写为
+`/api/v1/feed/atom` 并交给 API。两份 Caddy 模板都已包含该路由；使用宿主机
+Caddy 的现有部署，需要将模板中的 `handle /atom.xml` 块合并进实际站点配置，
+放在静态页面兜底的 `handle` 前，验证后重载。仅更新 JAR 不会改变现有 Caddy 配置。
+
+订阅只包含最近 20 篇 `ARTICLE`、`PUBLISHED`、未删除且发布时间已到的文章，
+按发布时间和 UUID 倒序排列。输出标题、摘要和原文链接；未填写摘要时显示“阅读全文”。
+标题和作者可通过 `BLOG_FEED_TITLE`、`BLOG_FEED_AUTHOR` 配置，原文和订阅链接使用
+`FRONTEND_BASE_URL`。首页页脚提供“订阅”入口，HTML 声明 Atom 自动发现链接。
+
+XML 在 Redis 缓存 5 分钟，发布、编辑、归档、删除和恢复等内容事件会在事务提交后
+清缓存。未来发布时间到达后，文章会在下一次缓存刷新时进入订阅，最多延迟 5 分钟。
+HTTP 使用 `Cache-Control: no-cache, public` 让阅读器重新验证；`If-None-Match`
+匹配内容 ETag 时返回无正文的 `304`。已被阅读器保存的文章不会因本站下架而自动删除。
+
+上线后检查：
+
+```bash
+curl -i https://blog.lacia.cn/atom.xml
+curl -I https://blog.lacia.cn/atom.xml
+# 用上一步返回的 ETag（包括双引号）替换 <etag>，应返回 304：
+curl -i -H 'If-None-Match: <etag>' https://blog.lacia.cn/atom.xml
+```
+
+GET 应返回 `200`、`application/atom+xml` 和以 `<feed>` 为根元素的 XML；HEAD
+应返回相同的内容类型与 ETag，无正文。本地前后端分开运行时，可以直接使用
+`http://localhost:8080/api/v1/feed/atom` 验证，首页 `/atom.xml` 入口需要 Caddy 路由。
+
+### 现有站点迁移
+
 > 当前线上服务器实际部署在 `/usr/local/docker/blog-mimo`（直接使用部署目录 + `.env`，
 > 未采用下述 `/srv/blog-mimo` 版本化目录规范）；本文的 `/srv/blog-mimo` 结构是
 > 推荐的发布规范，可按需选用。对象存储与前端静态资源均走七牛（见 `docs/qiniu-cdn.md`）。

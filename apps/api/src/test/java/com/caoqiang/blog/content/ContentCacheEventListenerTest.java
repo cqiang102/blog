@@ -27,12 +27,16 @@ class ContentCacheEventListenerTest {
     @Mock
     private Cache recommendationsCache;
 
+    @Mock
+    private Cache feedCache;
+
     @Test
     void contentAndLikeEventsEvictRecommendations() {
         UUID contentId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         ContentCacheEventListener listener = new ContentCacheEventListener(cacheManager);
         when(cacheManager.getCache(CacheNames.RECOMMENDATIONS)).thenReturn(recommendationsCache);
+        when(cacheManager.getCache(CacheNames.ATOM_FEED)).thenReturn(feedCache);
 
         listener.onContentPublished(new ContentPublishedEvent(contentId, "Title", "title"));
         listener.onContentArchived(new ContentArchivedEvent(contentId));
@@ -40,5 +44,6 @@ class ContentCacheEventListenerTest {
         listener.onLikeRemoved(new LikeRemovedEvent(contentId, userId));
 
         verify(recommendationsCache, times(4)).clear();
+        verify(feedCache, times(2)).clear();
     }
 }

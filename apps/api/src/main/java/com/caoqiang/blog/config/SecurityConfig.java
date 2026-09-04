@@ -86,6 +86,10 @@ public class SecurityConfig {
                                 "/error")
                         .permitAll()
                         // 公开内容接口：文章、友链的 GET 请求
+                        .requestMatchers(HttpMethod.GET, "/api/v1/feed/atom")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/api/v1/feed/atom")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/contents/**", "/api/v1/friends/**")
                         .permitAll()
                         // 文件下载接口（媒体资源 + 对象存储 key 代理）

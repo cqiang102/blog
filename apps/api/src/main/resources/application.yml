@@ -92,6 +92,9 @@ springdoc:
     enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:false}
 
 blog:
+  feed:
+    title: ${BLOG_FEED_TITLE:沐凉·日记}
+    author: ${BLOG_FEED_AUTHOR:沐凉}
   frontend:
     base-url: ${FRONTEND_BASE_URL}
   cors:

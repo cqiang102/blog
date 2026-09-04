@@ -1,6 +1,6 @@
 # API 契约概览
 
-业务 REST 接口统一使用 `/api/v1` 前缀，统一响应为：
+业务 REST 接口统一使用 `/api/v1` 前缀，普通 JSON 接口的统一响应为：
 
 ```json
 {
@@ -20,6 +20,7 @@
 - `/auth`：验证码、注册、登录、刷新令牌、浏览器绑定的 OAuth 回调和登录方式查询。
 - `/auth/github`：GitHub 账号绑定。
 - `/contents`：推荐、分页搜索、详情和标签。
+- `/feed/atom`：匿名 GET/HEAD，直接返回 UTF-8 Atom XML（`application/atom+xml`），不包裹 JSON。
 - `/media-assets/{id}/file`：媒体文件（302 → 预签名 URL）。
 - `/storage/file?key=...`：对象存储文件（头像等，302 → 预签名 URL）。
 - `/friends/random`：随机可见友链。

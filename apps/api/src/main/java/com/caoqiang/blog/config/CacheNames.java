@@ -19,6 +19,8 @@ public final class CacheNames {
 
     /** 推荐内容缓存 */
     public static final String RECOMMENDATIONS = "recommendations";
+    /** Public Atom XML; invalidated by content lifecycle events. */
+    public static final String ATOM_FEED = "atomFeed";
     /** AI 配额计数缓存 */
     public static final String AI_QUOTA = "aiQuota";
     /** 知识库文档缓存 */

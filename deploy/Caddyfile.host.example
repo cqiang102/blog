@@ -24,6 +24,10 @@ next.blog.lacia.cn {
 		}
 	}
 
+	handle /atom.xml {
+		rewrite * /api/v1/feed/atom
+		reverse_proxy 127.0.0.1:18080
+	}
 
 	handle {
 		# /srv/blog-mimo/current is an atomic symlink to a versioned release.

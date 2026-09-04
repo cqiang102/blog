@@ -26,6 +26,12 @@ class _HomeFooter extends StatelessWidget {
             onPressed: () => context.go('/about'),
             child: const Text('关于'),
           ),
+          Link(
+            uri: Uri.base.resolve('/atom.xml'),
+            target: LinkTarget.blank,
+            builder: (context, followLink) =>
+                TextButton(onPressed: followLink, child: const Text('订阅')),
+          ),
         ],
       ),
     );

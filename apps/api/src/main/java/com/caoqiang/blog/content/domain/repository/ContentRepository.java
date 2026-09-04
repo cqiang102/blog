@@ -2,6 +2,8 @@ package com.caoqiang.blog.content.domain.repository;
 
 import com.caoqiang.blog.content.domain.model.Content;
 import com.caoqiang.blog.content.domain.model.ContentStatus;
+import com.caoqiang.blog.content.domain.model.ContentType;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,6 +29,23 @@ import org.springframework.data.repository.query.Param;
  * </ul>
  */
 public interface ContentRepository extends JpaRepository<Content, UUID>, JpaSpecificationExecutor<Content> {
+
+    /** Atom only needs these scalar fields; never load bodies or media for reader polling. */
+    interface FeedEntryProjection {
+        UUID getId();
+
+        String getTitle();
+
+        String getSummary();
+
+        Instant getPublishedAt();
+
+        Instant getUpdatedAt();
+    }
+
+    List<FeedEntryProjection>
+            findTop20ByTypeAndStatusAndDeletedAtIsNullAndPublishedAtLessThanEqualOrderByPublishedAtDescIdDesc(
+                    ContentType type, ContentStatus status, Instant now);
 
     /** Closed projection keeps management selectors from loading full content bodies and relations. */
     interface ContentOptionProjection {
